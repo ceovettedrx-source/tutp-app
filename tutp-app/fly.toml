@@ -1,0 +1,22 @@
+# `fly launch` will offer to overwrite/adjust this file — that's fine, accept its changes.
+# If it asks "Would you like to copy its configuration to the new app?" say yes.
+
+app = "tutp-demo"
+primary_region = "bom"  # Mumbai — closest region to Hyderabad
+
+[build]
+
+[env]
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 1
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
