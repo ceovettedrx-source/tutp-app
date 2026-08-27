@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -11,32 +12,49 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 // ------------------------------------------------------------------
-// Email — sends the waitlist confirmation via Gmail SMTP. If not
-// configured, signups still succeed (email is best-effort, fire-and-forget).
+// Email — prefers Resend (reliable inbox delivery, needs a verified
+// domain) and falls back to Gmail SMTP if Resend isn't configured yet.
+// Either way, email is best-effort — signups never fail because of it.
 // ------------------------------------------------------------------
+let resend = null;
 let mailer = null;
-if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+if (process.env.RESEND_API_KEY) {
+  resend = new Resend(process.env.RESEND_API_KEY);
+} else if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
   mailer = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
   });
 } else {
-  console.warn('GMAIL_USER / GMAIL_APP_PASSWORD not set — waitlist confirmation emails are disabled.');
+  console.warn('No email provider configured (RESEND_API_KEY or GMAIL_USER/GMAIL_APP_PASSWORD) — waitlist confirmation emails are disabled.');
 }
 
 async function sendWaitlistEmail(name, email) {
-  if (!mailer) return;
-  try {
-    await mailer.sendMail({
-      from: `"Tut-P" <${process.env.GMAIL_USER}>`,
-      to: email,
-      subject: "You're on the Tut-P waitlist! 🎉",
-      text: `Hi ${name},\n\nThanks for joining the Tut-P waitlist! We'll email you at ${email} the moment early access opens.\n\nIn the meantime, you can try our working demo here: https://tutp.online/demo/\n\n- The Tut-P team`,
-      html: `<p>Hi ${name},</p><p>Thanks for joining the Tut-P waitlist! We'll email you at <strong>${email}</strong> the moment early access opens.</p><p>In the meantime, you can try our working demo here: <a href="https://tutp.online/demo/">tutp.online/demo</a></p><p>— The Tut-P team</p>`
-    });
-    console.log('Confirmation email sent to', email);
-  } catch (err) {
-    console.error('Email send failed (signup still saved):', err.message);
+  const subject = "You're on the Tut-P waitlist! 🎉";
+  const text = `Hi ${name},\n\nThanks for joining the Tut-P waitlist! We'll email you at ${email} the moment early access opens.\n\nIn the meantime, you can try our working demo here: https://tutp.online/demo/\n\n- The Tut-P team`;
+  const html = `<p>Hi ${name},</p><p>Thanks for joining the Tut-P waitlist! We'll email you at <strong>${email}</strong> the moment early access opens.</p><p>In the meantime, you can try our working demo here: <a href="https://tutp.online/demo/">tutp.online/demo</a></p><p>— The Tut-P team</p>`;
+
+  if (resend) {
+    try {
+      const { error } = await resend.emails.send({
+        from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>',
+        to: email,
+        subject, text, html
+      });
+      if (error) throw new Error(JSON.stringify(error));
+      console.log('Confirmation email sent via Resend to', email);
+    } catch (err) {
+      console.error('Resend email failed (signup still saved):', err.message);
+    }
+    return;
+  }
+  if (mailer) {
+    try {
+      await mailer.sendMail({ from: `"Tut-P" <${process.env.GMAIL_USER}>`, to: email, subject, text, html });
+      console.log('Confirmation email sent via Gmail to', email);
+    } catch (err) {
+      console.error('Gmail email failed (signup still saved):', err.message);
+    }
   }
 }
 
@@ -196,7 +214,7 @@ app.post('/api/homework', async (req, res) => {
 });
 
 // Simple health check — useful for confirming the server is alive after deploy
-app.get('/health', (req, res) => res.json({ status: 'ok', supabase: !!supabase, email: !!mailer }));
+app.get('/health', (req, res) => res.json({ status: 'ok', supabase: !!supabase, email: !!(resend || mailer), emailProvider: resend ? 'resend' : (mailer ? 'gmail' : 'none') }));
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Tut-P server running on port ${PORT}`);
