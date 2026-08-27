@@ -2,12 +2,43 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
+import nodemailer from 'nodemailer';
 import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// ------------------------------------------------------------------
+// Email — sends the waitlist confirmation via Gmail SMTP. If not
+// configured, signups still succeed (email is best-effort, fire-and-forget).
+// ------------------------------------------------------------------
+let mailer = null;
+if (process.env.GMAIL_USER && process.env.GMAIL_APP_PASSWORD) {
+  mailer = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: process.env.GMAIL_USER, pass: process.env.GMAIL_APP_PASSWORD }
+  });
+} else {
+  console.warn('GMAIL_USER / GMAIL_APP_PASSWORD not set — waitlist confirmation emails are disabled.');
+}
+
+async function sendWaitlistEmail(name, email) {
+  if (!mailer) return;
+  try {
+    await mailer.sendMail({
+      from: `"Tut-P" <${process.env.GMAIL_USER}>`,
+      to: email,
+      subject: "You're on the Tut-P waitlist! 🎉",
+      text: `Hi ${name},\n\nThanks for joining the Tut-P waitlist! We'll email you at ${email} the moment early access opens.\n\nIn the meantime, you can try our working demo here: https://tutp.online/demo/\n\n- The Tut-P team`,
+      html: `<p>Hi ${name},</p><p>Thanks for joining the Tut-P waitlist! We'll email you at <strong>${email}</strong> the moment early access opens.</p><p>In the meantime, you can try our working demo here: <a href="https://tutp.online/demo/">tutp.online/demo</a></p><p>— The Tut-P team</p>`
+    });
+    console.log('Confirmation email sent to', email);
+  } catch (err) {
+    console.error('Email send failed (signup still saved):', err.message);
+  }
+}
 
 // ------------------------------------------------------------------
 // Supabase client — server-side only, uses the service_role key so it
@@ -50,6 +81,7 @@ app.post('/api/waitlist', async (req, res) => {
     if (error) throw error;
 
     console.log('New waitlist signup:', name, email, role);
+    sendWaitlistEmail(name, email); // fire-and-forget — don't block the response on email delivery
     res.json({ ok: true });
   } catch (err) {
     console.error('Waitlist error:', err);
@@ -164,7 +196,7 @@ app.post('/api/homework', async (req, res) => {
 });
 
 // Simple health check — useful for confirming the server is alive after deploy
-app.get('/health', (req, res) => res.json({ status: 'ok', supabase: !!supabase }));
+app.get('/health', (req, res) => res.json({ status: 'ok', supabase: !!supabase, email: !!mailer }));
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Tut-P server running on port ${PORT}`);
