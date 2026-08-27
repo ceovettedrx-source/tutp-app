@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tut-P Dashboard</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary-fixed-variant": "#1a1a1a","on-secondary-fixed": "#1a1a1a","error": "#cc0000",
+                      "inverse-primary": "#f5f0e8","on-surface": "#1a1a1a","surface-variant": "#e8e3da",
+                      "inverse-on-surface": "#f5f0e8","on-error": "#ffffff","surface-dim": "#d6d1c9",
+                      "tertiary-container": "#d6e3ff","surface": "#f5f0e8","secondary-fixed-dim": "#ffb3ab",
+                      "on-primary-container": "#1a1a1a","primary-fixed": "#ffcc00","primary-fixed-dim": "#e6b800",
+                      "on-tertiary-fixed": "#1a1a1a","secondary": "#e63b2e","on-secondary": "#1a1a1a",
+                      "primary": "#1a1a1a","error-container": "#ffdad6","surface-container-lowest": "#ffffff",
+                      "surface-container-high": "#e8e3da","on-secondary-fixed-variant": "#1a1a1a",
+                      "tertiary-fixed": "#d6e3ff","on-surface-variant": "#4a4a4a","tertiary": "#0055ff",
+                      "on-tertiary-fixed-variant": "#1a1a1a","on-error-container": "#93000a",
+                      "secondary-fixed": "#ffdad6","outline-variant": "#d0cbc3","on-tertiary-container": "#1a1a1a",
+                      "on-primary": "#ffffff","surface-bright": "#faf7f2","secondary-container": "#ffdad6",
+                      "surface-container": "#eee9e0","surface-tint": "#1a1a1a","background": "#f5f0e8",
+                      "on-background": "#1a1a1a","inverse-surface": "#1a1a1a","surface-container-highest": "#e2ddd4",
+                      "tertiary-fixed-dim": "#a8c6ff","on-tertiary": "#ffffff","on-secondary-container": "#1a1a1a",
+                      "outline": "#1a1a1a","surface-container-low": "#f2ede5","on-primary-fixed": "#1a1a1a",
+                      "primary-container": "#ffcc00"
+              },
+              "borderRadius": { "DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem" },
+              "fontFamily": { "headline": ["Space Grotesk"],"display": ["Space Grotesk"],"body": ["Inter"],"label": ["Space Grotesk"] }
+      },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .offset-shadow-sm { box-shadow: 6px 6px 0px 0px #1a1a1a; }
+        .offset-shadow-md { box-shadow: 8px 8px 0px 0px #1a1a1a; }
+        .offset-shadow-hover:hover { box-shadow: 10px 10px 0px 0px #1a1a1a; transform: translate(-2px, -2px); transition: all 0.2s ease; }
+        .proto-banner{background:#e63b2e;color:#fff;text-align:center;padding:8px 16px;font-family:'Space Grotesk',sans-serif;font-size:12px;letter-spacing:.03em;font-weight:700;text-transform:uppercase;position:relative;z-index:60;}
+        .proto-banner a{color:#fff;text-decoration:underline;}
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen lg:pl-80 lg:pt-0 pt-20 pb-24 lg:pb-0">
+<div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
+<header class="fixed top-[34px] w-full z-50 flex justify-between items-center px-6 py-4 bg-surface border-b-4 border-primary lg:hidden h-20">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-3xl">menu</span>
+<span class="font-headline text-2xl font-bold uppercase tracking-tighter">Tut-P</span>
+</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary bg-secondary flex items-center justify-center text-white font-bold">A</div>
+</header>
+<nav class="hidden lg:flex flex-col h-screen fixed left-0 top-[34px] z-40 p-6 w-80 border-r-4 border-primary bg-surface offset-shadow-sm">
+<div class="flex items-center gap-4 mb-10">
+<div class="w-16 h-16 border-4 border-primary bg-tertiary flex items-center justify-center text-white text-2xl font-bold">L</div>
+<div>
+<h2 class="font-headline text-xl font-black text-primary uppercase">Leo's Learning</h2>
+<p class="font-body text-sm font-medium">Grade 3</p>
+<p class="font-body text-xs text-on-surface-variant">Active Session</p>
+</div>
+</div>
+<ul class="flex flex-col gap-4">
+<li>
+<a class="flex items-center gap-4 p-4 bg-primary-container text-on-primary-container border-2 border-primary font-label text-lg font-bold uppercase transition-transform active:scale-95 duration-100" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+</a>
+</li>
+<li>
+<a class="flex items-center gap-4 p-4 text-on-surface-variant hover:text-primary font-label text-lg font-bold uppercase hover:translate-x-1 transition-transform" href="#family-bonding">
+<span class="material-symbols-outlined">family_restroom</span> Family Bonding
+</a>
+</li>
+<li>
+<a class="flex items-center gap-4 p-4 text-on-surface-variant hover:text-primary font-label text-lg font-bold uppercase hover:translate-x-1 transition-transform" href="#subjects">
+<span class="material-symbols-outlined">auto_stories</span> Subject Hub
+</a>
+</li>
+<li>
+<a class="flex items-center gap-4 p-4 text-on-surface-variant hover:text-primary font-label text-lg font-bold uppercase hover:translate-x-1 transition-transform" href="#progress">
+<span class="material-symbols-outlined">monitoring</span> Academic Performance
+</a>
+</li>
+<li class="mt-auto">
+<a class="flex items-center gap-4 p-4 text-on-surface-variant hover:text-primary font-label text-lg font-bold uppercase hover:translate-x-1 transition-transform" href="/app/login/">
+<span class="material-symbols-outlined">logout</span> Switch / Log out
+</a>
+</li>
+</ul>
+</nav>
+<main class="p-6 md:p-10 max-w-7xl mx-auto space-y-12">
+<section class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 border-b-4 border-primary pb-6">
+<div>
+<h1 class="font-headline text-5xl md:text-7xl font-black uppercase tracking-tighter leading-none mb-2">Welcome Back,</h1>
+<h2 class="font-headline text-4xl md:text-5xl font-bold text-secondary uppercase">Amma</h2>
+</div>
+<div class="flex items-center gap-4 p-4 border-4 border-primary bg-surface-variant offset-shadow-sm">
+<span class="material-symbols-outlined text-primary text-3xl">calendar_month</span>
+<div>
+<p class="font-label text-sm uppercase font-bold">Today</p>
+<p class="font-headline text-xl font-bold" id="todayDate">Loading…</p>
+</div>
+</div>
+</section>
+<section class="border-4 border-primary bg-primary-container p-6 md:p-8 offset-shadow-md">
+<h3 class="font-headline text-2xl font-bold uppercase mb-4">How can I help Leo today?</h3>
+<div class="flex flex-col sm:flex-row gap-4">
+<input class="flex-grow bg-surface border-4 border-primary p-4 font-body text-lg focus:outline-none focus:ring-0 focus:border-secondary" placeholder="Ask a question or log a new milestone..." type="text" id="askInput"/>
+<div class="flex gap-4">
+<button class="bg-surface border-4 border-primary p-4 flex items-center justify-center hover:bg-primary hover:text-on-primary transition-colors" id="micBtn" onclick="toggleMic()">
+<span class="material-symbols-outlined text-3xl">mic</span>
+</button>
+<button class="bg-surface border-4 border-primary p-4 flex items-center justify-center hover:bg-primary hover:text-on-primary transition-colors" onclick="alert('Opens photo/video upload in the live app.')">
+<span class="material-symbols-outlined text-3xl">photo_camera</span>
+</button>
+<button class="bg-primary text-on-primary border-4 border-primary px-8 font-label text-lg font-bold uppercase hover:bg-secondary transition-colors" onclick="askTutP()">Ask</button>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-10">
+<div class="lg:col-span-2 space-y-10">
+<section id="subjects">
+<h3 class="font-headline text-3xl font-bold uppercase mb-6 border-b-4 border-primary pb-2 inline-block">Active Subjects</h3>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+<div class="border-4 border-primary bg-surface p-6 offset-shadow-hover cursor-pointer group">
+<div class="flex justify-between items-start mb-4">
+<h4 class="font-headline text-2xl font-bold uppercase group-hover:text-tertiary transition-colors">Mathematics</h4>
+<span class="material-symbols-outlined text-4xl text-primary">calculate</span>
+</div>
+<p class="font-body text-lg font-medium mb-2">Fractions &amp; Decimals</p>
+<div class="flex justify-between items-center border-t-2 border-primary pt-4 mt-4">
+<span class="font-label uppercase font-bold text-sm">Last Test: 85%</span>
+<span class="bg-tertiary text-on-tertiary px-3 py-1 font-bold text-xs uppercase border-2 border-primary">On Track</span>
+</div>
+</div>
+<div class="border-4 border-primary bg-surface p-6 offset-shadow-hover cursor-pointer group">
+<div class="flex justify-between items-start mb-4">
+<h4 class="font-headline text-2xl font-bold uppercase group-hover:text-secondary transition-colors">Language Arts</h4>
+<span class="material-symbols-outlined text-4xl text-primary">book</span>
+</div>
+<p class="font-body text-lg font-medium mb-2">Reading Comprehension</p>
+<div class="flex justify-between items-center border-t-2 border-primary pt-4 mt-4">
+<span class="font-label uppercase font-bold text-sm">Last Essay: B+</span>
+<span class="bg-primary-fixed text-on-primary-fixed px-3 py-1 font-bold text-xs uppercase border-2 border-primary">Needs Review</span>
+</div>
+</div>
+</div>
+</section>
+<section id="progress" class="border-4 border-primary bg-surface p-6 offset-shadow-sm">
+<h3 class="font-headline text-2xl font-bold uppercase mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined">show_chart</span> Monthly Progress
+</h3>
+<div class="h-64 w-full bg-surface-variant border-2 border-primary flex items-end justify-around p-4 gap-3">
+<div class="w-full bg-primary h-[40%] border-2 border-primary relative"><span class="absolute -top-6 left-1/2 -translate-x-1/2 font-label text-xs font-bold">54</span></div>
+<div class="w-full bg-primary h-[52%] border-2 border-primary relative"><span class="absolute -top-6 left-1/2 -translate-x-1/2 font-label text-xs font-bold">61</span></div>
+<div class="w-full bg-primary h-[60%] border-2 border-primary relative"><span class="absolute -top-6 left-1/2 -translate-x-1/2 font-label text-xs font-bold">66</span></div>
+<div class="w-full bg-secondary h-[70%] border-2 border-primary relative"><span class="absolute -top-6 left-1/2 -translate-x-1/2 font-label text-xs font-bold text-secondary">71</span></div>
+</div>
+<p class="font-label text-xs uppercase font-bold text-on-surface-variant mt-4 text-center">Mathematics — before joining Tut-P → this month</p>
+</section>
+</div>
+<div class="space-y-10">
+<section id="family-bonding" class="border-4 border-primary bg-secondary text-on-secondary p-6 offset-shadow-sm">
+<h3 class="font-headline text-2xl font-bold uppercase mb-6 border-b-4 border-primary pb-2 flex items-center gap-2 text-white">
+<span class="material-symbols-outlined">diversity_1</span> Family Involvement
+</h3>
+<div class="space-y-6 text-white">
+<div class="flex items-center justify-between">
+<span class="font-headline font-bold text-xl uppercase">Your Streak</span>
+<span class="font-display text-4xl font-black bg-primary px-3 border-2 border-white">4 Days</span>
+</div>
+<div class="border-t-2 border-primary-fixed pt-4">
+<p class="font-body font-medium mb-2 text-sm">You're 6 points from the top of your household this week.</p>
+<p class="font-body text-xs text-white/70">Private to your family — no one outside your household ever sees this.</p>
+</div>
+</div>
+</section>
+<section>
+<h3 class="font-headline text-2xl font-bold uppercase mb-6 border-b-4 border-primary pb-2 inline-block">Guidance</h3>
+<div class="space-y-4">
+<article class="border-4 border-primary bg-surface p-4 flex gap-4 hover:bg-surface-variant transition-colors cursor-pointer">
+<div class="w-20 h-20 border-2 border-primary bg-tertiary shrink-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-3xl">psychology</span>
+</div>
+<div>
+<h4 class="font-headline text-lg font-bold uppercase leading-tight mb-1">Building Math Confidence</h4>
+<p class="font-body text-sm text-on-surface-variant line-clamp-2">Simple daily exercises to reduce anxiety around numbers.</p>
+</div>
+</article>
+</div>
+</section>
+</div>
+</div>
+</main>
+<nav class="lg:hidden fixed bottom-0 w-full z-50 flex justify-around items-center bg-surface pb-safe px-2 h-20 border-t-4 border-primary">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container p-1 border-2 border-primary active:scale-90 transition-all w-16 h-16" href="#">
+<span class="material-symbols-outlined mb-1 text-2xl">home</span><span class="font-label text-[10px] font-bold uppercase">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:bg-surface-variant active:scale-90 transition-all w-16 h-16" href="#family-bonding">
+<span class="material-symbols-outlined mb-1 text-2xl">favorite</span><span class="font-label text-[10px] font-bold uppercase">Bonding</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:bg-surface-variant active:scale-90 transition-all w-16 h-16" href="#progress">
+<span class="material-symbols-outlined mb-1 text-2xl">leaderboard</span><span class="font-label text-[10px] font-bold uppercase">Progress</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-1 hover:bg-surface-variant active:scale-90 transition-all w-16 h-16" href="/app/login/">
+<span class="material-symbols-outlined mb-1 text-2xl">group</span><span class="font-label text-[10px] font-bold uppercase">Family</span>
+</a>
+</nav>
+<script>
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  let micOn = false;
+  function toggleMic(){
+    micOn = !micOn;
+    document.getElementById('askInput').placeholder = micOn ? 'Listening…' : 'Ask a question or log a new milestone...';
+  }
+  function askTutP(){
+    const v = document.getElementById('askInput').value;
+    alert('This is a prototype. In the live app, this would show a full-screen answer for: "' + (v || '(your question)') + '"');
+  }
+</script>
+</body></html>
