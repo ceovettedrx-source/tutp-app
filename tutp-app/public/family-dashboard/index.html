@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tut-P — Family Ledger</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2A4A; --ink-soft:#374873; --ink-faint:rgba(251,243,224,0.55);
+    --paper:#FBF3E0; --paper-dim:#F3E8CE; --paper-line:rgba(27,42,74,0.12);
+    --gold:#E3A857; --gold-deep:#C98A2E;
+    --pen:#B23A2E; --pen-deep:#8F2C22;
+    --leaf:#3E7A57; --leaf-soft:#79c79c;
+    --line:rgba(251,243,224,0.14);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:var(--ink);
+    background-image:radial-gradient(circle at 12% 8%, rgba(227,168,87,0.09), transparent 42%),radial-gradient(circle at 90% 85%, rgba(178,58,46,0.07), transparent 45%);
+    color:var(--paper); font-family:'Inter',sans-serif; -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  h1,h2,h3{font-family:'Fraunces',serif;margin:0;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  a{color:inherit;}
+  ::selection{background:var(--gold);color:var(--ink);}
+  :focus-visible{outline:2px solid var(--gold);outline-offset:2px;}
+  .proto-banner{background:var(--pen);color:#fff;text-align:center;padding:8px 16px;font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.02em;position:relative;z-index:50;}
+  .proto-banner a{text-decoration:underline;}
+
+  button{font-family:inherit;cursor:pointer;}
+  .btn{font-family:'IBM Plex Mono',monospace;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;padding:12px 22px;border-radius:9px;border:1.5px solid transparent;display:inline-flex;align-items:center;gap:8px;transition:all .15s;}
+  .btn-primary{background:var(--pen);color:#fff;}
+  .btn-primary:hover{background:var(--pen-deep);transform:translateY(-1px);}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;}
+  .btn-ghost{background:transparent;border-color:var(--paper-line);color:var(--ink);}
+  .btn-ghost:hover{border-color:var(--pen);color:var(--pen);}
+  .btn-ghost-dark{background:transparent;border-color:rgba(251,243,224,.3);color:var(--paper);}
+  .btn-ghost-dark:hover{border-color:var(--gold);color:var(--gold);}
+
+  input,select,textarea{
+    width:100%;font-family:'Inter',sans-serif;font-size:15px;color:var(--ink);background:#fff;
+    border:1.5px solid var(--paper-line);border-radius:9px;padding:12px 14px;outline:none;transition:border-color .15s, box-shadow .15s;
+    appearance:none;-webkit-appearance:none;
+  }
+  select{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23374873' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 14px center;padding-right:36px;
+  }
+  input:focus,select:focus,textarea:focus{border-color:var(--pen);box-shadow:0 0 0 3px rgba(178,58,46,0.1);}
+  label{display:block;font-family:'IBM Plex Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:7px;}
+  .field{margin-bottom:16px;}
+  .field-row{display:grid;gap:16px;}
+  .field-row.cols-2{grid-template-columns:1fr 1fr;}
+  .field-row.cols-3{grid-template-columns:1fr 1fr 1fr;}
+  @media(max-width:640px){.field-row.cols-2,.field-row.cols-3{grid-template-columns:1fr;}}
+
+  /* ============================================================
+     ONBOARDING — "Family Ledger": a book, one page at a time
+     ============================================================ */
+  #onboarding{min-height:calc(100vh - 34px);display:flex;align-items:center;justify-content:center;padding:32px 20px;}
+  .ledger-frame{width:100%;max-width:760px;}
+  .ledger-header{text-align:center;margin-bottom:22px;}
+  .ledger-header .eyebrow{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);}
+  .ledger-header h1{font-size:clamp(24px,3.2vw,30px);font-weight:600;margin:10px 0 4px;}
+  .ledger-header p{color:var(--ink-faint);font-size:14px;margin:0;}
+
+  .page-index{display:flex;justify-content:center;gap:8px;margin-bottom:20px;}
+  .page-dot{width:34px;height:4px;border-radius:3px;background:rgba(251,243,224,0.18);transition:background .2s;}
+  .page-dot.done{background:var(--leaf-soft);}
+  .page-dot.active{background:var(--gold);}
+
+  .ledger-book{
+    background:var(--paper);color:var(--ink);border-radius:18px;
+    box-shadow:0 40px 80px -32px rgba(0,0,0,0.55);
+    position:relative;overflow:hidden;
+  }
+  .ledger-book::before{
+    content:"";position:absolute;left:0;top:0;bottom:0;width:6px;
+    background:linear-gradient(180deg,var(--pen),var(--gold-deep));
+  }
+  .ledger-page{padding:38px 42px 32px;display:none;animation:pageIn .35s ease;}
+  .ledger-page.active{display:block;}
+  @keyframes pageIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion: reduce){.ledger-page{animation:none;}}
+
+  .page-num{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--ink-soft);letter-spacing:.05em;text-transform:uppercase;margin-bottom:6px;}
+  .page-title{font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin-bottom:4px;}
+  .page-sub{font-size:13.5px;color:var(--ink-soft);margin-bottom:26px;}
+
+  .ledger-nav{display:flex;justify-content:space-between;align-items:center;padding:18px 42px;border-top:1.5px dashed var(--paper-line);}
+  .step-count{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);}
+
+  /* subject workbook grid */
+  .doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:12px;margin-top:6px;}
+  .doc-tile{border:1.5px dashed var(--paper-line);border-radius:11px;padding:16px 10px;text-align:center;cursor:pointer;background:#fff;transition:all .15s;}
+  .doc-tile:hover{border-color:var(--pen);}
+  .doc-tile .ic{font-size:22px;margin-bottom:6px;}
+  .doc-tile .nm{font-size:12px;font-weight:600;}
+  .doc-tile .st{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink-soft);margin-top:3px;}
+  .doc-tile.added{border-style:solid;border-color:var(--leaf);}
+  .doc-tile.added .st{color:var(--leaf);}
+
+  /* family member cards on the "family" page */
+  .member-card{border:1.5px solid var(--paper-line);border-radius:12px;padding:16px 18px;margin-bottom:12px;background:#fff;}
+  .member-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+  .role-select{width:auto;font-family:'IBM Plex Mono',monospace;font-size:10.5px;text-transform:uppercase;padding:6px 30px 6px 10px;border-radius:6px;}
+  .remove-link{background:none;border:none;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;font-size:10.5px;text-decoration:underline;padding:0;}
+  .add-member-btn{border:1.5px dashed var(--paper-line);border-radius:10px;padding:14px;width:100%;text-align:center;background:transparent;color:var(--ink-soft);font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;transition:all .15s;}
+  .add-member-btn:hover{border-color:var(--pen);color:var(--pen);}
+
+  .consent-block{background:var(--paper-dim);border-radius:12px;padding:18px 20px;display:flex;gap:12px;align-items:flex-start;}
+  .consent-block input[type=checkbox]{width:19px;height:19px;flex:none;margin-top:2px;accent-color:var(--pen);}
+  .consent-block p{margin:0;font-size:12.5px;color:var(--ink-soft);line-height:1.55;}
+  .consent-block strong{color:var(--ink);}
+
+  /* ============================================================
+     DASHBOARD — sidebar-led "ledger index"
+     ============================================================ */
+  #dashboard{display:none;min-height:calc(100vh - 34px);}
+  .app-shell{display:grid;grid-template-columns:248px 1fr;min-height:calc(100vh - 34px);}
+  @media(max-width:900px){.app-shell{grid-template-columns:1fr;}.sidebar{display:none;}.sidebar.open{display:flex;}}
+
+  .sidebar{background:rgba(251,243,224,0.03);border-right:1px solid rgba(251,243,224,0.09);display:flex;flex-direction:column;padding:22px 16px;gap:4px;}
+  .sb-child{display:flex;align-items:center;gap:11px;padding:10px 8px 18px;margin-bottom:10px;border-bottom:1px solid rgba(251,243,224,0.1);}
+  .avatar{width:40px;height:40px;border-radius:50%;background:var(--gold);color:var(--ink);display:flex;align-items:center;justify-content:center;font-family:'Fraunces',serif;font-weight:700;font-size:16px;flex:none;}
+  .avatar.sm{width:30px;height:30px;font-size:12.5px;}
+  .sb-child .nm{font-weight:600;font-size:14.5px;}
+  .sb-child .sub{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-faint);margin-top:1px;}
+
+  .sb-label{font-family:'IBM Plex Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:rgba(251,243,224,0.4);padding:14px 12px 6px;}
+  .sb-item{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:9px;font-size:14px;color:rgba(251,243,224,0.75);background:none;border:none;width:100%;text-align:left;transition:all .15s;}
+  .sb-item:hover{background:rgba(251,243,224,0.06);color:var(--paper);}
+  .sb-item.active{background:rgba(227,168,87,0.14);color:var(--gold);}
+  .sb-item .ic{font-size:16px;width:20px;text-align:center;}
+
+  .sb-footer{margin-top:auto;padding-top:14px;border-top:1px solid rgba(251,243,224,0.1);}
+  .sb-parent{display:flex;align-items:center;gap:10px;padding:8px;border-radius:9px;cursor:pointer;position:relative;}
+  .sb-parent:hover{background:rgba(251,243,224,0.06);}
+  .sb-parent .nm{font-size:13px;}
+  .sb-parent .role{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--ink-faint);}
+
+  .main-col{overflow-x:hidden;}
+  .topbar{display:flex;justify-content:space-between;align-items:center;padding:16px 28px;border-bottom:1px solid rgba(251,243,224,0.08);}
+  .topbar .mobile-toggle{display:none;background:none;border:1.5px solid rgba(251,243,224,.25);color:var(--paper);border-radius:8px;padding:7px 10px;}
+  @media(max-width:900px){.topbar .mobile-toggle{display:block;}}
+  .cal-strip{display:flex;gap:8px;overflow-x:auto;}
+  .cal-day{flex:none;width:48px;text-align:center;padding:8px 0;border-radius:9px;border:1.5px solid rgba(251,243,224,0.12);font-family:'IBM Plex Mono',monospace;cursor:pointer;}
+  .cal-day .d{font-size:9px;color:rgba(251,243,224,.5);}
+  .cal-day .n{font-size:14px;font-weight:600;margin-top:2px;}
+  .cal-day.today{background:var(--gold);border-color:var(--gold);color:var(--ink);}
+  .cal-day.today .d{color:rgba(27,42,74,.65);}
+
+  .view{display:none;padding:26px 28px 60px;max-width:1080px;}
+  .view.active{display:block;}
+  .view-head{margin-bottom:22px;}
+  .view-head h2{font-size:clamp(20px,2.6vw,25px);font-weight:600;}
+  .view-head p{color:var(--ink-faint);font-size:13.5px;margin-top:4px;}
+
+  .subject-shortcuts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:26px;}
+  .subj-chip{background:rgba(251,243,224,0.06);border:1px solid rgba(251,243,224,0.14);border-radius:11px;padding:11px 15px;text-align:center;min-width:78px;transition:all .15s;background-color:rgba(251,243,224,0.06);}
+  .subj-chip:hover{border-color:var(--gold);}
+  .subj-chip .ic{font-size:19px;}
+  .subj-chip .lb{font-size:11.5px;margin-top:5px;}
+
+  .chat-box{background:var(--paper);color:var(--ink);border-radius:16px;padding:16px 18px;box-shadow:0 24px 50px -24px rgba(0,0,0,0.5);margin-bottom:28px;}
+  .chat-box textarea{border:none;resize:none;min-height:58px;font-size:15px;padding:4px 2px;}
+  .chat-box textarea:focus{outline:none;box-shadow:none;}
+  .chat-foot{display:flex;justify-content:space-between;align-items:center;margin-top:8px;border-top:1px solid var(--paper-line);padding-top:11px;}
+  .chat-icons{display:flex;gap:9px;}
+  .icon-circle{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--paper-line);background:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;transition:all .15s;}
+  .icon-circle:hover{border-color:var(--pen);}
+  .icon-circle.listening{background:var(--pen);border-color:var(--pen);color:#fff;animation:pulse 1s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+  .card-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+  @media(max-width:760px){.card-grid{grid-template-columns:1fr 1fr;}}
+  .card{background:var(--paper);color:var(--ink);border-radius:15px;padding:20px;box-shadow:0 20px 42px -24px rgba(0,0,0,0.45);}
+  .card h3{font-size:15px;font-weight:600;margin-bottom:12px;}
+  .subj-card .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .subj-card .score{font-family:'Fraunces',serif;font-size:26px;font-weight:600;}
+  .subj-card .score span{font-family:'Inter',sans-serif;font-size:12px;font-weight:500;color:var(--ink-soft);}
+  .subj-card button{background:none;border:none;font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--pen);text-decoration:underline;padding:0;cursor:pointer;}
+
+  .grid-2{display:grid;grid-template-columns:1.1fr .9fr;gap:16px;margin-bottom:22px;}
+  @media(max-width:860px){.grid-2{grid-template-columns:1fr;}}
+
+  .growth-chart{display:flex;align-items:flex-end;gap:14px;height:130px;margin-top:4px;}
+  .growth-bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;}
+  .growth-bar .bar{width:100%;border-radius:6px 6px 0 0;background:var(--ink-soft);transition:height .5s ease;}
+  .growth-bar.latest .bar{background:var(--leaf);}
+  .growth-bar .val{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-soft);}
+  .growth-bar .mon{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--ink-soft);}
+  .growth-note{margin-top:14px;padding-top:12px;border-top:1px dashed var(--paper-line);font-size:12.5px;color:var(--leaf);font-weight:600;}
+
+  /* family involvement — self-referential gap-to-leader, not a visible leaderboard */
+  .gap-card{text-align:center;}
+  .gap-ring{position:relative;width:132px;height:132px;margin:6px auto 14px;}
+  .gap-ring svg{transform:rotate(-90deg);}
+  .gap-ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+  .gap-ring .center .n{font-family:'Fraunces',serif;font-size:26px;font-weight:600;}
+  .gap-ring .center .l{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink-soft);text-transform:uppercase;}
+  .gap-note{font-size:13px;color:var(--ink-soft);line-height:1.55;}
+  .gap-note strong{color:var(--pen);}
+  .streak-row{display:flex;gap:7px;margin-top:16px;justify-content:center;}
+  .streak-day{display:flex;flex-direction:column;align-items:center;gap:5px;}
+  .streak-day .dl{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--ink-soft);}
+  .streak-day .dd{width:22px;height:22px;border-radius:50%;border:1.5px solid var(--paper-line);display:flex;align-items:center;justify-content:center;font-size:10.5px;background:#fff;}
+  .streak-day.done .dd{background:var(--gold-deep);border-color:var(--gold-deep);color:#fff;}
+
+  .article-list{list-style:none;padding:0;margin:0;display:grid;gap:2px;}
+  .article-list li{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--paper-line);font-size:13.5px;}
+  .article-list li:last-child{border-bottom:none;}
+  .article-list a{color:var(--ink);text-decoration:none;}
+  .article-list a:hover{color:var(--pen);}
+  .article-list .tag{font-family:'IBM Plex Mono',monospace;font-size:9.5px;color:var(--ink-soft);}
+
+  /* full-screen answer overlay */
+  #answerOverlay{display:none;position:fixed;inset:0;background:var(--ink);z-index:200;overflow-y:auto;}
+  #answerOverlay .inner{max-width:720px;margin:0 auto;padding:26px 20px 60px;}
+  .ov-back{display:inline-flex;align-items:center;gap:8px;background:none;border:1.5px solid rgba(251,243,224,0.3);color:var(--paper);border-radius:8px;padding:9px 16px;font-family:'IBM Plex Mono',monospace;font-size:12px;margin-bottom:20px;}
+  .ov-back:hover{border-color:var(--gold);color:var(--gold);}
+  .ov-hint{background:rgba(251,243,224,0.06);border:1px solid rgba(251,243,224,0.14);border-radius:10px;padding:13px 16px;margin-bottom:18px;font-size:12.5px;color:rgba(251,243,224,0.72);}
+  .ov-answer{background:var(--paper);color:var(--ink);border-radius:16px;padding:26px;}
+  .ov-answer h3{font-size:19px;margin-bottom:12px;}
+  .ov-answer p{font-size:15px;line-height:1.7;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="proto-banner">PROTOTYPE — sample data only, not connected to a live backend · <a href="/">Back to Tut-P site</a></div>
+
+<!-- ============ ONBOARDING ============ -->
+<div id="onboarding">
+  <div class="ledger-frame">
+    <div class="ledger-header">
+      <span class="eyebrow">The Family Ledger</span>
+      <h1>Let's set up your family's page</h1>
+      <p>Five short pages. You can always come back and add more later.</p>
+    </div>
+
+    <div class="page-index" id="pageIndex"></div>
+
+    <div class="ledger-book">
+      <!-- PAGE 1: Location -->
+      <div class="ledger-page active" data-page="1">
+        <div class="page-num">Page 1 of 5</div>
+        <div class="page-title">Where are you?</div>
+        <div class="page-sub">This sets the syllabus and school-board options on the next page.</div>
+        <div class="field-row cols-3">
+          <div class="field"><label>Country</label><select id="country" onchange="onCountryChange()"><option value="IN">India</option><option value="OTHER">Other</option></select></div>
+          <div class="field"><label>State</label><select id="state" onchange="onStateChange()"></select></div>
+          <div class="field"><label>District</label><select id="district"></select></div>
+        </div>
+        <div class="field-row cols-2">
+          <div class="field"><label>Mandal / Taluka</label><input placeholder="e.g. Serilingampally"></div>
+          <div class="field"><label>Area / Village / Town</label><input placeholder="e.g. Gachibowli"></div>
+        </div>
+      </div>
+
+      <!-- PAGE 2: Child -->
+      <div class="ledger-page" data-page="2">
+        <div class="page-num">Page 2 of 5</div>
+        <div class="page-title">About your child</div>
+        <div class="page-sub">A little context helps Tut-P explain things the way your child will relate to.</div>
+        <div class="field-row cols-3">
+          <div class="field"><label>Child's name</label><input placeholder="e.g. Ishika"></div>
+          <div class="field"><label>Class</label><select><option>Class 1</option><option>Class 2</option><option selected>Class 5</option><option>Class 8</option><option>Class 12</option></select></div>
+          <div class="field"><label>Date of birth</label><input type="date"></div>
+        </div>
+        <div class="field"><label>Syllabus</label>
+          <select id="syllabus" onchange="toggleOtherSyllabus()">
+            <option>State Board</option><option>CBSE</option><option>ICSE</option><option>IB</option><option>Cambridge (IGCSE)</option><option value="other">Other — type below</option>
+          </select>
+        </div>
+        <div class="field" id="otherSyllabusRow" style="display:none;"><input placeholder="Type your board/syllabus name"></div>
+        <div class="field-row cols-3">
+          <div class="field"><label>Favourite subject</label><select><option>Mathematics</option><option>Science</option><option>Telugu</option><option>English</option><option>Other</option></select></div>
+          <div class="field"><label>Favourite game</label><select><option>Cricket</option><option>Badminton</option><option>Drawing</option><option>Other</option></select></div>
+          <div class="field"><label>Hobbies</label><select><option>Reading</option><option>Singing</option><option>Dance</option><option>Other</option></select></div>
+        </div>
+      </div>
+
+      <!-- PAGE 3: Subjects -->
+      <div class="ledger-page" data-page="3">
+        <div class="page-num">Page 3 of 5</div>
+        <div class="page-title">Subject workbooks</div>
+        <div class="page-sub">Optional — add photos of the front page of each notebook. You can skip this and add them anytime.</div>
+        <div class="doc-grid" id="subjectDocGrid">
+          <div class="doc-tile" data-name="Telugu"><div class="ic">📗</div><div class="nm">Telugu</div><div class="st">+ Add</div></div>
+          <div class="doc-tile" data-name="Mathematics"><div class="ic">📘</div><div class="nm">Mathematics</div><div class="st">+ Add</div></div>
+          <div class="doc-tile" data-name="EVS"><div class="ic">📙</div><div class="nm">EVS</div><div class="st">+ Add</div></div>
+          <div class="doc-tile" data-name="Social"><div class="ic">📕</div><div class="nm">Social</div><div class="st">+ Add</div></div>
+          <div class="doc-tile" data-name="Computers"><div class="ic">💻</div><div class="nm">Computers</div><div class="st">+ Add</div></div>
+          <div class="doc-tile" onclick="alert('In the live app this opens a subject-name field.')"><div class="ic">➕</div><div class="nm">Add subject</div><div class="st">&nbsp;</div></div>
+        </div>
+      </div>
+
+      <!-- PAGE 4: Family -->
+      <div class="ledger-page" data-page="4">
+        <div class="page-num">Page 4 of 5</div>
+        <div class="page-title">Who else helps at home?</div>
+        <div class="page-sub">Parents are added automatically. Add anyone else — grandparents, an uncle, an older sibling.</div>
+        <div class="member-card">
+          <div class="member-card-head"><span class="mono" style="font-size:10.5px;text-transform:uppercase;color:var(--pen);">Mother</span></div>
+          <div class="field-row cols-3">
+            <div class="field"><label>Name</label><input placeholder="e.g. Lakshmi"></div>
+            <div class="field"><label>Phone (OTP verified)</label><input placeholder="+91 90000 00000"></div>
+            <div class="field"><label>Qualification</label><input placeholder="e.g. B.Sc"></div>
+          </div>
+        </div>
+        <div class="member-card">
+          <div class="member-card-head"><span class="mono" style="font-size:10.5px;text-transform:uppercase;color:var(--pen);">Father</span></div>
+          <div class="field-row cols-3">
+            <div class="field"><label>Name</label><input placeholder="e.g. Ramesh"></div>
+            <div class="field"><label>Phone (OTP verified)</label><input placeholder="+91 90000 00000"></div>
+            <div class="field"><label>Qualification</label><input placeholder="e.g. Diploma"></div>
+          </div>
+        </div>
+        <div id="extraMembers"></div>
+        <button class="add-member-btn" onclick="addFamilyMember()">+ Add another family member</button>
+      </div>
+
+      <!-- PAGE 5: Consent -->
+      <div class="ledger-page" data-page="5">
+        <div class="page-num">Page 5 of 5</div>
+        <div class="page-title">One last thing</div>
+        <div class="page-sub">India's DPDP Act, 2023 requires this for any product handling a child's data.</div>
+        <div class="consent-block">
+          <input type="checkbox" id="consentBox">
+          <p><strong>Parent/guardian consent —</strong> I confirm I am the parent or legal guardian of the child added above, and I consent to Tut-P processing my child's information (name, class, school records, photos) to provide this service. I can withdraw this consent anytime from settings.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="ledger-nav" style="background:var(--paper);border-radius:0 0 18px 18px;">
+      <button class="btn btn-ghost" id="backBtn" onclick="changePage(-1)" style="visibility:hidden;">← Back</button>
+      <span class="step-count" id="stepCount">Page 1 of 5</span>
+      <button class="btn btn-primary" id="nextBtn" onclick="changePage(1)">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD ============ -->
+<div id="dashboard">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="sb-child">
+        <div class="avatar">I</div>
+        <div><div class="nm">Ishika</div><div class="sub">Class 5 · CBSE</div></div>
+      </div>
+      <div class="sb-label">Ledger</div>
+      <button class="sb-item active" data-view="today" onclick="switchView('today')"><span class="ic">🏠</span> Today</button>
+      <button class="sb-item" data-view="subjects" onclick="switchView('subjects')"><span class="ic">📚</span> Subjects</button>
+      <button class="sb-item" data-view="growth" onclick="switchView('growth')"><span class="ic">📈</span> Growth</button>
+      <button class="sb-item" data-view="family" onclick="switchView('family')"><span class="ic">🤝</span> Family</button>
+      <button class="sb-item" data-view="guidance" onclick="switchView('guidance')"><span class="ic">💡</span> Guidance</button>
+      <div class="sb-footer">
+        <div class="sb-parent" onclick="toggleProfileMenu()">
+          <div class="avatar sm">A</div>
+          <div><div class="nm">Amma</div><div class="role">Switch / settings ▾</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <div class="main-col">
+      <div class="topbar">
+        <button class="mobile-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <div class="cal-strip" id="calStrip"></div>
+      </div>
+
+      <!-- VIEW: Today -->
+      <div class="view active" id="view-today">
+        <div class="view-head"><h2>Welcome back, Amma 👋</h2><p>Pick a subject, or just start typing about tonight's homework.</p></div>
+        <div class="subject-shortcuts">
+          <div class="subj-chip" onclick="openChatWith('Telugu')"><div class="ic">📗</div><div class="lb">Telugu</div></div>
+          <div class="subj-chip" onclick="openChatWith('Mathematics')"><div class="ic">📘</div><div class="lb">Maths</div></div>
+          <div class="subj-chip" onclick="openChatWith('EVS')"><div class="ic">📙</div><div class="lb">EVS</div></div>
+          <div class="subj-chip" onclick="openChatWith('Social')"><div class="ic">📕</div><div class="lb">Social</div></div>
+          <div class="subj-chip" onclick="openChatWith('Computers')"><div class="ic">💻</div><div class="lb">Computers</div></div>
+        </div>
+        <div class="chat-box">
+          <textarea id="chatInput" placeholder="Type, or use the mic — ask about tonight's homework..."></textarea>
+          <div class="chat-foot">
+            <div class="chat-icons">
+              <button class="icon-circle" id="micBtn" onclick="toggleMic()" title="Speak instead of typing">🎤</button>
+              <button class="icon-circle" onclick="alert('Opens photo/video upload in the live app.')" title="Upload a photo or video">📷</button>
+            </div>
+            <button class="btn btn-primary" style="padding:9px 18px;font-size:12px;" onclick="submitChat()">Ask Tut-P →</button>
+          </div>
+        </div>
+        <div class="card-grid">
+          <div class="card subj-card"><div class="top"><h3>Telugu</h3></div><div class="score">84<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+          <div class="card subj-card"><div class="top"><h3>Mathematics</h3></div><div class="score">71<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+          <div class="card subj-card"><div class="top"><h3>EVS</h3></div><div class="score">90<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+        </div>
+      </div>
+
+      <!-- VIEW: Subjects -->
+      <div class="view" id="view-subjects">
+        <div class="view-head"><h2>Subjects</h2><p>Every subject Ishika is tracking this term.</p></div>
+        <div class="card-grid">
+          <div class="card subj-card"><div class="top"><h3>Telugu</h3></div><div class="score">84<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+          <div class="card subj-card"><div class="top"><h3>Mathematics</h3></div><div class="score">71<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+          <div class="card subj-card"><div class="top"><h3>EVS</h3></div><div class="score">90<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+          <div class="card subj-card"><div class="top"><h3>Social</h3></div><div class="score">—<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+          <div class="card subj-card"><div class="top"><h3>Computers</h3></div><div class="score">—<span>/100</span></div><button onclick="alert('Opens score upload.')">+ Add latest record</button></div>
+        </div>
+      </div>
+
+      <!-- VIEW: Growth -->
+      <div class="view" id="view-growth">
+        <div class="view-head"><h2>Academic performance since joining Tut-P</h2><p>Built from the school records you upload each month.</p></div>
+        <div class="grid-2">
+          <div class="card">
+            <h3>Mathematics</h3>
+            <div class="growth-chart">
+              <div class="growth-bar"><div class="bar" style="height:44px;background:var(--ink-soft);"></div><div class="val">54</div><div class="mon">Before</div></div>
+              <div class="growth-bar"><div class="bar" style="height:53px;"></div><div class="val">61</div><div class="mon">Mon 1</div></div>
+              <div class="growth-bar"><div class="bar" style="height:60px;"></div><div class="val">66</div><div class="mon">Mon 2</div></div>
+              <div class="growth-bar latest"><div class="bar" style="height:73px;"></div><div class="val">71</div><div class="mon">Mon 3</div></div>
+            </div>
+            <div class="growth-note">▲ +17 points since joining, 3 months ago</div>
+          </div>
+          <div class="card">
+            <h3>Telugu</h3>
+            <div class="growth-chart">
+              <div class="growth-bar"><div class="bar" style="height:60px;background:var(--ink-soft);"></div><div class="val">70</div><div class="mon">Before</div></div>
+              <div class="growth-bar"><div class="bar" style="height:66px;"></div><div class="val">76</div><div class="mon">Mon 1</div></div>
+              <div class="growth-bar"><div class="bar" style="height:70px;"></div><div class="val">80</div><div class="mon">Mon 2</div></div>
+              <div class="growth-bar latest"><div class="bar" style="height:74px;"></div><div class="val">84</div><div class="mon">Mon 3</div></div>
+            </div>
+            <div class="growth-note">▲ +14 points since joining, 3 months ago</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Family -->
+      <div class="view" id="view-family">
+        <div class="view-head"><h2>Your family's involvement</h2><p>Private to your household — no one outside your family ever sees this.</p></div>
+        <div class="grid-2">
+          <div class="card gap-card">
+            <h3 style="text-align:left;">This week</h3>
+            <div class="gap-ring">
+              <svg width="132" height="132" viewBox="0 0 132 132">
+                <circle cx="66" cy="66" r="56" fill="none" stroke="#F3E8CE" stroke-width="14"/>
+                <circle cx="66" cy="66" r="56" fill="none" stroke="#C98A2E" stroke-width="14" stroke-dasharray="310 352" stroke-linecap="round"/>
+              </svg>
+              <div class="center"><div class="n">88</div><div class="l">your score</div></div>
+            </div>
+            <p class="gap-note">You're <strong>6 points</strong> from the top of your household this week — one more session before Sunday closes the gap.</p>
+            <div class="streak-row">
+              <div class="streak-day done"><span class="dl">M</span><span class="dd">✓</span></div>
+              <div class="streak-day done"><span class="dl">T</span><span class="dd">✓</span></div>
+              <div class="streak-day done"><span class="dl">W</span><span class="dd">✓</span></div>
+              <div class="streak-day"><span class="dl">T</span><span class="dd">·</span></div>
+              <div class="streak-day"><span class="dl">F</span><span class="dd">?</span></div>
+              <div class="streak-day"><span class="dl">S</span><span class="dd">·</span></div>
+              <div class="streak-day"><span class="dl">S</span><span class="dd">·</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>How this is scored</h3>
+            <p style="font-size:13px;color:var(--ink-soft);line-height:1.65;">Consistency, time present, subjects covered, and quiz depth — weighted toward showing up often, not marathon sessions. Modeled on family-engagement research, not vanity metrics.</p>
+            <p style="font-size:12.5px;color:var(--ink-soft);margin-top:14px;">Household members' individual scores stay private to them — you'll only ever see your own gap to the top, never anyone else's number.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW: Guidance -->
+      <div class="view" id="view-guidance">
+        <div class="view-head"><h2>Guidance for you</h2><p>Short reads to help you guide Ishika, not another homework assignment for you.</p></div>
+        <div class="card">
+          <ul class="article-list">
+            <li><a href="#">How to explain fractions without a whiteboard</a><span class="tag">4 min</span></li>
+            <li><a href="#">Ten minutes, three times a week — why less is more</a><span class="tag">3 min</span></li>
+            <li><a href="#">What to do when your child says "I don't get it"</a><span class="tag">5 min</span></li>
+            <li><a href="#">Reading with your child in two languages</a><span class="tag">4 min</span></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ FULL-SCREEN ANSWER OVERLAY ============ -->
+<div id="answerOverlay">
+  <div class="inner">
+    <button class="ov-back" onclick="closeAnswer()">← Back</button>
+    <div class="ov-hint">This is a sample answer. In the live app, Tut-P reads your question or photo and replies here — in your language, at your level.</div>
+    <div class="ov-answer">
+      <h3 id="ovSubjectTitle">Mathematics</h3>
+      <p>Average speed means the total distance covered divided by the total time taken — not just averaging the two speeds. Try asking Ishika: "If the train took 2 hours total and covered 150 km, what was its average speed?"</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ---------- location cascade ---------- */
+  const statesByCountry = {
+    IN: { "Telangana":["Hyderabad","Rangareddy","Warangal","Khammam","Nalgonda"], "Andhra Pradesh":["Visakhapatnam","Vijayawada","Guntur","Tirupati"], "Karnataka":["Bengaluru Urban","Mysuru","Belagavi"], "Tamil Nadu":["Chennai","Coimbatore","Madurai"], "Maharashtra":["Mumbai","Pune","Nagpur"] },
+    OTHER: { "Type your state below": [] }
+  };
+  function onCountryChange(){
+    const c = document.getElementById('country').value;
+    const stateSel = document.getElementById('state');
+    stateSel.innerHTML = '';
+    Object.keys(statesByCountry[c] || {}).forEach(s=>{ const o=document.createElement('option'); o.textContent=s; stateSel.appendChild(o); });
+    onStateChange();
+  }
+  function onStateChange(){
+    const c = document.getElementById('country').value, s = document.getElementById('state').value;
+    const distSel = document.getElementById('district');
+    distSel.innerHTML = '';
+    ((statesByCountry[c]||{})[s]||[]).forEach(d=>{ const o=document.createElement('option'); o.textContent=d; distSel.appendChild(o); });
+  }
+  onCountryChange();
+
+  function toggleOtherSyllabus(){
+    document.getElementById('otherSyllabusRow').style.display = document.getElementById('syllabus').value === 'other' ? 'block' : 'none';
+  }
+
+  document.querySelectorAll('.doc-tile[data-name]').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      el.classList.toggle('added');
+      el.querySelector('.st').textContent = el.classList.contains('added') ? '✓ Added' : '+ Add';
+    });
+  });
+
+  const roles = ["Grandfather","Grandmother","Uncle","Aunt","Older sibling","Other"];
+  function addFamilyMember(){
+    const wrap = document.getElementById('extraMembers');
+    const div = document.createElement('div');
+    div.className = 'member-card';
+    div.innerHTML = `
+      <div class="member-card-head">
+        <select class="role-select">${roles.map(r=>`<option>${r}</option>`).join('')}</select>
+        <button class="remove-link" onclick="this.closest('.member-card').remove()">Remove</button>
+      </div>
+      <div class="field-row cols-3">
+        <div class="field"><label>Name</label><input placeholder="Full name"></div>
+        <div class="field"><label>Phone (OTP verified)</label><input placeholder="+91 90000 00000"></div>
+        <div class="field"><label>Qualification</label><input placeholder="Optional"></div>
+      </div>`;
+    wrap.appendChild(div);
+  }
+  addFamilyMember();
+
+  /* ---------- ledger page wizard ---------- */
+  const totalPages = 5;
+  let currentPage = 1;
+  const indexEl = document.getElementById('pageIndex');
+  for(let i=1;i<=totalPages;i++){
+    const d = document.createElement('div');
+    d.className = 'page-dot' + (i===1?' active':'');
+    d.dataset.p = i;
+    indexEl.appendChild(d);
+  }
+  function renderPageState(){
+    document.querySelectorAll('.ledger-page').forEach(p=>p.classList.toggle('active', +p.dataset.page === currentPage));
+    document.querySelectorAll('.page-dot').forEach(d=>{
+      const p = +d.dataset.p;
+      d.classList.toggle('active', p===currentPage);
+      d.classList.toggle('done', p<currentPage);
+    });
+    document.getElementById('stepCount').textContent = `Page ${currentPage} of ${totalPages}`;
+    document.getElementById('backBtn').style.visibility = currentPage===1 ? 'hidden' : 'visible';
+    document.getElementById('nextBtn').textContent = currentPage===totalPages ? 'Create family account →' : 'Continue →';
+  }
+  function changePage(dir){
+    if(dir>0 && currentPage===totalPages){
+      if(!document.getElementById('consentBox').checked){
+        alert("Please confirm parent/guardian consent before continuing — this protects your child's data.");
+        return;
+      }
+      document.getElementById('onboarding').style.display='none';
+      document.getElementById('dashboard').style.display='block';
+      window.scrollTo(0,0);
+      return;
+    }
+    currentPage = Math.min(totalPages, Math.max(1, currentPage+dir));
+    renderPageState();
+    document.querySelector('.ledger-frame').scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  renderPageState();
+
+  /* ---------- dashboard ---------- */
+  (function buildCalendar(){
+    const days=['SUN','MON','TUE','WED','THU','FRI','SAT'];
+    const strip=document.getElementById('calStrip');
+    const today=new Date();
+    for(let i=-3;i<=3;i++){
+      const d=new Date(today); d.setDate(today.getDate()+i);
+      const el=document.createElement('div');
+      el.className='cal-day'+(i===0?' today':'');
+      el.innerHTML=`<div class="d">${days[d.getDay()]}</div><div class="n">${d.getDate()}</div>`;
+      strip.appendChild(el);
+    }
+  })();
+
+  function switchView(name){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    document.querySelectorAll('.sb-item').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+    document.getElementById('sidebar').classList.remove('open');
+    window.scrollTo(0,0);
+  }
+  function toggleProfileMenu(){
+    alert('Switch family member / settings menu in the live app.');
+  }
+
+  let micOn=false;
+  function toggleMic(){
+    micOn=!micOn;
+    document.getElementById('micBtn').classList.toggle('listening', micOn);
+    document.getElementById('chatInput').placeholder = micOn ? 'Listening... speak now' : "Type, or use the mic — ask about tonight's homework...";
+  }
+  let currentSubject='Mathematics';
+  function openChatWith(subject){
+    currentSubject=subject;
+    document.getElementById('chatInput').value = `Help me guide Ishika's ${subject} homework tonight`;
+    document.getElementById('chatInput').focus();
+  }
+  function submitChat(){
+    document.getElementById('ovSubjectTitle').textContent = currentSubject;
+    document.getElementById('answerOverlay').style.display='block';
+    window.scrollTo(0,0);
+  }
+  function closeAnswer(){ document.getElementById('answerOverlay').style.display='none'; }
+</script>
+</body>
+</html>
