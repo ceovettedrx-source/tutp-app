@@ -65,7 +65,7 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
-<div class="proto-banner">LIVE — form data is saved to our database · SMS OTP verification is not yet connected (see Step 3) · <a href="/">Back to Tut-P site</a></div>
+<div class="proto-banner">LIVE — form data is saved to our database · Phone verification via SMS is now real (Firebase) · <a href="/">Back to Tut-P site</a></div>
 
 <header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full sticky top-0 z-40 bg-surface-container-low shadow-sm">
 <div class="flex items-center gap-sm">
@@ -143,7 +143,7 @@
 <div class="space-y-sm" id="extendedFamilyContainer"></div>
 </div>
 
-<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(1)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(3)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(1)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="proceedToPhoneVerification()" id="toStep3Btn">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
 <!-- STEP 3: PHONE VERIFICATION -->
@@ -152,8 +152,9 @@
 <div class="text-center">
 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-container mb-sm"><span class="material-symbols-outlined text-4xl filled">smartphone</span></div>
 <h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Verify Your Number</h2>
-<p class="font-body-md text-body-md text-on-surface-variant">Enter the 6-digit code sent to your mother's phone.</p>
+<p class="font-body-md text-body-md text-on-surface-variant" id="regOtpSentTo">Enter the 6-digit code sent to your mother's phone.</p>
 </div>
+<div id="recaptcha-container-register"></div>
 <div class="flex gap-2 justify-center">
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
@@ -162,11 +163,9 @@
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 </div>
-<div class="bg-secondary-container/20 border border-secondary/30 rounded-lg p-3 text-center">
-<p class="font-caption text-caption text-on-surface-variant">📱 SMS delivery isn't connected yet — this step won't block your registration for now. Real OTP verification is coming soon.</p>
+<p id="regOtpError" class="text-center text-sm text-red-600 hidden"></p>
 </div>
-</div>
-<div class="flex justify-between mt-lg max-w-lg mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(2)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(4)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+<div class="flex justify-between mt-lg max-w-lg mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(2)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="handleRegisterVerify()" id="verifyStep3Btn">Verify &amp; Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
 <!-- STEP 4: CHILD DETAILS -->
@@ -516,5 +515,88 @@
       submitBtn.innerHTML = '<span class="material-symbols-outlined filled">task_alt</span>Complete Registration';
     }
   }
+  // ---------------- Firebase phone verification (Mother's number) ----------------
+  async function proceedToPhoneVerification(){
+    const btn = document.getElementById('toStep3Btn');
+    const digits = document.getElementById('motherPhone').value.replace(/\D/g,'').slice(-10);
+    if (digits.length !== 10){
+      alert("Please enter the mother's 10-digit phone number before continuing (Step 2).");
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Sending code…';
+    try {
+      await window.tutpSendOTP('+91' + digits);
+      document.getElementById('regOtpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
+      goToStep(3);
+    } catch(err){
+      alert('Could not send the verification code: ' + (err.message || 'please check the number and try again.'));
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Continue <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  async function handleRegisterVerify(){
+    const errEl = document.getElementById('regOtpError');
+    const btn = document.getElementById('verifyStep3Btn');
+    errEl.classList.add('hidden');
+    const code = Array.from(document.querySelectorAll('[data-step="3"] .otp-box')).map(i => i.value).join('');
+    if (code.length !== 6){
+      errEl.textContent = 'Please enter all 6 digits.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Verifying…';
+    try {
+      await window.tutpVerifyOTP(code);
+      goToStep(4);
+    } catch(err){
+      errEl.textContent = 'Incorrect code — please try again.';
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Verify &amp; Continue <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  // OTP box auto-advance for step 3
+  document.querySelectorAll('[data-step="3"] .otp-box').forEach((input, index, all) => {
+    input.addEventListener('input', (e) => {
+      if (e.target.value.length === 1 && index < all.length - 1) all[index + 1].focus();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !e.target.value && index > 0) all[index - 1].focus();
+    });
+  });
+</script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
+      authDomain: "tut-p-98978.firebaseapp.com",
+      projectId: "tut-p-98978",
+      storageBucket: "tut-p-98978.firebasestorage.app",
+      messagingSenderId: "706069048441",
+      appId: "1:706069048441:web:da5dd699fe431e48fe78a8",
+      measurementId: "G-02PZ2EFZVY"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    let confirmationResult = null;
+    let recaptchaVerifier = null;
+
+    window.tutpSendOTP = async function(fullPhoneNumber){
+        if (!recaptchaVerifier){
+            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-register', { size: 'invisible' });
+        }
+        confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
+    };
+
+    window.tutpVerifyOTP = async function(code){
+        if (!confirmationResult) throw new Error('Please request a code first.');
+        await confirmationResult.confirm(code);
+    };
 </script>
 </body></html>

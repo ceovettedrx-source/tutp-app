@@ -69,14 +69,16 @@
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Welcome Back</h1>
 <p class="font-body-md text-body-md text-on-surface-variant">Enter your phone number to continue</p>
 </header>
-<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); showOTP();">
+<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); handleSendCode();">
 <div class="glass-input rounded-xl flex items-center p-xs transition-all">
 <div class="flex items-center gap-xs px-sm py-sm border-r border-outline-variant">
 <span class="font-label-lg text-label-lg text-on-surface">+91</span>
 </div>
-<input class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Enter phone number" required="" type="tel"/>
+<input id="loginPhoneInput" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Enter phone number" required="" type="tel"/>
 </div>
-<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit">Send Code</button>
+<div id="recaptcha-container-login"></div>
+<p id="phoneError" class="text-center text-sm text-red-600 hidden"></p>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit" id="sendCodeBtn">Send Code</button>
 </form>
 </section>
 
@@ -86,16 +88,19 @@
 <span class="material-symbols-outlined">arrow_back</span>
 </button>
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Enter Code</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">Sent to +91 ••••• ••••</p>
+<p class="font-body-md text-body-md text-on-surface-variant" id="otpSentTo">Sent to +91 ••••• ••••</p>
 </header>
-<form class="flex flex-col gap-md" onsubmit="event.preventDefault(); showProfiles();">
+<form class="flex flex-col gap-md" id="otp-form" onsubmit="event.preventDefault(); handleVerifyCode();">
 <div class="flex justify-between gap-sm">
-<input autofocus="" class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
-<input class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
-<input class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
-<input class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input autofocus="" class="otp-digit w-12 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="otp-digit w-12 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="otp-digit w-12 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="otp-digit w-12 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="otp-digit w-12 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="otp-digit w-12 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
 </div>
-<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] mt-sm" type="submit">Verify</button>
+<p id="otpError" class="text-center text-sm text-red-600 hidden"></p>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] mt-sm" type="submit" id="verifyBtn">Verify</button>
 <p class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline">Resend Code</p>
 </form>
 </section>
@@ -159,7 +164,7 @@
                 profiles.classList.remove('hidden'); profiles.classList.add('fade-in');
             }, 300);
         }
-        const otpInputs = document.querySelectorAll('#otp-view input');
+        const otpInputs = document.querySelectorAll('.otp-digit');
         otpInputs.forEach((input, index) => {
             input.addEventListener('input', (e) => {
                 if (e.target.value.length === 1 && index < otpInputs.length - 1) otpInputs[index + 1].focus();
@@ -168,5 +173,82 @@
                 if (e.key === 'Backspace' && !e.target.value && index > 0) otpInputs[index - 1].focus();
             });
         });
+
+        async function handleSendCode(){
+            const errEl = document.getElementById('phoneError');
+            const btn = document.getElementById('sendCodeBtn');
+            errEl.classList.add('hidden');
+            const digits = document.getElementById('loginPhoneInput').value.replace(/\D/g,'');
+            if (digits.length !== 10){
+                errEl.textContent = 'Please enter a valid 10-digit phone number.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true; btn.textContent = 'Sending…';
+            try{
+                await window.tutpSendOTP('+91' + digits);
+                document.getElementById('otpSentTo').textContent = 'Sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
+                showOTP();
+            } catch(err){
+                errEl.textContent = err.message || 'Could not send code — please try again.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Send Code';
+            }
+        }
+
+        async function handleVerifyCode(){
+            const errEl = document.getElementById('otpError');
+            const btn = document.getElementById('verifyBtn');
+            errEl.classList.add('hidden');
+            const code = Array.from(otpInputs).map(i => i.value).join('');
+            if (code.length !== 6){
+                errEl.textContent = 'Please enter all 6 digits.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true; btn.textContent = 'Verifying…';
+            try{
+                await window.tutpVerifyOTP(code);
+                showProfiles();
+            } catch(err){
+                errEl.textContent = 'Incorrect code — please try again.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Verify';
+            }
+        }
+</script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
+      authDomain: "tut-p-98978.firebaseapp.com",
+      projectId: "tut-p-98978",
+      storageBucket: "tut-p-98978.firebasestorage.app",
+      messagingSenderId: "706069048441",
+      appId: "1:706069048441:web:da5dd699fe431e48fe78a8",
+      measurementId: "G-02PZ2EFZVY"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    let confirmationResult = null;
+    let recaptchaVerifier = null;
+
+    window.tutpSendOTP = async function(fullPhoneNumber){
+        if (!recaptchaVerifier){
+            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-login', { size: 'invisible' });
+        }
+        confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
+    };
+
+    window.tutpVerifyOTP = async function(code){
+        if (!confirmationResult) throw new Error('Please request a code first.');
+        await confirmationResult.confirm(code);
+    };
 </script>
 </body></html>
