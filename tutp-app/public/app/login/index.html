@@ -2,152 +2,171 @@
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Tut-P - Login</title>
+<title>Tut-P Login &amp; Profile Selection</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700;900&amp;family=Inter:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
         tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "on-primary-fixed-variant": "#1a1a1a", "on-secondary-fixed": "#1a1a1a", "error": "#cc0000",
-                        "inverse-primary": "#f5f0e8", "on-surface": "#1a1a1a", "surface-variant": "#e8e3da",
-                        "inverse-on-surface": "#f5f0e8", "on-error": "#ffffff", "surface-dim": "#d6d1c9",
-                        "tertiary-container": "#d6e3ff", "surface": "#f5f0e8", "secondary-fixed-dim": "#ffb3ab",
-                        "on-primary-container": "#1a1a1a", "primary-fixed": "#ffcc00", "primary-fixed-dim": "#e6b800",
-                        "on-tertiary-fixed": "#1a1a1a", "secondary": "#e63b2e", "on-secondary": "#1a1a1a",
-                        "primary": "#1a1a1a", "error-container": "#ffdad6", "surface-container-lowest": "#ffffff",
-                        "surface-container-high": "#e8e3da", "on-secondary-fixed-variant": "#1a1a1a",
-                        "tertiary-fixed": "#d6e3ff", "on-surface-variant": "#4a4a4a", "tertiary": "#0055ff",
-                        "on-tertiary-fixed-variant": "#1a1a1a", "on-error-container": "#93000a",
-                        "secondary-fixed": "#ffdad6", "outline-variant": "#d0cbc3", "on-tertiary-container": "#1a1a1a",
-                        "on-primary": "#ffffff", "surface-bright": "#faf7f2", "secondary-container": "#ffdad6",
-                        "surface-container": "#eee9e0", "surface-tint": "#1a1a1a", "background": "#f5f0e8",
-                        "on-background": "#1a1a1a", "inverse-surface": "#1a1a1a", "surface-container-highest": "#e2ddd4",
-                        "tertiary-fixed-dim": "#a8c6ff", "on-tertiary": "#ffffff", "on-secondary-container": "#1a1a1a",
-                        "outline": "#1a1a1a", "surface-container-low": "#f2ede5", "on-primary-fixed": "#1a1a1a",
-                        "primary-container": "#ffcc00"
-                    },
-                    borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
-                    fontFamily: { headline: ["Space Grotesk"], display: ["Space Grotesk"], body: ["Inter"], label: ["Space Grotesk"] },
-                    boxShadow: { 'offset': '6px 6px 0px 0px #1a1a1a', 'offset-hover': '2px 2px 0px 0px #1a1a1a' }
-                }
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary": "#ffffff","primary-fixed": "#d8e2ff","on-secondary-fixed-variant": "#614000",
+                      "on-tertiary-fixed": "#002108","tertiary": "#006d2c","secondary-fixed-dim": "#ffba45",
+                      "on-error-container": "#93000a","primary-container": "#1a73e8","primary-fixed-dim": "#adc7ff",
+                      "on-background": "#181c20","surface-container-highest": "#dfe3e8","primary": "#005bbf",
+                      "surface-bright": "#f7f9ff","on-tertiary": "#ffffff","on-primary-fixed-variant": "#004493",
+                      "on-secondary-container": "#694600","on-primary-fixed": "#001a41","inverse-primary": "#adc7ff",
+                      "background": "#f7f9ff","secondary-container": "#fdaf0a","secondary-fixed": "#ffddb0",
+                      "on-tertiary-fixed-variant": "#005320","surface-container": "#ebeef4","on-secondary": "#ffffff",
+                      "outline": "#727785","surface-tint": "#005bc0","error-container": "#ffdad6",
+                      "on-tertiary-container": "#ffffff","surface-variant": "#dfe3e8","surface": "#f7f9ff",
+                      "on-surface-variant": "#414754","on-surface": "#181c20","error": "#ba1a1a",
+                      "on-secondary-fixed": "#281800","surface-container-high": "#e5e8ee","secondary": "#805600",
+                      "on-error": "#ffffff","surface-container-lowest": "#ffffff","surface-container-low": "#f1f4fa",
+                      "inverse-on-surface": "#eef1f7","on-primary-container": "#ffffff","surface-dim": "#d7dae0",
+                      "tertiary-fixed-dim": "#6ddd81","inverse-surface": "#2d3135","tertiary-fixed": "#89fa9b",
+                      "tertiary-container": "#008939","outline-variant": "#c1c6d6"
+              },
+              "borderRadius": { "DEFAULT": "1rem","lg": "2rem","xl": "3rem","full": "9999px" },
+              "spacing": { "xs": "4px","sm": "12px","base": "8px","margin-desktop": "120px","lg": "40px","gutter": "16px","margin-mobile": "20px","xl": "64px","md": "24px" },
+              "fontFamily": { "headline-lg": ["Plus Jakarta Sans"],"display-lg": ["Plus Jakarta Sans"],"label-md": ["Inter"],"body-md": ["Inter"],"headline-md": ["Plus Jakarta Sans"],"body-lg": ["Inter"],"label-lg": ["Inter"],"headline-lg-mobile": ["Plus Jakarta Sans"] },
+              "fontSize": {
+                      "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+                      "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                      "label-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600" }],
+                      "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                      "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                      "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                      "label-lg": ["16px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                      "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+              }
             }
+          }
         }
     </script>
 <style>
-        body { background-color: theme('colors.background'); color: theme('colors.on-background'); font-family: theme('fontFamily.body'); }
-        .neo-border { border: 3px solid theme('colors.primary'); }
-        .neo-shadow { box-shadow: 6px 6px 0px 0px theme('colors.primary'); transition: all 0.2s ease-in-out; }
-        .neo-shadow:active { box-shadow: 2px 2px 0px 0px theme('colors.primary'); transform: translate(4px, 4px); }
-        .neo-input { border: none; border-bottom: 3px solid theme('colors.primary'); background: transparent; border-radius: 0; padding: 0.5rem 0; }
-        .neo-input:focus { outline: none; box-shadow: none; border-color: theme('colors.secondary'); }
-        .view-transition { transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
-        .hidden-view { opacity: 0; pointer-events: none; position: absolute; transform: translateY(20px); }
-        .active-view { opacity: 1; pointer-events: auto; position: relative; transform: translateY(0); }
-        .proto-banner{background:#e63b2e;color:#fff;text-align:center;padding:8px 16px;font-family:'Space Grotesk',sans-serif;font-size:12px;letter-spacing:.03em;font-weight:700;text-transform:uppercase;}
+        .fade-in { animation: fadeIn 0.3s ease-in forwards; }
+        .fade-out { animation: fadeOut 0.3s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+        .glass-input { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(0,91,191,0.1); }
+        .glass-input:focus-within { border-color: #005bbf; box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
+        .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
+        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
-    </style>
+        .avatar-ph{display:flex;align-items:center;justify-content:center;font-family:'Plus Jakarta Sans',sans-serif;font-weight:700;font-size:28px;color:#fff;}
+</style>
 </head>
-<body class="min-h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-background text-on-background min-h-screen relative overflow-hidden font-body-md selection:bg-primary-container selection:text-on-primary-container">
 <div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
-<header class="fixed top-[34px] w-full z-50 flex justify-between items-center px-6 py-4 bg-surface border-b-4 border-primary">
-<div class="flex items-center gap-4"><span class="material-symbols-outlined text-primary text-3xl">menu</span></div>
-<h1 class="font-headline text-3xl font-black text-primary italic uppercase tracking-tighter">Tut-P</h1>
-<div class="w-8 h-8 rounded-full bg-primary-container neo-border"></div>
+<main class="relative z-10 w-full min-h-screen flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
+
+<section class="w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg transition-all duration-300" id="login-view">
+<header class="text-center">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Welcome Back</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Enter your phone number to continue</p>
 </header>
-<main class="w-full max-w-4xl mx-auto mt-24 relative min-h-[600px] flex items-center justify-center">
-<div class="w-full max-w-md active-view view-transition bg-surface p-8 neo-border neo-shadow" id="login-view">
-<h2 class="font-headline text-4xl font-bold uppercase mb-2">Welcome Back</h2>
-<p class="font-body text-on-surface-variant mb-8">Enter your phone number to continue.</p>
-<form class="space-y-6" id="phone-form">
-<div>
-<label class="font-label text-sm font-bold uppercase text-primary block mb-2">Phone Number</label>
-<div class="flex gap-2 items-end">
-<span class="font-headline text-xl pb-2 border-b-[3px] border-primary">+91</span>
-<input class="neo-input w-full font-headline text-2xl" placeholder="90000 00000" required="" type="tel"/>
+<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); showOTP();">
+<div class="glass-input rounded-xl flex items-center p-xs transition-all">
+<div class="flex items-center gap-xs px-sm py-sm border-r border-outline-variant">
+<span class="font-label-lg text-label-lg text-on-surface">+91</span>
 </div>
+<input class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Enter phone number" required="" type="tel"/>
 </div>
-<button class="w-full bg-primary text-on-primary font-label text-xl font-bold uppercase py-4 neo-border hover:bg-on-surface-variant transition-colors" type="submit">Send Code</button>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit">Send Code</button>
 </form>
-<form class="space-y-6 hidden mt-8 pt-8 border-t-[3px] border-primary" id="otp-form">
-<div>
-<label class="font-label text-sm font-bold uppercase text-primary block mb-4">Enter 4-digit code</label>
-<div class="flex gap-4 justify-between">
-<input autofocus="" class="neo-input w-16 text-center font-headline text-4xl" maxlength="1" type="text"/>
-<input class="neo-input w-16 text-center font-headline text-4xl" maxlength="1" type="text"/>
-<input class="neo-input w-16 text-center font-headline text-4xl" maxlength="1" type="text"/>
-<input class="neo-input w-16 text-center font-headline text-4xl" maxlength="1" type="text"/>
+</section>
+
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="otp-view">
+<header class="text-center relative">
+<button class="absolute left-0 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors" onclick="showLogin()">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Enter Code</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Sent to +91 ••••• ••••</p>
+</header>
+<form class="flex flex-col gap-md" onsubmit="event.preventDefault(); showProfiles();">
+<div class="flex justify-between gap-sm">
+<input autofocus="" class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
+<input class="w-16 h-16 text-center text-headline-md font-headline-md rounded-xl glass-input border-none focus:ring-0" maxlength="1" type="text"/>
 </div>
-</div>
-<button class="w-full bg-primary-container text-on-primary-container font-label text-xl font-bold uppercase py-4 neo-border hover:bg-primary-fixed-dim transition-colors neo-shadow" type="submit">Verify</button>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] mt-sm" type="submit">Verify</button>
+<p class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline">Resend Code</p>
 </form>
-</div>
-<div class="w-full max-w-3xl hidden-view view-transition" id="profile-view">
-<div class="text-center mb-12">
-<h2 class="font-headline text-5xl font-black uppercase mb-4 tracking-tight">Who's logging in?</h2>
-<p class="font-body text-xl text-on-surface-variant">Select a profile to continue learning.</p>
-</div>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-<a href="/app/dashboard/" class="group flex flex-col items-center gap-4 bg-surface p-6 neo-border neo-shadow hover:bg-primary-container transition-colors">
-<div class="w-24 h-24 rounded-full overflow-hidden neo-border bg-tertiary flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-white">school</span></div>
-<span class="font-headline text-2xl font-bold uppercase">Leo</span>
-<span class="font-body text-sm text-on-surface-variant group-hover:text-primary">Student</span>
+</section>
+
+<section class="hidden w-full max-w-[800px] flex flex-col gap-xl" id="profile-view">
+<header class="text-center">
+<h1 class="font-display-lg text-display-lg text-primary mb-sm">Who's logging in?</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant">Select your profile to continue learning</p>
+</header>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-md">
+<a href="/app/child/" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
+<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#005bbf;">L</div>
+<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Leo</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Student</span></div>
 </a>
-<a href="/app/dashboard/" class="group flex flex-col items-center gap-4 bg-surface p-6 neo-border neo-shadow hover:bg-primary-container transition-colors">
-<div class="w-24 h-24 rounded-full overflow-hidden neo-border bg-secondary flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-white">face_3</span></div>
-<span class="font-headline text-2xl font-bold uppercase">Amma</span>
-<span class="font-body text-sm text-on-surface-variant group-hover:text-primary">Parent</span>
+<a href="/app/dashboard/" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
+<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#805600;">A</div>
+<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Amma</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Parent</span></div>
 </a>
-<a href="/app/dashboard/" class="group flex flex-col items-center gap-4 bg-surface p-6 neo-border neo-shadow hover:bg-primary-container transition-colors">
-<div class="w-24 h-24 rounded-full overflow-hidden neo-border bg-primary-fixed flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-primary">face</span></div>
-<span class="font-headline text-2xl font-bold uppercase">Appa</span>
-<span class="font-body text-sm text-on-surface-variant group-hover:text-primary">Parent</span>
+<a href="#" onclick="alert('Father view — not built yet in this prototype.'); return false;" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
+<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#008939;">A</div>
+<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Appa</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Parent</span></div>
 </a>
-<a href="/app/dashboard/" class="group flex flex-col items-center gap-4 bg-surface p-6 neo-border neo-shadow hover:bg-primary-container transition-colors">
-<div class="w-24 h-24 rounded-full overflow-hidden neo-border bg-surface-variant mb-2 flex items-center justify-center bg-tertiary"><span class="material-symbols-outlined text-4xl text-on-primary">elderly</span></div>
-<span class="font-headline text-2xl font-bold uppercase">Thatha</span>
-<span class="font-body text-sm text-on-surface-variant group-hover:text-primary">Grandparent</span>
+<a href="#" onclick="alert('Grandparent view — not built yet in this prototype.'); return false;" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
+<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#414754;">T</div>
+<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Thatha</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Grandparent</span></div>
 </a>
 </div>
-<div class="mt-12 flex justify-center">
-<a href="/app/register/" class="font-label text-lg font-bold uppercase text-primary border-b-[3px] border-primary pb-1 hover:text-secondary hover:border-secondary transition-colors">+ Add Profile / New Family</a>
+<div class="flex justify-center mt-md">
+<a href="/app/register/" class="flex items-center gap-sm px-lg py-sm rounded-full border-2 border-outline-variant hover:border-primary hover:bg-surface-container text-on-surface-variant hover:text-primary font-label-lg text-label-lg transition-all">
+<span class="material-symbols-outlined">add</span> Add Profile / New Family
+</a>
 </div>
-</div>
+</section>
 </main>
 <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const phoneForm = document.getElementById('phone-form');
-            const otpForm = document.getElementById('otp-form');
-            const loginView = document.getElementById('login-view');
-            const profileView = document.getElementById('profile-view');
-            const otpInputs = otpForm.querySelectorAll('input[type="text"]');
-
-            phoneForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                phoneForm.classList.add('hidden');
-                otpForm.classList.remove('hidden');
-                if(otpInputs.length > 0) otpInputs[0].focus();
+        function showOTP() {
+            const login = document.getElementById('login-view');
+            const otp = document.getElementById('otp-view');
+            login.classList.add('fade-out');
+            setTimeout(() => {
+                login.classList.add('hidden'); login.classList.remove('fade-out');
+                otp.classList.remove('hidden'); otp.classList.add('fade-in');
+                otp.querySelector('input').focus();
+            }, 300);
+        }
+        function showLogin() {
+            const login = document.getElementById('login-view');
+            const otp = document.getElementById('otp-view');
+            otp.classList.add('fade-out');
+            setTimeout(() => {
+                otp.classList.add('hidden'); otp.classList.remove('fade-out');
+                login.classList.remove('hidden'); login.classList.add('fade-in');
+            }, 300);
+        }
+        function showProfiles() {
+            const otp = document.getElementById('otp-view');
+            const profiles = document.getElementById('profile-view');
+            otp.classList.add('fade-out');
+            setTimeout(() => {
+                otp.classList.add('hidden'); otp.classList.remove('fade-out');
+                profiles.classList.remove('hidden'); profiles.classList.add('fade-in');
+            }, 300);
+        }
+        const otpInputs = document.querySelectorAll('#otp-view input');
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < otpInputs.length - 1) otpInputs[index + 1].focus();
             });
-
-            otpInputs.forEach((input, index) => {
-                input.addEventListener('input', (e) => {
-                    if (e.target.value.length === 1 && index < otpInputs.length - 1) otpInputs[index + 1].focus();
-                });
-            });
-
-            otpForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                loginView.classList.remove('active-view');
-                loginView.classList.add('hidden-view');
-                setTimeout(() => {
-                    profileView.classList.remove('hidden-view');
-                    profileView.classList.add('active-view');
-                }, 300);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) otpInputs[index - 1].focus();
             });
         });
-    </script>
+</script>
 </body></html>

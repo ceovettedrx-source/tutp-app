@@ -2,279 +2,286 @@
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Enroll Family - Tut-P</title>
+<title>Tut-P - Family Registration</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700;900&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
 <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
             theme: {
                 extend: {
-                    colors: {
-                        "on-primary-fixed-variant": "#1a1a1a", "on-secondary-fixed": "#1a1a1a", "error": "#cc0000",
-                        "inverse-primary": "#f5f0e8", "on-surface": "#1a1a1a", "surface-variant": "#e8e3da",
-                        "inverse-on-surface": "#f5f0e8", "on-error": "#ffffff", "surface-dim": "#d6d1c9",
-                        "tertiary-container": "#d6e3ff", "surface": "#f5f0e8", "secondary-fixed-dim": "#ffb3ab",
-                        "on-primary-container": "#1a1a1a", "primary-fixed": "#ffcc00", "primary-fixed-dim": "#e6b800",
-                        "on-tertiary-fixed": "#1a1a1a", "secondary": "#e63b2e", "on-secondary": "#1a1a1a",
-                        "primary": "#1a1a1a", "error-container": "#ffdad6", "surface-container-lowest": "#ffffff",
-                        "surface-container-high": "#e8e3da", "on-secondary-fixed-variant": "#1a1a1a",
-                        "tertiary-fixed": "#d6e3ff", "on-surface-variant": "#4a4a4a", "tertiary": "#0055ff",
-                        "on-tertiary-fixed-variant": "#1a1a1a", "on-error-container": "#93000a",
-                        "secondary-fixed": "#ffdad6", "outline-variant": "#d0cbc3", "on-tertiary-container": "#1a1a1a",
-                        "on-primary": "#ffffff", "surface-bright": "#faf7f2", "secondary-container": "#ffdad6",
-                        "surface-container": "#eee9e0", "surface-tint": "#1a1a1a", "background": "#f5f0e8",
-                        "on-background": "#1a1a1a", "inverse-surface": "#1a1a1a", "surface-container-highest": "#e2ddd4",
-                        "tertiary-fixed-dim": "#a8c6ff", "on-tertiary": "#ffffff", "on-secondary-container": "#1a1a1a",
-                        "outline": "#1a1a1a", "surface-container-low": "#f2ede5", "on-primary-fixed": "#1a1a1a",
-                        "primary-container": "#ffcc00"
+                    "colors": {
+                        "surface-bright": "#fbf9f8","on-tertiary-fixed": "#301400","on-error-container": "#93000a",
+                        "error-container": "#ffdad6","on-secondary-fixed-variant": "#005226","surface": "#fbf9f8",
+                        "inverse-primary": "#a9c7ff","primary-container": "#005eb8","surface-variant": "#e4e2e2",
+                        "on-primary": "#ffffff","background": "#fbf9f8","tertiary": "#723800","secondary-fixed": "#8df9a8",
+                        "surface-container-lowest": "#ffffff","outline-variant": "#c2c6d4","on-primary-fixed": "#001b3d",
+                        "on-error": "#ffffff","on-primary-container": "#c8daff","secondary-container": "#8df9a8",
+                        "on-tertiary-fixed-variant": "#703700","inverse-on-surface": "#f2f0f0","tertiary-fixed": "#ffdcc5",
+                        "primary-fixed-dim": "#a9c7ff","outline": "#727783","on-tertiary": "#ffffff","surface-tint": "#005db6",
+                        "primary": "#00478d","on-primary-fixed-variant": "#00468c","surface-container-highest": "#e4e2e2",
+                        "error": "#ba1a1a","surface-container-low": "#f5f3f3","surface-container-high": "#eae8e7",
+                        "secondary": "#006d35","inverse-surface": "#303030","surface-container": "#efeded",
+                        "on-surface": "#1b1c1c","on-secondary": "#ffffff","on-surface-variant": "#424752",
+                        "secondary-fixed-dim": "#71dc8e","on-tertiary-container": "#ffd1b3","surface-dim": "#dbdad9",
+                        "on-secondary-container": "#007439","tertiary-container": "#954c00","on-secondary-fixed": "#00210c",
+                        "tertiary-fixed-dim": "#ffb782","on-background": "#1b1c1c","primary-fixed": "#d6e3ff"
                     },
-                    borderRadius: { DEFAULT: "0.125rem", lg: "0.25rem", xl: "0.5rem", full: "0.75rem" },
-                    fontFamily: { headline: ["Space Grotesk","sans-serif"], display: ["Space Grotesk","sans-serif"], body: ["Inter","sans-serif"], label: ["Space Grotesk","sans-serif"] },
-                    boxShadow: { 'brutal': '6px 6px 0px 0px #1a1a1a', 'brutal-hover': '4px 4px 0px 0px #1a1a1a', 'brutal-active': '0px 0px 0px 0px #1a1a1a' }
+                    "borderRadius": { "DEFAULT": "0.25rem","lg": "0.5rem","xl": "0.75rem","full": "9999px" },
+                    "spacing": { "sm": "12px","margin-mobile": "16px","base": "8px","md": "24px","margin-desktop": "48px","lg": "40px","xl": "64px","gutter": "24px","xs": "4px" },
+                    "fontFamily": { "body-md": ["Public Sans"],"label-md": ["Public Sans"],"headline-md": ["Public Sans"],"body-lg": ["Public Sans"],"display-lg": ["Public Sans"],"caption": ["Public Sans"],"display-lg-mobile": ["Public Sans"] },
+                    "fontSize": {
+                        "body-md": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "label-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "body-lg": ["20px", { "lineHeight": "30px", "fontWeight": "400" }],
+                        "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "caption": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
+                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
+                    }
                 }
             }
         }
     </script>
 <style>
-        .brutal-border { border: 3px solid #1a1a1a; }
-        .brutal-shadow { box-shadow: 6px 6px 0px 0px #1a1a1a; }
-        .brutal-input, .offset-input { border: none; border-bottom: 3px solid #1a1a1a; border-radius: 0; background: transparent; padding: 0.75rem 0; font-family: 'Inter', sans-serif; color: #1a1a1a; transition: all 0.2s ease; }
-        .brutal-input:focus, .offset-input:focus { outline: none; border-bottom-color: #0055ff; box-shadow: none; }
-        .brutal-input::placeholder { color: #4a4a4a; }
-        .offset-shadow { box-shadow: 6px 6px 0px 0px #1a1a1a; }
-        .offset-shadow-sm { box-shadow: 4px 4px 0px 0px #1a1a1a; }
-        .wizard-step { transition: opacity 0.3s ease, transform 0.3s ease; }
-        .step-hidden { opacity: 0; pointer-events: none; position: absolute; inset: 0; transform: translateY(20px); }
-        .step-active { opacity: 1; pointer-events: auto; position: relative; transform: translateY(0); }
-        .proto-banner{background:#e63b2e;color:#fff;text-align:center;padding:8px 16px;font-family:'Space Grotesk',sans-serif;font-size:12px;letter-spacing:.03em;font-weight:700;text-transform:uppercase;}
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .soft-shadow { box-shadow: 0 10px 25px -5px rgba(0,71,141,0.15), 0 8px 10px -6px rgba(0,71,141,0.1); }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,71,141,0.05); }
+        .soft-input { border: 1px solid #c2c6d4; transition: all 0.2s ease; }
+        .soft-input:focus-within { border-color: #00478d; box-shadow: 0 0 0 2px #d6e3ff; }
+        .upload-dashed { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='12' ry='12' stroke='%2300478D' stroke-width='4' stroke-dasharray='8%2c 8' stroke-linecap='round'/%3e%3c/svg%3e"); border-radius: 12px; }
+        .wizard-step { transition: opacity 0.3s ease; }
+        .step-hidden { display: none; }
+        .step-active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
-    </style>
+</style>
 </head>
-<body class="bg-background text-primary font-body min-h-screen selection:bg-primary-container selection:text-on-primary-container overflow-x-hidden">
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
 <div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
-<main class="max-w-4xl mx-auto px-6 py-12 md:py-16 flex flex-col items-center">
-<header class="w-full mb-12 text-center lg:text-left relative">
-<h1 class="font-headline text-5xl md:text-6xl font-black uppercase tracking-tighter mb-3 text-primary relative z-10">
-                Enroll <span class="inline-block w-3 h-3 bg-secondary rounded-full align-baseline mb-2 mx-1"></span> Family
-            </h1>
-<p class="font-body text-lg text-on-surface-variant max-w-2xl">Five short steps to set up your family's Tut-P account.</p>
-<div class="mt-10 brutal-border bg-surface-container-high h-4 relative">
-<div class="absolute left-0 top-0 h-full bg-primary-container transition-all duration-500" id="progress-fill" style="width:20%;"></div>
+
+<header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full sticky top-0 z-40 bg-surface-container-low shadow-sm">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary filled">school</span>
+<h1 class="font-headline-md text-headline-md text-primary font-bold">Tut-P</h1>
 </div>
-<div class="flex justify-between mt-3 font-label font-bold text-xs uppercase tracking-widest text-on-surface-variant flex-wrap gap-1" id="step-labels">
-<span data-step="1" class="text-primary">01. Location</span>
-<span data-step="2">02. Child</span>
-<span data-step="3">03. Parents</span>
-<span data-step="4">04. Family</span>
-<span data-step="5">05. Consent</span>
-</div>
+<div class="font-label-md text-label-md text-on-surface-variant" id="stepIndicator">Step 1 of 8</div>
 </header>
 
-<div class="w-full relative min-h-[520px]">
-
-  <!-- STEP 1: LOCATION -->
-  <section class="w-full wizard-step step-active" data-step="1">
-    <div class="bg-surface brutal-border brutal-shadow p-6 md:p-10 mb-8">
-      <h2 class="font-headline text-2xl md:text-3xl font-bold uppercase mb-6 border-b-4 border-primary pb-3">Where are you based?</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="relative">
-          <label class="block font-label text-sm font-bold uppercase mb-2">Country</label>
-          <select class="w-full brutal-input py-3 px-2 font-body text-lg appearance-none" id="country" onchange="onCountryChange()"></select>
-        </div>
-        <div class="relative">
-          <label class="block font-label text-sm font-bold uppercase mb-2">State / Province</label>
-          <select class="w-full brutal-input py-3 px-2 font-body text-lg appearance-none" id="state" onchange="onStateChange()"></select>
-        </div>
-        <div class="relative">
-          <label class="block font-label text-sm font-bold uppercase mb-2">District</label>
-          <select class="w-full brutal-input py-3 px-2 font-body text-lg appearance-none" id="district"></select>
-        </div>
-        <div class="relative">
-          <label class="block font-label text-sm font-bold uppercase mb-2">Mandal / Zone</label>
-          <input class="w-full brutal-input py-3 px-2 font-body text-lg" placeholder="Enter Zone Name" type="text"/>
-        </div>
-      </div>
-      <div class="relative mt-6">
-        <label class="block font-label text-sm font-bold uppercase mb-2">Specific Area</label>
-        <input class="w-full brutal-input py-3 px-2 font-body text-lg" placeholder="Enter neighborhood or precise area" type="text"/>
-      </div>
-      <div class="flex justify-end pt-8">
-        <button class="bg-primary text-on-primary font-label text-lg font-bold uppercase py-4 px-10 brutal-border brutal-shadow hover:bg-primary-container hover:text-on-primary-container transition-all" onclick="goToStep(2)" type="button">Continue <span class="material-symbols-outlined align-middle ml-2">arrow_forward</span></button>
-      </div>
-    </div>
-  </section>
-
-  <!-- STEP 2: CHILD -->
-  <section class="w-full wizard-step step-hidden" data-step="2">
-    <div class="bg-surface brutal-border brutal-shadow p-6 md:p-10 mb-8">
-      <h2 class="font-headline text-2xl md:text-3xl font-bold uppercase mb-6 border-b-4 border-primary pb-3">Scholar Profile</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label class="block font-label text-sm font-bold uppercase mb-2">Full Name</label>
-          <input class="w-full brutal-input py-3 px-2 font-body text-xl font-bold" placeholder="E.g. Leo Vanguard" type="text"/>
-        </div>
-        <div>
-          <label class="block font-label text-sm font-bold uppercase mb-2">Date of Birth</label>
-          <input class="w-full brutal-input py-3 px-2 font-body text-lg" type="date"/>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 p-5 bg-surface-container-high brutal-border">
-        <div>
-          <label class="block font-label text-xs font-bold uppercase mb-3 text-on-surface-variant">Class Level</label>
-          <select class="w-full brutal-input py-2 px-1 font-body text-base appearance-none bg-transparent">
-            <option disabled selected value="">Grade (1-12)</option>
-            <option>Grade 1</option><option>Grade 5</option><option>Grade 8</option><option>Grade 10</option><option>Grade 12</option>
-          </select>
-        </div>
-        <div>
-          <label class="block font-label text-xs font-bold uppercase mb-3 text-on-surface-variant">Syllabus</label>
-          <select class="w-full brutal-input py-2 px-1 font-body text-base appearance-none bg-transparent">
-            <option>State Board</option><option>CBSE</option><option>ICSE</option><option>International</option><option>Cambridge</option><option>Other</option>
-          </select>
-        </div>
-        <div>
-          <label class="block font-label text-xs font-bold uppercase mb-3 text-on-surface-variant">Favorite Subject</label>
-          <input class="w-full brutal-input py-2 px-1 font-body text-base bg-transparent" placeholder="e.g. Mathematics" type="text"/>
-        </div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-        <div>
-          <label class="block font-label text-sm font-bold uppercase mb-2">Hobbies &amp; Interests</label>
-          <textarea class="w-full brutal-input py-3 px-2 font-body text-base resize-none" placeholder="Robotics, Painting..." rows="2"></textarea>
-        </div>
-        <div>
-          <label class="block font-label text-sm font-bold uppercase mb-2">Favorite Sport / Game</label>
-          <input class="w-full brutal-input py-3 px-2 font-body text-base" placeholder="Basketball, Chess..." type="text"/>
-        </div>
-      </div>
-      <div class="mt-6">
-        <label class="block font-label text-sm font-bold uppercase mb-2">Subject Workbooks (optional)</label>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div class="aspect-square border-2 border-dashed border-primary bg-surface-container hover:bg-tertiary hover:border-tertiary hover:text-white transition-colors cursor-pointer flex flex-col items-center justify-center p-3 text-center">
-            <span class="material-symbols-outlined text-3xl mb-1">add_photo_alternate</span><span class="font-label text-xs font-bold uppercase">Math</span>
-          </div>
-          <div class="aspect-square border-2 border-dashed border-primary bg-surface-container hover:bg-secondary hover:border-secondary hover:text-white transition-colors cursor-pointer flex flex-col items-center justify-center p-3 text-center">
-            <span class="material-symbols-outlined text-3xl mb-1">add_photo_alternate</span><span class="font-label text-xs font-bold uppercase">Science</span>
-          </div>
-          <div class="aspect-square border-2 border-dashed border-outline-variant bg-surface-container-low flex flex-col items-center justify-center p-3 text-center text-outline-variant">
-            <span class="material-symbols-outlined text-2xl mb-1">image</span><span class="font-label text-xs font-bold uppercase">Optional</span>
-          </div>
-          <div class="aspect-square border-2 border-dashed border-outline-variant bg-surface-container-low flex flex-col items-center justify-center p-3 text-center text-outline-variant">
-            <span class="material-symbols-outlined text-2xl mb-1">image</span><span class="font-label text-xs font-bold uppercase">Optional</span>
-          </div>
-        </div>
-      </div>
-      <div class="flex justify-between pt-8 border-t-4 border-primary mt-8">
-        <button class="bg-transparent text-primary font-label text-lg font-bold uppercase py-4 px-6 brutal-border hover:bg-surface-variant transition-colors flex items-center" onclick="goToStep(1)" type="button"><span class="material-symbols-outlined mr-2">arrow_back</span>Back</button>
-        <button class="bg-primary text-on-primary font-label text-lg font-bold uppercase py-4 px-10 brutal-border brutal-shadow hover:bg-secondary hover:text-white transition-all" onclick="goToStep(3)" type="button">Continue <span class="material-symbols-outlined align-middle ml-2">arrow_forward</span></button>
-      </div>
-    </div>
-  </section>
-
-  <!-- STEP 3: PARENTS -->
-  <section class="w-full wizard-step step-hidden" data-step="3">
-    <div class="bg-surface brutal-border brutal-shadow p-6 md:p-10 mb-8">
-      <h2 class="font-headline text-2xl md:text-3xl font-bold uppercase mb-6 border-b-4 border-primary pb-3">Parents</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div class="bg-surface-variant border-[3px] border-primary p-5 md:p-6 offset-shadow">
-          <h4 class="font-headline text-xl font-bold uppercase mb-4 flex items-center gap-2 text-secondary"><span class="material-symbols-outlined" >face_3</span> Mother</h4>
-          <div class="space-y-4">
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Full Name</label><input class="brutal-input w-full" placeholder="e.g. Sarah Connor" type="text"/></div>
-            <div class="grid grid-cols-2 gap-3">
-              <div><label class="font-label text-xs font-bold uppercase mb-1 block">DOB</label><input class="brutal-input w-full" type="date"/></div>
-              <div><label class="font-label text-xs font-bold uppercase mb-1 block">Qualification</label><input class="brutal-input w-full" placeholder="e.g. PhD" type="text"/></div>
-            </div>
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Contact Number</label>
-              <div class="flex gap-2"><input class="brutal-input flex-grow" placeholder="+91 90000 00000" type="tel"/><button class="bg-primary text-on-primary font-label font-bold uppercase px-3 border-[3px] border-primary hover:bg-tertiary transition-colors text-sm" type="button">Send OTP</button></div>
-            </div>
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Email</label><input class="brutal-input w-full" placeholder="sarah@example.com" type="email"/></div>
-            <div class="mt-4 pt-4 border-t-2 border-primary border-dashed">
-              <h5 class="font-headline text-sm font-bold uppercase mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-primary-fixed-dim">stars</span> Proud Moments</h5>
-              <div class="border-[3px] border-primary border-dashed p-4 text-center hover:bg-surface transition-colors cursor-pointer">
-                <span class="material-symbols-outlined text-2xl mb-1">cloud_upload</span>
-                <p class="font-label text-xs font-bold uppercase">Upload Media</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="bg-surface-variant border-[3px] border-primary p-5 md:p-6 offset-shadow">
-          <h4 class="font-headline text-xl font-bold uppercase mb-4 flex items-center gap-2 text-secondary"><span class="material-symbols-outlined">face</span> Father</h4>
-          <div class="space-y-4">
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Full Name</label><input class="brutal-input w-full" placeholder="e.g. Kyle Reese" type="text"/></div>
-            <div class="grid grid-cols-2 gap-3">
-              <div><label class="font-label text-xs font-bold uppercase mb-1 block">DOB</label><input class="brutal-input w-full" type="date"/></div>
-              <div><label class="font-label text-xs font-bold uppercase mb-1 block">Qualification</label><input class="brutal-input w-full" placeholder="e.g. BSc" type="text"/></div>
-            </div>
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Contact Number</label>
-              <div class="flex gap-2"><input class="brutal-input flex-grow" placeholder="+91 90000 00000" type="tel"/><button class="bg-primary text-on-primary font-label font-bold uppercase px-3 border-[3px] border-primary hover:bg-tertiary transition-colors text-sm" type="button">Send OTP</button></div>
-            </div>
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Email</label><input class="brutal-input w-full" placeholder="kyle@example.com" type="email"/></div>
-          </div>
-        </div>
-      </div>
-      <div class="flex justify-between pt-8 border-t-4 border-primary mt-8">
-        <button class="bg-transparent text-primary font-label text-lg font-bold uppercase py-4 px-6 brutal-border hover:bg-surface-variant transition-colors flex items-center" onclick="goToStep(2)" type="button"><span class="material-symbols-outlined mr-2">arrow_back</span>Back</button>
-        <button class="bg-primary text-on-primary font-label text-lg font-bold uppercase py-4 px-10 brutal-border brutal-shadow hover:bg-secondary hover:text-white transition-all" onclick="goToStep(4)" type="button">Continue <span class="material-symbols-outlined align-middle ml-2">arrow_forward</span></button>
-      </div>
-    </div>
-  </section>
-
-  <!-- STEP 4: EXTENDED FAMILY -->
-  <section class="w-full wizard-step step-hidden" data-step="4">
-    <div class="bg-surface brutal-border brutal-shadow p-6 md:p-10 mb-8">
-      <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b-4 border-primary pb-3 mb-6">
-        <h2 class="font-headline text-2xl md:text-3xl font-bold uppercase">Extended Family</h2>
-        <button class="bg-primary-container text-on-primary-container border-[3px] border-primary font-label font-bold uppercase px-4 py-2 hover:bg-primary hover:text-on-primary transition-colors flex items-center gap-2 offset-shadow-sm" type="button" onclick="addFamilyMember()">
-          <span class="material-symbols-outlined">person_add</span> Add Member
-        </button>
-      </div>
-      <div class="space-y-6" id="extendedFamilyContainer">
-        <div class="bg-surface border-[3px] border-primary p-5 relative group">
-          <button class="absolute top-4 right-4 text-on-surface-variant hover:text-secondary transition-colors" title="Remove" type="button" onclick="this.closest('div.bg-surface').remove()"><span class="material-symbols-outlined">close</span></button>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Role</label>
-              <select class="brutal-input w-full cursor-pointer bg-transparent appearance-none">
-                <option disabled selected value="">Select Role...</option>
-                <option>Grandfather</option><option selected>Grandmother</option><option>Uncle</option><option>Aunt</option><option>Older sibling</option><option>Other</option>
-              </select>
-            </div>
-            <div class="md:col-span-2"><label class="font-label text-xs font-bold uppercase mb-1 block">Full Name</label><input class="brutal-input w-full" type="text" value="Martha Wayne"/></div>
-            <div><label class="font-label text-xs font-bold uppercase mb-1 block">Contact (Optional)</label><input class="brutal-input w-full" placeholder="Phone Number" type="tel"/></div>
-            <div class="md:col-span-2"><label class="font-label text-xs font-bold uppercase mb-1 block">Involvement Level</label><input class="brutal-input w-full" placeholder="e.g. Weekend Caretaker" type="text"/></div>
-          </div>
-        </div>
-      </div>
-      <div class="flex justify-between pt-8 border-t-4 border-primary mt-8">
-        <button class="bg-transparent text-primary font-label text-lg font-bold uppercase py-4 px-6 brutal-border hover:bg-surface-variant transition-colors flex items-center" onclick="goToStep(3)" type="button"><span class="material-symbols-outlined mr-2">arrow_back</span>Back</button>
-        <button class="bg-primary text-on-primary font-label text-lg font-bold uppercase py-4 px-10 brutal-border brutal-shadow hover:bg-secondary hover:text-white transition-all" onclick="goToStep(5)" type="button">Continue <span class="material-symbols-outlined align-middle ml-2">arrow_forward</span></button>
-      </div>
-    </div>
-  </section>
-
-  <!-- STEP 5: CONSENT -->
-  <section class="w-full wizard-step step-hidden" data-step="5">
-    <div class="bg-surface brutal-border brutal-shadow p-6 md:p-10 mb-8">
-      <h2 class="font-headline text-2xl md:text-3xl font-bold uppercase mb-6 border-b-4 border-primary pb-3">One last thing</h2>
-      <div class="bg-surface-container-high border-[3px] border-primary p-6">
-        <div class="flex items-start gap-4">
-          <input class="w-6 h-6 border-[3px] border-primary bg-surface checked:bg-primary appearance-none cursor-pointer relative after:content-[''] after:absolute after:hidden checked:after:block after:left-[6px] after:top-[2px] after:w-2 after:h-4 after:border-r-2 after:border-b-2 after:border-on-primary after:rotate-45" id="consent" type="checkbox"/>
-          <div>
-            <label class="font-headline text-lg font-bold uppercase cursor-pointer block mb-2" for="consent">I acknowledge and consent</label>
-            <p class="font-body text-sm text-on-surface-variant leading-relaxed max-w-2xl">By checking this box, I confirm I am the parent or legal guardian of the child registered above, and I consent to Tut-P processing this data (India's DPDP Act, 2023). I can withdraw consent anytime from settings.</p>
-          </div>
-        </div>
-      </div>
-      <div class="flex justify-between pt-8">
-        <button class="bg-surface text-primary border-[3px] border-primary font-headline text-lg font-bold uppercase px-6 py-4 hover:bg-surface-variant transition-colors" onclick="goToStep(4)" type="button">Back</button>
-        <button class="bg-primary text-on-primary border-[3px] border-primary font-headline text-lg font-bold uppercase px-8 py-4 hover:bg-tertiary transition-colors offset-shadow" type="button" onclick="submitRegistration()">Complete Registration</button>
-      </div>
-    </div>
-  </section>
-
+<main class="flex-grow w-full max-w-3xl mx-auto px-margin-mobile md:px-0 py-lg pb-32">
+<div class="w-full max-w-md mx-auto mb-lg">
+<div class="h-3 w-full bg-surface-variant rounded-full overflow-hidden">
+<div class="h-full bg-secondary rounded-full transition-all duration-500" id="progressFill" style="width:12.5%;"></div>
 </div>
+</div>
+
+<!-- STEP 1: LOCATION -->
+<section class="wizard-step step-active" data-step="1">
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Where are you based?</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">This helps us tailor the syllabus and school-board options.</p>
+</div>
+<div class="space-y-md">
+<div class="glass-card rounded-xl p-md">
+<label class="block font-label-md text-label-md text-on-surface mb-xs">Country</label>
+<select class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="country" onchange="onCountryChange()"></select>
+</div>
+<div class="glass-card rounded-xl p-md space-y-md">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div><label class="block font-label-md text-label-md text-on-surface mb-xs">State</label><select class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="state" onchange="onStateChange()"></select></div>
+<div><label class="block font-label-md text-label-md text-on-surface mb-xs">District</label><select class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="district"></select></div>
+<div><label class="block font-label-md text-label-md text-on-surface mb-xs">Mandal / Tehsil</label><input class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" placeholder="Enter mandal name" type="text"/></div>
+<div><label class="block font-label-md text-label-md text-on-surface mb-xs">Village / Area</label><input class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" placeholder="Enter area name" type="text"/></div>
+</div>
+</div>
+</div>
+<div class="flex justify-end mt-lg"><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(2)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 2: PARENTS -->
+<section class="wizard-step step-hidden" data-step="2">
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Parents</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Both parents get their own login once verified.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="glass-card rounded-xl p-md space-y-sm">
+<div class="flex items-center gap-sm mb-xs"><span class="material-symbols-outlined text-primary filled">face_3</span><h3 class="font-label-md text-label-md text-primary">Mother</h3></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name <span class="text-error">*</span></label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Jane Doe" type="text"/></div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">DOB</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Qualification</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select</option><option>High School</option><option>Bachelor's</option><option>Master's</option><option>Doctorate</option><option>Other</option></select></div>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone</label><div class="flex gap-2"><input class="flex-1 h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/><button class="bg-primary text-on-primary px-3 rounded-lg text-sm font-label-md" type="button" onclick="alert('OTP would be sent to this number in the live app.')">Send OTP</button></div></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Email</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="jane@example.com" type="email"/></div>
+</div>
+<div class="glass-card rounded-xl p-md space-y-sm">
+<div class="flex items-center gap-sm mb-xs"><span class="material-symbols-outlined text-primary filled">face</span><h3 class="font-label-md text-label-md text-primary">Father</h3></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="John Doe" type="text"/></div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">DOB</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Qualification</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select</option><option>High School</option><option>Bachelor's</option><option>Master's</option><option>Doctorate</option><option>Other</option></select></div>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone</label><div class="flex gap-2"><input class="flex-1 h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/><button class="bg-primary text-on-primary px-3 rounded-lg text-sm font-label-md" type="button" onclick="alert('OTP would be sent to this number in the live app.')">Send OTP</button></div></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Email</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="john@example.com" type="email"/></div>
+</div>
+</div>
+<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(1)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(3)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 3: PHONE VERIFICATION -->
+<section class="wizard-step step-hidden" data-step="3">
+<div class="glass-card rounded-xl p-md md:p-lg flex flex-col gap-lg max-w-lg mx-auto">
+<div class="text-center">
+<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-container mb-sm"><span class="material-symbols-outlined text-4xl filled">smartphone</span></div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Verify Your Number</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Enter the 6-digit code sent to your mother's phone.</p>
+</div>
+<div class="flex gap-2 justify-center">
+<input autofocus="" class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+</div>
+<p class="text-center font-caption text-caption text-on-surface-variant">Resend code in <span class="font-bold">00:55</span></p>
+</div>
+<div class="flex justify-between mt-lg max-w-lg mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(2)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(4)">Verify &amp; Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 4: CHILD DETAILS -->
+<section class="wizard-step step-hidden" data-step="4">
+<div class="mb-lg text-center">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Tell us about your child</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">This helps personalize their learning journey.</p>
+</div>
+<div class="glass-card rounded-xl p-md md:p-lg space-y-md max-w-2xl mx-auto">
+<div class="flex flex-col items-center gap-xs mb-sm">
+<div class="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant cursor-pointer hover:border-primary transition-colors"><span class="material-symbols-outlined text-3xl text-outline-variant">person_add</span></div>
+<span class="font-caption text-caption text-on-surface-variant">Add Child Photo (optional)</span>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Child's Name <span class="text-error">*</span></label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter full name" required="" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Date of Birth</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Class / Grade</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select grade</option><option>Class 1</option><option>Class 5</option><option>Class 8</option><option>Class 10</option><option>Class 12</option></select></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Curriculum</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select curriculum</option><option>State Board</option><option>CBSE</option><option>ICSE</option><option>Cambridge</option><option>Other</option></select></div>
+</div>
+</div>
+<div class="flex justify-between mt-lg max-w-2xl mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(3)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(5)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 5: CHILD PREFERENCES -->
+<section class="wizard-step step-hidden" data-step="5">
+<div class="mb-lg text-center">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">What does your child enjoy?</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Helps us personalize activities and examples.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="glass-card rounded-xl p-md space-y-sm"><label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">menu_book</span>Favourite Subject</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select subject</option><option>Mathematics</option><option>Science</option><option>Language Arts</option><option>Art &amp; Design</option><option>Other</option></select></div>
+<div class="glass-card rounded-xl p-md space-y-sm"><label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">sports_soccer</span>Favourite Game</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select game</option><option>Cricket</option><option>Football</option><option>Badminton</option><option>Chess</option><option>Other</option></select></div>
+<div class="glass-card rounded-xl p-md md:col-span-2 space-y-sm">
+<label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">palette</span>Hobbies &amp; Interests</label>
+<div class="flex flex-wrap gap-2" id="hobbyChips">
+<button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Reading</button>
+<button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Drawing</button>
+<button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Music</button>
+<button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Coding</button>
+<button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Other</button>
+</div>
+<div class="relative mt-sm"><input class="w-full h-11 pl-3 pr-12 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Robotics, Gardening..." type="text"/><button class="absolute right-2 top-1/2 -translate-y-1/2 text-primary p-1 rounded-full hover:bg-surface-variant" title="Speak instead" type="button"><span class="material-symbols-outlined filled">mic</span></button></div>
+<p class="font-caption text-caption text-on-surface-variant flex items-center gap-xs"><span class="material-symbols-outlined text-sm">info</span>Tap the mic to speak instead of typing.</p>
+</div>
+</div>
+<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(4)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(6)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 6: SUBJECT MATERIALS -->
+<section class="wizard-step step-hidden" data-step="6">
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Subject Workbooks</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Optional — upload a photo of each notebook to help us personalize content.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md" id="subjectUploadGrid">
+<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Language">
+<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined filled">menu_book</span></div><h3 class="font-label-md text-label-md text-on-surface">Language</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
+<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Maths">
+<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined filled">calculate</span></div><h3 class="font-label-md text-label-md text-on-surface">Maths</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
+<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="EVS">
+<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><span class="material-symbols-outlined filled">eco</span></div><h3 class="font-label-md text-label-md text-on-surface">EVS</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
+<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Social">
+<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><span class="material-symbols-outlined filled">public</span></div><h3 class="font-label-md text-label-md text-on-surface">Social</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
+<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
+</div>
+<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Computers">
+<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined filled">computer</span></div><h3 class="font-label-md text-label-md text-on-surface">Computers</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
+<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
+</div>
+</div>
+<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(5)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(7)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 7: EXTENDED FAMILY -->
+<section class="wizard-step step-hidden" data-step="7">
+<div class="mb-lg flex items-center justify-between flex-wrap gap-sm">
+<div><h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Extended Family</h2><p class="font-body-md text-body-md text-on-surface-variant">Grandparents, an uncle, an older sibling — anyone who helps.</p></div>
+<button class="bg-primary-container text-on-primary-container font-label-md text-label-md px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity" type="button" onclick="addFamilyMember()"><span class="material-symbols-outlined">person_add</span>Add Member</button>
+</div>
+<div class="space-y-md" id="extendedFamilyContainer">
+<div class="glass-card rounded-xl p-md flex flex-col md:flex-row gap-md items-start relative">
+<button class="absolute top-3 right-3 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.glass-card').remove()" type="button"><span class="material-symbols-outlined">close</span></button>
+<div class="w-full md:w-40"><label class="font-label-md text-label-md text-on-surface mb-xs block">Role</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option>Grandfather</option><option selected>Grandmother</option><option>Uncle</option><option>Aunt</option><option>Older sibling</option><option>Other</option></select></div>
+<div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" value="Sunita Sharma" type="text"/></div>
+<div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone (optional)</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/></div>
+</div>
+</div>
+<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(6)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(8)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</section>
+
+<!-- STEP 8: REVIEW & COMPLETE -->
+<section class="wizard-step step-hidden" data-step="8">
+<div class="text-center mb-lg">
+<h2 class="font-headline-md text-headline-md text-primary mb-xs">Review and Complete</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Almost there! Please review your family details.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div class="glass-card rounded-xl p-md">
+<h3 class="font-label-md text-label-md text-primary flex items-center gap-sm mb-sm"><span class="material-symbols-outlined">family_restroom</span>Parent Details</h3>
+<div class="space-y-2 text-sm">
+<div><p class="font-caption text-caption text-on-surface-variant uppercase">Mother</p><p class="font-body-md text-on-surface" id="reviewMotherName">—</p></div>
+<div class="h-px bg-outline-variant/30"></div>
+<div><p class="font-caption text-caption text-on-surface-variant uppercase">Father</p><p class="font-body-md text-on-surface" id="reviewFatherName">—</p></div>
+</div>
+</div>
+<div class="glass-card rounded-xl p-md">
+<h3 class="font-label-md text-label-md text-primary flex items-center gap-sm mb-sm"><span class="material-symbols-outlined">school</span>Child Details</h3>
+<div class="flex items-center gap-sm bg-surface-bright p-2 rounded-lg border border-outline-variant/20">
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold" id="reviewChildInitial">?</div>
+<div><p class="font-body-md text-on-surface" id="reviewChildName">—</p><p class="font-caption text-caption text-on-surface-variant" id="reviewChildClass">—</p></div>
+</div>
+</div>
+</div>
+<div class="mt-md glass-card rounded-xl p-md flex items-start gap-sm">
+<input type="checkbox" id="consent" class="w-5 h-5 mt-1 accent-primary flex-shrink-0"/>
+<div><label for="consent" class="font-label-md text-label-md text-on-surface cursor-pointer block mb-1">Parent/guardian consent</label>
+<p class="font-body-md text-sm text-on-surface-variant">I confirm I am the parent or legal guardian of the child registered above, and I consent to Tut-P processing this data in line with India's DPDP Act, 2023. I can withdraw consent anytime from settings.</p></div>
+</div>
+<div class="flex justify-between mt-lg">
+<button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(7)"><span class="material-symbols-outlined">arrow_back</span>Back</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="submitRegistration()"><span class="material-symbols-outlined filled">task_alt</span>Complete Registration</button>
+</div>
+</section>
+
 </main>
 
 <script>
@@ -296,49 +303,61 @@
     ((statesByCountry[c]||{})[s]||[]).forEach(d=>{ const o=document.createElement('option'); o.textContent=d; distSel.appendChild(o); });
   }
   (function initCountry(){
-    const countrySel = document.getElementById('country');
-    countrySel.innerHTML = '<option value="IN">India</option><option value="OTHER">Other</option>';
+    document.getElementById('country').innerHTML = '<option value="IN">India</option><option value="OTHER">Other</option>';
     onCountryChange();
   })();
+
+  document.querySelectorAll('.hobby-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      btn.classList.toggle('border-primary'); btn.classList.toggle('bg-primary-container'); btn.classList.toggle('text-on-primary-container');
+    });
+  });
+  document.querySelectorAll('.subject-card .upload-dashed').forEach(tile=>{
+    tile.addEventListener('click', ()=>{
+      tile.innerHTML = '<span class="material-symbols-outlined text-secondary">check_circle</span><span class="font-caption text-caption text-secondary">Added</span>';
+    });
+  });
 
   const roles = ["Grandfather","Grandmother","Uncle","Aunt","Older sibling","Other"];
   function addFamilyMember(){
     const wrap = document.getElementById('extendedFamilyContainer');
     const div = document.createElement('div');
-    div.className = 'bg-surface border-[3px] border-primary p-5 relative group';
+    div.className = 'glass-card rounded-xl p-md flex flex-col md:flex-row gap-md items-start relative';
     div.innerHTML = `
-      <button class="absolute top-4 right-4 text-on-surface-variant hover:text-secondary transition-colors" title="Remove" type="button" onclick="this.closest('div.bg-surface').remove()"><span class="material-symbols-outlined">close</span></button>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div><label class="font-label text-xs font-bold uppercase mb-1 block">Role</label>
-          <select class="brutal-input w-full cursor-pointer bg-transparent appearance-none">
-            <option disabled selected value="">Select Role...</option>
-            ${roles.map(r=>`<option>${r}</option>`).join('')}
-          </select>
-        </div>
-        <div class="md:col-span-2"><label class="font-label text-xs font-bold uppercase mb-1 block">Full Name</label><input class="brutal-input w-full" type="text" placeholder="Full name"/></div>
-        <div><label class="font-label text-xs font-bold uppercase mb-1 block">Contact (Optional)</label><input class="brutal-input w-full" placeholder="Phone Number" type="tel"/></div>
-        <div class="md:col-span-2"><label class="font-label text-xs font-bold uppercase mb-1 block">Involvement Level</label><input class="brutal-input w-full" placeholder="e.g. Weekend Caretaker" type="text"/></div>
-      </div>`;
+      <button class="absolute top-3 right-3 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.glass-card').remove()" type="button"><span class="material-symbols-outlined">close</span></button>
+      <div class="w-full md:w-40"><label class="font-label-md text-label-md text-on-surface mb-xs block">Role</label>
+        <select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md">${roles.map(r=>`<option>${r}</option>`).join('')}</select>
+      </div>
+      <div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Full name" type="text"/></div>
+      <div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone (optional)</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/></div>`;
     wrap.appendChild(div);
   }
 
-  const totalSteps = 5;
+  const totalSteps = 8;
   function goToStep(n){
+    if(n === 8){
+      const motherName = document.querySelector('[data-step="2"] input[placeholder="Jane Doe"]').value || '—';
+      const fatherName = document.querySelector('[data-step="2"] input[placeholder="John Doe"]').value || '—';
+      const childName = document.querySelector('[data-step="4"] input[placeholder="Enter full name"]').value || '—';
+      const childClass = document.querySelector('[data-step="4"] select').value || '—';
+      document.getElementById('reviewMotherName').textContent = motherName;
+      document.getElementById('reviewFatherName').textContent = fatherName;
+      document.getElementById('reviewChildName').textContent = childName;
+      document.getElementById('reviewChildClass').textContent = childClass;
+      document.getElementById('reviewChildInitial').textContent = (childName && childName !== '—') ? childName[0].toUpperCase() : '?';
+    }
     document.querySelectorAll('.wizard-step').forEach(s=>{
       s.classList.toggle('step-active', +s.dataset.step === n);
       s.classList.toggle('step-hidden', +s.dataset.step !== n);
     });
-    document.getElementById('progress-fill').style.width = (n/totalSteps*100) + '%';
-    document.querySelectorAll('#step-labels span').forEach(el=>{
-      el.classList.toggle('text-primary', +el.dataset.step === n);
-      el.classList.toggle('text-on-surface-variant', +el.dataset.step !== n);
-    });
+    document.getElementById('progressFill').style.width = (n/totalSteps*100) + '%';
+    document.getElementById('stepIndicator').textContent = `Step ${n} of ${totalSteps}`;
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
   function submitRegistration(){
     if(!document.getElementById('consent').checked){
-      alert("Please check the consent box before continuing — this protects your child's data.");
+      alert("Please confirm parent/guardian consent before continuing — this protects your child's data.");
       return;
     }
     alert('This is a prototype — registration is not yet connected to a live backend. Redirecting to a sample dashboard.');
