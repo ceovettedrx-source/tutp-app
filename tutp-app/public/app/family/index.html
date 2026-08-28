@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tut-P - Manage Family</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { primary:"#00478d", secondary:"#006d35", background:"#fbf9f8", "on-surface":"#1b1c1c", "on-surface-variant":"#424752", "outline-variant":"#c2c6d4", "surface-container-lowest":"#ffffff", error:"#ba1a1a" },
+                    fontFamily: { body:["Public Sans"], headline:["Public Sans"] }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,71,141,0.06); }
+        .soft-input { border: 1px solid #c2c6d4; }
+        .soft-input:focus { outline:none; border-color: #00478d; box-shadow: 0 0 0 2px #d6e3ff; }
+        .banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .banner a{color:#fff;text-decoration:underline;}
+</style>
+</head>
+<body class="bg-background text-on-surface font-body min-h-screen">
+<div class="banner">LIVE — new members are saved to our database · <a href="/">Back to Tut-P site</a></div>
+<header class="flex items-center justify-between px-6 py-4 bg-white shadow-sm">
+<a href="/app/dashboard/" class="flex items-center gap-2 text-primary font-bold"><span class="material-symbols-outlined">arrow_back</span>Back to Dashboard</a>
+<h1 class="font-headline text-xl font-bold text-primary">Manage Family</h1>
+<div></div>
+</header>
+<main class="max-w-2xl mx-auto px-6 py-10">
+<div class="glass-card rounded-xl p-6 mb-6">
+<h2 class="font-headline text-2xl font-semibold mb-2">Add a family member</h2>
+<p class="text-on-surface-variant mb-4">Whether it's been a week or six months since you registered — add anyone new who helps with your child's learning right here.</p>
+<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-on-surface-variant">
+📌 To help us match this to your family later, please enter the phone number you used when you first registered.
+</div>
+<div class="space-y-4">
+<div><label class="block text-sm font-semibold mb-1">Your family's registered phone number <span class="text-error">*</span></label><input id="familyContact" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="+91 90000 00000" type="tel"/></div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label class="block text-sm font-semibold mb-1">Relationship</label>
+<select id="memberRole" class="w-full h-11 px-3 rounded-lg soft-input">
+<option>Grandfather</option><option>Grandmother</option><option>Uncle</option><option>Aunt</option><option>Older sibling</option><option>Family friend</option><option>Other</option>
+</select>
+</div>
+<div><label class="block text-sm font-semibold mb-1">Full Name <span class="text-error">*</span></label><input id="memberName" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="Full name" type="text"/></div>
+</div>
+<div><label class="block text-sm font-semibold mb-1">Phone (optional)</label><input id="memberPhone" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="+91 90000 00000" type="tel"/></div>
+</div>
+<button id="addBtn" class="w-full mt-5 bg-primary text-white h-12 rounded-lg font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" onclick="addMember()">
+<span class="material-symbols-outlined">person_add</span>Add Family Member
+</button>
+<p id="status" class="text-center text-sm mt-3"></p>
+</div>
+
+<div class="glass-card rounded-xl p-6">
+<h3 class="font-headline text-lg font-semibold mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-primary">info</span>Why isn't this automatic?</h3>
+<p class="text-sm text-on-surface-variant leading-relaxed">Right now Tut-P doesn't have real login (SMS OTP verification isn't connected yet — see our registration page). Once that's live, this page will show your actual family list and let you add members with one tap, fully linked to your account. For now, your registered phone number helps our team match new members to the right family manually.</p>
+</div>
+</main>
+<script>
+  async function addMember(){
+    const statusEl = document.getElementById('status');
+    const btn = document.getElementById('addBtn');
+    const familyContact = document.getElementById('familyContact').value.trim();
+    const name = document.getElementById('memberName').value.trim();
+    const role = document.getElementById('memberRole').value;
+    const phone = document.getElementById('memberPhone').value.trim();
+
+    if(!familyContact || !name){
+      statusEl.textContent = "Please enter your registered phone number and the new member's name.";
+      statusEl.className = 'text-center text-sm mt-3 text-error';
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/api/family/add-member', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ familyContact, member: { name, role, phone } })
+      });
+      const data = await res.json();
+      if(!res.ok || !data.ok) throw new Error(data.error || 'Could not add member');
+      statusEl.textContent = name + ' has been added! Our team will link them to your family shortly.';
+      statusEl.className = 'text-center text-sm mt-3 text-secondary';
+      document.getElementById('memberName').value = '';
+      document.getElementById('memberPhone').value = '';
+    } catch(err){
+      statusEl.textContent = 'Something went wrong — please try again.';
+      statusEl.className = 'text-center text-sm mt-3 text-error';
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<span class="material-symbols-outlined">person_add</span>Add Family Member';
+    }
+  }
+</script>
+</body></html>

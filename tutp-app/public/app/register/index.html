@@ -57,25 +57,28 @@
         .step-hidden { display: none; }
         .step-active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .proto-banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
+        .mic-listening { background:#ba1a1a !important; color:#fff !important; animation:pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
+        .upload-thumb { width:100%; height:100%; object-fit:cover; border-radius:10px; }
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
-<div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
+<div class="proto-banner">LIVE — form data is saved to our database · SMS OTP verification is not yet connected (see Step 3) · <a href="/">Back to Tut-P site</a></div>
 
 <header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full sticky top-0 z-40 bg-surface-container-low shadow-sm">
 <div class="flex items-center gap-sm">
 <span class="material-symbols-outlined text-primary filled">school</span>
 <h1 class="font-headline-md text-headline-md text-primary font-bold">Tut-P</h1>
 </div>
-<div class="font-label-md text-label-md text-on-surface-variant" id="stepIndicator">Step 1 of 8</div>
+<div class="font-label-md text-label-md text-on-surface-variant" id="stepIndicator">Step 1 of 7</div>
 </header>
 
 <main class="flex-grow w-full max-w-3xl mx-auto px-margin-mobile md:px-0 py-lg pb-32">
 <div class="w-full max-w-md mx-auto mb-lg">
 <div class="h-3 w-full bg-surface-variant rounded-full overflow-hidden">
-<div class="h-full bg-secondary rounded-full transition-all duration-500" id="progressFill" style="width:12.5%;"></div>
+<div class="h-full bg-secondary rounded-full transition-all duration-500" id="progressFill" style="width:14.3%;"></div>
 </div>
 </div>
 
@@ -94,42 +97,52 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
 <div><label class="block font-label-md text-label-md text-on-surface mb-xs">State</label><select class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="state" onchange="onStateChange()"></select></div>
 <div><label class="block font-label-md text-label-md text-on-surface mb-xs">District</label><select class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="district"></select></div>
-<div><label class="block font-label-md text-label-md text-on-surface mb-xs">Mandal / Tehsil</label><input class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" placeholder="Enter mandal name" type="text"/></div>
-<div><label class="block font-label-md text-label-md text-on-surface mb-xs">Village / Area</label><input class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" placeholder="Enter area name" type="text"/></div>
+<div><label class="block font-label-md text-label-md text-on-surface mb-xs">Mandal / Tehsil</label><input class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="mandal" placeholder="Enter mandal name" type="text"/></div>
+<div><label class="block font-label-md text-label-md text-on-surface mb-xs">Village / Area</label><input class="w-full px-3 py-3 rounded-lg border-2 border-outline-variant focus:border-primary bg-surface-container-lowest text-on-surface font-body-md" id="area" placeholder="Enter area name" type="text"/></div>
 </div>
 </div>
 </div>
 <div class="flex justify-end mt-lg"><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(2)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
-<!-- STEP 2: PARENTS -->
+<!-- STEP 2: PARENTS + EXTENDED FAMILY -->
 <section class="wizard-step step-hidden" data-step="2">
 <div class="mb-lg">
-<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Parents</h2>
-<p class="font-body-md text-body-md text-on-surface-variant">Both parents get their own login once verified.</p>
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Parents &amp; Family</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Add both parents, and anyone else who helps — right here.</p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
 <div class="glass-card rounded-xl p-md space-y-sm">
 <div class="flex items-center gap-sm mb-xs"><span class="material-symbols-outlined text-primary filled">face_3</span><h3 class="font-label-md text-label-md text-primary">Mother</h3></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name <span class="text-error">*</span></label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Jane Doe" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name <span class="text-error">*</span></label><input id="motherName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Jane Doe" type="text"/></div>
 <div class="grid grid-cols-2 gap-sm">
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">DOB</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Qualification</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select</option><option>High School</option><option>Bachelor's</option><option>Master's</option><option>Doctorate</option><option>Other</option></select></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">DOB</label><input id="motherDob" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Qualification</label><select id="motherEdu" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select</option><option>High School</option><option>Bachelor's</option><option>Master's</option><option>Doctorate</option><option>Other</option></select></div>
 </div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone</label><div class="flex gap-2"><input class="flex-1 h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/><button class="bg-primary text-on-primary px-3 rounded-lg text-sm font-label-md" type="button" onclick="alert('OTP would be sent to this number in the live app.')">Send OTP</button></div></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Email</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="jane@example.com" type="email"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone</label><input id="motherPhone" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Email</label><input id="motherEmail" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="jane@example.com" type="email"/></div>
 </div>
 <div class="glass-card rounded-xl p-md space-y-sm">
 <div class="flex items-center gap-sm mb-xs"><span class="material-symbols-outlined text-primary filled">face</span><h3 class="font-label-md text-label-md text-primary">Father</h3></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="John Doe" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input id="fatherName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="John Doe" type="text"/></div>
 <div class="grid grid-cols-2 gap-sm">
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">DOB</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Qualification</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select</option><option>High School</option><option>Bachelor's</option><option>Master's</option><option>Doctorate</option><option>Other</option></select></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">DOB</label><input id="fatherDob" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Qualification</label><select id="fatherEdu" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select</option><option>High School</option><option>Bachelor's</option><option>Master's</option><option>Doctorate</option><option>Other</option></select></div>
 </div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone</label><div class="flex gap-2"><input class="flex-1 h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/><button class="bg-primary text-on-primary px-3 rounded-lg text-sm font-label-md" type="button" onclick="alert('OTP would be sent to this number in the live app.')">Send OTP</button></div></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Email</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="john@example.com" type="email"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone</label><input id="fatherPhone" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Email</label><input id="fatherEmail" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="john@example.com" type="email"/></div>
 </div>
 </div>
+
+<div class="mt-md glass-card rounded-xl p-md">
+<div class="flex items-center justify-between flex-wrap gap-sm mb-sm">
+<h3 class="font-label-md text-label-md text-primary flex items-center gap-2"><span class="material-symbols-outlined">group</span>Other Family Members</h3>
+<button class="bg-primary-container text-on-primary-container font-label-md text-sm px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity" type="button" onclick="addFamilyMember()"><span class="material-symbols-outlined text-[18px]">person_add</span>Add Family Member</button>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mb-sm">Grandparents, an uncle, an older sibling — anyone who helps with homework. You can also add more later from your dashboard.</p>
+<div class="space-y-sm" id="extendedFamilyContainer"></div>
+</div>
+
 <div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(1)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(3)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
@@ -142,16 +155,18 @@
 <p class="font-body-md text-body-md text-on-surface-variant">Enter the 6-digit code sent to your mother's phone.</p>
 </div>
 <div class="flex gap-2 justify-center">
-<input autofocus="" class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 </div>
-<p class="text-center font-caption text-caption text-on-surface-variant">Resend code in <span class="font-bold">00:55</span></p>
+<div class="bg-secondary-container/20 border border-secondary/30 rounded-lg p-3 text-center">
+<p class="font-caption text-caption text-on-surface-variant">📱 SMS delivery isn't connected yet — this step won't block your registration for now. Real OTP verification is coming soon.</p>
 </div>
-<div class="flex justify-between mt-lg max-w-lg mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(2)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(4)">Verify &amp; Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+<div class="flex justify-between mt-lg max-w-lg mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(2)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(4)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
 <!-- STEP 4: CHILD DETAILS -->
@@ -162,14 +177,17 @@
 </div>
 <div class="glass-card rounded-xl p-md md:p-lg space-y-md max-w-2xl mx-auto">
 <div class="flex flex-col items-center gap-xs mb-sm">
-<div class="w-24 h-24 rounded-full bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant cursor-pointer hover:border-primary transition-colors"><span class="material-symbols-outlined text-3xl text-outline-variant">person_add</span></div>
-<span class="font-caption text-caption text-on-surface-variant">Add Child Photo (optional)</span>
+<div class="w-24 h-24 rounded-full bg-surface-container border-2 border-dashed border-outline-variant cursor-pointer hover:border-primary transition-colors relative overflow-hidden" id="childPhotoTile" onclick="document.getElementById('childPhotoInput').click()">
+<div class="w-full h-full flex items-center justify-center" id="childPhotoPlaceholder"><span class="material-symbols-outlined text-3xl text-outline-variant">person_add</span></div>
 </div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Child's Name <span class="text-error">*</span></label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter full name" required="" type="text"/></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Date of Birth</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
+<input type="file" id="childPhotoInput" accept="image/*" class="hidden" onchange="handlePhotoUpload(event, 'child')"/>
+<span class="font-caption text-caption text-on-surface-variant" id="childPhotoStatus">Add Child Photo (optional)</span>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Child's Name <span class="text-error">*</span></label><input id="childName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter full name" required="" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Date of Birth</label><input id="childDob" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" type="date"/></div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Class / Grade</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select grade</option><option>Class 1</option><option>Class 5</option><option>Class 8</option><option>Class 10</option><option>Class 12</option></select></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Curriculum</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select curriculum</option><option>State Board</option><option>CBSE</option><option>ICSE</option><option>Cambridge</option><option>Other</option></select></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Class / Grade</label><select id="childClass" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select grade</option><option>Class 1</option><option>Class 5</option><option>Class 8</option><option>Class 10</option><option>Class 12</option></select></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Curriculum</label><select id="childCurriculum" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select curriculum</option><option>State Board</option><option>CBSE</option><option>ICSE</option><option>Cambridge</option><option>Other</option></select></div>
 </div>
 </div>
 <div class="flex justify-between mt-lg max-w-2xl mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(3)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(5)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
@@ -182,8 +200,8 @@
 <p class="font-body-md text-body-md text-on-surface-variant">Helps us personalize activities and examples.</p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
-<div class="glass-card rounded-xl p-md space-y-sm"><label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">menu_book</span>Favourite Subject</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select subject</option><option>Mathematics</option><option>Science</option><option>Language Arts</option><option>Art &amp; Design</option><option>Other</option></select></div>
-<div class="glass-card rounded-xl p-md space-y-sm"><label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">sports_soccer</span>Favourite Game</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select game</option><option>Cricket</option><option>Football</option><option>Badminton</option><option>Chess</option><option>Other</option></select></div>
+<div class="glass-card rounded-xl p-md space-y-sm"><label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">menu_book</span>Favourite Subject</label><select id="favSubject" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select subject</option><option>Mathematics</option><option>Science</option><option>Language Arts</option><option>Art &amp; Design</option><option>Other</option></select></div>
+<div class="glass-card rounded-xl p-md space-y-sm"><label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">sports_soccer</span>Favourite Game</label><select id="favGame" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select game</option><option>Cricket</option><option>Football</option><option>Badminton</option><option>Chess</option><option>Other</option></select></div>
 <div class="glass-card rounded-xl p-md md:col-span-2 space-y-sm">
 <label class="font-label-md text-label-md text-primary flex items-center gap-xs"><span class="material-symbols-outlined text-secondary filled">palette</span>Hobbies &amp; Interests</label>
 <div class="flex flex-wrap gap-2" id="hobbyChips">
@@ -193,8 +211,8 @@
 <button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Coding</button>
 <button type="button" class="hobby-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Other</button>
 </div>
-<div class="relative mt-sm"><input class="w-full h-11 pl-3 pr-12 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Robotics, Gardening..." type="text"/><button class="absolute right-2 top-1/2 -translate-y-1/2 text-primary p-1 rounded-full hover:bg-surface-variant" title="Speak instead" type="button"><span class="material-symbols-outlined filled">mic</span></button></div>
-<p class="font-caption text-caption text-on-surface-variant flex items-center gap-xs"><span class="material-symbols-outlined text-sm">info</span>Tap the mic to speak instead of typing.</p>
+<div class="relative mt-sm"><input id="hobbyOther" class="w-full h-11 pl-3 pr-12 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Robotics, Gardening..." type="text"/><button class="absolute right-2 top-1/2 -translate-y-1/2 text-primary p-1 rounded-full hover:bg-surface-variant" id="micBtn" title="Speak instead" type="button" onclick="toggleMic()"><span class="material-symbols-outlined filled">mic</span></button></div>
+<p class="font-caption text-caption text-on-surface-variant flex items-center gap-xs" id="micHint"><span class="material-symbols-outlined text-sm">info</span>Tap the mic to speak instead of typing.</p>
 </div>
 </div>
 <div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(4)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(6)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
@@ -207,49 +225,12 @@
 <p class="font-body-md text-body-md text-on-surface-variant">Optional — upload a photo of each notebook to help us personalize content.</p>
 </div>
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md" id="subjectUploadGrid">
-<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Language">
-<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined filled">menu_book</span></div><h3 class="font-label-md text-label-md text-on-surface">Language</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
-<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
-</div>
-<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Maths">
-<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined filled">calculate</span></div><h3 class="font-label-md text-label-md text-on-surface">Maths</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
-<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
-</div>
-<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="EVS">
-<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center"><span class="material-symbols-outlined filled">eco</span></div><h3 class="font-label-md text-label-md text-on-surface">EVS</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
-<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
-</div>
-<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Social">
-<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center"><span class="material-symbols-outlined filled">public</span></div><h3 class="font-label-md text-label-md text-on-surface">Social</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
-<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
-</div>
-<div class="bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm subject-card" data-subject="Computers">
-<div class="flex items-center justify-between"><div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center"><span class="material-symbols-outlined filled">computer</span></div><h3 class="font-label-md text-label-md text-on-surface">Computers</h3></div><span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span></div>
-<div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors"><span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span></div>
-</div>
 </div>
 <div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(5)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(7)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
-<!-- STEP 7: EXTENDED FAMILY -->
+<!-- STEP 7: REVIEW & COMPLETE -->
 <section class="wizard-step step-hidden" data-step="7">
-<div class="mb-lg flex items-center justify-between flex-wrap gap-sm">
-<div><h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Extended Family</h2><p class="font-body-md text-body-md text-on-surface-variant">Grandparents, an uncle, an older sibling — anyone who helps.</p></div>
-<button class="bg-primary-container text-on-primary-container font-label-md text-label-md px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity" type="button" onclick="addFamilyMember()"><span class="material-symbols-outlined">person_add</span>Add Member</button>
-</div>
-<div class="space-y-md" id="extendedFamilyContainer">
-<div class="glass-card rounded-xl p-md flex flex-col md:flex-row gap-md items-start relative">
-<button class="absolute top-3 right-3 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.glass-card').remove()" type="button"><span class="material-symbols-outlined">close</span></button>
-<div class="w-full md:w-40"><label class="font-label-md text-label-md text-on-surface mb-xs block">Role</label><select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option>Grandfather</option><option selected>Grandmother</option><option>Uncle</option><option>Aunt</option><option>Older sibling</option><option>Other</option></select></div>
-<div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" value="Sunita Sharma" type="text"/></div>
-<div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone (optional)</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/></div>
-</div>
-</div>
-<div class="flex justify-between mt-lg"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(6)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(8)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
-</section>
-
-<!-- STEP 8: REVIEW & COMPLETE -->
-<section class="wizard-step step-hidden" data-step="8">
 <div class="text-center mb-lg">
 <h2 class="font-headline-md text-headline-md text-primary mb-xs">Review and Complete</h2>
 <p class="font-body-md text-body-md text-on-surface-variant">Almost there! Please review your family details.</p>
@@ -261,12 +242,14 @@
 <div><p class="font-caption text-caption text-on-surface-variant uppercase">Mother</p><p class="font-body-md text-on-surface" id="reviewMotherName">—</p></div>
 <div class="h-px bg-outline-variant/30"></div>
 <div><p class="font-caption text-caption text-on-surface-variant uppercase">Father</p><p class="font-body-md text-on-surface" id="reviewFatherName">—</p></div>
+<div class="h-px bg-outline-variant/30"></div>
+<div><p class="font-caption text-caption text-on-surface-variant uppercase">Other Family</p><p class="font-body-md text-on-surface" id="reviewExtendedFamily">None added</p></div>
 </div>
 </div>
 <div class="glass-card rounded-xl p-md">
 <h3 class="font-label-md text-label-md text-primary flex items-center gap-sm mb-sm"><span class="material-symbols-outlined">school</span>Child Details</h3>
 <div class="flex items-center gap-sm bg-surface-bright p-2 rounded-lg border border-outline-variant/20">
-<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold" id="reviewChildInitial">?</div>
+<div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold overflow-hidden" id="reviewChildAvatar">?</div>
 <div><p class="font-body-md text-on-surface" id="reviewChildName">—</p><p class="font-caption text-caption text-on-surface-variant" id="reviewChildClass">—</p></div>
 </div>
 </div>
@@ -276,15 +259,17 @@
 <div><label for="consent" class="font-label-md text-label-md text-on-surface cursor-pointer block mb-1">Parent/guardian consent</label>
 <p class="font-body-md text-sm text-on-surface-variant">I confirm I am the parent or legal guardian of the child registered above, and I consent to Tut-P processing this data in line with India's DPDP Act, 2023. I can withdraw consent anytime from settings.</p></div>
 </div>
+<p class="form-status text-center mt-sm font-label-md text-sm" id="formStatus"></p>
 <div class="flex justify-between mt-lg">
-<button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(7)"><span class="material-symbols-outlined">arrow_back</span>Back</button>
-<button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="submitRegistration()"><span class="material-symbols-outlined filled">task_alt</span>Complete Registration</button>
+<button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(6)"><span class="material-symbols-outlined">arrow_back</span>Back</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="submitBtn" onclick="submitRegistration()"><span class="material-symbols-outlined filled">task_alt</span>Complete Registration</button>
 </div>
 </section>
 
 </main>
 
 <script>
+  // ---------------- Location cascade ----------------
   const statesByCountry = {
     IN: { "Telangana":["Hyderabad","Rangareddy","Warangal","Khammam","Nalgonda"], "Andhra Pradesh":["Visakhapatnam","Vijayawada","Guntur","Tirupati"], "Karnataka":["Bengaluru Urban","Mysuru","Belagavi"], "Tamil Nadu":["Chennai","Coimbatore","Madurai"], "Maharashtra":["Mumbai","Pune","Nagpur"] },
     OTHER: { "Type your state below": [] }
@@ -307,44 +292,147 @@
     onCountryChange();
   })();
 
+  // ---------------- Hobby chips ----------------
   document.querySelectorAll('.hobby-chip').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       btn.classList.toggle('border-primary'); btn.classList.toggle('bg-primary-container'); btn.classList.toggle('text-on-primary-container');
     });
   });
-  document.querySelectorAll('.subject-card .upload-dashed').forEach(tile=>{
-    tile.addEventListener('click', ()=>{
-      tile.innerHTML = '<span class="material-symbols-outlined text-secondary">check_circle</span><span class="font-caption text-caption text-secondary">Added</span>';
-    });
-  });
 
+  // ---------------- Extended family (moved into Step 2) ----------------
   const roles = ["Grandfather","Grandmother","Uncle","Aunt","Older sibling","Other"];
   function addFamilyMember(){
     const wrap = document.getElementById('extendedFamilyContainer');
-    const div = document.createElement('div');
-    div.className = 'glass-card rounded-xl p-md flex flex-col md:flex-row gap-md items-start relative';
-    div.innerHTML = `
-      <button class="absolute top-3 right-3 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.glass-card').remove()" type="button"><span class="material-symbols-outlined">close</span></button>
-      <div class="w-full md:w-40"><label class="font-label-md text-label-md text-on-surface mb-xs block">Role</label>
-        <select class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md">${roles.map(r=>`<option>${r}</option>`).join('')}</select>
-      </div>
-      <div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Full name" type="text"/></div>
-      <div class="flex-1 w-full"><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone (optional)</label><input class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="+91 90000 00000" type="tel"/></div>`;
-    wrap.appendChild(div);
+    const row = document.createElement('div');
+    row.className = 'family-member-row flex flex-col md:flex-row gap-sm items-start bg-surface-bright p-3 rounded-lg border border-outline-variant/30 relative';
+    row.innerHTML = `
+      <button class="absolute top-2 right-2 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.family-member-row').remove()" type="button"><span class="material-symbols-outlined text-[18px]">close</span></button>
+      <div class="w-full md:w-36"><select class="member-role w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm">${roles.map(r=>`<option>${r}</option>`).join('')}</select></div>
+      <div class="flex-1 w-full"><input class="member-name w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Full name" type="text"/></div>
+      <div class="flex-1 w-full"><input class="member-phone w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Phone (optional)" type="tel"/></div>`;
+    wrap.appendChild(row);
   }
 
-  const totalSteps = 8;
+  // ---------------- Real photo upload ----------------
+  const uploadedPhotos = {}; // key -> url
+  async function uploadFile(file){
+    const dataUrl = await new Promise((resolve, reject)=>{
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.split(',')[1];
+    const res = await fetch('/api/upload', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: base64 })
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+    return data.url;
+  }
+
+  async function handlePhotoUpload(evt, key){
+    const file = evt.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById('childPhotoStatus');
+    const placeholder = document.getElementById('childPhotoPlaceholder');
+    if (statusEl) statusEl.textContent = 'Uploading…';
+    try {
+      const url = await uploadFile(file);
+      uploadedPhotos[key] = url;
+      if (placeholder) placeholder.innerHTML = `<img src="${url}" class="upload-thumb" alt="Child photo"/>`;
+      if (statusEl) statusEl.textContent = '✓ Photo added';
+    } catch (err) {
+      if (statusEl) statusEl.textContent = 'Upload failed — please try again';
+      console.error(err);
+    }
+  }
+
+  // Subject workbook tiles — built dynamically so each has its own file input
+  const subjects = [
+    { key:'Language', icon:'menu_book', color:'bg-primary-container text-on-primary-container' },
+    { key:'Maths', icon:'calculate', color:'bg-primary-container text-on-primary-container' },
+    { key:'EVS', icon:'eco', color:'bg-tertiary-container text-on-tertiary-container' },
+    { key:'Social', icon:'public', color:'bg-secondary-container text-on-secondary-container' },
+    { key:'Computers', icon:'computer', color:'bg-primary-container text-on-primary-container' }
+  ];
+  const subjectGrid = document.getElementById('subjectUploadGrid');
+  subjects.forEach(s=>{
+    const card = document.createElement('div');
+    card.className = 'bg-surface-container-lowest rounded-xl p-md soft-shadow flex flex-col gap-sm';
+    card.innerHTML = `
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-sm"><div class="w-10 h-10 rounded-full ${s.color} flex items-center justify-center"><span class="material-symbols-outlined filled">${s.icon}</span></div><h3 class="font-label-md text-label-md text-on-surface">${s.key}</h3></div>
+        <span class="px-2 py-0.5 bg-surface-variant text-on-surface-variant rounded-full font-caption text-caption">Optional</span>
+      </div>
+      <div class="upload-dashed h-28 flex flex-col items-center justify-center gap-1 cursor-pointer hover:bg-primary-fixed/10 transition-colors relative overflow-hidden" data-subject="${s.key}">
+        <span class="material-symbols-outlined text-primary">photo_camera</span><span class="font-caption text-caption text-primary">Upload Photo</span>
+      </div>
+      <input type="file" accept="image/*" class="hidden subject-file-input" data-subject="${s.key}"/>
+    `;
+    subjectGrid.appendChild(card);
+    const tile = card.querySelector('.upload-dashed');
+    const input = card.querySelector('.subject-file-input');
+    tile.addEventListener('click', ()=> input.click());
+    input.addEventListener('change', async (e)=>{
+      const file = e.target.files[0];
+      if (!file) return;
+      tile.innerHTML = '<span class="font-caption text-caption text-primary">Uploading…</span>';
+      try {
+        const url = await uploadFile(file);
+        uploadedPhotos['subject_' + s.key] = url;
+        tile.innerHTML = `<img src="${url}" class="upload-thumb" alt="${s.key} workbook"/><span class="absolute bottom-1 right-1 material-symbols-outlined text-white bg-secondary rounded-full p-1 text-sm">check</span>`;
+      } catch (err) {
+        tile.innerHTML = '<span class="font-caption text-caption text-error">Upload failed — tap to retry</span>';
+      }
+    });
+  });
+
+  // ---------------- Mic (Web Speech API) ----------------
+  let recognition = null;
+  let micActive = false;
+  function toggleMic(){
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const micBtn = document.getElementById('micBtn');
+    const hint = document.getElementById('micHint');
+    if (!SpeechRecognition){
+      hint.textContent = 'Voice input is not supported in this browser — please type instead.';
+      return;
+    }
+    if (micActive){
+      recognition.stop();
+      return;
+    }
+    recognition = new SpeechRecognition();
+    recognition.lang = 'en-IN';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.onstart = () => { micActive = true; micBtn.classList.add('mic-listening'); hint.textContent = 'Listening… speak now.'; };
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('hobbyOther').value = transcript;
+    };
+    recognition.onerror = () => { hint.textContent = "Couldn't hear that — please try again or type instead."; };
+    recognition.onend = () => { micActive = false; micBtn.classList.remove('mic-listening'); if(hint.textContent==='Listening… speak now.') hint.textContent = 'Tap the mic to speak instead of typing.'; };
+    recognition.start();
+  }
+
+  // ---------------- Wizard navigation ----------------
+  const totalSteps = 7;
   function goToStep(n){
-    if(n === 8){
-      const motherName = document.querySelector('[data-step="2"] input[placeholder="Jane Doe"]').value || '—';
-      const fatherName = document.querySelector('[data-step="2"] input[placeholder="John Doe"]').value || '—';
-      const childName = document.querySelector('[data-step="4"] input[placeholder="Enter full name"]').value || '—';
-      const childClass = document.querySelector('[data-step="4"] select').value || '—';
-      document.getElementById('reviewMotherName').textContent = motherName;
-      document.getElementById('reviewFatherName').textContent = fatherName;
+    if(n === 7){
+      document.getElementById('reviewMotherName').textContent = document.getElementById('motherName').value || '—';
+      document.getElementById('reviewFatherName').textContent = document.getElementById('fatherName').value || '—';
+      const childName = document.getElementById('childName').value || '—';
       document.getElementById('reviewChildName').textContent = childName;
-      document.getElementById('reviewChildClass').textContent = childClass;
-      document.getElementById('reviewChildInitial').textContent = (childName && childName !== '—') ? childName[0].toUpperCase() : '?';
+      document.getElementById('reviewChildClass').textContent = document.getElementById('childClass').value || '—';
+      const avatarEl = document.getElementById('reviewChildAvatar');
+      if (uploadedPhotos['child']) avatarEl.innerHTML = `<img src="${uploadedPhotos['child']}" class="upload-thumb"/>`;
+      else avatarEl.textContent = (childName && childName !== '—') ? childName[0].toUpperCase() : '?';
+      const members = Array.from(document.querySelectorAll('.family-member-row')).map(r => r.querySelector('.member-name').value).filter(Boolean);
+      document.getElementById('reviewExtendedFamily').textContent = members.length ? members.join(', ') : 'None added';
     }
     document.querySelectorAll('.wizard-step').forEach(s=>{
       s.classList.toggle('step-active', +s.dataset.step === n);
@@ -355,13 +443,78 @@
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
-  function submitRegistration(){
+  // ---------------- Real submission ----------------
+  async function submitRegistration(){
+    const statusEl = document.getElementById('formStatus');
+    const submitBtn = document.getElementById('submitBtn');
     if(!document.getElementById('consent').checked){
-      alert("Please confirm parent/guardian consent before continuing — this protects your child's data.");
+      statusEl.textContent = "Please confirm parent/guardian consent before continuing — this protects your child's data.";
+      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-error';
       return;
     }
-    alert('This is a prototype — registration is not yet connected to a live backend. Redirecting to a sample dashboard.');
-    window.location.href = '/app/dashboard/';
+    if(!document.getElementById('childName').value.trim()){
+      statusEl.textContent = "Please go back and enter your child's name (Step 4).";
+      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-error';
+      goToStep(4);
+      return;
+    }
+
+    const extendedFamily = Array.from(document.querySelectorAll('.family-member-row')).map(row => ({
+      role: row.querySelector('.member-role').value,
+      name: row.querySelector('.member-name').value,
+      phone: row.querySelector('.member-phone').value
+    })).filter(m => m.name);
+
+    const selectedHobbies = Array.from(document.querySelectorAll('.hobby-chip.bg-primary-container')).map(b => b.textContent.trim());
+    const otherHobby = document.getElementById('hobbyOther').value.trim();
+    if (otherHobby) selectedHobbies.push(otherHobby);
+
+    const payload = {
+      location: {
+        country: document.getElementById('country').value,
+        state: document.getElementById('state').value,
+        district: document.getElementById('district').value,
+        mandal: document.getElementById('mandal').value,
+        area: document.getElementById('area').value
+      },
+      mother: { name: document.getElementById('motherName').value, dob: document.getElementById('motherDob').value, education: document.getElementById('motherEdu').value, phone: document.getElementById('motherPhone').value, email: document.getElementById('motherEmail').value },
+      father: { name: document.getElementById('fatherName').value, dob: document.getElementById('fatherDob').value, education: document.getElementById('fatherEdu').value, phone: document.getElementById('fatherPhone').value, email: document.getElementById('fatherEmail').value },
+      extendedFamily,
+      child: {
+        name: document.getElementById('childName').value,
+        dob: document.getElementById('childDob').value,
+        class: document.getElementById('childClass').value,
+        curriculum: document.getElementById('childCurriculum').value,
+        photoUrl: uploadedPhotos['child'] || null,
+        favoriteSubject: document.getElementById('favSubject').value,
+        favoriteGame: document.getElementById('favGame').value,
+        hobbies: selectedHobbies
+      },
+      subjectWorkbooks: Object.keys(uploadedPhotos).filter(k => k.startsWith('subject_')).reduce((acc,k)=>{ acc[k.replace('subject_','')] = uploadedPhotos[k]; return acc; }, {}),
+      consentGiven: true,
+      submittedAt: new Date().toISOString()
+    };
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving…';
+    statusEl.textContent = '';
+    try {
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
+      statusEl.textContent = "Your family is registered! Redirecting to login…";
+      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-secondary';
+      setTimeout(() => { window.location.href = '/app/login/'; }, 1800);
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong saving your registration — please try again or email hello@tutp.online.';
+      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-error';
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="material-symbols-outlined filled">task_alt</span>Complete Registration';
+    }
   }
 </script>
 </body></html>

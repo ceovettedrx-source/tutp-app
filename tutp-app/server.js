@@ -4,7 +4,10 @@ import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
+import multer from 'multer';
 import 'dotenv/config';
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 } });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -173,6 +176,76 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// File upload — child photos, subject workbook photos. Uploaded to
+// Supabase Storage server-side (client never touches storage keys).
+// ------------------------------------------------------------------
+app.post('/api/upload', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { filename, contentType, dataBase64 } = req.body || {};
+    if (!filename || !dataBase64) return res.status(400).json({ error: 'Missing filename or file data' });
+
+    const buffer = Buffer.from(dataBase64, 'base64');
+    if (buffer.length > 8 * 1024 * 1024) return res.status(400).json({ error: 'File too large (max 8MB)' });
+
+    const safeName = filename.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+
+    const { error: uploadErr } = await supabase.storage
+      .from('family-uploads')
+      .upload(path, buffer, { contentType: contentType || 'application/octet-stream' });
+    if (uploadErr) throw uploadErr;
+
+    const { data: pub } = supabase.storage.from('family-uploads').getPublicUrl(path);
+    res.json({ ok: true, url: pub.publicUrl });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ error: 'Could not upload file' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Family registration — saves the full multi-step registration form.
+// ------------------------------------------------------------------
+app.post('/api/register', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const payload = req.body || {};
+    if (!payload.child || !payload.child.name) {
+      return res.status(400).json({ error: "Missing child's name" });
+    }
+    const { data, error } = await supabase.from('family_registrations').insert({ data: payload }).select('id').single();
+    if (error) throw error;
+    console.log('New family registration:', payload.child.name, 'id:', data.id);
+    res.json({ ok: true, id: data.id });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Could not save registration' });
+  }
+});
+
+// Add a family member after initial registration (e.g. months later).
+// Not yet scoped to a specific family since real login/OTP isn't live —
+// stored as its own record with a reference name/phone for manual linking.
+app.post('/api/family/add-member', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { familyContact, member } = req.body || {};
+    if (!member || !member.name || !familyContact) {
+      return res.status(400).json({ error: 'Missing member details or family contact reference' });
+    }
+    const { error } = await supabase.from('family_registrations').insert({
+      data: { type: 'add_member_later', familyContact, member, addedAt: new Date().toISOString() }
+    });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Add member error:', err);
+    res.status(500).json({ error: 'Could not add family member' });
+  }
+});
+
 // The browser never sees the API key — it only ever talks to this route.
 app.post('/api/homework', async (req, res) => {
   try {
@@ -215,6 +288,126 @@ app.post('/api/homework', async (req, res) => {
 
 // Simple health check — useful for confirming the server is alive after deploy
 app.get('/health', (req, res) => res.json({ status: 'ok', supabase: !!supabase, email: !!(resend || mailer), emailProvider: resend ? 'resend' : (mailer ? 'gmail' : 'none') }));
+
+// ------------------------------------------------------------------
+// Photo upload — child photos, subject workbook photos. Stores in
+// Supabase Storage bucket "tutp-uploads" and returns a public URL.
+// ------------------------------------------------------------------
+app.post('/api/upload', upload.single('photo'), async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const filename = `${req.body.folder || 'misc'}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('tutp-uploads')
+      .upload(filename, req.file.buffer, { contentType: req.file.mimetype, upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { data } = supabase.storage.from('tutp-uploads').getPublicUrl(filename);
+    res.json({ ok: true, url: data.publicUrl });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ error: 'Could not upload photo: ' + err.message });
+  }
+});
+
+// ------------------------------------------------------------------
+// Family registration — saves the full multi-step registration form.
+// ------------------------------------------------------------------
+app.post('/api/register', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { location, mother, father, child, familyMembers, subjectWorkbooks } = req.body || {};
+
+    if (!child || !child.name) {
+      return res.status(400).json({ error: 'Child name is required' });
+    }
+
+    const { data: familyRow, error: familyErr } = await supabase
+      .from('families')
+      .insert({
+        country: location?.country || null, state: location?.state || null,
+        district: location?.district || null, mandal: location?.mandal || null, area: location?.area || null
+      })
+      .select().single();
+    if (familyErr) throw familyErr;
+    const familyId = familyRow.id;
+
+    const parentRows = [];
+    if (mother?.name) parentRows.push({ family_id: familyId, role: 'mother', ...mother });
+    if (father?.name) parentRows.push({ family_id: familyId, role: 'father', ...father });
+    if (parentRows.length) {
+      const { error } = await supabase.from('parents').insert(parentRows);
+      if (error) throw error;
+    }
+
+    const { data: childRow, error: childErr } = await supabase
+      .from('children')
+      .insert({ family_id: familyId, ...child })
+      .select().single();
+    if (childErr) throw childErr;
+
+    if (Array.isArray(familyMembers) && familyMembers.length) {
+      const rows = familyMembers.filter(m => m.name).map(m => ({ family_id: familyId, ...m }));
+      if (rows.length) {
+        const { error } = await supabase.from('family_members').insert(rows);
+        if (error) throw error;
+      }
+    }
+
+    if (Array.isArray(subjectWorkbooks) && subjectWorkbooks.length) {
+      const rows = subjectWorkbooks.filter(w => w.photo_url).map(w => ({ family_id: familyId, child_id: childRow.id, ...w }));
+      if (rows.length) {
+        const { error } = await supabase.from('subject_workbooks').insert(rows);
+        if (error) throw error;
+      }
+    }
+
+    console.log('New family registered:', familyId, child.name);
+    res.json({ ok: true, familyId, childId: childRow.id });
+  } catch (err) {
+    console.error('Registration error:', err);
+    res.status(500).json({ error: 'Could not save registration: ' + err.message });
+  }
+});
+
+// Fetch a family's members (for the post-registration "Manage Family" page)
+app.get('/api/family/:familyId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = req.params.familyId;
+    const [parentsRes, childrenRes, membersRes] = await Promise.all([
+      supabase.from('parents').select('*').eq('family_id', familyId),
+      supabase.from('children').select('*').eq('family_id', familyId),
+      supabase.from('family_members').select('*').eq('family_id', familyId)
+    ]);
+    res.json({
+      parents: parentsRes.data || [],
+      children: childrenRes.data || [],
+      familyMembers: membersRes.data || []
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not load family' });
+  }
+});
+
+// Add a family member anytime after registration (used by the Manage Family page)
+app.post('/api/family/:familyId/members', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = req.params.familyId;
+    const { role, name, phone } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Name is required' });
+    const { error } = await supabase.from('family_members').insert({ family_id: familyId, role, name, phone });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not add family member' });
+  }
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`Tut-P server running on port ${PORT}`);
