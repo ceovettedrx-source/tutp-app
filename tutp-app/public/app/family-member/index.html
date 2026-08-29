@@ -2,64 +2,26 @@
 <html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Tut-P - Child Dashboard</title>
+<title>Tut-P Family Member View</title>
 <meta name="robots" content="noindex, nofollow">
 <script>
-        // body starts hidden (see <style> below); this reveals it once the
-        // inline tailwind-config script below finishes running, with a
-        // capped safety-net timeout so the page is never stuck hidden.
+        // body starts hidden (see <style> below); this reveals it once
+        // Tailwind's config script finishes loading, with a capped
+        // safety-net timeout so the page is never stuck hidden.
         window.__twReady = function(){ document.body.style.visibility = 'visible'; };
         setTimeout(window.__twReady, 800);
 </script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script onload="window.__twReady()" src="/shared/tailwind-tokens.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-      tailwind.config = {
-        darkMode: "class",
-        theme: {
-          extend: {
-            "colors": {
-                    "secondary-fixed": "#ffddb0","on-background": "#181c20","error-container": "#ffdad6",
-                    "surface-container-low": "#f1f4fa","surface-variant": "#dfe3e8","on-primary-fixed": "#001a41",
-                    "surface-container-high": "#e5e8ee","surface-container-highest": "#dfe3e8","secondary": "#805600",
-                    "outline-variant": "#c1c6d6","surface": "#f7f9ff","on-secondary": "#ffffff",
-                    "surface-container-lowest": "#ffffff","on-primary-container": "#ffffff","background": "#f7f9ff",
-                    "primary-fixed-dim": "#adc7ff","error": "#ba1a1a","primary-fixed": "#d8e2ff",
-                    "tertiary-fixed": "#89fa9b","on-tertiary-fixed": "#002108","on-primary": "#ffffff",
-                    "secondary-fixed-dim": "#ffba45","on-tertiary": "#ffffff","on-primary-fixed-variant": "#004493",
-                    "inverse-surface": "#2d3135","on-error": "#ffffff","tertiary": "#006d2c",
-                    "on-tertiary-container": "#ffffff","on-surface-variant": "#414754","surface-tint": "#005bc0",
-                    "primary-container": "#1a73e8","inverse-primary": "#adc7ff","on-tertiary-fixed-variant": "#005320",
-                    "on-secondary-fixed": "#281800","on-secondary-fixed-variant": "#614000","on-error-container": "#93000a",
-                    "inverse-on-surface": "#eef1f7","tertiary-container": "#008939","on-surface": "#181c20",
-                    "surface-bright": "#f7f9ff","secondary-container": "#fdaf0a","outline": "#727785",
-                    "on-secondary-container": "#694600","primary": "#005bbf","tertiary-fixed-dim": "#6ddd81",
-                    "surface-container": "#ebeef4","surface-dim": "#d7dae0"
-            },
-            "borderRadius": { "DEFAULT": "1rem","lg": "2rem","xl": "3rem","full": "9999px" },
-            "spacing": { "xs": "4px","sm": "12px","xl": "64px","md": "24px","margin-desktop": "120px","lg": "40px","base": "8px","margin-mobile": "20px","gutter": "16px" },
-            "fontFamily": { "body-md": ["Inter"],"label-md": ["Inter"],"label-lg": ["Inter"],"body-lg": ["Inter"],"headline-lg": ["Plus Jakarta Sans"],"display-lg": ["Plus Jakarta Sans"],"headline-lg-mobile": ["Plus Jakarta Sans"],"headline-md": ["Plus Jakarta Sans"] },
-            "fontSize": {
-                    "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
-                    "label-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600" }],
-                    "label-lg": ["16px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
-                    "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                    "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
-                    "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
-                    "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
-                    "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }]
-            }
-      },
-        },
-      }
-    </script>
-<script>window.__twReady && window.__twReady();</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
         body { visibility: hidden; }
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         /* Critical layout CSS — plain CSS, not Tailwind utility classes, so it
            applies immediately on parse instead of waiting for Tailwind's
            runtime JIT compiler. Without this, the fixed sidebar/header can
@@ -71,19 +33,15 @@
         @media (max-width: 767px) { #parentalSidebar { display: none; } }
 </style>
 </head>
-<body class="bg-background text-on-background font-body-md antialiased min-h-screen pb-32">
+<body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
 <header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
 <div class="flex items-center gap-sm">
-<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">L</div>
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">T</div>
 <span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
 </div>
 <div class="flex items-center gap-sm">
 <button aria-label="Language Toggle" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors">
 <span class="material-symbols-outlined text-on-surface-variant">language</span>
-</button>
-<button aria-label="Notifications" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors relative">
-<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
-<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
 </button>
 </div>
 </header>
@@ -99,7 +57,7 @@
 </div>
 </div>
 <ul class="flex flex-col gap-2">
-<li><a class="flex items-center gap-4 px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-full mx-2 transition-transform" href="/app/child/"><span class="material-symbols-outlined">child_care</span><span class="font-label-lg text-label-lg">Child View</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/child/"><span class="material-symbols-outlined">child_care</span><span class="font-label-lg text-label-lg">Child View</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/mother/"><span class="material-symbols-outlined">woman</span><span class="font-label-lg text-label-lg">Mother View</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/father/"><span class="material-symbols-outlined">man</span><span class="font-label-lg text-label-lg">Father View</span></a></li>
 </ul>
@@ -110,15 +68,13 @@
 </div>
 </nav>
 
-<main class="pt-[122px] px-margin-mobile md:px-margin-desktop max-w-[1200px] mx-auto space-y-lg">
-<section class="mt-md">
-<div class="bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,91,192,0.05)] flex items-center justify-between border border-surface-container-high/50">
-<div>
-<h1 class="font-headline-md text-headline-md text-on-surface mb-xs">Good morning, <span class="inline-block w-20 h-6 bg-surface-variant rounded-lg animate-pulse align-middle" id="childGreetingName"></span>! 👋</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">Ready for another day of learning adventures?</p>
-</div>
-</div>
+<main class="pt-[88px] max-w-5xl mx-auto px-6 pb-12 space-y-8">
+<section class="space-y-2">
+<h2 class="font-headline text-3xl md:text-4xl font-bold text-on-background leading-tight">Welcome!</h2>
+<p class="font-body text-on-surface-variant max-w-xl">Here's exactly what your family's child sees when they log in to Tut-P — the same subjects, sessions, and progress, nothing extra.</p>
 </section>
+
+<section class="space-y-lg">
 
 <section class="space-y-sm">
 <h2 class="font-label-lg text-label-lg text-on-surface px-xs">Explore Subjects</h2>
@@ -217,57 +173,10 @@
 <div class="absolute flex flex-col items-center"><span class="font-headline-lg text-headline-lg text-on-surface">80%</span></div>
 </div>
 <h4 class="font-label-lg text-label-lg text-on-surface">Today's Goal</h4>
-<p class="font-body-md text-body-md text-on-surface-variant">Almost there, <span class="inline-block w-16 h-5 bg-surface-variant rounded-lg animate-pulse align-middle" id="childGoalName"></span>!</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Almost there, friend!</p>
 </div>
 </section>
+
+</section>
 </main>
-
-<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-end px-gutter pb-6 pt-2 bg-surface/80 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,91,192,0.05)] rounded-t-lg md:hidden">
-<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl p-base scale-110 -translate-y-1 transition-all" href="#"><span class="material-symbols-outlined">home</span><span class="font-label-md text-[10px] mt-1">Home</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-base hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">menu_book</span><span class="font-label-md text-[10px] mt-1">Subjects</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-base hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">auto_awesome</span><span class="font-label-md text-[10px] mt-1">AI</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-base hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">history_edu</span><span class="font-label-md text-[10px] mt-1">Records</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-base hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">query_stats</span><span class="font-label-md text-[10px] mt-1">Progress</span></a>
-</nav>
-
-<script>
-        const header = document.getElementById('topAppBar');
-        window.addEventListener('scroll', () => {
-            header.classList.toggle('shadow-md', window.scrollY > 10);
-        });
-
-        // Shows loading skeletons until the real student's name resolves —
-        // never flashes a hardcoded fallback before a real fetch has had
-        // the chance to complete. Falls back to generic "friend" (never a
-        // demo-persona name) only once we know for sure there's no
-        // student_id (e.g. page opened directly), or the fetch failed/came
-        // back empty.
-        // Diagnostic logging left in on purpose while we track down a
-        // reported case of the fallback showing after an in-tab refresh
-        // post-login — check the console next time that happens.
-        (async function loadRealStudentName(){
-            const greetingEl = document.getElementById('childGreetingName');
-            const goalEl = document.getElementById('childGoalName');
-            const showName = (name) => {
-                greetingEl.textContent = name;
-                greetingEl.classList.remove('w-20', 'h-6', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
-                goalEl.textContent = name;
-                goalEl.classList.remove('w-16', 'h-5', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
-            };
-            const studentId = sessionStorage.getItem('tutp_student_id');
-            console.log('[child] tutp_student_id from sessionStorage:', studentId);
-            if (!studentId) { console.log('[child] no student_id in sessionStorage — showing fallback'); showName('friend'); return; }
-            try {
-                const res = await fetch('/api/student/' + encodeURIComponent(studentId));
-                console.log('[child] /api/student/' + studentId + ' response status:', res.status);
-                if (!res.ok) { showName('friend'); return; }
-                const data = await res.json();
-                console.log('[child] /api/student response body:', data);
-                showName(data.name || 'friend');
-            } catch (err) {
-                console.error('[child] Could not load student name:', err);
-                showName('friend');
-            }
-        })();
-</script>
 </body></html>

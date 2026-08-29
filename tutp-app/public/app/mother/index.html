@@ -2,17 +2,27 @@
 <html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Tut-P Dashboard</title>
+<title>Tut-P Mother Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
+<script>
+        // body starts hidden (see <style> below); this reveals it once
+        // Tailwind's config script finishes loading, with a capped
+        // safety-net timeout so the page is never stuck hidden.
+        window.__twReady = function(){ document.body.style.visibility = 'visible'; };
+        setTimeout(window.__twReady, 800);
+</script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script src="/shared/tailwind-tokens.js"></script>
+<script onload="window.__twReady()" src="/shared/tailwind-tokens.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
+        /* Hidden until Tailwind's runtime JIT compiler has generated the
+           page's real styles — see the reveal script at the end of <body>.
+           A capped safety-net timeout there guarantees this never gets
+           stuck hidden even if the load event doesn't fire as expected. */
+        body { visibility: hidden; }
         body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;position:relative;z-index:70;}
-        .proto-banner a{color:#fff;text-decoration:underline;}
         .testimonial-photo{background:linear-gradient(135deg,#005bbf,#1a73e8);display:flex;align-items:center;justify-content:center;}
         .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
@@ -21,16 +31,15 @@
            applies immediately on parse instead of waiting for Tailwind's
            runtime JIT compiler. Without this, the fixed sidebar/header can
            briefly render in normal document flow and look badly broken. */
-        #topAppBar { position: fixed; top: 34px; left: 0; width: 100%; z-index: 50; }
+        #topAppBar { position: fixed; top: 0; left: 0; width: 100%; z-index: 50; }
         #parentalSidebar { position: fixed; top: 0; left: 0; height: 100%; width: 240px; z-index: 40; }
-        main { padding-top: 122px; }
+        main { padding-top: 88px; }
         @media (min-width: 768px) { main { margin-left: 240px; } #topAppBar { left: 240px; width: calc(100% - 240px); } }
         @media (max-width: 767px) { #parentalSidebar { display: none; } }
 </style>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
-<div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
-<header class="fixed top-[34px] left-0 w-full z-50 flex justify-between items-center px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
 <div class="flex items-center gap-sm">
 <div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">A</div>
 <span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
@@ -58,7 +67,7 @@
 </div>
 <ul class="flex flex-col gap-2">
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/child/"><span class="material-symbols-outlined">child_care</span><span class="font-label-lg text-label-lg">Child View</span></a></li>
-<li><a class="flex items-center gap-4 px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-full mx-2 transition-transform" href="/app/dashboard/"><span class="material-symbols-outlined">woman</span><span class="font-label-lg text-label-lg">Mother View</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-full mx-2 transition-transform" href="/app/mother/"><span class="material-symbols-outlined">woman</span><span class="font-label-lg text-label-lg">Mother View</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/father/"><span class="material-symbols-outlined">man</span><span class="font-label-lg text-label-lg">Father View</span></a></li>
 </ul>
 <div class="mt-auto px-md pt-lg border-t border-outline-variant/30 mx-2">
@@ -163,7 +172,10 @@
 <div class="space-y-3" id="familyMembersList">
 <p class="font-body text-sm text-on-surface-variant">Loading…</p>
 </div>
-<a class="inline-flex items-center gap-2 mt-4 text-primary font-label text-sm font-medium hover:underline" href="/app/family/"><span class="material-symbols-outlined text-base">person_add</span>Add a family member</a>
+<div class="flex flex-wrap gap-x-6 gap-y-2 mt-4">
+<a class="inline-flex items-center gap-2 text-primary font-label text-sm font-medium hover:underline" href="/app/family/"><span class="material-symbols-outlined text-base">person_add</span>Add a family member</a>
+<a class="inline-flex items-center gap-2 text-on-surface-variant font-label text-sm font-medium hover:underline hover:text-primary" href="/app/family-member/"><span class="material-symbols-outlined text-base">visibility</span>Preview what family members see</a>
+</div>
 </div>
 </section>
 
@@ -284,10 +296,13 @@
 </nav>
 <script>
         // Shows a loading skeleton until the real parent's name resolves —
-        // never flashes the "Alexandria" fallback before a real fetch has
-        // had the chance to complete. Falls back to "Alexandria" only once
-        // we know for sure there's no family_id, or the fetch failed/came
-        // back empty.
+        // never flashes a hardcoded fallback before a real fetch has had
+        // the chance to complete. Falls back to generic "Parent" (never a
+        // demo-persona name) only once we know for sure there's no
+        // family_id, or the fetch failed/came back empty.
+        // Diagnostic logging left in on purpose while we track down a
+        // reported case of the fallback showing after an in-tab refresh
+        // post-login — check the console next time that happens.
         (async function loadRealParentName(){
             const el = document.getElementById('parentGreetingName');
             const showName = (name) => {
@@ -295,15 +310,18 @@
                 el.classList.remove('w-32', 'h-9', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
             };
             const familyId = sessionStorage.getItem('tutp_family_id');
-            if (!familyId) { showName('Alexandria'); return; }
+            console.log('[mother] tutp_family_id from sessionStorage:', familyId);
+            if (!familyId) { console.log('[mother] no family_id in sessionStorage — showing fallback'); showName('Parent'); return; }
             try {
                 const res = await fetch('/api/family/' + encodeURIComponent(familyId));
-                if (!res.ok) { showName('Alexandria'); return; }
+                console.log('[mother] /api/family/' + familyId + ' response status:', res.status);
+                if (!res.ok) { showName('Parent'); return; }
                 const data = await res.json();
-                showName(data.motherName || data.fatherName || 'Alexandria');
+                console.log('[mother] /api/family response body:', data);
+                showName(data.motherName || data.fatherName || 'Parent');
             } catch (err) {
-                console.error('Could not load parent name:', err);
-                showName('Alexandria');
+                console.error('[mother] Could not load parent name:', err);
+                showName('Parent');
             }
         })();
 

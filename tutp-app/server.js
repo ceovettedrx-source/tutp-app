@@ -352,7 +352,12 @@ function isCloseNameMatch(input, candidate) {
 async function findFamilyIdByPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '').slice(-10);
   if (digits.length !== 10) return null;
-  const { data, error } = await supabase.from('family_registrations').select('id, data');
+  // Ordered by id desc — without this, a phone number that was registered
+  // more than once (e.g. someone re-submitting the registration form while
+  // testing) resolves non-deterministically, since Postgres doesn't
+  // guarantee row order without an explicit ORDER BY. Preferring the most
+  // recent registration is the sane default.
+  const { data, error } = await supabase.from('family_registrations').select('id, data').order('id', { ascending: false });
   if (error) throw error;
   const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
   const match = (data || []).find(row =>
@@ -404,7 +409,7 @@ app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// Fetch a single student/family by id, so app/child and app/dashboard
+// Fetch a single student/family by id, so app/child, app/mother and app/father
 // can personalize their static "Leo"/"Alexandria" placeholders once a
 // real student_id/family_id is known (set in sessionStorage at login).
 // No auth check — matches this app's existing security posture (e.g.

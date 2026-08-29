@@ -14,11 +14,11 @@
  *   <script src="/shared/tailwind-tokens.js"></script>
  *
  * Extension keys below (not part of Group A's original set) exist so that
- * app/register, app/family and app/dashboard could adopt this file without
+ * app/register, app/family, app/mother, and app/father could adopt this file without
  * rewriting their markup's class names:
  *   - fontFamily/fontSize "caption" and "display-lg-mobile" — used by app/register
- *   - fontFamily "headline" / "body" — simple aliases used by app/family and app/dashboard
- *   - fontFamily "display" / "label" — simple aliases used by app/dashboard
+ *   - fontFamily "headline" / "body" — simple aliases used by app/family, app/mother, and app/father
+ *   - fontFamily "display" / "label" — simple aliases used by app/mother and app/father
  *   - colors "success" (#006d35) — a status green for "LIVE"/success/progress UI
  *     (banners, progress bars, success messages) that is NOT part of the Group A
  *     MD3 palette (Group A's "secondary" is amber #805600) and must stay green
