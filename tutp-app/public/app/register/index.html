@@ -151,7 +151,23 @@
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Class / Grade</label><select id="childClass" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select grade</option><option>Class 1</option><option>Class 5</option><option>Class 8</option><option>Class 10</option><option>Class 12</option></select></div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Curriculum</label><select id="childCurriculum" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select curriculum</option><option>State Board</option><option>CBSE</option><option>ICSE</option><option>Cambridge</option><option>Other</option></select></div>
 </div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School Name</label><input id="childSchool" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter school name" type="text"/></div>
+<div class="grid grid-cols-2 gap-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Section</label><input id="childSection" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. A" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Roll Number</label><input id="childRollNumber" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. 23" type="text"/></div>
 </div>
+<p class="font-caption text-caption text-on-surface-variant">School/Section/Roll Number help us tell your children apart if two have similar names when logging in.</p>
+</div>
+
+<div class="mt-md glass-card rounded-xl p-md max-w-2xl mx-auto">
+<div class="flex items-center justify-between flex-wrap gap-sm mb-sm">
+<h3 class="font-label-md text-label-md text-primary flex items-center gap-2"><span class="material-symbols-outlined">group_add</span>More Than One Child?</h3>
+<button class="bg-primary-container text-on-primary-container font-label-md text-sm px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity" type="button" onclick="addChild()"><span class="material-symbols-outlined text-[18px]">person_add</span>Add Child</button>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mb-sm">Add each additional child so everyone in the family can log in separately with the same phone number.</p>
+<div class="space-y-sm" id="extraChildrenContainer"></div>
+</div>
+
 <div class="flex justify-between mt-lg max-w-2xl mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(3)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="goToStep(5)">Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
 
@@ -214,6 +230,7 @@
 <div class="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold overflow-hidden" id="reviewChildAvatar">?</div>
 <div><p class="font-body-md text-on-surface" id="reviewChildName">—</p><p class="font-caption text-caption text-on-surface-variant" id="reviewChildClass">—</p></div>
 </div>
+<p class="font-caption text-caption text-on-surface-variant mt-2 hidden" id="reviewExtraChildren"></p>
 </div>
 </div>
 <div class="mt-md glass-card rounded-xl p-md flex items-start gap-sm">
@@ -231,6 +248,16 @@
 </main>
 
 <script>
+  // ---------------- Prefill phone from login redirect ----------------
+  (function prefillPhoneFromLogin(){
+    const digits = sessionStorage.getItem('tutp_prefill_phone');
+    if (digits) {
+      const motherPhoneInput = document.getElementById('motherPhone');
+      if (motherPhoneInput) motherPhoneInput.value = '+91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
+      sessionStorage.removeItem('tutp_prefill_phone');
+    }
+  })();
+
   // ---------------- Location cascade ----------------
   const statesByCountry = {
     IN: { "Telangana":["Hyderabad","Rangareddy","Warangal","Khammam","Nalgonda"], "Andhra Pradesh":["Visakhapatnam","Vijayawada","Guntur","Tirupati"], "Karnataka":["Bengaluru Urban","Mysuru","Belagavi"], "Tamil Nadu":["Chennai","Coimbatore","Madurai"], "Maharashtra":["Mumbai","Pune","Nagpur"] },
@@ -272,6 +299,21 @@
       <div class="w-full md:w-36"><select class="member-role w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm">${roles.map(r=>`<option>${r}</option>`).join('')}</select></div>
       <div class="flex-1 w-full"><input class="member-name w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Full name" type="text"/></div>
       <div class="flex-1 w-full"><input class="member-phone w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Phone (optional)" type="tel"/></div>`;
+    wrap.appendChild(row);
+  }
+
+  // ---------------- Additional children (Step 4) ----------------
+  function addChild(){
+    const wrap = document.getElementById('extraChildrenContainer');
+    const row = document.createElement('div');
+    row.className = 'extra-child-row flex flex-col md:flex-row gap-sm items-start bg-surface-bright p-3 rounded-lg border border-outline-variant/30 relative';
+    row.innerHTML = `
+      <button class="absolute top-2 right-2 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.extra-child-row').remove()" type="button"><span class="material-symbols-outlined text-[18px]">close</span></button>
+      <div class="flex-1 w-full"><input class="child-name w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Child's full name" type="text"/></div>
+      <div class="w-full md:w-40"><select class="child-class w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm"><option value="">Grade</option><option>Class 1</option><option>Class 5</option><option>Class 8</option><option>Class 10</option><option>Class 12</option></select></div>
+      <div class="flex-1 w-full"><input class="child-school w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="School name" type="text"/></div>
+      <div class="w-full md:w-24"><input class="child-section w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Section" type="text"/></div>
+      <div class="w-full md:w-28"><input class="child-roll w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Roll no." type="text"/></div>`;
     wrap.appendChild(row);
   }
 
@@ -393,6 +435,14 @@
       const avatarEl = document.getElementById('reviewChildAvatar');
       if (uploadedPhotos['child']) avatarEl.innerHTML = `<img src="${uploadedPhotos['child']}" class="upload-thumb"/>`;
       else avatarEl.textContent = (childName && childName !== '—') ? childName[0].toUpperCase() : '?';
+      const extraChildNames = Array.from(document.querySelectorAll('.extra-child-row .child-name')).map(i => i.value.trim()).filter(Boolean);
+      const extraChildrenEl = document.getElementById('reviewExtraChildren');
+      if (extraChildNames.length) {
+        extraChildrenEl.textContent = `+ ${extraChildNames.length} more: ${extraChildNames.join(', ')}`;
+        extraChildrenEl.classList.remove('hidden');
+      } else {
+        extraChildrenEl.classList.add('hidden');
+      }
       const members = Array.from(document.querySelectorAll('.family-member-row')).map(r => r.querySelector('.member-name').value).filter(Boolean);
       document.getElementById('reviewExtendedFamily').textContent = members.length ? members.join(', ') : 'None added';
     }
@@ -431,6 +481,28 @@
     const otherHobby = document.getElementById('hobbyOther').value.trim();
     if (otherHobby) selectedHobbies.push(otherHobby);
 
+    const primaryChild = {
+      name: document.getElementById('childName').value,
+      dob: document.getElementById('childDob').value,
+      class: document.getElementById('childClass').value,
+      curriculum: document.getElementById('childCurriculum').value,
+      schoolName: document.getElementById('childSchool').value,
+      section: document.getElementById('childSection').value,
+      rollNumber: document.getElementById('childRollNumber').value,
+      photoUrl: uploadedPhotos['child'] || null,
+      favoriteSubject: document.getElementById('favSubject').value,
+      favoriteGame: document.getElementById('favGame').value,
+      hobbies: selectedHobbies
+    };
+    const extraChildren = Array.from(document.querySelectorAll('.extra-child-row')).map(row => ({
+      name: row.querySelector('.child-name').value,
+      class: row.querySelector('.child-class').value,
+      schoolName: row.querySelector('.child-school').value,
+      section: row.querySelector('.child-section').value,
+      rollNumber: row.querySelector('.child-roll').value
+    })).filter(c => c.name);
+    const children = [primaryChild, ...extraChildren];
+
     const payload = {
       location: {
         country: document.getElementById('country').value,
@@ -442,16 +514,7 @@
       mother: { name: document.getElementById('motherName').value, dob: document.getElementById('motherDob').value, education: document.getElementById('motherEdu').value, phone: document.getElementById('motherPhone').value, email: document.getElementById('motherEmail').value },
       father: { name: document.getElementById('fatherName').value, dob: document.getElementById('fatherDob').value, education: document.getElementById('fatherEdu').value, phone: document.getElementById('fatherPhone').value, email: document.getElementById('fatherEmail').value },
       extendedFamily,
-      child: {
-        name: document.getElementById('childName').value,
-        dob: document.getElementById('childDob').value,
-        class: document.getElementById('childClass').value,
-        curriculum: document.getElementById('childCurriculum').value,
-        photoUrl: uploadedPhotos['child'] || null,
-        favoriteSubject: document.getElementById('favSubject').value,
-        favoriteGame: document.getElementById('favGame').value,
-        hobbies: selectedHobbies
-      },
+      children,
       subjectWorkbooks: Object.keys(uploadedPhotos).filter(k => k.startsWith('subject_')).reduce((acc,k)=>{ acc[k.replace('subject_','')] = uploadedPhotos[k]; return acc; }, {}),
       consentGiven: true,
       submittedAt: new Date().toISOString()

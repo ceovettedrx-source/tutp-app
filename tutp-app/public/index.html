@@ -97,16 +97,36 @@
 
 <main class="flex-grow pt-24 md:pt-32 pb-0">
 <section class="px-margin-mobile md:px-margin-desktop py-lg max-w-[1200px] mx-auto text-center flex flex-col items-center">
-<div class="max-w-3xl mb-8 min-h-[120px] flex items-center justify-center">
-<div class="quote-container font-headline-md text-on-surface italic" id="quoteDisplay">
-<div class="flex items-center gap-md text-left">
-<div class="flex-1">"Education is a shared commitment between dedicated teachers, motivated students and enthusiastic parents with high expectations."
-<span class="block text-body-md text-on-surface-variant mt-2 not-italic">- Bob Beauprez</span></div>
-<div class="flex-shrink-0">
-<img alt="Quote contributor" class="w-20 h-20 rounded-full object-cover border-2 border-primary/20 shadow-sm" id="quoteAvatar" src="/images/quote-avatar.jpg"/>
+<div class="max-w-2xl mb-6">
+<p class="font-body-lg text-body-lg text-on-surface-variant">Stuck on tonight's homework? Attach it below — we'll turn it into ten minutes together, not a fight.</p>
+</div>
+
+<div class="relative mb-8 w-full max-w-lg mx-auto">
+<div class="relative bg-surface-container-lowest rounded-full shadow-[0_8px_30px_rgba(0,91,192,0.12)] border border-primary/10 flex items-center p-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
+<div class="relative shrink-0">
+<button aria-label="Attach a file" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-container/20 text-primary hover:bg-primary-container/30 transition-colors" onclick="toggleAttachMenu()" type="button">
+<span class="material-symbols-outlined">add</span>
+</button>
+<div class="hidden absolute left-0 top-12 z-20 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/30 py-2 w-44" id="attachMenu">
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('document')" type="button"><span class="material-symbols-outlined text-lg text-primary">description</span> Documents</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('photo')" type="button"><span class="material-symbols-outlined text-lg text-primary">photo_camera</span> Photos</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('video')" type="button"><span class="material-symbols-outlined text-lg text-primary">videocam</span> Videos</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('file')" type="button"><span class="material-symbols-outlined text-lg text-primary">attach_file</span> Files</button>
 </div>
 </div>
+<input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/60 w-full py-3 px-sm outline-none" id="homeHwInput" placeholder="Attach your child's homework to get instant help..." readonly="" type="text"/>
+<input accept=".pdf,.doc,.docx" class="hidden" id="homeFileDocument" type="file"/>
+<input accept="image/*" class="hidden" id="homeFilePhoto" type="file"/>
+<input accept="video/*" class="hidden" id="homeFileVideo" type="file"/>
+<input class="hidden" id="homeFileAny" type="file"/>
+<button aria-label="Voice input (coming soon)" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors shrink-0" onclick="toggleHomeMic()" type="button">
+<span class="material-symbols-outlined">mic</span>
+</button>
+<button aria-label="Get help" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0" id="homeAttachSubmitBtn" onclick="submitHomeworkAttach()" type="button">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
 </div>
+<p class="hidden text-sm text-on-surface-variant mt-2 px-2" id="homeAttachStatus"></p>
 </div>
 
 <div class="grid md:grid-cols-2 gap-lg items-center text-left w-full mt-8">
@@ -357,25 +377,6 @@
 <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    const quotes = [
-        { text: "At the end of the day, the most overwhelming key to a child's success is the positive involvement of parents.", author: "Jane D. Hull" },
-        { text: "Education is a shared commitment between dedicated teachers, motivated students and enthusiastic parents with high expectations.", author: "Bob Beauprez" },
-        { text: "Parents are the ultimate role models for children. Every word, movement and action has an effect.", author: "Bob Keeshan" }
-    ];
-    let currentQuoteIndex = 0;
-    const quoteDisplay = document.getElementById('quoteDisplay');
-    function rotateQuote() {
-        if(!quoteDisplay) return;
-        quoteDisplay.classList.add('fade-out');
-        setTimeout(() => {
-            currentQuoteIndex = (currentQuoteIndex + 1) % quotes.length;
-            const q = quotes[currentQuoteIndex];
-            quoteDisplay.innerHTML = `<div class="flex items-center gap-md text-left"><div class="flex-1">"${q.text}"<span class="block text-body-md text-on-surface-variant mt-2 not-italic">- ${q.author}</span></div><div class="flex-shrink-0"><img alt="Quote contributor" class="w-20 h-20 rounded-full object-cover border-2 border-primary/20 shadow-sm" src="/images/quote-avatar.jpg"/></div></div>`;
-            quoteDisplay.classList.remove('fade-out');
-        }, 500);
-    }
-    setInterval(rotateQuote, 6000);
-
     // Hero image carousel
     let currentHeroSlide = 0;
     const totalHeroSlides = 4;
@@ -392,6 +393,73 @@
     function setHeroSlide(i){ currentHeroSlide = i; updateHeroSlider(); }
     function nextHeroSlide(){ currentHeroSlide = (currentHeroSlide + 1) % totalHeroSlides; updateHeroSlider(); }
     function prevHeroSlide(){ currentHeroSlide = (currentHeroSlide - 1 + totalHeroSlides) % totalHeroSlides; updateHeroSlider(); }
+
+    // ---------------- Hero "attach homework" widget ----------------
+    let pendingAttachUrl = null;
+    function toggleAttachMenu(){ document.getElementById('attachMenu').classList.toggle('hidden'); }
+    document.addEventListener('click', (e) => {
+        const menu = document.getElementById('attachMenu');
+        const btn = e.target.closest('[aria-label="Attach a file"]');
+        if (menu && !menu.contains(e.target) && !btn) menu.classList.add('hidden');
+    });
+    const homeAttachInputs = {
+        document: document.getElementById('homeFileDocument'),
+        photo: document.getElementById('homeFilePhoto'),
+        video: document.getElementById('homeFileVideo'),
+        file: document.getElementById('homeFileAny')
+    };
+    function triggerAttach(kind){
+        document.getElementById('attachMenu').classList.add('hidden');
+        homeAttachInputs[kind].click();
+    }
+    Object.values(homeAttachInputs).forEach(input => {
+        if (!input) return;
+        input.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) uploadHomeAttachment(file);
+        });
+    });
+    async function uploadHomeAttachment(file){
+        const statusEl = document.getElementById('homeAttachStatus');
+        document.getElementById('homeHwInput').value = file.name;
+        statusEl.textContent = 'Uploading ' + file.name + '…';
+        statusEl.classList.remove('hidden');
+        try {
+            const dataUrl = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: dataUrl.split(',')[1] })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+            pendingAttachUrl = data.url;
+            statusEl.textContent = '✓ ' + file.name + ' attached';
+        } catch (err) {
+            statusEl.textContent = 'Could not attach that file — please try again.';
+            console.error(err);
+        }
+    }
+    function submitHomeworkAttach(){
+        const statusEl = document.getElementById('homeAttachStatus');
+        if (!pendingAttachUrl) {
+            statusEl.textContent = 'Please attach your child\'s homework first — tap the + button.';
+            statusEl.classList.remove('hidden');
+            return;
+        }
+        sessionStorage.setItem('tutp_pending_homework_url', pendingAttachUrl);
+        window.location.href = '/app/login/';
+    }
+    function toggleHomeMic(){
+        const statusEl = document.getElementById('homeAttachStatus');
+        statusEl.textContent = 'Voice input is coming soon — please type or attach a file for now.';
+        statusEl.classList.remove('hidden');
+    }
     if(heroSlider){
         let heroInterval = setInterval(nextHeroSlide, 4500);
         const heroContainer = heroSlider.closest('.group');

@@ -28,11 +28,7 @@
 <div class="glass-card rounded-xl p-6 mb-6">
 <h2 class="font-headline text-2xl font-semibold mb-2">Add a family member</h2>
 <p class="text-on-surface-variant mb-4">Whether it's been a week or six months since you registered — add anyone new who helps with your child's learning right here.</p>
-<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-on-surface-variant">
-📌 To help us match this to your family later, please enter the phone number you used when you first registered.
-</div>
 <div class="space-y-4">
-<div><label class="block text-sm font-semibold mb-1">Your family's registered phone number <span class="text-error">*</span></label><input id="familyContact" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="+91 90000 00000" type="tel"/></div>
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 <div><label class="block text-sm font-semibold mb-1">Relationship</label>
 <select id="memberRole" class="w-full h-11 px-3 rounded-lg soft-input">
@@ -48,23 +44,22 @@
 </button>
 <p id="status" class="text-center text-sm mt-3"></p>
 </div>
-
-<div class="glass-card rounded-xl p-6">
-<h3 class="font-headline text-lg font-semibold mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-primary">info</span>Why isn't this automatic?</h3>
-<p class="text-sm text-on-surface-variant leading-relaxed">Right now Tut-P doesn't have real login (SMS OTP verification isn't connected yet — see our registration page). Once that's live, this page will show your actual family list and let you add members with one tap, fully linked to your account. For now, your registered phone number helps our team match new members to the right family manually.</p>
-</div>
 </main>
 <script>
+  const familyId = sessionStorage.getItem('tutp_family_id');
+  if (!familyId) {
+    window.location.href = '/app/login/';
+  }
+
   async function addMember(){
     const statusEl = document.getElementById('status');
     const btn = document.getElementById('addBtn');
-    const familyContact = document.getElementById('familyContact').value.trim();
     const name = document.getElementById('memberName').value.trim();
     const role = document.getElementById('memberRole').value;
     const phone = document.getElementById('memberPhone').value.trim();
 
-    if(!familyContact || !name){
-      statusEl.textContent = "Please enter your registered phone number and the new member's name.";
+    if(!name){
+      statusEl.textContent = "Please enter the new member's name.";
       statusEl.className = 'text-center text-sm mt-3 text-error';
       return;
     }
@@ -74,11 +69,11 @@
       const res = await fetch('/api/family/add-member', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ familyContact, member: { name, role, phone } })
+        body: JSON.stringify({ family_id: familyId, member: { name, role, phone } })
       });
       const data = await res.json();
       if(!res.ok || !data.ok) throw new Error(data.error || 'Could not add member');
-      statusEl.textContent = name + ' has been added! Our team will link them to your family shortly.';
+      statusEl.textContent = name + ' has been added to your family!';
       statusEl.className = 'text-center text-sm mt-3 text-success';
       document.getElementById('memberName').value = '';
       document.getElementById('memberPhone').value = '';

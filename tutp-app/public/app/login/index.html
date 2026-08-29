@@ -67,9 +67,12 @@
 <section class="w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg transition-all duration-300" id="login-view">
 <header class="text-center">
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Welcome Back</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">Enter your phone number to continue</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Enter your child's name and your phone number to continue</p>
 </header>
-<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); handleSendCode();">
+<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); handleNamePhoneSubmit();">
+<div class="glass-input rounded-xl p-xs transition-all">
+<input id="loginChildName" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Child's name (optional)" type="text"/>
+</div>
 <div class="glass-input rounded-xl flex items-center p-xs transition-all">
 <div class="flex items-center gap-xs px-sm py-sm border-r border-outline-variant">
 <span class="font-label-lg text-label-lg text-on-surface">+91</span>
@@ -78,7 +81,27 @@
 </div>
 <div id="recaptcha-container-login"></div>
 <p id="phoneError" class="text-center text-sm text-red-600 hidden"></p>
-<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit" id="sendCodeBtn">Send Code</button>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit" id="sendCodeBtn">Continue</button>
+</form>
+</section>
+
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="disambiguate-view">
+<header class="text-center relative">
+<button class="absolute left-0 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors" onclick="showLogin()">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Which child?</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">We couldn't match that name exactly — enter a Roll Number or Section to help us find the right profile.</p>
+</header>
+<form class="flex flex-col gap-md" id="disambiguate-form" onsubmit="event.preventDefault(); handleDisambiguate();">
+<div class="glass-input rounded-xl p-xs transition-all">
+<input id="disambigRollNumber" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Roll Number" type="text"/>
+</div>
+<div class="glass-input rounded-xl p-xs transition-all">
+<input id="disambigSection" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Section" type="text"/>
+</div>
+<p id="disambigError" class="text-center text-sm text-red-600 hidden"></p>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit" id="disambigBtn">Continue</button>
 </form>
 </section>
 
@@ -109,6 +132,7 @@
 <header class="text-center">
 <h1 class="font-display-lg text-display-lg text-primary mb-sm">Who's logging in?</h1>
 <p class="font-body-lg text-body-lg text-on-surface-variant">Select your profile to continue learning</p>
+<p class="hidden font-label-md text-label-md text-error mt-sm" id="profileNotFoundNote">We couldn't confidently match the name you entered to one of your children — please pick your profile below.</p>
 </header>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-md">
 <a href="/app/child/" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
@@ -134,35 +158,41 @@
 </a>
 </div>
 </section>
+
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg items-center text-center" id="register-prompt-view">
+<span class="material-symbols-outlined text-primary text-5xl">celebration</span>
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">You're new here!</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Please register for the best experience — it only takes a minute.</p>
+</div>
+<a id="registerPromptLink" href="/app/register/" class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] flex items-center justify-center">Register my family</a>
+</section>
 </main>
 <script>
-        function showOTP() {
-            const login = document.getElementById('login-view');
-            const otp = document.getElementById('otp-view');
-            login.classList.add('fade-out');
+        function transitionTo(fromId, toId, focusSelector) {
+            const from = document.getElementById(fromId);
+            const to = document.getElementById(toId);
+            from.classList.add('fade-out');
             setTimeout(() => {
-                login.classList.add('hidden'); login.classList.remove('fade-out');
-                otp.classList.remove('hidden'); otp.classList.add('fade-in');
-                otp.querySelector('input').focus();
+                from.classList.add('hidden'); from.classList.remove('fade-out');
+                to.classList.remove('hidden'); to.classList.add('fade-in');
+                if (focusSelector) { const el = to.querySelector(focusSelector); if (el) el.focus(); }
             }, 300);
         }
         function showLogin() {
-            const login = document.getElementById('login-view');
+            // "Back" is reachable from either otp-view or disambiguate-view.
             const otp = document.getElementById('otp-view');
-            otp.classList.add('fade-out');
-            setTimeout(() => {
-                otp.classList.add('hidden'); otp.classList.remove('fade-out');
-                login.classList.remove('hidden'); login.classList.add('fade-in');
-            }, 300);
+            const from = otp.classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
+            transitionTo(from, 'login-view');
         }
-        function showProfiles() {
+        function showProfiles(notFound) {
+            document.getElementById('profileNotFoundNote').classList.toggle('hidden', !notFound);
             const otp = document.getElementById('otp-view');
-            const profiles = document.getElementById('profile-view');
-            otp.classList.add('fade-out');
-            setTimeout(() => {
-                otp.classList.add('hidden'); otp.classList.remove('fade-out');
-                profiles.classList.remove('hidden'); profiles.classList.add('fade-in');
-            }, 300);
+            const from = otp.classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
+            transitionTo(from, 'profile-view');
+        }
+        function showRegisterPrompt() {
+            transitionTo('login-view', 'register-prompt-view');
         }
         const otpInputs = document.querySelectorAll('.otp-digit');
         otpInputs.forEach((input, index) => {
@@ -174,7 +204,20 @@
             });
         });
 
-        async function handleSendCode(){
+        let lastPhoneDigits = '';
+        let lastChildName = '';
+        let pendingStudentId = null;   // set once resolve-student confidently identifies a child
+        let pendingFamilyId = null;    // set whenever we know which family this phone belongs to
+        let resolveFailed = false;     // family found, but couldn't identify which child
+
+        async function sendCodeAndShowOTP(){
+            await window.tutpSendOTP('+91' + lastPhoneDigits);
+            document.getElementById('otpSentTo').textContent = 'Sent to +91 ' + lastPhoneDigits.slice(0,5) + ' ' + lastPhoneDigits.slice(5);
+            const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'login-view' : 'disambiguate-view';
+            transitionTo(fromId, 'otp-view', 'input');
+        }
+
+        async function handleNamePhoneSubmit(){
             const errEl = document.getElementById('phoneError');
             const btn = document.getElementById('sendCodeBtn');
             errEl.classList.add('hidden');
@@ -184,16 +227,79 @@
                 errEl.classList.remove('hidden');
                 return;
             }
-            btn.disabled = true; btn.textContent = 'Sending…';
-            try{
-                await window.tutpSendOTP('+91' + digits);
-                document.getElementById('otpSentTo').textContent = 'Sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
-                showOTP();
+            lastPhoneDigits = digits;
+            lastChildName = document.getElementById('loginChildName').value.trim();
+            pendingStudentId = null;
+            pendingFamilyId = null;
+            resolveFailed = false;
+
+            btn.disabled = true; btn.textContent = 'Checking…';
+            try {
+                if (lastChildName) {
+                    const resolveRes = await fetch('/api/resolve-student', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: '+91' + digits, name: lastChildName })
+                    });
+                    const resolveData = await resolveRes.json();
+                    pendingFamilyId = resolveData.family_id || null;
+
+                    if (resolveData.familyFound === false) {
+                        sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
+                        showRegisterPrompt();
+                        return;
+                    }
+                    if (resolveData.found) {
+                        pendingStudentId = resolveData.student_id;
+                    } else if (resolveData.needsDisambiguation) {
+                        transitionTo('login-view', 'disambiguate-view', 'input');
+                        return;
+                    } else {
+                        resolveFailed = true; // family real, but no confident match and no disambiguation offered
+                    }
+                }
+                btn.textContent = 'Sending…';
+                await sendCodeAndShowOTP();
             } catch(err){
-                errEl.textContent = err.message || 'Could not send code — please try again.';
+                errEl.textContent = err.message || 'Could not continue — please try again.';
                 errEl.classList.remove('hidden');
             } finally {
-                btn.disabled = false; btn.textContent = 'Send Code';
+                btn.disabled = false; btn.textContent = 'Continue';
+            }
+        }
+
+        async function handleDisambiguate(){
+            const errEl = document.getElementById('disambigError');
+            const btn = document.getElementById('disambigBtn');
+            errEl.classList.add('hidden');
+            const roll_number = document.getElementById('disambigRollNumber').value.trim();
+            const section = document.getElementById('disambigSection').value.trim();
+            if (!roll_number && !section){
+                errEl.textContent = 'Please enter a Roll Number or Section.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true; btn.textContent = 'Checking…';
+            try {
+                const resolveRes = await fetch('/api/resolve-student', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: '+91' + lastPhoneDigits, name: lastChildName, roll_number, section })
+                });
+                const resolveData = await resolveRes.json();
+                pendingFamilyId = resolveData.family_id || pendingFamilyId;
+                if (resolveData.found) {
+                    pendingStudentId = resolveData.student_id;
+                } else {
+                    resolveFailed = true; // still not found — fall back to the profile grid after OTP
+                }
+                btn.textContent = 'Sending…';
+                await sendCodeAndShowOTP();
+            } catch(err){
+                errEl.textContent = err.message || 'Could not continue — please try again.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Continue';
             }
         }
 
@@ -210,7 +316,49 @@
             btn.disabled = true; btn.textContent = 'Verifying…';
             try{
                 await window.tutpVerifyOTP(code);
-                showProfiles();
+
+                // Came here from the homepage "attach homework" flow — skip straight to the
+                // homework helper with the file already attached, regardless of anything else.
+                if (sessionStorage.getItem('tutp_pending_homework_url')) {
+                    window.location.href = '/demo/';
+                    return;
+                }
+
+                if (pendingStudentId) {
+                    sessionStorage.setItem('tutp_student_id', pendingStudentId);
+                    if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
+                    window.location.href = '/app/child/';
+                    return;
+                }
+                if (resolveFailed) {
+                    if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
+                    showProfiles(true);
+                    return;
+                }
+
+                // No child name was entered at all (old-style login) — fall back to the
+                // original registered/new-family check.
+                let registered = false;
+                try {
+                    const checkRes = await fetch('/api/check-family', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ phone: '+91' + lastPhoneDigits })
+                    });
+                    const checkData = await checkRes.json();
+                    registered = !!checkData.registered;
+                    pendingFamilyId = checkData.family_id || null;
+                } catch (checkErr) {
+                    registered = false; // fail toward the register prompt, not the fake profile grid
+                }
+
+                if (registered) {
+                    if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
+                    showProfiles(false);
+                } else {
+                    sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
+                    transitionTo('otp-view', 'register-prompt-view');
+                }
             } catch(err){
                 errEl.textContent = 'Incorrect code — please try again.';
                 errEl.classList.remove('hidden');

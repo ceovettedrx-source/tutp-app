@@ -95,20 +95,15 @@
 <section class="mt-md">
 <div class="bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,91,192,0.05)] flex items-center justify-between border border-surface-container-high/50">
 <div>
-<h1 class="font-headline-md text-headline-md text-on-surface mb-xs">Good morning, Leo! 👋</h1>
+<h1 class="font-headline-md text-headline-md text-on-surface mb-xs">Good morning, <span id="childGreetingName">Leo</span>! 👋</h1>
 <p class="font-body-md text-body-md text-on-surface-variant">Ready for another day of learning adventures?</p>
 </div>
 </div>
 </section>
 
-<section class="text-center max-w-2xl mx-auto py-sm">
-<p class="font-body-lg text-body-lg text-on-surface-variant italic mb-2">"At the end of the day, the most overwhelming key to a child's success is the positive involvement of parents."</p>
-<p class="font-label-md text-label-md text-on-surface-variant">- Jane D. Hull</p>
-</section>
-
 <section class="space-y-sm">
 <h2 class="font-label-lg text-label-lg text-on-surface px-xs">Explore Subjects</h2>
-<div class="flex overflow-x-auto hide-scrollbar gap-sm pb-xs snap-x snap-mandatory">
+<div class="flex justify-center overflow-x-auto hide-scrollbar gap-sm pb-xs snap-x snap-mandatory">
 <div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
 <div class="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl text-primary">calculate</span></div>
 <span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Math</span>
@@ -137,7 +132,7 @@
 </section>
 
 <section class="space-y-sm">
-<div class="flex flex-wrap gap-xs justify-center md:justify-start">
+<div class="flex flex-wrap gap-xs justify-center">
 <button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Storytelling Method</button>
 <button class="px-4 py-2 rounded-full border border-primary bg-primary-container/10 text-primary font-label-md text-label-md hover:bg-primary-container/20 transition-all shadow-sm">Experiential Learning</button>
 <button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Play-Based Learning</button>
@@ -203,7 +198,7 @@
 <div class="absolute flex flex-col items-center"><span class="font-headline-lg text-headline-lg text-on-surface">80%</span></div>
 </div>
 <h4 class="font-label-lg text-label-lg text-on-surface">Today's Goal</h4>
-<p class="font-body-md text-body-md text-on-surface-variant">Almost there, Leo!</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Almost there, <span id="childGoalName">Leo</span>!</p>
 </div>
 </section>
 </main>
@@ -221,5 +216,23 @@
         window.addEventListener('scroll', () => {
             header.classList.toggle('shadow-md', window.scrollY > 10);
         });
+
+        // Personalize the "Leo" placeholders with the real student's name,
+        // if we know who's logged in. Falls back to "Leo" silently on any
+        // failure or if no student_id is set (e.g. page opened directly).
+        (async function loadRealStudentName(){
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            if (!studentId) return;
+            try {
+                const res = await fetch('/api/student/' + encodeURIComponent(studentId));
+                if (!res.ok) return;
+                const data = await res.json();
+                if (!data.name) return;
+                document.getElementById('childGreetingName').textContent = data.name;
+                document.getElementById('childGoalName').textContent = data.name;
+            } catch (err) {
+                console.error('Could not load student name:', err);
+            }
+        })();
 </script>
 </body></html>
