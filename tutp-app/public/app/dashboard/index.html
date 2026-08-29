@@ -11,33 +11,53 @@
 <style>
         body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;position:relative;z-index:70;}
         .proto-banner a{color:#fff;text-decoration:underline;}
         .testimonial-photo{background:linear-gradient(135deg,#005bbf,#1a73e8);display:flex;align-items:center;justify-content:center;}
+        @media (min-width: 768px) { main { margin-left: 240px; max-width: calc(100% - 240px); } header#topAppBar { width: calc(100% - 240px); left: 240px; } }
 </style>
 </head>
-<body class="font-body min-h-screen pb-24 md:pb-0">
+<body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
 <div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
-<header class="w-full top-0 sticky bg-surface-container-lowest z-40">
-<div class="flex justify-between items-center px-6 py-4 max-w-5xl mx-auto">
-<div class="flex items-center gap-4">
-<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold border border-outline-variant/15">A</div>
-<h1 class="font-headline text-2xl font-bold text-primary">Tut-P</h1>
+<header class="fixed top-[34px] left-0 w-full z-50 flex justify-between items-center px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">A</div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
 </div>
-<nav class="hidden md:flex items-center gap-8 font-label tracking-wide text-sm">
-<a class="text-primary font-bold hover:bg-surface-container-high transition-colors px-3 py-2 rounded-lg flex items-center gap-2" href="#"><span class="material-symbols-outlined">home</span>Home</a>
-<a class="text-on-surface-variant hover:bg-surface-container-high transition-colors px-3 py-2 rounded-lg flex items-center gap-2" href="#"><span class="material-symbols-outlined">menu_book</span>Moments</a>
-<a class="text-on-surface-variant hover:bg-surface-container-high transition-colors px-3 py-2 rounded-lg flex items-center gap-2" href="#"><span class="material-symbols-outlined">auto_graph</span>Reports</a>
-<a class="text-on-surface-variant hover:bg-surface-container-high transition-colors px-3 py-2 rounded-lg flex items-center gap-2" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span>Family</a>
-<a class="text-on-surface-variant hover:bg-surface-container-high transition-colors px-3 py-2 rounded-lg flex items-center gap-2" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span>Manage Family</a>
-<a class="text-on-surface-variant hover:bg-surface-container-high transition-colors px-3 py-2 rounded-lg flex items-center gap-2" href="/app/login/"><span class="material-symbols-outlined">group</span>Profiles</a>
-</nav>
-<button class="active:scale-95 transition-transform duration-200 p-2 rounded-full hover:bg-surface-container-high transition-colors text-primary" onclick="alert('Opens settings in the live app.')">
-<span class="material-symbols-outlined">settings</span>
+<div class="flex items-center gap-sm">
+<button aria-label="Language Toggle" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">language</span>
+</button>
+<button aria-label="Notifications" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
 </button>
 </div>
 </header>
-<main class="max-w-5xl mx-auto px-6 py-12 space-y-16">
+
+<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-60 rounded-r-lg z-40">
+<div class="px-md mb-lg">
+<div class="flex items-center gap-sm mb-4">
+<div class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">S</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-primary">Parental Control</h3>
+<p class="text-label-md text-on-surface-variant">Switch Role</p>
+</div>
+</div>
+</div>
+<ul class="flex flex-col gap-2">
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/child/"><span class="material-symbols-outlined">child_care</span><span class="font-label-lg text-label-lg">Child View</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-full mx-2 transition-transform" href="/app/dashboard/"><span class="material-symbols-outlined">woman</span><span class="font-label-lg text-label-lg">Mother View</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/father/"><span class="material-symbols-outlined">man</span><span class="font-label-lg text-label-lg">Father View</span></a></li>
+</ul>
+<div class="mt-auto px-md pt-lg border-t border-outline-variant/30 mx-2">
+<a class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md" href="/">
+<span class="material-symbols-outlined text-lg">arrow_back</span>Back to Tut-P site
+</a>
+</div>
+</nav>
+
+<main class="pt-[122px] max-w-5xl mx-auto px-6 pb-12 space-y-16">
 <section class="space-y-4">
 <p class="font-label text-sm text-tertiary uppercase tracking-widest">Good morning</p>
 <h2 class="font-headline text-4xl md:text-5xl font-bold text-on-background leading-tight">
