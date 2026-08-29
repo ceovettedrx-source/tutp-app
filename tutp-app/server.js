@@ -459,7 +459,7 @@ app.get('/api/family/:id/members', async (req, res) => {
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
     const { data, error } = await supabase
       .from('family_members')
-      .select('name, relationship, phone')
+      .select('id, name, relationship, phone')
       .eq('family_id', familyId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -467,6 +467,145 @@ app.get('/api/family/:id/members', async (req, res) => {
   } catch (err) {
     console.error('Get family members error:', err);
     res.status(500).json({ error: 'Could not fetch family members' });
+  }
+});
+
+// Lists every child in a family — the greeting card's per-child chip row
+// (mother/father/family-member dashboards) needs all siblings, not just
+// the one student_id in sessionStorage from login.
+app.get('/api/family/:id/students', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    const { data, error } = await supabase
+      .from('students')
+      .select('id, name, class')
+      .eq('family_id', familyId)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    res.json({ students: data || [] });
+  } catch (err) {
+    console.error('Get family students error:', err);
+    res.status(500).json({ error: 'Could not fetch family students' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Bonding scores — personal per viewer, never exposed as a full ranking.
+// A viewer_key is 'mother', 'father', or a family_members.id (uuid text).
+// The response only ever carries the requested viewer's own score plus
+// the family's max, so one viewer can never read another's raw score.
+// ------------------------------------------------------------------
+app.get('/api/bonding-score/:familyId/:viewerKey', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    const viewerKey = req.params.viewerKey;
+    if (!Number.isFinite(familyId) || !viewerKey) return res.status(400).json({ error: 'Invalid family id or viewer key' });
+
+    const { data: rows, error } = await supabase
+      .from('bonding_scores')
+      .select('viewer_key, score')
+      .eq('family_id', familyId);
+    if (error) throw error;
+
+    const own = (rows || []).find(r => r.viewer_key === viewerKey);
+    const score = own ? own.score : 0;
+    const leaderScore = (rows || []).reduce((max, r) => Math.max(max, r.score), score);
+    res.json({ score, leaderScore, isLeader: score >= leaderScore });
+  } catch (err) {
+    console.error('Get bonding score error:', err);
+    res.status(500).json({ error: 'Could not fetch bonding score' });
+  }
+});
+
+app.post('/api/bonding-score', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { family_id, viewer_key, score } = req.body || {};
+    const familyId = parseInt(family_id, 10);
+    const scoreNum = parseInt(score, 10);
+    if (!Number.isFinite(familyId) || !viewer_key || !Number.isFinite(scoreNum)) {
+      return res.status(400).json({ error: 'Missing family_id, viewer_key, or score' });
+    }
+    const { error } = await supabase
+      .from('bonding_scores')
+      .upsert({ family_id: familyId, viewer_key, score: Math.max(0, Math.min(100, scoreNum)), updated_at: new Date().toISOString() }, { onConflict: 'family_id,viewer_key' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Set bonding score error:', err);
+    res.status(500).json({ error: 'Could not save bonding score' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Per-member dashboard feature visibility — set by mother/father in the
+// "Manage Family" settings screen. A missing row means "visible".
+// ------------------------------------------------------------------
+const VISIBILITY_FEATURES = ['bonding_report', 'homework', 'activities'];
+
+app.get('/api/visibility-rules/:familyId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    const { data, error } = await supabase
+      .from('member_visibility_rules')
+      .select('family_member_id, feature_name, is_visible')
+      .eq('family_id', familyId);
+    if (error) throw error;
+    res.json({ rules: data || [] });
+  } catch (err) {
+    console.error('Get visibility rules error:', err);
+    res.status(500).json({ error: 'Could not fetch visibility rules' });
+  }
+});
+
+app.get('/api/visibility-rules/:familyId/:memberId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    const memberId = req.params.memberId;
+    if (!Number.isFinite(familyId) || !memberId) return res.status(400).json({ error: 'Invalid family id or member id' });
+    const { data, error } = await supabase
+      .from('member_visibility_rules')
+      .select('feature_name, is_visible')
+      .eq('family_id', familyId)
+      .eq('family_member_id', memberId);
+    if (error) throw error;
+    const visibility = Object.fromEntries(VISIBILITY_FEATURES.map(f => [f, true]));
+    (data || []).forEach(r => { visibility[r.feature_name] = r.is_visible; });
+    res.json(visibility);
+  } catch (err) {
+    console.error('Get member visibility error:', err);
+    res.status(500).json({ error: 'Could not fetch member visibility' });
+  }
+});
+
+app.post('/api/visibility-rules', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { family_id, family_member_id, feature_name, is_visible } = req.body || {};
+    const familyId = parseInt(family_id, 10);
+    if (!Number.isFinite(familyId) || !family_member_id || !VISIBILITY_FEATURES.includes(feature_name)) {
+      return res.status(400).json({ error: 'Missing or invalid family_id, family_member_id, or feature_name' });
+    }
+    const { error } = await supabase
+      .from('member_visibility_rules')
+      .upsert({
+        family_id: familyId,
+        family_member_id,
+        feature_name,
+        is_visible: !!is_visible,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'family_id,family_member_id,feature_name' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Set visibility rule error:', err);
+    res.status(500).json({ error: 'Could not save visibility rule' });
   }
 });
 

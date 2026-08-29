@@ -23,7 +23,6 @@
         body { visibility: hidden; }
         body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .testimonial-photo{background:linear-gradient(135deg,#005bbf,#1a73e8);display:flex;align-items:center;justify-content:center;}
         .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -32,19 +31,26 @@
            runtime JIT compiler. Without this, the fixed sidebar/header can
            briefly render in normal document flow and look badly broken. */
         #topAppBar { position: fixed; top: 0; left: 0; width: 100%; z-index: 50; }
-        #parentalSidebar { position: fixed; top: 0; left: 0; height: 100%; width: 240px; z-index: 40; }
+        #parentalSidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; z-index: 40; }
         main { padding-top: 88px; }
-        @media (min-width: 768px) { main { margin-left: 240px; } #topAppBar { left: 240px; width: calc(100% - 240px); } }
+        @media (min-width: 768px) { main { margin-left: 280px; } #topAppBar { left: 280px; width: calc(100% - 280px); } }
         @media (max-width: 767px) { #parentalSidebar { display: none; } }
 </style>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
-<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
-<div class="flex items-center gap-sm">
-<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">A</div>
+<header class="fixed top-0 left-0 w-full z-50 flex items-center gap-4 px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
+<div class="flex items-center gap-2 shrink-0">
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">T</div>
 <span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
+<span class="font-label text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">PRO</span>
 </div>
-<div class="flex items-center gap-sm">
+<div class="hidden md:flex flex-1 justify-center px-4">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
+<input class="w-full h-10 pl-10 pr-4 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-sm font-body text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Search Tut-P courses, materials, or topics..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-sm ml-auto shrink-0">
 <button aria-label="Language Toggle" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors">
 <span class="material-symbols-outlined text-on-surface-variant">language</span>
 </button>
@@ -52,190 +58,187 @@
 <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
 <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
 </button>
+<div class="hidden sm:flex items-center gap-2 pl-2 border-l border-outline-variant/30">
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm" id="headerAvatarInitial">·</div>
+<span class="font-label-md text-label-md text-on-surface" id="headerUserName">Parent</span>
+</div>
 </div>
 </header>
 
-<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-60 rounded-r-lg z-40" id="parentalSidebar">
-<div class="px-md mb-lg">
-<div class="flex items-center gap-sm mb-4">
-<div class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">S</div>
-<div>
-<h3 class="font-headline-md text-headline-md text-primary">Parental Control</h3>
-<p class="text-label-md text-on-surface-variant">Switch Role</p>
-</div>
-</div>
-</div>
-<ul class="flex flex-col gap-2">
-<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/child/"><span class="material-symbols-outlined">child_care</span><span class="font-label-lg text-label-lg">Child View</span></a></li>
-<li><a class="flex items-center gap-4 px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-full mx-2 transition-transform" href="/app/mother/"><span class="material-symbols-outlined">woman</span><span class="font-label-lg text-label-lg">Mother View</span></a></li>
-<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/father/"><span class="material-symbols-outlined">man</span><span class="font-label-lg text-label-lg">Father View</span></a></li>
-</ul>
-<div class="mt-auto px-md pt-lg border-t border-outline-variant/30 mx-2">
-<a class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md" href="/">
-<span class="material-symbols-outlined text-lg">arrow_back</span>Back to Tut-P site
+<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-72 rounded-r-lg z-40 overflow-y-auto" id="parentalSidebar">
+<div class="px-md mb-md">
+<a class="w-full flex items-center justify-center gap-2 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-primary/90 transition-colors" href="/app/family/">
+<span class="material-symbols-outlined text-lg">person_add</span>Add Family Member
 </a>
+</div>
+<div class="px-md mb-2 flex items-center justify-between">
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-widest">Family Members</p>
+<span class="font-label text-xs font-semibold text-on-surface-variant bg-surface-container-high rounded-full px-2 py-0.5" id="sidebarMemberCount">0</span>
+</div>
+<div class="px-md space-y-1 mb-lg" id="sidebarFamilyList">
+<p class="font-body text-xs text-on-surface-variant px-2 py-2">Loading…</p>
+</div>
+<ul class="flex flex-col gap-1 px-2 mb-lg">
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/app/mother/"><span class="material-symbols-outlined">home</span><span class="font-label-lg text-label-lg">Home</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#exploreSubjectsSection"><span class="material-symbols-outlined">school</span><span class="font-label-lg text-label-lg">Learning Courses</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#bondingReportSection"><span class="material-symbols-outlined">favorite</span><span class="font-label-lg text-label-lg">Bonding Report</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/demo/"><span class="material-symbols-outlined">smart_toy</span><span class="font-label-lg text-label-lg">Ask Tut-P AI Tutor</span></a></li>
+</ul>
+<div class="mt-auto px-md">
+<div class="rounded-2xl p-4 bg-gradient-to-br from-primary to-primary-container text-on-primary space-y-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined">workspace_premium</span>
+<p class="font-label-md text-label-md font-semibold">Tut-P Pro Family</p>
+</div>
+<p class="font-body text-xs text-on-primary/90">Unlimited STEM labs &amp; 24/7 AI tutor co-pilot.</p>
+<button class="w-full py-2 rounded-full bg-on-primary text-primary font-label text-xs font-bold hover:shadow-md transition-shadow" onclick="alert('Tut-P Pro upgrade coming soon!')">Explore Pro</button>
+</div>
 </div>
 </nav>
 
-<main class="pt-[122px] max-w-5xl mx-auto px-6 pb-12 space-y-16">
-<section class="space-y-4">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">Good morning</p>
-<h2 class="font-headline text-4xl md:text-5xl font-bold text-on-background leading-tight">
-<span class="inline-block w-32 h-9 bg-surface-variant rounded-lg animate-pulse align-middle" id="parentGreetingName"></span>,<br/>
-<span class="text-primary font-normal">here is a new learning opportunity for <span class="childNameText">your child</span> today.</span>
-</h2>
-<a class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full border border-outline-variant hover:border-primary hover:text-primary text-on-surface-variant transition-colors text-sm font-label" href="/app/child/">
-<span class="material-symbols-outlined text-base">child_care</span> View <span class="childNameText">your child</span>'s profile (child-safe view)
-</a>
-</section>
+<main class="max-w-5xl mx-auto px-6 pb-12 space-y-16">
 
-<section class="space-y-6">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">Your Insights <span class="text-on-surface-variant normal-case font-normal tracking-normal">— visible to parents only</span></p>
-<div class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/15 flex flex-col justify-between max-w-xl">
-<div>
-<div class="flex items-center gap-2 mb-4 text-primary">
-<span class="material-symbols-outlined">favorite</span>
-<h3 class="font-label font-semibold tracking-wide">Bonding Report</h3>
-</div>
-<div class="space-y-6 mt-6">
-<div class="flex justify-between items-end">
-<span class="font-headline text-4xl text-on-surface">85%</span>
-<span class="font-label text-sm text-tertiary flex items-center gap-1"><span class="material-symbols-outlined text-sm">trending_up</span> +5%</span>
-</div>
-<p class="font-body text-sm text-on-surface-variant">Positive engagement has increased since last week. Your time is paying off.</p>
-</div>
-</div>
-<button class="mt-8 text-primary font-label text-sm font-medium hover:underline text-left inline-flex items-center gap-1" onclick="alert('Opens the full Bonding Report in the live app.')">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
-</div>
-<div class="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/15 grid grid-cols-1 md:grid-cols-5">
-<div class="md:col-span-2 h-64 md:h-auto testimonial-photo">
-<span class="material-symbols-outlined text-white/70 text-6xl">family_restroom</span>
-</div>
-<div class="md:col-span-3 p-8 md:p-12 flex flex-col justify-center bg-surface-container-low">
-<span class="material-symbols-outlined text-primary text-4xl mb-4 opacity-50">format_quote</span>
-<p class="font-headline text-xl md:text-2xl text-on-surface leading-relaxed mb-6">"The time spent with <span class="childNameText">your child</span> through this app has become more meaningful. Every small step feels like a big achievement."</p>
-<div>
-<p class="font-label font-semibold text-on-surface">Parent Insight</p>
-<p class="font-body text-sm text-on-surface-variant">Community Story</p>
+<section>
+<div class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/15 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+<div class="space-y-3 flex-1">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-tertiary/10 text-tertiary font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">wb_sunny</span>Good morning · <span id="greetingDateText"></span>
+</span>
+<h2 class="font-headline text-3xl md:text-4xl font-bold text-on-background leading-tight">Welcome back, <span class="inline-block w-32 h-8 bg-surface-variant rounded-lg animate-pulse align-middle" id="parentGreetingName"></span></h2>
+<p class="font-body text-on-surface-variant">You've completed <span class="font-semibold text-on-surface">65%</span> of this week's learning goal with <span class="childNameText">your child</span>.</p>
+<div class="flex flex-wrap items-center gap-3 pt-2">
+<button class="bg-primary text-on-primary px-5 py-2.5 rounded-xl font-label font-medium hover:shadow-lg transition-shadow inline-flex items-center gap-2" onclick="window.location.href='/app/child/'">
+<span class="material-symbols-outlined text-lg">rocket_launch</span>Open <span class="childNameText">your child</span>'s Learning Space
+</button>
+<span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-success/10 text-success font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">verified_user</span>100% Kid-Safe Filter Active
+</span>
 </div>
 </div>
+<div class="flex flex-wrap gap-2 lg:flex-col lg:items-end shrink-0" id="childChipsRow"></div>
 </div>
 </section>
 
 <section class="space-y-6">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">Today's Learning <span class="text-on-surface-variant normal-case font-normal tracking-normal">— safe to share with <span class="childNameText">your child</span></span></p>
-<div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 flex flex-col justify-between min-h-[240px] relative overflow-hidden group">
-<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-<div class="relative z-10 flex justify-between items-start mb-8">
-<div class="space-y-2">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-container/20 text-tertiary font-label text-xs font-semibold">
-<span class="material-symbols-outlined text-sm">schedule</span> Weekly Focus
+<div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+<div class="space-y-2 flex-1">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">What Your Child Sees <span class="text-on-surface-variant normal-case font-normal tracking-normal">— exactly what your child experiences when they log in</span></p>
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">visibility</span>Viewing: <span class="childNameText">your child</span>'s view
+</span>
 </div>
-<h3 class="font-headline text-2xl md:text-3xl font-semibold text-on-surface">10-minute Math Session</h3>
-<p class="font-body text-on-surface-variant max-w-md mt-2"><span class="childNameText">Your child</span> is waiting for addition practice. Start the guided session.</p>
+<div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full md:w-80 shrink-0" id="bondingReportSection">
+<h3 class="font-label font-semibold text-on-surface flex items-center gap-2 mb-1"><span class="material-symbols-outlined text-primary text-lg">favorite</span>Bonding Report</h3>
+<p class="font-label text-[11px] text-on-surface-variant uppercase tracking-wide mb-3">7-Day Weekly Trend</p>
+<div class="flex items-end justify-between gap-3 mb-4">
+<span class="font-headline text-3xl text-on-surface shrink-0" id="bondingScoreValue"><span class="inline-block w-16 h-9 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
+<p class="font-body text-xs text-on-surface-variant text-right" id="bondingGapText">Loading your bonding score…</p>
 </div>
-<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
-<span class="material-symbols-outlined text-on-primary-container text-3xl">play_arrow</span>
+<div class="flex justify-between gap-1 mb-4">
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-primary text-on-primary">62</div><span class="text-[9px] text-on-surface-variant">Mon</span></div>
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-tertiary text-on-tertiary">68</div><span class="text-[9px] text-on-surface-variant">Tue</span></div>
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-secondary text-on-secondary">74</div><span class="text-[9px] text-on-surface-variant">Wed</span></div>
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-error text-on-error">70</div><span class="text-[9px] text-on-surface-variant">Thu</span></div>
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-primary text-on-primary">78</div><span class="text-[9px] text-on-surface-variant">Fri</span></div>
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-tertiary text-on-tertiary">82</div><span class="text-[9px] text-on-surface-variant">Sat</span></div>
+<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-secondary text-on-secondary">85</div><span class="text-[9px] text-on-surface-variant">Sun</span></div>
 </div>
-</div>
-<div class="relative z-10">
-<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="window.location.href='/demo/'">Start Session</button>
-</div>
-</div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="/demo/">
-<div class="flex items-start justify-between">
-<div>
-<span class="material-symbols-outlined text-primary text-3xl mb-4 block group-hover:scale-110 transition-transform">school</span>
-<h3 class="font-headline text-xl text-on-surface mb-2">Homework Help</h3>
-<p class="font-body text-sm text-on-surface-variant">Access subject-wise guides and tips.</p>
-</div>
-<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
-</div>
-</a>
-<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="#" onclick="alert('Opens the Family Library in the live app.'); return false;">
-<div class="flex items-start justify-between">
-<div>
-<span class="material-symbols-outlined text-tertiary text-3xl mb-4 block group-hover:scale-110 transition-transform">library_books</span>
-<h3 class="font-headline text-xl text-on-surface mb-2">Family Library</h3>
-<p class="font-body text-sm text-on-surface-variant">Curated books and stories to read together.</p>
-</div>
-<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
-</div>
-</a>
-</div>
-</section>
-
-<section class="space-y-6">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">Family Members</p>
-<div class="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15">
-<div class="space-y-3" id="familyMembersList">
-<p class="font-body text-sm text-on-surface-variant">Loading…</p>
-</div>
-<div class="flex flex-wrap gap-x-6 gap-y-2 mt-4">
-<a class="inline-flex items-center gap-2 text-primary font-label text-sm font-medium hover:underline" href="/app/family/"><span class="material-symbols-outlined text-base">person_add</span>Add a family member</a>
-<a class="inline-flex items-center gap-2 text-on-surface-variant font-label text-sm font-medium hover:underline hover:text-primary" href="/app/family-member/"><span class="material-symbols-outlined text-base">visibility</span>Preview what family members see</a>
+<button class="text-primary font-label text-sm font-medium hover:underline inline-flex items-center gap-1" onclick="alert('Opens the full Bonding Report in the live app.')">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
 </div>
 </div>
 </section>
 
-<section class="space-y-6">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">What Your Child Sees <span class="text-on-surface-variant normal-case font-normal tracking-normal">— exactly what your child sees when they log in</span></p>
-<div class="space-y-lg">
-
-<section class="space-y-sm">
-<h2 class="font-label-lg text-label-lg text-on-surface px-xs">Explore Subjects</h2>
-<div class="flex justify-center overflow-x-auto hide-scrollbar gap-sm pb-xs snap-x snap-mandatory">
-<div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
-<div class="w-20 h-20 rounded-2xl bg-blue-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl text-primary">calculate</span></div>
-<span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Math</span>
-</div>
-<div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
-<div class="w-20 h-20 rounded-2xl bg-green-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl text-tertiary">science</span></div>
-<span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Science</span>
-</div>
-<div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
-<div class="w-20 h-20 rounded-2xl bg-yellow-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl text-secondary">menu_book</span></div>
-<span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Reading</span>
-</div>
-<div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
-<div class="w-20 h-20 rounded-2xl bg-pink-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl text-error">palette</span></div>
-<span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Art</span>
-</div>
-<div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
-<div class="w-20 h-20 rounded-2xl bg-purple-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl" style="color:#7c3aed;">piano</span></div>
-<span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Music</span>
-</div>
-<div class="snap-start shrink-0 flex flex-col items-center gap-xs cursor-pointer group">
-<div class="w-20 h-20 rounded-2xl bg-cyan-50 flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow"><span class="material-symbols-outlined text-3xl" style="color:#0891b2;">smart_toy</span></div>
-<span class="font-label-md text-label-md text-on-surface group-hover:text-primary transition-colors">Coding</span>
-</div>
-</div>
-</section>
-
-<section class="space-y-sm">
-<div class="flex flex-wrap gap-xs justify-center">
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Storytelling Method</button>
-<button class="px-4 py-2 rounded-full border border-primary bg-primary-container/10 text-primary font-label-md text-label-md hover:bg-primary-container/20 transition-all shadow-sm">Experiential Learning</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Play-Based Learning</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Discussion Method</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Lecture Method</button>
-</div>
-</section>
-
-<section class="relative max-w-3xl mx-auto w-full z-10">
+<section class="relative max-w-3xl mx-auto w-full z-10 space-y-4">
 <div class="absolute inset-0 bg-primary/5 rounded-full blur-xl -z-10"></div>
 <div class="relative bg-surface-container-lowest rounded-full shadow-[0_8px_30px_rgba(0,91,192,0.12)] border border-primary/10 flex items-center p-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
 <span class="material-symbols-outlined text-outline ml-sm mr-xs">search</span>
 <input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/60 w-full py-3 outline-none" placeholder="Try searching for learning paths, tutors, or topics..." type="text"/>
-<button class="bg-primary text-on-primary px-6 py-3 rounded-full font-label-md text-label-md shadow-md hover:shadow-lg hover:bg-primary/90 transition-all flex items-center gap-2" onclick="alert('Opens AI search in the live app.')">
-<span class="material-symbols-outlined text-[18px]">auto_awesome</span> AI Search
+<button aria-label="Voice search" class="p-2 rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant" onclick="alert('Opens voice search in the live app.')">
+<span class="material-symbols-outlined">mic</span>
 </button>
+<button class="bg-primary text-on-primary px-6 py-3 rounded-full font-label-md text-label-md shadow-md hover:shadow-lg hover:bg-primary/90 transition-all flex items-center gap-2" onclick="alert('Opens AI search in the live app.')">
+<span class="material-symbols-outlined text-[18px]">auto_awesome</span> Tut-P Search
+</button>
+</div>
+<div class="flex flex-wrap gap-2 justify-center">
+<button class="px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant font-label text-xs hover:border-primary hover:text-primary transition-all" onclick="alert('Searches for Solar System content in the live app.')">Solar System</button>
+<button class="px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant font-label text-xs hover:border-primary hover:text-primary transition-all" onclick="alert('Searches for Math Sprint content in the live app.')">Math Sprint</button>
+<button class="px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant font-label text-xs hover:border-primary hover:text-primary transition-all" onclick="alert('Searches for Bedtime Story content in the live app.')">Bedtime Story</button>
+<button class="px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface-variant font-label text-xs hover:border-primary hover:text-primary transition-all" onclick="alert('Searches for Science Lab content in the live app.')">Science Lab</button>
+</div>
+</section>
+
+<section class="space-y-sm" id="exploreSubjectsSection">
+<div class="flex items-center justify-between px-xs">
+<h2 class="font-label-lg text-label-lg text-on-surface uppercase tracking-wide">Explore Subjects</h2>
+<span class="font-label text-xs text-on-surface-variant">6 Subjects Available</span>
+</div>
+<div class="flex overflow-x-auto hide-scrollbar gap-3 pb-2 snap-x snap-mandatory">
+<div class="snap-start shrink-0 w-40 rounded-2xl overflow-hidden border border-outline-variant/15 bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="relative h-20 w-full overflow-hidden">
+<img alt="Math" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" src="https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=320&amp;q=60&amp;auto=format&amp;fit=crop"/>
+<div class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-lowest/90 shadow-sm"><span class="material-symbols-outlined text-lg text-primary">calculate</span></div>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between gap-2"><span class="font-label-md text-label-md text-on-surface">Math</span><span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">Level 3</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden"><div class="bg-primary h-full rounded-full" style="width: 72%"></div></div>
+</div>
+</div>
+<div class="snap-start shrink-0 w-40 rounded-2xl overflow-hidden border border-outline-variant/15 bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="relative h-20 w-full overflow-hidden">
+<img alt="Science" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" src="https://images.unsplash.com/photo-1532094349884-543bc11b234d?w=320&amp;q=60&amp;auto=format&amp;fit=crop"/>
+<div class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-lowest/90 shadow-sm"><span class="material-symbols-outlined text-lg text-tertiary">science</span></div>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between gap-2"><span class="font-label-md text-label-md text-on-surface">Science</span><span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full bg-tertiary/10 text-tertiary whitespace-nowrap">New!</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden"><div class="bg-tertiary h-full rounded-full" style="width: 45%"></div></div>
+</div>
+</div>
+<div class="snap-start shrink-0 w-40 rounded-2xl overflow-hidden border border-outline-variant/15 bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="relative h-20 w-full overflow-hidden">
+<img alt="Reading" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=320&amp;q=60&amp;auto=format&amp;fit=crop"/>
+<div class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-lowest/90 shadow-sm"><span class="material-symbols-outlined text-lg text-secondary">menu_book</span></div>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between gap-2"><span class="font-label-md text-label-md text-on-surface">Reading</span><span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary/10 text-secondary whitespace-nowrap">On Track</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden"><div class="bg-secondary h-full rounded-full" style="width: 88%"></div></div>
+</div>
+</div>
+<div class="snap-start shrink-0 w-40 rounded-2xl overflow-hidden border border-outline-variant/15 bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="relative h-20 w-full overflow-hidden">
+<img alt="Art" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" src="https://images.unsplash.com/photo-1513364776144-60967b0f800f?w=320&amp;q=60&amp;auto=format&amp;fit=crop"/>
+<div class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-lowest/90 shadow-sm"><span class="material-symbols-outlined text-lg text-error">palette</span></div>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between gap-2"><span class="font-label-md text-label-md text-on-surface">Art</span><span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full bg-error/10 text-error whitespace-nowrap">Creative</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden"><div class="bg-error h-full rounded-full" style="width: 30%"></div></div>
+</div>
+</div>
+<div class="snap-start shrink-0 w-40 rounded-2xl overflow-hidden border border-outline-variant/15 bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="relative h-20 w-full overflow-hidden">
+<img alt="Music" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" src="https://images.unsplash.com/photo-1520523839897-bd0b52f945a0?w=320&amp;q=60&amp;auto=format&amp;fit=crop"/>
+<div class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-lowest/90 shadow-sm"><span class="material-symbols-outlined text-lg text-primary">piano</span></div>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between gap-2"><span class="font-label-md text-label-md text-on-surface">Music</span><span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary whitespace-nowrap">Practicing</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden"><div class="bg-primary h-full rounded-full" style="width: 55%"></div></div>
+</div>
+</div>
+<div class="snap-start shrink-0 w-40 rounded-2xl overflow-hidden border border-outline-variant/15 bg-surface-container-lowest shadow-sm hover:shadow-md transition-shadow cursor-pointer group">
+<div class="relative h-20 w-full overflow-hidden">
+<img alt="Coding" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" src="https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=320&amp;q=60&amp;auto=format&amp;fit=crop"/>
+<div class="absolute top-2 left-2 flex items-center justify-center w-8 h-8 rounded-full bg-surface-container-lowest/90 shadow-sm"><span class="material-symbols-outlined text-lg text-on-secondary-container">smart_toy</span></div>
+</div>
+<div class="p-3 space-y-2">
+<div class="flex items-center justify-between gap-2"><span class="font-label-md text-label-md text-on-surface">Coding</span><span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full bg-secondary-container/20 text-on-secondary-container whitespace-nowrap">Beginner</span></div>
+<div class="w-full bg-surface-container-highest rounded-full h-1.5 overflow-hidden"><div class="bg-secondary-container h-full rounded-full" style="width: 20%"></div></div>
+</div>
+</div>
 </div>
 </section>
 
 <section class="space-y-sm">
-<h2 class="font-label-lg text-label-lg text-on-surface px-xs">Continue Learning</h2>
+<h2 class="font-label-lg text-label-lg text-on-surface px-xs uppercase tracking-wide">Continue Learning</h2>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-gutter">
 <div class="md:col-span-2 bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,91,192,0.05)] border border-surface-container-high/50 flex flex-col md:flex-row gap-md relative overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow">
 <div class="w-full md:w-1/3 aspect-video md:aspect-square rounded-lg bg-tertiary-container/10 flex items-center justify-center shrink-0"><span class="material-symbols-outlined text-5xl text-tertiary">rocket_launch</span></div>
@@ -256,7 +259,7 @@
 </div>
 <div class="bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,91,192,0.05)] border border-surface-container-high/50 flex flex-col relative overflow-hidden group cursor-pointer hover:shadow-lg transition-shadow">
 <div class="flex items-center justify-between mb-sm">
-<h3 class="font-label-lg text-label-lg text-on-surface">Upcoming Session</h3>
+<h3 class="font-label-lg text-label-lg text-on-surface">Upcoming Live Session</h3>
 <span class="material-symbols-outlined text-primary bg-primary/10 p-1 rounded-full">calendar_today</span>
 </div>
 <div class="flex items-center gap-sm mb-4">
@@ -270,22 +273,93 @@
 </section>
 
 <section class="space-y-sm">
-<h2 class="font-label-lg text-label-lg text-on-surface px-xs">My Progress</h2>
-<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center text-center max-w-xs mx-auto">
-<div class="relative w-32 h-32 mb-4 flex items-center justify-center">
+<h2 class="font-label-lg text-label-lg text-on-surface px-xs uppercase tracking-wide">Today's Goal</h2>
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
+<div class="glass-card rounded-xl p-md flex flex-col items-center justify-center text-center shrink-0">
+<div class="relative w-32 h-32 mb-2 flex items-center justify-center">
 <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
 <circle cx="50" cy="50" fill="none" r="45" stroke="#e5e8ee" stroke-width="10"></circle>
 <circle cx="50" cy="50" fill="none" r="45" stroke="#fdaf0a" stroke-dasharray="282.7" stroke-dashoffset="56.54" stroke-linecap="round" stroke-width="10"></circle>
 </svg>
 <div class="absolute flex flex-col items-center"><span class="font-headline-lg text-headline-lg text-on-surface">80%</span></div>
 </div>
-<h4 class="font-label-lg text-label-lg text-on-surface">Today's Goal</h4>
-<p class="font-body-md text-body-md text-on-surface-variant">Almost there, <span id="childGoalNamePreview">your child</span>!</p>
+<p class="font-body-md text-sm text-on-surface-variant">Almost there, <span id="childGoalNamePreview">your child</span>!</p>
+</div>
+<div class="grid grid-cols-3 gap-4 flex-1 w-full">
+<div class="flex flex-col items-center text-center gap-1 p-3 rounded-xl bg-error/5">
+<span class="material-symbols-outlined text-error text-2xl">local_fire_department</span>
+<span class="font-headline text-xl text-on-surface">5</span>
+<span class="font-body text-xs text-on-surface-variant">Day Streak</span>
+</div>
+<div class="flex flex-col items-center text-center gap-1 p-3 rounded-xl bg-primary/5">
+<span class="material-symbols-outlined text-primary text-2xl">schedule</span>
+<span class="font-headline text-xl text-on-surface">120</span>
+<span class="font-body text-xs text-on-surface-variant">Minutes</span>
+</div>
+<div class="flex flex-col items-center text-center gap-1 p-3 rounded-xl bg-secondary/5">
+<span class="material-symbols-outlined text-secondary text-2xl">military_tech</span>
+<span class="font-headline text-xl text-on-surface">3</span>
+<span class="font-body text-xs text-on-surface-variant">Badges</span>
+</div>
+</div>
 </div>
 </section>
 
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter items-stretch">
+<div class="bg-primary-container text-on-primary-container rounded-2xl p-6 md:p-8 flex flex-col justify-between h-full relative overflow-hidden">
+<div class="flex items-center justify-between mb-4">
+<span class="inline-flex items-center gap-1 font-label text-xs font-semibold px-2 py-1 rounded-full bg-on-primary-container/15">
+<span class="material-symbols-outlined text-sm">verified</span>Verified Parent Story
+</span>
+<button aria-label="Listen to this story" class="w-9 h-9 rounded-full bg-on-primary-container/15 flex items-center justify-center hover:bg-on-primary-container/25 transition-colors" onclick="alert('Plays the audio testimonial in the live app.')">
+<span class="material-symbols-outlined text-lg">volume_up</span>
+</button>
+</div>
+<span class="material-symbols-outlined text-4xl mb-2 opacity-60">format_quote</span>
+<p class="font-headline text-lg md:text-xl leading-relaxed mb-6">"The time spent with <span class="childNameText">your child</span> through this app has become more meaningful. Every small step feels like a big achievement."</p>
+<div>
+<p class="font-label font-semibold">Parent Insight</p>
+<p class="font-body text-sm opacity-80">Community Story</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 flex flex-col justify-between h-full relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<div class="relative z-10">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-container/20 text-tertiary font-label text-xs font-semibold mb-2">
+<span class="material-symbols-outlined text-sm">schedule</span> Weekly Focus
+</div>
+<h3 class="font-headline text-2xl font-semibold text-on-surface">10-minute Math Session</h3>
+<p class="font-body text-on-surface-variant mt-2"><span class="childNameText">Your child</span> is waiting for addition practice. Start the guided session.</p>
+</div>
+<div class="relative z-10 mt-6">
+<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="window.location.href='/demo/'">Start Session</button>
+</div>
 </div>
 </section>
+
+<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="/demo/">
+<div class="flex items-start justify-between">
+<div>
+<span class="material-symbols-outlined text-primary text-3xl mb-4 block group-hover:scale-110 transition-transform">school</span>
+<h3 class="font-headline text-xl text-on-surface mb-2">Homework Help</h3>
+<p class="font-body text-sm text-on-surface-variant">Access subject-wise guides and tips.</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
+</div>
+</a>
+<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="#" onclick="alert('Opens the Family Library in the live app.'); return false;">
+<div class="flex items-start justify-between">
+<div>
+<span class="material-symbols-outlined text-tertiary text-3xl mb-4 block group-hover:scale-110 transition-transform">library_books</span>
+<h3 class="font-headline text-xl text-on-surface mb-2">Family Library</h3>
+<p class="font-body text-sm text-on-surface-variant">Curated books and stories to read together.</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
+</div>
+</a>
+</section>
+
 </main>
 <nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-2 pb-6 px-4 bg-surface-container-low backdrop-blur-xl rounded-t-full shadow-sm">
 <a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1.5 active:scale-90 duration-300" href="#"><span class="material-symbols-outlined">home</span><span class="font-label text-xs uppercase tracking-widest mt-1">HOME</span></a>
@@ -295,16 +369,26 @@
 <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span><span class="font-label text-xs uppercase tracking-widest mt-1">FAMILY</span></a>
 </nav>
 <script>
+        (function setGreetingDate(){
+            const el = document.getElementById('greetingDateText');
+            el.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        })();
+
         // Shows a loading skeleton until the real parent's name resolves —
         // never flashes a hardcoded fallback before a real fetch has had
         // the chance to complete. Falls back to generic "Parent" (never a
         // demo-persona name) only once we know for sure there's no
-        // family_id, or the fetch failed/came back empty.
+        // family_id, or the fetch failed/came back empty. Also fills in
+        // the header avatar/name, which show the same identity.
         (async function loadRealParentName(){
             const el = document.getElementById('parentGreetingName');
+            const headerNameEl = document.getElementById('headerUserName');
+            const headerAvatarEl = document.getElementById('headerAvatarInitial');
             const showName = (name) => {
                 el.textContent = name;
-                el.classList.remove('w-32', 'h-9', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
+                el.classList.remove('w-32', 'h-8', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
+                headerNameEl.textContent = name;
+                headerAvatarEl.textContent = (name || '?')[0].toUpperCase();
             };
             const familyId = sessionStorage.getItem('tutp_family_id');
             if (!familyId) { showName('Parent'); return; }
@@ -344,39 +428,107 @@
             }
         })();
 
-        (async function loadFamilyMembers(){
-            const listEl = document.getElementById('familyMembersList');
+        // Greeting card's per-child chip row — only shown when there's more
+        // than one child, per the design spec ("if multiple children exist").
+        (async function loadChildChips(){
+            const rowEl = document.getElementById('childChipsRow');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) return;
+            const escapeHtml = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+                if (!res.ok) return;
+                const data = await res.json();
+                const students = data.students || [];
+                if (students.length <= 1) return;
+                rowEl.innerHTML = students.map(s => `
+                    <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 font-label text-xs text-on-surface whitespace-nowrap">
+                        ${escapeHtml(s.name)}${s.class ? ` (${escapeHtml(s.class)})` : ''}
+                    </span>
+                `).join('');
+            } catch (err) {
+                console.error('[mother] Could not load child chips:', err);
+            }
+        })();
+
+        // Sidebar family list — self (mother) marked Active, the other
+        // parent and every family_members row marked Switch. Reuses the
+        // same /api/family/:id (+/members) data as the chip row and the
+        // old "Family Members" section did.
+        (async function loadSidebarFamily(){
+            const listEl = document.getElementById('sidebarFamilyList');
+            const countEl = document.getElementById('sidebarMemberCount');
             const familyId = sessionStorage.getItem('tutp_family_id');
             if (!familyId) {
-                listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Log in to see your family members.</p>';
+                listEl.innerHTML = '<p class="font-body text-xs text-on-surface-variant px-2 py-2">Log in to see your family.</p>';
+                return;
+            }
+            const escapeHtml = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+            const row = (name, role, badge, href) => `
+                <a class="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-surface-container-high transition-colors" href="${href}">
+                    <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm shrink-0">${escapeHtml((name || '?')[0].toUpperCase())}</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-label-md text-label-md text-on-surface truncate">${escapeHtml(name)}</p>
+                        <p class="font-body text-[11px] text-on-surface-variant truncate">${escapeHtml(role)}</p>
+                    </div>
+                    <span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge === 'Active' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}">${badge}</span>
+                </a>`;
+            try {
+                const [famRes, membersRes] = await Promise.all([
+                    fetch('/api/family/' + encodeURIComponent(familyId)),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/members')
+                ]);
+                const fam = famRes.ok ? await famRes.json() : {};
+                const membersData = membersRes.ok ? await membersRes.json() : { members: [] };
+                let rows = '';
+                let count = 0;
+                if (fam.motherName) { rows += row(fam.motherName, 'Mother', 'Active', '/app/mother/'); count++; }
+                if (fam.fatherName) { rows += row(fam.fatherName, 'Father', 'Switch', '/app/father/'); count++; }
+                (membersData.members || []).forEach(m => {
+                    rows += row(m.name, m.relationship || 'Family', 'Switch', '/app/family-member/?preview=1');
+                    count++;
+                });
+                listEl.innerHTML = rows || '<p class="font-body text-xs text-on-surface-variant px-2 py-2">No family members yet.</p>';
+                countEl.textContent = count;
+            } catch (err) {
+                console.error('[mother] Could not load sidebar family list:', err);
+                listEl.innerHTML = '<p class="font-body text-xs text-on-surface-variant px-2 py-2">Could not load family right now.</p>';
+            }
+        })();
+
+        // Bonding score is personal to this viewer — the API never returns
+        // anyone else's raw score, only this viewer's own score plus the
+        // family's current max, so the UI can show a gap-to-leader instead
+        // of a full ranking.
+        (async function loadBondingScore(){
+            const valueEl = document.getElementById('bondingScoreValue');
+            const gapEl = document.getElementById('bondingGapText');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) {
+                valueEl.textContent = '—';
+                gapEl.textContent = 'Log in to see your bonding score.';
                 return;
             }
             try {
-                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/members');
+                const res = await fetch('/api/bonding-score/' + encodeURIComponent(familyId) + '/mother');
                 if (!res.ok) throw new Error('Request failed');
                 const data = await res.json();
-                const members = data.members || [];
-                if (!members.length) {
-                    listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">No family members added yet.</p>';
-                    return;
-                }
-                const escapeHtml = (str) => {
-                    const div = document.createElement('div');
-                    div.textContent = str;
-                    return div.innerHTML;
-                };
-                listEl.innerHTML = members.map(m => `
-                    <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold flex-shrink-0">${escapeHtml((m.name || '?')[0].toUpperCase())}</div>
-                        <div>
-                            <p class="font-body text-sm text-on-surface font-medium">${escapeHtml(m.name)}</p>
-                            ${m.relationship ? `<p class="font-body text-xs text-on-surface-variant">${escapeHtml(m.relationship)}</p>` : ''}
-                        </div>
-                    </div>
-                `).join('');
+                valueEl.textContent = data.score + '%';
+                gapEl.textContent = data.isLeader
+                    ? "You're the top bonder in your family right now!"
+                    : `${data.leaderScore - data.score} points away from the top score.`;
             } catch (err) {
-                console.error('Could not load family members:', err);
-                listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Could not load family members right now.</p>';
+                console.error('[mother] Could not load bonding score:', err);
+                valueEl.textContent = '—';
+                gapEl.textContent = 'Could not load your bonding score right now.';
             }
         })();
 </script>

@@ -44,6 +44,36 @@
 </button>
 <p id="status" class="text-center text-sm mt-3"></p>
 </div>
+
+<div class="glass-card rounded-xl p-6 mb-6">
+<h2 class="font-headline text-2xl font-semibold mb-2">Dashboard permissions</h2>
+<p class="text-on-surface-variant mb-4">As mother or father, you control what each family member can see on their dashboard. Bonding scores are always private to the person viewing them.</p>
+<div class="space-y-4">
+<div><label class="block text-sm font-semibold mb-1">Family member</label>
+<select id="permMember" class="w-full h-11 px-3 rounded-lg soft-input" onchange="loadMemberVisibility()">
+<option value="">Select a family member…</option>
+</select>
+</div>
+<div id="permToggles" class="space-y-3 hidden">
+<label class="flex items-center justify-between gap-4 p-3 rounded-lg border border-outline-variant/30">
+<span class="font-body text-sm">Bonding Report</span>
+<input type="checkbox" id="permBondingReport" class="w-5 h-5" checked/>
+</label>
+<label class="flex items-center justify-between gap-4 p-3 rounded-lg border border-outline-variant/30">
+<span class="font-body text-sm">Homework</span>
+<input type="checkbox" id="permHomework" class="w-5 h-5" checked/>
+</label>
+<label class="flex items-center justify-between gap-4 p-3 rounded-lg border border-outline-variant/30">
+<span class="font-body text-sm">Activities</span>
+<input type="checkbox" id="permActivities" class="w-5 h-5" checked/>
+</label>
+</div>
+</div>
+<button id="permSaveBtn" class="w-full mt-5 bg-primary text-white h-12 rounded-lg font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 hidden" onclick="saveMemberVisibility()">
+<span class="material-symbols-outlined">tune</span>Save Permissions
+</button>
+<p id="permStatus" class="text-center text-sm mt-3"></p>
+</div>
 </main>
 <script>
   const familyId = sessionStorage.getItem('tutp_family_id');
@@ -83,6 +113,82 @@
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<span class="material-symbols-outlined">person_add</span>Add Family Member';
+    }
+  }
+
+  // Populates the permissions member dropdown from the same
+  // family_members list used elsewhere — mother/father are never in it,
+  // since they're always full-access and can't be restricted.
+  (async function loadPermMembers(){
+    const selectEl = document.getElementById('permMember');
+    try {
+      const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/members');
+      const data = await res.json();
+      (data.members || []).forEach(m => {
+        const opt = document.createElement('option');
+        opt.value = m.id;
+        opt.textContent = m.name;
+        selectEl.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('Could not load family members for permissions:', err);
+    }
+  })();
+
+  async function loadMemberVisibility(){
+    const memberId = document.getElementById('permMember').value;
+    const togglesEl = document.getElementById('permToggles');
+    const saveBtnEl = document.getElementById('permSaveBtn');
+    const statusEl = document.getElementById('permStatus');
+    statusEl.textContent = '';
+    if (!memberId) {
+      togglesEl.classList.add('hidden');
+      saveBtnEl.classList.add('hidden');
+      return;
+    }
+    try {
+      const res = await fetch('/api/visibility-rules/' + encodeURIComponent(familyId) + '/' + encodeURIComponent(memberId));
+      const visibility = await res.json();
+      document.getElementById('permBondingReport').checked = visibility.bonding_report !== false;
+      document.getElementById('permHomework').checked = visibility.homework !== false;
+      document.getElementById('permActivities').checked = visibility.activities !== false;
+      togglesEl.classList.remove('hidden');
+      saveBtnEl.classList.remove('hidden');
+    } catch (err) {
+      console.error('Could not load member visibility:', err);
+      statusEl.textContent = 'Could not load this member\'s current settings.';
+      statusEl.className = 'text-center text-sm mt-3 text-error';
+    }
+  }
+
+  async function saveMemberVisibility(){
+    const memberId = document.getElementById('permMember').value;
+    const statusEl = document.getElementById('permStatus');
+    const btn = document.getElementById('permSaveBtn');
+    if (!memberId) return;
+    const features = {
+      bonding_report: document.getElementById('permBondingReport').checked,
+      homework: document.getElementById('permHomework').checked,
+      activities: document.getElementById('permActivities').checked
+    };
+    btn.disabled = true;
+    try {
+      for (const [feature_name, is_visible] of Object.entries(features)) {
+        const res = await fetch('/api/visibility-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ family_id: familyId, family_member_id: memberId, feature_name, is_visible })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save permissions');
+      }
+      statusEl.textContent = 'Permissions saved.';
+      statusEl.className = 'text-center text-sm mt-3 text-success';
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong — please try again.';
+      statusEl.className = 'text-center text-sm mt-3 text-error';
+    } finally {
+      btn.disabled = false;
     }
   }
 </script>
