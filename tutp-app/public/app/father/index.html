@@ -2,31 +2,221 @@
 <html lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Tut-P - Father View</title>
+<title>Tut-P Father Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="/shared/tailwind-tokens.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="/shared/tailwind-tokens.js"></script>
 <style>
-        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;position:relative;z-index:70;}
         .proto-banner a{color:#fff;text-decoration:underline;}
+        .testimonial-photo{background:linear-gradient(135deg,#005bbf,#1a73e8);display:flex;align-items:center;justify-content:center;}
+        @media (min-width: 768px) { main { margin-left: 240px; max-width: calc(100% - 240px); } header#topAppBar { width: calc(100% - 240px); left: 240px; } }
 </style>
 </head>
-<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
-<div class="proto-banner">PROTOTYPE — Father View is not built yet · <a href="/">Back to Tut-P site</a></div>
-<main class="flex-grow w-full flex items-center justify-center px-margin-mobile py-lg">
-<div class="w-full max-w-md bg-surface-container-lowest rounded-2xl p-lg border border-outline-variant/15 text-center flex flex-col items-center gap-md">
-<div class="w-16 h-16 rounded-full bg-tertiary-container/20 text-tertiary flex items-center justify-center">
-<span class="material-symbols-outlined text-4xl">man</span>
+<body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
+<div class="proto-banner">PROTOTYPE — not yet connected to a live backend · <a href="/">Back to Tut-P site</a></div>
+<header class="fixed top-[34px] left-0 w-full z-50 flex justify-between items-center px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">A</div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
 </div>
+<div class="flex items-center gap-sm">
+<button aria-label="Language Toggle" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">language</span>
+</button>
+<button aria-label="Notifications" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+</div>
+</header>
+
+<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-60 rounded-r-lg z-40">
+<div class="px-md mb-lg">
+<div class="flex items-center gap-sm mb-4">
+<div class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">S</div>
 <div>
-<h1 class="font-headline-md text-headline-md text-on-surface mb-xs">Father View is coming soon</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">This role isn't built in the prototype yet — Child View and Mother View are ready to explore in the meantime.</p>
+<h3 class="font-headline-md text-headline-md text-primary">Parental Control</h3>
+<p class="text-label-md text-on-surface-variant">Switch Role</p>
 </div>
-<a href="/app/login/" class="w-full min-h-[48px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center gap-2">
-<span class="material-symbols-outlined">arrow_back</span>Back to profile picker
+</div>
+</div>
+<ul class="flex flex-col gap-2">
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/child/"><span class="material-symbols-outlined">child_care</span><span class="font-label-lg text-label-lg">Child View</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant mx-2 hover:bg-surface-container-high rounded-full transition-colors" href="/app/dashboard/"><span class="material-symbols-outlined">woman</span><span class="font-label-lg text-label-lg">Mother View</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm bg-secondary-container text-on-secondary-container font-bold rounded-full mx-2 transition-transform" href="/app/father/"><span class="material-symbols-outlined">man</span><span class="font-label-lg text-label-lg">Father View</span></a></li>
+</ul>
+<div class="mt-auto px-md pt-lg border-t border-outline-variant/30 mx-2">
+<a class="flex items-center gap-2 text-on-surface-variant hover:text-primary transition-colors font-label-md text-label-md" href="/">
+<span class="material-symbols-outlined text-lg">arrow_back</span>Back to Tut-P site
 </a>
 </div>
+</nav>
+
+<main class="pt-[122px] max-w-5xl mx-auto px-6 pb-12 space-y-16">
+<section class="space-y-4">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Good morning</p>
+<h2 class="font-headline text-4xl md:text-5xl font-bold text-on-background leading-tight">
+<span id="parentGreetingName">Appa</span>,<br/>
+<span class="text-primary font-normal">here is a new learning opportunity for Leo today.</span>
+</h2>
+<a class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full border border-outline-variant hover:border-primary hover:text-primary text-on-surface-variant transition-colors text-sm font-label" href="/app/child/">
+<span class="material-symbols-outlined text-base">child_care</span> View Leo's profile (child-safe view)
+</a>
+</section>
+
+<section class="space-y-6">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Your Insights <span class="text-on-surface-variant normal-case font-normal tracking-normal">— visible to parents only</span></p>
+<div class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/15 flex flex-col justify-between max-w-xl">
+<div>
+<div class="flex items-center gap-2 mb-4 text-primary">
+<span class="material-symbols-outlined">favorite</span>
+<h3 class="font-label font-semibold tracking-wide">Bonding Report</h3>
+</div>
+<div class="space-y-6 mt-6">
+<div class="flex justify-between items-end">
+<span class="font-headline text-4xl text-on-surface">85%</span>
+<span class="font-label text-sm text-tertiary flex items-center gap-1"><span class="material-symbols-outlined text-sm">trending_up</span> +5%</span>
+</div>
+<p class="font-body text-sm text-on-surface-variant">Positive engagement has increased since last week. Your time is paying off.</p>
+</div>
+</div>
+<button class="mt-8 text-primary font-label text-sm font-medium hover:underline text-left inline-flex items-center gap-1" onclick="alert('Opens the full Bonding Report in the live app.')">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/15 grid grid-cols-1 md:grid-cols-5">
+<div class="md:col-span-2 h-64 md:h-auto testimonial-photo">
+<span class="material-symbols-outlined text-white/70 text-6xl">family_restroom</span>
+</div>
+<div class="md:col-span-3 p-8 md:p-12 flex flex-col justify-center bg-surface-container-low">
+<span class="material-symbols-outlined text-primary text-4xl mb-4 opacity-50">format_quote</span>
+<p class="font-headline text-xl md:text-2xl text-on-surface leading-relaxed mb-6">"The time spent with Leo through this app has become more meaningful. Every small step feels like a big achievement."</p>
+<div>
+<p class="font-label font-semibold text-on-surface">Parent Insight</p>
+<p class="font-body text-sm text-on-surface-variant">Community Story</p>
+</div>
+</div>
+</div>
+</section>
+
+<section class="space-y-6">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Today's Learning <span class="text-on-surface-variant normal-case font-normal tracking-normal">— safe to share with Leo</span></p>
+<div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 flex flex-col justify-between min-h-[240px] relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<div class="relative z-10 flex justify-between items-start mb-8">
+<div class="space-y-2">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-container/20 text-tertiary font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">schedule</span> Weekly Focus
+</div>
+<h3 class="font-headline text-2xl md:text-3xl font-semibold text-on-surface">10-minute Math Session</h3>
+<p class="font-body text-on-surface-variant max-w-md mt-2">Leo is waiting for addition practice. Start the guided session.</p>
+</div>
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-on-primary-container text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="relative z-10">
+<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="window.location.href='/demo/'">Start Session</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="/demo/">
+<div class="flex items-start justify-between">
+<div>
+<span class="material-symbols-outlined text-primary text-3xl mb-4 block group-hover:scale-110 transition-transform">school</span>
+<h3 class="font-headline text-xl text-on-surface mb-2">Homework Help</h3>
+<p class="font-body text-sm text-on-surface-variant">Access subject-wise guides and tips.</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
+</div>
+</a>
+<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="#" onclick="alert('Opens the Family Library in the live app.'); return false;">
+<div class="flex items-start justify-between">
+<div>
+<span class="material-symbols-outlined text-tertiary text-3xl mb-4 block group-hover:scale-110 transition-transform">library_books</span>
+<h3 class="font-headline text-xl text-on-surface mb-2">Family Library</h3>
+<p class="font-body text-sm text-on-surface-variant">Curated books and stories to read together.</p>
+</div>
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
+</div>
+</a>
+</div>
+</section>
+
+<section class="space-y-6">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Family Members</p>
+<div class="bg-surface-container-lowest rounded-2xl p-6 border border-outline-variant/15">
+<div class="space-y-3" id="familyMembersList">
+<p class="font-body text-sm text-on-surface-variant">Loading…</p>
+</div>
+<a class="inline-flex items-center gap-2 mt-4 text-primary font-label text-sm font-medium hover:underline" href="/app/family/"><span class="material-symbols-outlined text-base">person_add</span>Add a family member</a>
+</div>
+</section>
 </main>
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-2 pb-6 px-4 bg-surface-container-low backdrop-blur-xl rounded-t-full shadow-sm">
+<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1.5 active:scale-90 duration-300" href="#"><span class="material-symbols-outlined">home</span><span class="font-label text-xs uppercase tracking-widest mt-1">HOME</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="#"><span class="material-symbols-outlined">menu_book</span><span class="font-label text-xs uppercase tracking-widest mt-1">MOMENTS</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="#"><span class="material-symbols-outlined">auto_graph</span><span class="font-label text-xs uppercase tracking-widest mt-1">REPORTS</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="/app/login/"><span class="material-symbols-outlined">group</span><span class="font-label text-xs uppercase tracking-widest mt-1">PROFILES</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span><span class="font-label text-xs uppercase tracking-widest mt-1">FAMILY</span></a>
+</nav>
+<script>
+        // Personalize the "Appa" placeholder with the real father's name,
+        // if we know which family is logged in. Prefers fatherName (this is
+        // the father view, unlike dashboard.html which prefers motherName).
+        // Falls back to "Appa" silently on any failure or if no family_id is set.
+        (async function loadRealParentName(){
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) return;
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId));
+                if (!res.ok) return;
+                const data = await res.json();
+                const name = data.fatherName || data.motherName;
+                if (!name) return;
+                document.getElementById('parentGreetingName').textContent = name;
+            } catch (err) {
+                console.error('Could not load parent name:', err);
+            }
+        })();
+
+        (async function loadFamilyMembers(){
+            const listEl = document.getElementById('familyMembersList');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) {
+                listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Log in to see your family members.</p>';
+                return;
+            }
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/members');
+                if (!res.ok) throw new Error('Request failed');
+                const data = await res.json();
+                const members = data.members || [];
+                if (!members.length) {
+                    listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">No family members added yet.</p>';
+                    return;
+                }
+                const escapeHtml = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+                listEl.innerHTML = members.map(m => `
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold flex-shrink-0">${escapeHtml((m.name || '?')[0].toUpperCase())}</div>
+                        <div>
+                            <p class="font-body text-sm text-on-surface font-medium">${escapeHtml(m.name)}</p>
+                            ${m.relationship ? `<p class="font-body text-xs text-on-surface-variant">${escapeHtml(m.relationship)}</p>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Could not load family members:', err);
+                listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Could not load family members right now.</p>';
+            }
+        })();
+</script>
 </body></html>
