@@ -53,7 +53,15 @@
         .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;position:relative;z-index:70;}
         .proto-banner a{color:#fff;text-decoration:underline;}
-        @media (min-width: 768px) { main { margin-left: 240px; max-width: calc(100% - 240px); } header#topAppBar { width: calc(100% - 240px); left: 240px; } }
+        /* Critical layout CSS — plain CSS, not Tailwind utility classes, so it
+           applies immediately on parse instead of waiting for Tailwind's
+           runtime JIT compiler. Without this, the fixed sidebar/header can
+           briefly render in normal document flow and look badly broken. */
+        #topAppBar { position: fixed; top: 34px; left: 0; width: 100%; z-index: 50; }
+        #parentalSidebar { position: fixed; top: 0; left: 0; height: 100%; width: 240px; z-index: 40; }
+        main { padding-top: 122px; }
+        @media (min-width: 768px) { main { margin-left: 240px; } #topAppBar { left: 240px; width: calc(100% - 240px); } }
+        @media (max-width: 767px) { #parentalSidebar { display: none; } }
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md antialiased min-h-screen pb-32">
@@ -74,7 +82,7 @@
 </div>
 </header>
 
-<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-60 rounded-r-lg z-40">
+<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-60 rounded-r-lg z-40" id="parentalSidebar">
 <div class="px-md mb-lg">
 <div class="flex items-center gap-sm mb-4">
 <div class="w-12 h-12 rounded-full bg-secondary text-on-secondary flex items-center justify-center font-bold">S</div>
@@ -100,7 +108,7 @@
 <section class="mt-md">
 <div class="bg-surface-container-lowest rounded-xl p-md shadow-[0_4px_20px_rgba(0,91,192,0.05)] flex items-center justify-between border border-surface-container-high/50">
 <div>
-<h1 class="font-headline-md text-headline-md text-on-surface mb-xs">Good morning, <span id="childGreetingName">Leo</span>! 👋</h1>
+<h1 class="font-headline-md text-headline-md text-on-surface mb-xs">Good morning, <span class="inline-block w-20 h-6 bg-surface-variant rounded-lg animate-pulse align-middle" id="childGreetingName"></span>! 👋</h1>
 <p class="font-body-md text-body-md text-on-surface-variant">Ready for another day of learning adventures?</p>
 </div>
 </div>
@@ -203,7 +211,7 @@
 <div class="absolute flex flex-col items-center"><span class="font-headline-lg text-headline-lg text-on-surface">80%</span></div>
 </div>
 <h4 class="font-label-lg text-label-lg text-on-surface">Today's Goal</h4>
-<p class="font-body-md text-body-md text-on-surface-variant">Almost there, <span id="childGoalName">Leo</span>!</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Almost there, <span class="inline-block w-16 h-5 bg-surface-variant rounded-lg animate-pulse align-middle" id="childGoalName"></span>!</p>
 </div>
 </section>
 </main>
@@ -222,21 +230,30 @@
             header.classList.toggle('shadow-md', window.scrollY > 10);
         });
 
-        // Personalize the "Leo" placeholders with the real student's name,
-        // if we know who's logged in. Falls back to "Leo" silently on any
-        // failure or if no student_id is set (e.g. page opened directly).
+        // Shows loading skeletons until the real student's name resolves —
+        // never flashes the "Leo" fallback before a real fetch has had the
+        // chance to complete. Falls back to "Leo" only once we know for sure
+        // there's no student_id (e.g. page opened directly), or the fetch
+        // failed/came back empty.
         (async function loadRealStudentName(){
+            const greetingEl = document.getElementById('childGreetingName');
+            const goalEl = document.getElementById('childGoalName');
+            const showName = (name) => {
+                greetingEl.textContent = name;
+                greetingEl.classList.remove('w-20', 'h-6', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
+                goalEl.textContent = name;
+                goalEl.classList.remove('w-16', 'h-5', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
+            };
             const studentId = sessionStorage.getItem('tutp_student_id');
-            if (!studentId) return;
+            if (!studentId) { showName('Leo'); return; }
             try {
                 const res = await fetch('/api/student/' + encodeURIComponent(studentId));
-                if (!res.ok) return;
+                if (!res.ok) { showName('Leo'); return; }
                 const data = await res.json();
-                if (!data.name) return;
-                document.getElementById('childGreetingName').textContent = data.name;
-                document.getElementById('childGoalName').textContent = data.name;
+                showName(data.name || 'Leo');
             } catch (err) {
                 console.error('Could not load student name:', err);
+                showName('Leo');
             }
         })();
 </script>
