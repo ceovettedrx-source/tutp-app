@@ -44,27 +44,14 @@
 Alexandria,<br/>
 <span class="text-primary font-normal">here is a new learning opportunity for Leo today.</span>
 </h2>
+<a class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full border border-outline-variant hover:border-primary hover:text-primary text-on-surface-variant transition-colors text-sm font-label" href="/app/child/">
+<span class="material-symbols-outlined text-base">child_care</span> View Leo's profile (child-safe view)
+</a>
 </section>
-<div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-<div class="md:col-span-2 bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 flex flex-col justify-between min-h-[320px] relative overflow-hidden group">
-<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-<div class="relative z-10 flex justify-between items-start mb-12">
-<div class="space-y-2">
-<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-container/20 text-tertiary font-label text-xs font-semibold">
-<span class="material-symbols-outlined text-sm">schedule</span> Weekly Focus
-</div>
-<h3 class="font-headline text-2xl md:text-3xl font-semibold text-on-surface">10-minute Math Session</h3>
-<p class="font-body text-on-surface-variant max-w-md mt-2">Leo is waiting for addition practice. Start the guided session.</p>
-</div>
-<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
-<span class="material-symbols-outlined text-on-primary-container text-3xl">play_arrow</span>
-</div>
-</div>
-<div class="relative z-10">
-<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="window.location.href='/demo/'">Start Session</button>
-</div>
-</div>
-<div class="bg-surface-container-low rounded-2xl p-6 border border-outline-variant/15 flex flex-col justify-between">
+
+<section class="space-y-6">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Your Insights <span class="text-on-surface-variant normal-case font-normal tracking-normal">— visible to parents only</span></p>
+<div class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/15 flex flex-col justify-between max-w-xl">
 <div>
 <div class="flex items-center gap-2 mb-4 text-primary">
 <span class="material-symbols-outlined">favorite</span>
@@ -80,8 +67,42 @@ Alexandria,<br/>
 </div>
 <button class="mt-8 text-primary font-label text-sm font-medium hover:underline text-left inline-flex items-center gap-1" onclick="alert('Opens the full Bonding Report in the live app.')">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
 </div>
+<div class="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/15 grid grid-cols-1 md:grid-cols-5">
+<div class="md:col-span-2 h-64 md:h-auto testimonial-photo">
+<span class="material-symbols-outlined text-white/70 text-6xl">family_restroom</span>
 </div>
-<section class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div class="md:col-span-3 p-8 md:p-12 flex flex-col justify-center bg-surface-container-low">
+<span class="material-symbols-outlined text-primary text-4xl mb-4 opacity-50">format_quote</span>
+<p class="font-headline text-xl md:text-2xl text-on-surface leading-relaxed mb-6">"The time spent with Leo through this app has become more meaningful. Every small step feels like a big achievement."</p>
+<div>
+<p class="font-label font-semibold text-on-surface">Parent Insight</p>
+<p class="font-body text-sm text-on-surface-variant">Community Story</p>
+</div>
+</div>
+</div>
+</section>
+
+<section class="space-y-6">
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Today's Learning <span class="text-on-surface-variant normal-case font-normal tracking-normal">— safe to share with Leo</span></p>
+<div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 flex flex-col justify-between min-h-[240px] relative overflow-hidden group">
+<div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+<div class="relative z-10 flex justify-between items-start mb-8">
+<div class="space-y-2">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-tertiary-container/20 text-tertiary font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">schedule</span> Weekly Focus
+</div>
+<h3 class="font-headline text-2xl md:text-3xl font-semibold text-on-surface">10-minute Math Session</h3>
+<p class="font-body text-on-surface-variant max-w-md mt-2">Leo is waiting for addition practice. Start the guided session.</p>
+</div>
+<div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-on-primary-container text-3xl">play_arrow</span>
+</div>
+</div>
+<div class="relative z-10">
+<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="window.location.href='/demo/'">Start Session</button>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 <a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="/demo/">
 <div class="flex items-start justify-between">
 <div>
@@ -102,18 +123,6 @@ Alexandria,<br/>
 <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
 </div>
 </a>
-</section>
-<section class="bg-surface-container-lowest rounded-2xl overflow-hidden border border-outline-variant/15 grid grid-cols-1 md:grid-cols-5">
-<div class="md:col-span-2 h-64 md:h-auto testimonial-photo">
-<span class="material-symbols-outlined text-white/70 text-6xl">family_restroom</span>
-</div>
-<div class="md:col-span-3 p-8 md:p-12 flex flex-col justify-center bg-surface-container-low">
-<span class="material-symbols-outlined text-primary text-4xl mb-4 opacity-50">format_quote</span>
-<p class="font-headline text-xl md:text-2xl text-on-surface leading-relaxed mb-6">"The time spent with Leo through this app has become more meaningful. Every small step feels like a big achievement."</p>
-<div>
-<p class="font-label font-semibold text-on-surface">Parent Insight</p>
-<p class="font-body text-sm text-on-surface-variant">Community Story</p>
-</div>
 </div>
 </section>
 </main>

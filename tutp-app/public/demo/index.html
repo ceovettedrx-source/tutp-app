@@ -4,385 +4,172 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tut-P — Close the education gap</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --ink:#1B2A4A;
-    --ink-soft:#374873;
-    --paper:#FBF3E0;
-    --paper-dim:#F3E8CE;
-    --gold:#E3A857;
-    --gold-deep:#C98A2E;
-    --pen:#B23A2E;
-    --pen-deep:#8F2C22;
-    --leaf:#3E7A57;
-    --line:rgba(27,42,74,0.14);
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;}
-  body{
-    background:var(--ink);
-    background-image:
-      radial-gradient(circle at 15% 10%, rgba(227,168,87,0.10), transparent 40%),
-      radial-gradient(circle at 85% 30%, rgba(178,58,46,0.08), transparent 45%);
-    color:var(--paper);
-    font-family:'Inter',sans-serif;
-    min-height:100vh;
-  }
-  .wrap{max-width:920px;margin:0 auto;padding:0 24px 120px;}
-  .eyebrow{
-    font-family:'IBM Plex Mono',monospace;
-    font-size:12px;letter-spacing:0.14em;text-transform:uppercase;
-    color:var(--gold);
-  }
-
-  /* HERO */
-  header.hero{padding:56px 0 40px;}
-  .logo-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:48px;}
-  .logo{font-family:'Fraunces',serif;font-weight:700;font-size:22px;color:var(--paper);display:flex;align-items:center;gap:8px;}
-  .logo .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);display:inline-block;}
-  .nav-tag{font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(251,243,224,0.55);letter-spacing:0.06em;border:1px solid rgba(251,243,224,0.25);padding:5px 10px;border-radius:20px;}
-
-  h1{
-    font-family:'Fraunces',serif;font-weight:600;
-    font-size:clamp(34px,5.4vw,54px);
-    line-height:1.08;letter-spacing:-0.01em;
-    margin:14px 0 20px;color:var(--paper);
-  }
-  h1 em{font-style:italic;color:var(--gold);font-weight:500;}
-  .sub{font-size:17px;line-height:1.6;color:rgba(251,243,224,0.78);max-width:560px;margin-bottom:8px;}
-
-  /* TRIANGLE DIAGRAM */
-  .triangle-wrap{position:relative;height:210px;margin:40px 0 8px;max-width:420px;}
-  .tri-node{
-    position:absolute;display:flex;flex-direction:column;align-items:center;gap:6px;
-    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.05em;
-    color:var(--paper);text-align:center;width:110px;
-  }
-  .tri-node .circle{
-    width:56px;height:56px;border-radius:50%;
-    display:flex;align-items:center;justify-content:center;
-    font-family:'Fraunces',serif;font-size:22px;
-    border:1.5px solid rgba(251,243,224,0.35);
-    background:rgba(251,243,224,0.06);
-  }
-  .tri-node.child{top:0;left:50%;transform:translateX(-50%);}
-  .tri-node.parent{bottom:0;left:0;}
-  .tri-node.edu{bottom:0;right:0;}
-  .tri-node.child .circle{border-color:var(--gold);color:var(--gold);}
-  .tri-node.parent .circle{border-color:var(--pen);color:#e8887c;}
-  .tri-node.edu .circle{border-color:var(--leaf);color:#79c79c;}
-  svg.tri-lines{position:absolute;top:0;left:0;width:100%;height:100%;}
-  svg.tri-lines line{stroke:rgba(251,243,224,0.3);stroke-width:1;stroke-dasharray:3 5;}
-  .gap-label{
-    position:absolute;font-family:'IBM Plex Mono',monospace;font-size:9.5px;
-    color:rgba(251,243,224,0.45);letter-spacing:0.04em;background:var(--ink);padding:2px 6px;
-  }
-
-  /* PAPER CARD */
-  .paper{
-    background:var(--paper);color:var(--ink);
-    border-radius:14px;
-    padding:32px;
-    position:relative;
-    box-shadow:0 24px 50px -20px rgba(0,0,0,0.45);
-    margin-bottom:28px;
-  }
-  .paper::before{
-    content:"";position:absolute;left:38px;top:0;bottom:0;width:1.5px;background:rgba(178,58,46,0.28);
-  }
-  .paper .inner{padding-left:26px;}
-  .step-label{
-    font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.1em;text-transform:uppercase;
-    color:var(--pen);margin-bottom:6px;display:flex;align-items:center;gap:8px;
-  }
-  .step-label .num{
-    width:20px;height:20px;border-radius:50%;background:var(--pen);color:var(--paper);
-    display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;
-  }
-  h2.paper-title{font-family:'Fraunces',serif;font-weight:600;font-size:24px;margin:0 0 6px;color:var(--ink);}
-  .paper-desc{font-size:14.5px;color:var(--ink-soft);margin-bottom:22px;line-height:1.55;}
-
-  .field-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;}
-  label{display:block;font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.05em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:6px;}
-  input[type=text], select, textarea{
-    width:100%;font-family:'Inter',sans-serif;font-size:14.5px;color:var(--ink);
-    background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px;
-    outline:none;transition:border-color .15s;
-  }
-  input[type=text]:focus, select:focus, textarea:focus{border-color:var(--pen);}
-  textarea{resize:vertical;min-height:96px;font-size:15px;line-height:1.5;}
-
-  .upload-row{display:flex;align-items:center;gap:12px;margin-top:14px;flex-wrap:wrap;}
-  .upload-btn{
-    display:inline-flex;align-items:center;gap:8px;
-    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.04em;
-    background:#fff;border:1.5px dashed var(--ink-soft);color:var(--ink-soft);
-    padding:9px 14px;border-radius:8px;cursor:pointer;
-  }
-  .upload-btn:hover{border-color:var(--pen);color:var(--pen);}
-  .thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;border:1.5px solid var(--line);}
-  .clear-img{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--pen);cursor:pointer;text-decoration:underline;background:none;border:none;padding:0;}
-
-  .primary-btn{
-    font-family:'IBM Plex Mono',monospace;font-size:13px;letter-spacing:0.05em;text-transform:uppercase;
-    background:var(--pen);color:#fff;border:none;padding:13px 26px;border-radius:8px;cursor:pointer;
-    margin-top:22px;display:inline-flex;align-items:center;gap:10px;
-    transition:background .15s, transform .1s;
-  }
-  .primary-btn:hover{background:var(--pen-deep);}
-  .primary-btn:active{transform:scale(0.98);}
-  .primary-btn:disabled{background:#c8bfa8;cursor:not-allowed;}
-  .primary-btn .spin{
-    width:14px;height:14px;border:2px solid rgba(255,255,255,0.4);border-top-color:#fff;
-    border-radius:50%;animation:spin .7s linear infinite;
-  }
-  @keyframes spin{to{transform:rotate(360deg);}}
-
-  .err{margin-top:14px;font-size:13px;color:var(--pen);font-family:'IBM Plex Mono',monospace;}
-
-  /* RESULT: explanation */
-  .margin-note{
-    background:var(--paper-dim);border-radius:10px;padding:20px 22px;margin-bottom:26px;
-    border-left:3px solid var(--gold-deep);
-  }
-  .margin-note .step-label{color:var(--gold-deep);}
-  .margin-note .step-label .num{background:var(--gold-deep);}
-  .margin-note p{font-size:15.5px;line-height:1.65;color:var(--ink);margin:0;white-space:pre-wrap;}
-
-  /* QUIZ */
-  .quiz-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
-  .score-pill{
-    font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--ink);color:var(--paper);
-    padding:6px 12px;border-radius:20px;
-  }
-  .q-card{background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:18px 20px;margin-bottom:14px;}
-  .q-num{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--ink-soft);margin-bottom:6px;}
-  .q-text{font-size:15.5px;font-weight:600;color:var(--ink);margin-bottom:14px;line-height:1.45;}
-  .opts{display:grid;gap:9px;}
-  .opt-btn{
-    text-align:left;font-family:'Inter',sans-serif;font-size:14.5px;color:var(--ink);
-    background:#fff;border:1.5px solid var(--line);border-radius:8px;padding:11px 14px;
-    cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
-    transition:all .12s;
-  }
-  .opt-btn:hover:not(:disabled){border-color:var(--ink-soft);}
-  .opt-btn:disabled{cursor:default;}
-  .opt-btn.correct{background:rgba(62,122,87,0.10);border-color:var(--leaf);color:#1e4a30;}
-  .opt-btn.wrong{background:rgba(178,58,46,0.08);border-color:var(--pen);color:var(--pen-deep);}
-  .opt-mark{font-size:15px;}
-  .q-explain{
-    margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);
-    font-size:13.5px;color:var(--ink-soft);line-height:1.55;
-  }
-  .q-explain b{color:var(--ink);}
-
-  .reset-row{text-align:center;margin-top:8px;}
-
-  /* DASHBOARD */
-  .dash-note{background:var(--paper-dim);border-radius:8px;padding:10px 14px;font-size:13px;}
-  .dash-block{margin-bottom:26px;}
-  .dash-block:last-child{margin-bottom:0;}
-  .dash-label{font-family:'IBM Plex Mono',monospace;font-size:11.5px;letter-spacing:0.04em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:12px;}
-  .bar-chart{display:flex;flex-direction:column;gap:10px;}
-  .bar-row{display:grid;grid-template-columns:110px 1fr 78px;align-items:center;gap:10px;}
-  .bar-row .bname{font-size:13px;color:var(--ink);}
-  .bar-row .btrack{background:var(--paper-dim);border-radius:6px;height:16px;overflow:hidden;position:relative;}
-  .bar-row .bfill{height:100%;border-radius:6px;background:var(--ink-soft);transition:width .6s ease;}
-  .bar-row.today .bfill{background:var(--pen);}
-  .bar-row .bval{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:var(--ink-soft);text-align:right;}
-  .bar-row.today .bval{color:var(--pen);font-weight:600;}
-  .bar-row.today .bname::after{content:" · today";font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--pen);}
-
-  .streak-row{display:flex;gap:8px;}
-  .streak-day{display:flex;flex-direction:column;align-items:center;gap:6px;flex:1;}
-  .streak-day .dlabel{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-soft);}
-  .streak-day .ddot{width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:13px;background:#fff;}
-  .streak-day.done .ddot{background:var(--gold-deep);border-color:var(--gold-deep);color:#fff;}
-  .streak-day.today .ddot{border-color:var(--pen);border-width:2px;}
-
-  .strength-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-  .strength-card{display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;background:#fff;border:1.5px solid var(--line);}
-  .strength-card.strong .s-icon{color:var(--gold-deep);}
-  .strength-card.weak .s-icon{color:var(--pen);}
-  .s-icon{font-size:20px;width:30px;text-align:center;}
-  .s-title{font-family:'IBM Plex Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:0.04em;color:var(--ink-soft);}
-  .s-sub{font-size:13.5px;font-weight:600;color:var(--ink);margin-top:2px;}
-
-  @media(max-width:640px){
-    .strength-row{grid-template-columns:1fr;}
-    .bar-row{grid-template-columns:80px 1fr 60px;}
-  }
-  .ghost-btn{
-    font-family:'IBM Plex Mono',monospace;font-size:12px;letter-spacing:0.04em;
-    background:transparent;border:1.5px solid rgba(251,243,224,0.3);color:var(--paper);
-    padding:10px 20px;border-radius:8px;cursor:pointer;
-  }
-  .ghost-btn:hover{border-color:var(--gold);color:var(--gold);}
-
-  footer{text-align:center;padding:40px 0 10px;font-family:'IBM Plex Mono',monospace;font-size:11px;color:rgba(251,243,224,0.4);}
-
-  @media(max-width:640px){
-    .field-row{grid-template-columns:1fr;}
-    .paper{padding:22px 18px;}
-    .paper .inner{padding-left:16px;}
-    .paper::before{left:24px;}
-  }
-</style>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+<script src="/shared/tailwind-tokens.js"></script>
 </head>
-<body>
-<div class="wrap">
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<div class="max-w-[920px] mx-auto px-6 pb-32">
 
-  <header class="hero">
-    <div class="logo-row">
-      <div class="logo"><span class="dot"></span>Tut-P</div>
-      <div class="nav-tag">Live MVP demo</div>
+  <header class="pt-14 pb-10">
+    <div class="flex items-center justify-between mb-12">
+      <div class="font-headline-md text-headline-md text-on-surface flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-secondary inline-block"></span>Tut-P
+      </div>
+      <div class="font-label-md text-xs text-on-surface-variant border border-outline-variant rounded-full px-2.5 py-1.5">Live MVP demo</div>
     </div>
-    <div class="eyebrow">Child · Parent · Education</div>
-    <h1>Every parent can teach.<br>Some just need the <em>bridge</em>.</h1>
-    <p class="sub">Whatever is keeping a parent out of their child's homework tonight — language, a subject they never learned, or simply no time — Tut-P closes that one gap and hands the lesson back to the family.</p>
+    <div class="font-label-md text-label-md text-secondary uppercase tracking-widest">Child · Parent · Education</div>
+    <h1 class="font-display-lg-mobile md:font-display-lg text-display-lg-mobile md:text-display-lg text-on-surface mt-3.5 mb-5 leading-tight">Every parent can teach.<br>Some just need the <span class="italic text-secondary">bridge</span>.</h1>
+    <p class="font-body-lg text-body-lg text-on-surface-variant max-w-xl mb-2">Whatever is keeping a parent out of their child's homework tonight — language, a subject they never learned, or simply no time — Tut-P closes that one gap and hands the lesson back to the family.</p>
 
-    <div class="triangle-wrap">
-      <svg class="tri-lines" viewBox="0 0 420 210" preserveAspectRatio="none">
-        <line x1="210" y1="55" x2="56" y2="180"></line>
-        <line x1="210" y1="55" x2="364" y2="180"></line>
-        <line x1="56" y1="180" x2="364" y2="180"></line>
+    <!-- TRIANGLE DIAGRAM -->
+    <div class="relative h-[210px] mt-10 mb-2 max-w-[420px]">
+      <svg class="absolute inset-0 w-full h-full text-outline-variant" viewBox="0 0 420 210" preserveAspectRatio="none">
+        <line x1="210" y1="55" x2="56" y2="180" stroke="currentColor" stroke-width="1" stroke-dasharray="3 5"/>
+        <line x1="210" y1="55" x2="364" y2="180" stroke="currentColor" stroke-width="1" stroke-dasharray="3 5"/>
+        <line x1="56" y1="180" x2="364" y2="180" stroke="currentColor" stroke-width="1" stroke-dasharray="3 5"/>
       </svg>
-      <div class="tri-node child"><div class="circle">🧒</div>Child</div>
-      <div class="tri-node parent"><div class="circle">👤</div>Parent</div>
-      <div class="tri-node edu"><div class="circle">📘</div>Education</div>
-      <div class="gap-label" style="top:105px;left:15px;">language</div>
-      <div class="gap-label" style="top:105px;right:5px;">knowledge</div>
-      <div class="gap-label" style="bottom:0px;left:145px;">time</div>
+      <div class="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1.5 font-label-md text-[11px] text-on-surface text-center w-[110px]">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center font-headline-md text-xl border-[1.5px] border-primary text-primary bg-primary-container/10">🧒</div>Child
+      </div>
+      <div class="absolute bottom-0 left-0 flex flex-col items-center gap-1.5 font-label-md text-[11px] text-on-surface text-center w-[110px]">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center font-headline-md text-xl border-[1.5px] border-error text-error bg-error-container/40">👤</div>Parent
+      </div>
+      <div class="absolute bottom-0 right-0 flex flex-col items-center gap-1.5 font-label-md text-[11px] text-on-surface text-center w-[110px]">
+        <div class="w-14 h-14 rounded-full flex items-center justify-center font-headline-md text-xl border-[1.5px] border-tertiary text-tertiary bg-tertiary-container/10">📘</div>Education
+      </div>
+      <div class="absolute font-label-md text-[9.5px] text-on-surface-variant bg-background px-1.5" style="top:100px;left:10px;">language</div>
+      <div class="absolute font-label-md text-[9.5px] text-on-surface-variant bg-background px-1.5" style="top:100px;right:0;">knowledge</div>
+      <div class="absolute font-label-md text-[9.5px] text-on-surface-variant bg-background px-1.5" style="bottom:-4px;left:140px;">time</div>
     </div>
   </header>
 
   <!-- STEP 1: SETUP -->
-  <div class="paper">
-    <div class="inner">
-      <div class="step-label"><span class="num">1</span>Family setup</div>
-      <h2 class="paper-title">Tell us about your child</h2>
-      <p class="paper-desc">One account, any adult in the family can log a session. This takes ten seconds — it's what lets every explanation and quiz match your child's level and your language.</p>
+  <div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 mb-7">
+    <div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-1.5">
+      <span class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[11px] font-semibold">1</span>Family setup
+    </div>
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-1.5">Tell us about your child</h2>
+    <p class="font-body-md text-sm text-on-surface-variant mb-5 leading-relaxed">One account, any adult in the family can log a session. This takes ten seconds — it's what lets every explanation and quiz match your child's level and your language.</p>
 
-      <div class="field-row">
-        <div>
-          <label>Child's name</label>
-          <input type="text" id="childName" placeholder="e.g. Ishika">
-        </div>
-        <div>
-          <label>Class / grade</label>
-          <select id="childClass">
-            <option>Class 3</option><option>Class 4</option><option>Class 5</option>
-            <option selected>Class 6</option><option>Class 7</option><option>Class 8</option>
-            <option>Class 9</option><option>Class 10</option><option>Grade 11 / Sixth Form</option><option>Grade 12 / A-Level</option>
-          </select>
-        </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5 mb-3.5">
+      <div>
+        <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Child's name</label>
+        <input type="text" id="childName" placeholder="e.g. Ishika" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors">
       </div>
-      <div class="field-row">
-        <div>
-          <label>Curriculum</label>
-          <select id="curriculum">
-            <option>State Board (India)</option>
-            <option selected>CBSE (India)</option>
-            <option>ICSE (India)</option>
-            <option>Common Core (US)</option>
-            <option>National Curriculum (UK)</option>
-            <option>IB</option>
-            <option>German Gymnasium</option>
-          </select>
-        </div>
-        <div>
-          <label>Language I'm most comfortable guiding in</label>
-          <select id="parentLang">
-            <option selected>Telugu</option><option>Hindi</option><option>English</option>
-            <option>Spanish</option><option>German</option><option>Arabic</option>
-            <option>French</option><option>Tamil</option><option>Marathi</option>
-          </select>
-        </div>
+      <div>
+        <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Class / grade</label>
+        <select id="childClass" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors">
+          <option>Class 3</option><option>Class 4</option><option>Class 5</option>
+          <option selected>Class 6</option><option>Class 7</option><option>Class 8</option>
+          <option>Class 9</option><option>Class 10</option><option>Grade 11 / Sixth Form</option><option>Grade 12 / A-Level</option>
+        </select>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+      <div>
+        <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Curriculum</label>
+        <select id="curriculum" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors">
+          <option>State Board (India)</option>
+          <option selected>CBSE (India)</option>
+          <option>ICSE (India)</option>
+          <option>Common Core (US)</option>
+          <option>National Curriculum (UK)</option>
+          <option>IB</option>
+          <option>German Gymnasium</option>
+        </select>
+      </div>
+      <div>
+        <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Language I'm most comfortable guiding in</label>
+        <select id="parentLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors">
+          <option selected>Telugu</option><option>Hindi</option><option>English</option>
+          <option>Spanish</option><option>German</option><option>Arabic</option>
+          <option>French</option><option>Tamil</option><option>Marathi</option>
+        </select>
       </div>
     </div>
   </div>
 
   <!-- STEP 2: HOMEWORK INPUT -->
-  <div class="paper">
-    <div class="inner">
-      <div class="step-label"><span class="num">2</span>Tonight's homework</div>
-      <h2 class="paper-title">Paste it, or snap a photo</h2>
-      <p class="paper-desc">Type the question as written on the worksheet, or upload a photo of it. Tut-P reads either.</p>
-
-      <label>Homework question / topic</label>
-      <textarea id="hwText" placeholder="e.g. Explain why plants are called producers, and give two examples of producers found in your area.">A train travels 60 km in the first hour and 90 km in the second hour. What is the average speed of the train for the entire journey?</textarea>
-
-      <div class="upload-row">
-        <label class="upload-btn" for="hwImage">📷 Attach a photo of the homework (optional)</label>
-        <input type="file" id="hwImage" accept="image/*" style="display:none;">
-        <img id="hwThumb" class="thumb" style="display:none;">
-        <button class="clear-img" id="clearImg" style="display:none;">remove</button>
-      </div>
-
-      <button class="primary-btn" id="goBtn">Explain &amp; build my quiz</button>
-      <div class="err" id="errBox" style="display:none;"></div>
+  <div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 mb-7">
+    <div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-1.5">
+      <span class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[11px] font-semibold">2</span>Tonight's homework
     </div>
+    <h2 class="font-headline-md text-headline-md text-on-surface mb-1.5">Paste it, or snap a photo</h2>
+    <p class="font-body-md text-sm text-on-surface-variant mb-5 leading-relaxed">Type the question as written on the worksheet, or upload a photo of it. Tut-P reads either.</p>
+
+    <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Homework question / topic</label>
+    <textarea id="hwText" placeholder="e.g. Explain why plants are called producers, and give two examples of producers found in your area." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[96px] leading-relaxed">A train travels 60 km in the first hour and 90 km in the second hour. What is the average speed of the train for the entire journey?</textarea>
+
+    <div class="flex items-center gap-3 mt-3.5 flex-wrap">
+      <label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" for="hwImage">📷 Attach a photo of the homework (optional)</label>
+      <input type="file" id="hwImage" accept="image/*" class="hidden">
+      <img id="hwThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+      <button class="font-label-md text-xs text-error underline hidden" id="clearImg">remove</button>
+    </div>
+
+    <button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-6 inline-flex items-center gap-2.5 hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="goBtn">Explain &amp; build my quiz</button>
+    <div class="mt-3.5 text-sm text-error font-label-md hidden" id="errBox"></div>
   </div>
 
   <!-- RESULTS -->
-  <div id="results" style="display:none;">
-    <div class="paper">
-      <div class="inner">
-        <div class="margin-note">
-          <div class="step-label"><span class="num">✓</span>Explained in <span id="langTag">your language</span></div>
-          <p id="explanationText"></p>
+  <div id="results" class="hidden">
+    <div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 mb-7">
+      <div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-6">
+        <div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
+          <span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="langTag">your language</span>
         </div>
-
-        <div class="quiz-header">
-          <div class="step-label" style="margin:0;"><span class="num">3</span>Check understanding</div>
-          <div class="score-pill" id="scorePill">0 / 5 answered</div>
-        </div>
-        <div id="quizArea"></div>
+        <p id="explanationText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
       </div>
+
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2 font-label-md text-label-md text-primary">
+          <span class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[11px] font-semibold">3</span>Check understanding
+        </div>
+        <div class="font-label-md text-xs bg-on-surface text-surface px-3 py-1.5 rounded-full" id="scorePill">0 / 5 answered</div>
+      </div>
+      <div id="quizArea"></div>
     </div>
 
     <!-- DASHBOARD -->
-    <div class="paper" id="dashCard" style="display:none;">
-      <div class="inner">
-        <div class="step-label"><span class="num">4</span>This week, at a glance</div>
-        <h2 class="paper-title">Your bonding dashboard</h2>
-        <p class="paper-desc dash-note">📊 The <b>today</b> bar reflects the session you just ran. The rest of the week is sample data — the live MVP builds this automatically from real logged sessions over time.</p>
+    <div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 mb-7 hidden" id="dashCard">
+      <div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-1.5">
+        <span class="w-5 h-5 rounded-full bg-primary text-on-primary flex items-center justify-center text-[11px] font-semibold">4</span>This week, at a glance
+      </div>
+      <h2 class="font-headline-md text-headline-md text-on-surface mb-1.5">Your bonding dashboard</h2>
+      <p class="font-body-md text-sm text-on-surface-variant bg-surface-container-low rounded-lg px-3.5 py-2.5 mb-6">📊 The <b>today</b> bar reflects the session you just ran. The rest of the week is sample data — the live MVP builds this automatically from real logged sessions over time.</p>
 
-        <div class="dash-block">
-          <div class="dash-label">Minutes spent together, by subject — this week</div>
-          <div id="subjChart" class="bar-chart"></div>
-        </div>
+      <div class="mb-6">
+        <div class="font-label-md text-[11.5px] uppercase tracking-wide text-on-surface-variant mb-3">Minutes spent together, by subject — this week</div>
+        <div id="subjChart" class="flex flex-col gap-2.5"></div>
+      </div>
 
-        <div class="dash-block">
-          <div class="dash-label">Days this week with a logged session</div>
-          <div id="streakRow" class="streak-row"></div>
-        </div>
+      <div class="mb-6">
+        <div class="font-label-md text-[11.5px] uppercase tracking-wide text-on-surface-variant mb-3">Days this week with a logged session</div>
+        <div id="streakRow" class="flex gap-2"></div>
+      </div>
 
-        <div class="dash-block">
-          <div class="dash-label">Where your child stands</div>
-          <div class="strength-row">
-            <div class="strength-card strong">
-              <div class="s-icon">★</div>
-              <div><div class="s-title">Strong in</div><div class="s-sub" id="strongSubj">Language Arts</div></div>
-            </div>
-            <div class="strength-card weak">
-              <div class="s-icon">✎</div>
-              <div><div class="s-title">Needs support in</div><div class="s-sub" id="weakSubj">Math — speed &amp; distance</div></div>
-            </div>
+      <div>
+        <div class="font-label-md text-[11.5px] uppercase tracking-wide text-on-surface-variant mb-3">Where your child stands</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="flex items-center gap-3 p-3.5 rounded-lg bg-surface-container-lowest border-2 border-outline-variant">
+            <div class="text-xl w-[30px] text-center text-secondary">★</div>
+            <div><div class="font-label-md text-[10px] uppercase tracking-wide text-on-surface-variant">Strong in</div><div class="text-[13.5px] font-semibold text-on-surface mt-0.5" id="strongSubj">Language Arts</div></div>
+          </div>
+          <div class="flex items-center gap-3 p-3.5 rounded-lg bg-surface-container-lowest border-2 border-outline-variant">
+            <div class="text-xl w-[30px] text-center text-error">✎</div>
+            <div><div class="font-label-md text-[10px] uppercase tracking-wide text-on-surface-variant">Needs support in</div><div class="text-[13.5px] font-semibold text-on-surface mt-0.5" id="weakSubj">Math — speed &amp; distance</div></div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="reset-row">
-      <button class="ghost-btn" id="resetBtn">↺ Try another homework</button>
+    <div class="text-center mt-2">
+      <button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" id="resetBtn">↺ Try another homework</button>
     </div>
   </div>
 
-  <footer>Working prototype — calls Claude directly to generate every explanation and quiz live. Bonding dashboard shown with sample weekly data layered on your live session. Not the production app.</footer>
+  <footer class="text-center pt-10 pb-2.5 font-label-md text-[11px] text-on-surface-variant">Working prototype — calls Claude directly to generate every explanation and quiz live. Bonding dashboard shown with sample weekly data layered on your live session. Not the production app.</footer>
 </div>
 
 <script>
@@ -401,8 +188,8 @@ hwImageInput.addEventListener('change', (e) => {
   reader.onload = () => {
     uploadedImageBase64 = reader.result.split(',')[1];
     hwThumb.src = reader.result;
-    hwThumb.style.display = 'inline-block';
-    clearImgBtn.style.display = 'inline-block';
+    hwThumb.classList.remove('hidden');
+    clearImgBtn.classList.remove('hidden');
   };
   reader.readAsDataURL(file);
 });
@@ -411,8 +198,8 @@ clearImgBtn.addEventListener('click', () => {
   uploadedImageBase64 = null;
   uploadedImageMediaType = null;
   hwImageInput.value = '';
-  hwThumb.style.display = 'none';
-  clearImgBtn.style.display = 'none';
+  hwThumb.classList.add('hidden');
+  clearImgBtn.classList.add('hidden');
 });
 
 const goBtn = document.getElementById('goBtn');
@@ -428,12 +215,12 @@ goBtn.addEventListener('click', async () => {
 
   if (!hwText && !uploadedImageBase64) {
     errBox.textContent = 'Please paste the homework text or attach a photo.';
-    errBox.style.display = 'block';
+    errBox.classList.remove('hidden');
     return;
   }
-  errBox.style.display = 'none';
+  errBox.classList.add('hidden');
   goBtn.disabled = true;
-  goBtn.innerHTML = '<span class="spin"></span> Reading the homework…';
+  goBtn.innerHTML = '<span class="inline-block w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span> Reading the homework…';
   sessionStartTime = Date.now();
   correctCount = 0;
 
@@ -473,14 +260,14 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
     document.getElementById('langTag').textContent = parentLang;
     document.getElementById('explanationText').textContent = parsed.explanation;
     currentSubject = parsed.subject || 'General';
-    document.getElementById('dashCard').style.display = 'none';
+    document.getElementById('dashCard').classList.add('hidden');
     renderQuiz(parsed.quiz || []);
-    results.style.display = 'block';
+    results.classList.remove('hidden');
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) {
     console.error(err);
     errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
-    errBox.style.display = 'block';
+    errBox.classList.remove('hidden');
   } finally {
     goBtn.disabled = false;
     goBtn.textContent = 'Explain & build my quiz';
@@ -493,6 +280,11 @@ let correctCount = 0;
 let sessionStartTime = null;
 let currentSubject = 'General';
 
+const OPT_BASE = 'text-left font-body-md text-sm rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors border-2';
+const OPT_DEFAULT = OPT_BASE + ' text-on-surface bg-surface-container-lowest border-outline-variant cursor-pointer hover:border-on-surface-variant disabled:cursor-default disabled:pointer-events-none';
+const OPT_CORRECT = OPT_BASE + ' bg-tertiary-container/40 border-tertiary text-on-tertiary-container';
+const OPT_WRONG = OPT_BASE + ' bg-error-container/40 border-error text-error';
+
 function renderQuiz(quiz) {
   answeredCount = 0;
   totalQuestions = quiz.length;
@@ -501,35 +293,35 @@ function renderQuiz(quiz) {
   area.innerHTML = '';
   quiz.forEach((q, qi) => {
     const card = document.createElement('div');
-    card.className = 'q-card';
+    card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5 mb-3.5';
     card.innerHTML = `
-      <div class="q-num">Question ${qi + 1} of ${quiz.length}</div>
-      <div class="q-text">${escapeHtml(q.question)}</div>
-      <div class="opts"></div>
-      <div class="q-explain" style="display:none;"></div>
+      <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1} of ${quiz.length}</div>
+      <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${escapeHtml(q.question)}</div>
+      <div class="grid gap-2" data-role="opts"></div>
+      <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
     `;
-    const optsWrap = card.querySelector('.opts');
+    const optsWrap = card.querySelector('[data-role="opts"]');
     q.options.forEach((opt, oi) => {
       const btn = document.createElement('button');
-      btn.className = 'opt-btn';
-      btn.innerHTML = `<span>${escapeHtml(opt)}</span><span class="opt-mark"></span>`;
+      btn.className = OPT_DEFAULT;
+      btn.innerHTML = `<span>${escapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
       btn.addEventListener('click', () => {
-        const allBtns = optsWrap.querySelectorAll('.opt-btn');
+        const allBtns = optsWrap.querySelectorAll('button');
         allBtns.forEach(b => b.disabled = true);
         if (oi === q.correct) {
-          btn.classList.add('correct');
-          btn.querySelector('.opt-mark').textContent = '✓';
+          btn.className = OPT_CORRECT;
+          btn.querySelector('[data-role="mark"]').textContent = '✓';
           correctCount++;
         } else {
-          btn.classList.add('wrong');
-          btn.querySelector('.opt-mark').textContent = '✗';
+          btn.className = OPT_WRONG;
+          btn.querySelector('[data-role="mark"]').textContent = '✗';
           const correctBtn = allBtns[q.correct];
-          correctBtn.classList.add('correct');
-          correctBtn.querySelector('.opt-mark').textContent = '✓';
+          correctBtn.className = OPT_CORRECT;
+          correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
         }
-        const explainBox = card.querySelector('.q-explain');
-        explainBox.innerHTML = `<b>Why:</b> ${escapeHtml(q.explain)}`;
-        explainBox.style.display = 'block';
+        const explainBox = card.querySelector('[data-role="explain"]');
+        explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${escapeHtml(q.explain)}`;
+        explainBox.classList.remove('hidden');
         answeredCount++;
         updateScore();
       });
@@ -548,8 +340,8 @@ function updateScore() {
 
 function revealDashboard() {
   const dashCard = document.getElementById('dashCard');
-  if (dashCard.style.display === 'block') return; // already shown
-  dashCard.style.display = 'block';
+  if (!dashCard.classList.contains('hidden')) return; // already shown
+  dashCard.classList.remove('hidden');
 
   const elapsedMin = Math.max(1, Math.round((Date.now() - sessionStartTime) / 60000));
 
@@ -565,11 +357,12 @@ function revealDashboard() {
   Object.entries(subjects).sort((a, b) => b[1] - a[1]).forEach(([name, mins]) => {
     const isToday = name === currentSubject;
     const row = document.createElement('div');
-    row.className = 'bar-row' + (isToday ? ' today' : '');
+    row.className = 'grid items-center gap-2.5';
+    row.style.gridTemplateColumns = '110px 1fr 78px';
     row.innerHTML = `
-      <div class="bname">${escapeHtml(name)}</div>
-      <div class="btrack"><div class="bfill" style="width:${Math.round(mins / maxVal * 100)}%"></div></div>
-      <div class="bval">${mins} min</div>
+      <div class="text-[13px] text-on-surface">${escapeHtml(name)}${isToday ? '<span class="font-label-md text-[10px] text-primary"> · today</span>' : ''}</div>
+      <div class="bg-surface-container-low rounded-md h-4 overflow-hidden relative"><div class="h-full rounded-md ${isToday ? 'bg-primary' : 'bg-on-surface-variant'} transition-all duration-500" style="width:${Math.round(mins / maxVal * 100)}%"></div></div>
+      <div class="font-label-md text-[11.5px] text-right ${isToday ? 'text-primary font-semibold' : 'text-on-surface-variant'}">${mins} min</div>
     `;
     chart.appendChild(row);
   });
@@ -584,8 +377,11 @@ function revealDashboard() {
     const done = sampleDone.has(i);
     const isToday = i === todayIdx;
     const cell = document.createElement('div');
-    cell.className = 'streak-day' + (done ? ' done' : '') + (isToday ? ' today' : '');
-    cell.innerHTML = `<div class="ddot">${done ? '✓' : ''}</div><div class="dlabel">${d}</div>`;
+    cell.className = 'flex flex-col items-center gap-1.5 flex-1';
+    const dotClasses = 'w-[26px] h-[26px] rounded-full border-2 flex items-center justify-center text-[13px] bg-surface-container-lowest '
+      + (done ? 'bg-secondary border-secondary text-on-secondary ' : 'border-outline-variant ')
+      + (isToday ? 'border-primary border-[2.5px]' : '');
+    cell.innerHTML = `<div class="${dotClasses}">${done ? '✓' : ''}</div><div class="font-label-md text-[10px] text-on-surface-variant">${d}</div>`;
     streakRow.appendChild(cell);
   });
 
@@ -606,8 +402,8 @@ function escapeHtml(str) {
 }
 
 document.getElementById('resetBtn').addEventListener('click', () => {
-  results.style.display = 'none';
-  document.getElementById('dashCard').style.display = 'none';
+  results.classList.add('hidden');
+  document.getElementById('dashCard').classList.add('hidden');
   document.getElementById('hwText').value = '';
   clearImgBtn.click();
   window.scrollTo({ top: 0, behavior: 'smooth' });
