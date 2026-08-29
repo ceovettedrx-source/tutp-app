@@ -242,9 +242,6 @@
         // demo-persona name) only once we know for sure there's no
         // student_id (e.g. page opened directly), or the fetch failed/came
         // back empty.
-        // Diagnostic logging left in on purpose while we track down a
-        // reported case of the fallback showing after an in-tab refresh
-        // post-login — check the console next time that happens.
         (async function loadRealStudentName(){
             const greetingEl = document.getElementById('childGreetingName');
             const goalEl = document.getElementById('childGoalName');
@@ -255,14 +252,11 @@
                 goalEl.classList.remove('w-16', 'h-5', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
             };
             const studentId = sessionStorage.getItem('tutp_student_id');
-            console.log('[child] tutp_student_id from sessionStorage:', studentId);
-            if (!studentId) { console.log('[child] no student_id in sessionStorage — showing fallback'); showName('friend'); return; }
+            if (!studentId) { showName('friend'); return; }
             try {
                 const res = await fetch('/api/student/' + encodeURIComponent(studentId));
-                console.log('[child] /api/student/' + studentId + ' response status:', res.status);
                 if (!res.ok) { showName('friend'); return; }
                 const data = await res.json();
-                console.log('[child] /api/student response body:', data);
                 showName(data.name || 'friend');
             } catch (err) {
                 console.error('[child] Could not load student name:', err);

@@ -78,10 +78,10 @@
 <p class="font-label text-sm text-tertiary uppercase tracking-widest">Good morning</p>
 <h2 class="font-headline text-4xl md:text-5xl font-bold text-on-background leading-tight">
 <span class="inline-block w-32 h-9 bg-surface-variant rounded-lg animate-pulse align-middle" id="parentGreetingName"></span>,<br/>
-<span class="text-primary font-normal">here is a new learning opportunity for Leo today.</span>
+<span class="text-primary font-normal">here is a new learning opportunity for <span class="childNameText">your child</span> today.</span>
 </h2>
 <a class="inline-flex items-center gap-2 mt-2 px-3 py-1.5 rounded-full border border-outline-variant hover:border-primary hover:text-primary text-on-surface-variant transition-colors text-sm font-label" href="/app/child/">
-<span class="material-symbols-outlined text-base">child_care</span> View Leo's profile (child-safe view)
+<span class="material-symbols-outlined text-base">child_care</span> View <span class="childNameText">your child</span>'s profile (child-safe view)
 </a>
 </section>
 
@@ -109,7 +109,7 @@
 </div>
 <div class="md:col-span-3 p-8 md:p-12 flex flex-col justify-center bg-surface-container-low">
 <span class="material-symbols-outlined text-primary text-4xl mb-4 opacity-50">format_quote</span>
-<p class="font-headline text-xl md:text-2xl text-on-surface leading-relaxed mb-6">"The time spent with Leo through this app has become more meaningful. Every small step feels like a big achievement."</p>
+<p class="font-headline text-xl md:text-2xl text-on-surface leading-relaxed mb-6">"The time spent with <span class="childNameText">your child</span> through this app has become more meaningful. Every small step feels like a big achievement."</p>
 <div>
 <p class="font-label font-semibold text-on-surface">Parent Insight</p>
 <p class="font-body text-sm text-on-surface-variant">Community Story</p>
@@ -119,7 +119,7 @@
 </section>
 
 <section class="space-y-6">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">Today's Learning <span class="text-on-surface-variant normal-case font-normal tracking-normal">— safe to share with Leo</span></p>
+<p class="font-label text-sm text-tertiary uppercase tracking-widest">Today's Learning <span class="text-on-surface-variant normal-case font-normal tracking-normal">— safe to share with <span class="childNameText">your child</span></span></p>
 <div class="bg-surface-container-lowest rounded-2xl p-8 border border-outline-variant/15 flex flex-col justify-between min-h-[240px] relative overflow-hidden group">
 <div class="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
 <div class="relative z-10 flex justify-between items-start mb-8">
@@ -128,7 +128,7 @@
 <span class="material-symbols-outlined text-sm">schedule</span> Weekly Focus
 </div>
 <h3 class="font-headline text-2xl md:text-3xl font-semibold text-on-surface">10-minute Math Session</h3>
-<p class="font-body text-on-surface-variant max-w-md mt-2">Leo is waiting for addition practice. Start the guided session.</p>
+<p class="font-body text-on-surface-variant max-w-md mt-2"><span class="childNameText">Your child</span> is waiting for addition practice. Start the guided session.</p>
 </div>
 <div class="w-16 h-16 rounded-full bg-primary-container flex items-center justify-center flex-shrink-0">
 <span class="material-symbols-outlined text-on-primary-container text-3xl">play_arrow</span>
@@ -297,9 +297,6 @@
         // which prefers motherName). Falls back to generic "Parent" (never a
         // demo-persona name) only once we know for sure there's no
         // family_id, or the fetch failed/came back empty.
-        // Diagnostic logging left in on purpose while we track down a
-        // reported case of the fallback showing after an in-tab refresh
-        // post-login — check the console next time that happens.
         (async function loadRealParentName(){
             const el = document.getElementById('parentGreetingName');
             const showName = (name) => {
@@ -307,18 +304,40 @@
                 el.classList.remove('w-32', 'h-9', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
             };
             const familyId = sessionStorage.getItem('tutp_family_id');
-            console.log('[father] tutp_family_id from sessionStorage:', familyId);
-            if (!familyId) { console.log('[father] no family_id in sessionStorage — showing fallback'); showName('Parent'); return; }
+            if (!familyId) { showName('Parent'); return; }
             try {
                 const res = await fetch('/api/family/' + encodeURIComponent(familyId));
-                console.log('[father] /api/family/' + familyId + ' response status:', res.status);
                 if (!res.ok) { showName('Parent'); return; }
                 const data = await res.json();
-                console.log('[father] /api/family response body:', data);
                 showName(data.fatherName || data.motherName || 'Parent');
             } catch (err) {
                 console.error('[father] Could not load parent name:', err);
                 showName('Parent');
+            }
+        })();
+
+        // The "Leo" placeholders sprinkled through the welcome banner,
+        // testimonial and homework card used to be static text — never
+        // replaced with the real child's name, on any page load (this,
+        // not sessionStorage loss, was the reported "wrong name after
+        // refresh" bug). Now resolved the same way as the parent's name.
+        (async function loadRealChildName(){
+            const nameEls = document.querySelectorAll('.childNameText');
+            const goalEl = document.getElementById('childGoalNamePreview');
+            const showName = (name) => {
+                nameEls.forEach(el => { el.textContent = name; });
+                if (goalEl) goalEl.textContent = name;
+            };
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            if (!studentId) { showName('your child'); return; }
+            try {
+                const res = await fetch('/api/student/' + encodeURIComponent(studentId));
+                if (!res.ok) { showName('your child'); return; }
+                const data = await res.json();
+                showName(data.name || 'your child');
+            } catch (err) {
+                console.error('[father] Could not load child name:', err);
+                showName('your child');
             }
         })();
 
