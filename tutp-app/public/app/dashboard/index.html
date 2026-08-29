@@ -5,42 +5,15 @@
 <title>Tut-P Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "surface-tint": "#2259bf","on-tertiary": "#ffffff","surface-dim": "#dbdadb","on-primary": "#ffffff",
-                        "inverse-surface": "#303031","primary-fixed-dim": "#b1c5ff","on-surface-variant": "#434653",
-                        "error-container": "#ffdad6","on-error": "#ffffff","on-tertiary-fixed-variant": "#524600",
-                        "on-secondary": "#ffffff","surface-container-high": "#e9e8e9","primary-container": "#3366cc",
-                        "inverse-primary": "#b1c5ff","on-surface": "#1b1c1d","surface-variant": "#e3e2e3",
-                        "primary": "#094cb2","on-background": "#1b1c1d","inverse-on-surface": "#f2f0f1",
-                        "secondary-fixed-dim": "#c2c7cc","tertiary-fixed-dim": "#dcc661","surface-container-highest": "#e3e2e3",
-                        "surface-container-low": "#f5f3f4","outline-variant": "#c3c6d5","tertiary-container": "#bfab49",
-                        "on-secondary-fixed-variant": "#42474b","tertiary": "#6d5e00","secondary-container": "#dfe3e8",
-                        "outline": "#737784","surface": "#faf9fa","surface-bright": "#faf9fa","secondary": "#5a5f63",
-                        "secondary-fixed": "#dfe3e8","surface-container-lowest": "#ffffff","primary-fixed": "#d9e2ff",
-                        "on-primary-container": "#e7ebff","on-tertiary-fixed": "#211b00","background": "#faf9fa",
-                        "on-secondary-fixed": "#171c20","on-secondary-container": "#606569","on-error-container": "#93000a",
-                        "on-primary-fixed-variant": "#00419d","tertiary-fixed": "#f9e37a","on-tertiary-container": "#4a3f00",
-                        "error": "#ba1a1a","surface-container": "#efedee","on-primary-fixed": "#001946"
-                    },
-                    "borderRadius": { "DEFAULT": "0.125rem","lg": "0.25rem","xl": "0.5rem","full": "0.75rem" },
-                    "fontFamily": { "headline": ["Noto Serif", "serif"],"display": ["Noto Serif", "serif"],"body": ["Inter", "sans-serif"],"label": ["Public Sans", "sans-serif"] }
-                }
-            }
-        }
-    </script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Noto+Serif:wght@400;600;700&amp;family=Public+Sans:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<script src="/shared/tailwind-tokens.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <style>
         body { background-color: theme('colors.background'); color: theme('colors.on-background'); }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .proto-banner{background:#ba1a1a;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
-        .testimonial-photo{background:linear-gradient(135deg,#094cb2,#3366cc);display:flex;align-items:center;justify-content:center;}
+        .testimonial-photo{background:linear-gradient(135deg,#005bbf,#1a73e8);display:flex;align-items:center;justify-content:center;}
 </style>
 </head>
 <body class="font-body min-h-screen pb-24 md:pb-0">

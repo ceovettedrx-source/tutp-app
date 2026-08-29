@@ -5,59 +5,22 @@
 <title>Tut-P - Family Registration</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    "colors": {
-                        "surface-bright": "#fbf9f8","on-tertiary-fixed": "#301400","on-error-container": "#93000a",
-                        "error-container": "#ffdad6","on-secondary-fixed-variant": "#005226","surface": "#fbf9f8",
-                        "inverse-primary": "#a9c7ff","primary-container": "#005eb8","surface-variant": "#e4e2e2",
-                        "on-primary": "#ffffff","background": "#fbf9f8","tertiary": "#723800","secondary-fixed": "#8df9a8",
-                        "surface-container-lowest": "#ffffff","outline-variant": "#c2c6d4","on-primary-fixed": "#001b3d",
-                        "on-error": "#ffffff","on-primary-container": "#c8daff","secondary-container": "#8df9a8",
-                        "on-tertiary-fixed-variant": "#703700","inverse-on-surface": "#f2f0f0","tertiary-fixed": "#ffdcc5",
-                        "primary-fixed-dim": "#a9c7ff","outline": "#727783","on-tertiary": "#ffffff","surface-tint": "#005db6",
-                        "primary": "#00478d","on-primary-fixed-variant": "#00468c","surface-container-highest": "#e4e2e2",
-                        "error": "#ba1a1a","surface-container-low": "#f5f3f3","surface-container-high": "#eae8e7",
-                        "secondary": "#006d35","inverse-surface": "#303030","surface-container": "#efeded",
-                        "on-surface": "#1b1c1c","on-secondary": "#ffffff","on-surface-variant": "#424752",
-                        "secondary-fixed-dim": "#71dc8e","on-tertiary-container": "#ffd1b3","surface-dim": "#dbdad9",
-                        "on-secondary-container": "#007439","tertiary-container": "#954c00","on-secondary-fixed": "#00210c",
-                        "tertiary-fixed-dim": "#ffb782","on-background": "#1b1c1c","primary-fixed": "#d6e3ff"
-                    },
-                    "borderRadius": { "DEFAULT": "0.25rem","lg": "0.5rem","xl": "0.75rem","full": "9999px" },
-                    "spacing": { "sm": "12px","margin-mobile": "16px","base": "8px","md": "24px","margin-desktop": "48px","lg": "40px","xl": "64px","gutter": "24px","xs": "4px" },
-                    "fontFamily": { "body-md": ["Public Sans"],"label-md": ["Public Sans"],"headline-md": ["Public Sans"],"body-lg": ["Public Sans"],"display-lg": ["Public Sans"],"caption": ["Public Sans"],"display-lg-mobile": ["Public Sans"] },
-                    "fontSize": {
-                        "body-md": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                        "label-md": ["16px", { "lineHeight": "24px", "letterSpacing": "0.01em", "fontWeight": "600" }],
-                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
-                        "body-lg": ["20px", { "lineHeight": "30px", "fontWeight": "400" }],
-                        "display-lg": ["48px", { "lineHeight": "60px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
-                        "caption": ["14px", { "lineHeight": "20px", "fontWeight": "500" }],
-                        "display-lg-mobile": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }]
-                    }
-                }
-            }
-        }
-    </script>
+<script src="/shared/tailwind-tokens.js"></script>
 <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .soft-shadow { box-shadow: 0 10px 25px -5px rgba(0,71,141,0.15), 0 8px 10px -6px rgba(0,71,141,0.1); }
-        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,71,141,0.05); }
+        .soft-shadow { box-shadow: 0 10px 25px -5px rgba(0,91,191,0.15), 0 8px 10px -6px rgba(0,91,191,0.1); }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,91,191,0.05); }
         .soft-input { border: 1px solid #c2c6d4; transition: all 0.2s ease; }
-        .soft-input:focus-within { border-color: #00478d; box-shadow: 0 0 0 2px #d6e3ff; }
-        .upload-dashed { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='12' ry='12' stroke='%2300478D' stroke-width='4' stroke-dasharray='8%2c 8' stroke-linecap='round'/%3e%3c/svg%3e"); border-radius: 12px; }
+        .soft-input:focus-within { border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
+        .upload-dashed { background-image: url("data:image/svg+xml,%3csvg width='100%25' height='100%25' xmlns='http://www.w3.org/2000/svg'%3e%3crect width='100%25' height='100%25' fill='none' rx='12' ry='12' stroke='%23005BBF' stroke-width='4' stroke-dasharray='8%2c 8' stroke-linecap='round'/%3e%3c/svg%3e"); border-radius: 12px; }
         .wizard-step { transition: opacity 0.3s ease; }
         .step-hidden { display: none; }
         .step-active { display: block; animation: fadeIn 0.3s ease; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        .proto-banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .proto-banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
         .mic-listening { background:#ba1a1a !important; color:#fff !important; animation:pulse 1s infinite; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.6} }
@@ -78,7 +41,7 @@
 <main class="flex-grow w-full max-w-3xl mx-auto px-margin-mobile md:px-0 py-lg pb-32">
 <div class="w-full max-w-md mx-auto mb-lg">
 <div class="h-3 w-full bg-surface-variant rounded-full overflow-hidden">
-<div class="h-full bg-secondary rounded-full transition-all duration-500" id="progressFill" style="width:14.3%;"></div>
+<div class="h-full bg-success rounded-full transition-all duration-500" id="progressFill" style="width:14.3%;"></div>
 </div>
 </div>
 
@@ -382,7 +345,7 @@
       try {
         const url = await uploadFile(file);
         uploadedPhotos['subject_' + s.key] = url;
-        tile.innerHTML = `<img src="${url}" class="upload-thumb" alt="${s.key} workbook"/><span class="absolute bottom-1 right-1 material-symbols-outlined text-white bg-secondary rounded-full p-1 text-sm">check</span>`;
+        tile.innerHTML = `<img src="${url}" class="upload-thumb" alt="${s.key} workbook"/><span class="absolute bottom-1 right-1 material-symbols-outlined text-white bg-success rounded-full p-1 text-sm">check</span>`;
       } catch (err) {
         tile.innerHTML = '<span class="font-caption text-caption text-error">Upload failed — tap to retry</span>';
       }
@@ -506,7 +469,7 @@
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
       statusEl.textContent = "Your family is registered! Redirecting to login…";
-      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-secondary';
+      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
       setTimeout(() => { window.location.href = '/app/login/'; }, 1800);
     } catch (err) {
       statusEl.textContent = 'Something went wrong saving your registration — please try again or email hello@tutp.online.';

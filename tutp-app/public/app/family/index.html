@@ -5,24 +5,15 @@
 <title>Tut-P - Manage Family</title>
 <meta name="robots" content="noindex, nofollow">
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: { primary:"#00478d", secondary:"#006d35", background:"#fbf9f8", "on-surface":"#1b1c1c", "on-surface-variant":"#424752", "outline-variant":"#c2c6d4", "surface-container-lowest":"#ffffff", error:"#ba1a1a" },
-                    fontFamily: { body:["Public Sans"], headline:["Public Sans"] }
-                }
-            }
-        }
-    </script>
+<script src="/shared/tailwind-tokens.js"></script>
 <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
-        .glass-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,71,141,0.06); }
+        .glass-card { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,91,191,0.06); }
         .soft-input { border: 1px solid #c2c6d4; }
-        .soft-input:focus { outline:none; border-color: #00478d; box-shadow: 0 0 0 2px #d6e3ff; }
-        .banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Public Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .soft-input:focus { outline:none; border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
+        .banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .banner a{color:#fff;text-decoration:underline;}
 </style>
 </head>
@@ -88,7 +79,7 @@
       const data = await res.json();
       if(!res.ok || !data.ok) throw new Error(data.error || 'Could not add member');
       statusEl.textContent = name + ' has been added! Our team will link them to your family shortly.';
-      statusEl.className = 'text-center text-sm mt-3 text-secondary';
+      statusEl.className = 'text-center text-sm mt-3 text-success';
       document.getElementById('memberName').value = '';
       document.getElementById('memberPhone').value = '';
     } catch(err){
