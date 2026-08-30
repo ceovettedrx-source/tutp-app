@@ -385,12 +385,18 @@ app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
     const students = siblings || [];
 
     if (roll_number || section) {
-      // Pass 2: name is now just a hint — roll_number/section decides it.
-      const candidates = students.filter(s =>
-        isCloseNameMatch(name, s.name) &&
-        ((roll_number && s.roll_number && String(s.roll_number).trim().toLowerCase() === String(roll_number).trim().toLowerCase()) ||
-         (section && s.section && String(s.section).trim().toLowerCase() === String(section).trim().toLowerCase()))
+      // Pass 2: roll_number/section decides it — the user is here precisely
+      // because their typed name didn't confidently match, so re-requiring
+      // a name match would defeat the point. Name is only used as a
+      // tiebreaker if roll_number/section alone matches more than one sibling.
+      let candidates = students.filter(s =>
+        (roll_number && s.roll_number && String(s.roll_number).trim().toLowerCase() === String(roll_number).trim().toLowerCase()) ||
+        (section && s.section && String(s.section).trim().toLowerCase() === String(section).trim().toLowerCase())
       );
+      if (candidates.length > 1) {
+        const nameNarrowed = candidates.filter(s => isCloseNameMatch(name, s.name));
+        if (nameNarrowed.length >= 1) candidates = nameNarrowed;
+      }
       if (candidates.length === 1) return res.json({ familyFound: true, found: true, student_id: candidates[0].id, family_id: family.id });
       return res.json({ familyFound: true, found: false, family_id: family.id });
     }
