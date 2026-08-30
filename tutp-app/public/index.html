@@ -453,6 +453,7 @@
             return;
         }
         sessionStorage.setItem('tutp_pending_homework_url', pendingAttachUrl);
+        sessionStorage.setItem('tutp_pending_homework_ts', String(Date.now()));
         window.location.href = '/app/login/';
     }
     function toggleHomeMic(){

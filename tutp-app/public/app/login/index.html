@@ -320,9 +320,18 @@
 
                 // Came here from the homepage "attach homework" flow — skip straight to the
                 // homework helper with the file already attached, regardless of anything else.
+                // Only honor this if it was set moments ago: on mobile, tabs stay alive for
+                // days, so a flag left over from an abandoned attach flow (attach -> submit ->
+                // back out before finishing OTP) must not hijack an unrelated, later login.
+                const pendingHomeworkTs = parseInt(sessionStorage.getItem('tutp_pending_homework_ts'), 10);
+                const pendingHomeworkFresh = Number.isFinite(pendingHomeworkTs) && (Date.now() - pendingHomeworkTs) < 15 * 60 * 1000;
                 if (sessionStorage.getItem('tutp_pending_homework_url')) {
-                    window.location.href = '/demo/';
-                    return;
+                    if (pendingHomeworkFresh) {
+                        window.location.href = '/demo/';
+                        return;
+                    }
+                    sessionStorage.removeItem('tutp_pending_homework_url');
+                    sessionStorage.removeItem('tutp_pending_homework_ts');
                 }
 
                 if (pendingStudentId) {

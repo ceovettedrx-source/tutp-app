@@ -215,8 +215,9 @@ clearImgBtn.addEventListener('click', () => {
 // only images can feed the vision call below; other types are just noted.
 (async function loadPendingHomeworkAttachment(){
   const url = sessionStorage.getItem('tutp_pending_homework_url');
-  if (!url) return;
   sessionStorage.removeItem('tutp_pending_homework_url');
+  sessionStorage.removeItem('tutp_pending_homework_ts');
+  if (!url) return;
   try {
     const resp = await fetch(url);
     const blob = await resp.blob();
