@@ -73,8 +73,8 @@ async function sendTeacherRegistrationEmail(teacher) {
   const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || 'ceo.tutp@gmail.com';
   const classSections = teacher.classSections.map(cs => cs.section ? `${cs.grade} - ${cs.section}` : cs.grade).join(', ');
   const subject = `New teacher registration pending approval: ${teacher.name}`;
-  const text = `A new teacher/tutor has registered on Tut-P and needs approval.\n\nName: ${teacher.name}\nPhone: ${teacher.phone}\nSubjects: ${teacher.subjects.join(', ')}\nSchool/Tuition: ${teacher.schoolName || '(not provided)'}\nGrades/Sections: ${classSections}\n\nTeacher id (for the Supabase dashboard): ${teacher.id}\nApprove by setting is_approved = true on the teachers table for this id.`;
-  const html = `<p>A new teacher/tutor has registered on Tut-P and needs approval.</p><ul><li><strong>Name:</strong> ${teacher.name}</li><li><strong>Phone:</strong> ${teacher.phone}</li><li><strong>Subjects:</strong> ${teacher.subjects.join(', ')}</li><li><strong>School/Tuition:</strong> ${teacher.schoolName || '(not provided)'}</li><li><strong>Grades/Sections:</strong> ${classSections}</li></ul><p><strong>Teacher id:</strong> ${teacher.id}</p><p>Approve by setting <code>is_approved = true</code> on the <code>teachers</code> table for this id.</p>`;
+  const text = `A new teacher/tutor has registered on Tut-P and needs approval.\n\nName: ${teacher.name}\nPhone: ${teacher.phone}\nSubjects: ${teacher.subjects.join(', ')}\nSchool/Tuition: ${teacher.schoolName || '(not provided)'}\nArea: ${teacher.area || '(not provided)'}\nAddress: ${teacher.address || '(not provided)'}\nGrades/Sections: ${classSections}\n\nTeacher id (for the Supabase dashboard): ${teacher.id}\nApprove by setting is_approved = true on the teachers table for this id.`;
+  const html = `<p>A new teacher/tutor has registered on Tut-P and needs approval.</p><ul><li><strong>Name:</strong> ${teacher.name}</li><li><strong>Phone:</strong> ${teacher.phone}</li><li><strong>Subjects:</strong> ${teacher.subjects.join(', ')}</li><li><strong>School/Tuition:</strong> ${teacher.schoolName || '(not provided)'}</li><li><strong>Area:</strong> ${teacher.area || '(not provided)'}</li><li><strong>Address:</strong> ${teacher.address || '(not provided)'}</li><li><strong>Grades/Sections:</strong> ${classSections}</li></ul><p><strong>Teacher id:</strong> ${teacher.id}</p><p>Approve by setting <code>is_approved = true</code> on the <code>teachers</code> table for this id.</p>`;
 
   if (resend) {
     try {
@@ -96,6 +96,42 @@ async function sendTeacherRegistrationEmail(teacher) {
       console.log('Teacher registration notice sent via Gmail to', adminEmail);
     } catch (err) {
       console.error('Gmail teacher notice failed (registration still saved):', err.message);
+    }
+  }
+}
+
+// ------------------------------------------------------------------
+// Evening homework digest — one email per family covering every child
+// with pending (not marked done) homework from today. Best-effort, same
+// posture as the other notification helpers here.
+// ------------------------------------------------------------------
+async function sendPendingHomeworkEmail(email, items) {
+  const subject = `Reminder: ${items.length} pending homework item${items.length > 1 ? 's' : ''} today`;
+  const lines = items.map(i => `- ${i.studentName}: ${i.subject ? i.subject + ' — ' : ''}${i.title}`).join('\n');
+  const text = `Hi,\n\nThe following homework is still marked pending for today:\n\n${lines}\n\n- The Tut-P team`;
+  const listHtml = items.map(i => `<li><strong>${i.studentName}</strong>: ${i.subject ? i.subject + ' — ' : ''}${i.title}</li>`).join('');
+  const html = `<p>The following homework is still marked pending for today:</p><ul>${listHtml}</ul><p>— The Tut-P team</p>`;
+
+  if (resend) {
+    try {
+      const { error } = await resend.emails.send({
+        from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>',
+        to: email,
+        subject, text, html
+      });
+      if (error) throw new Error(JSON.stringify(error));
+      console.log('Pending-homework digest sent via Resend to', email);
+    } catch (err) {
+      console.error('Resend pending-homework digest failed:', err.message);
+    }
+    return;
+  }
+  if (mailer) {
+    try {
+      await mailer.sendMail({ from: `"Tut-P" <${process.env.GMAIL_USER}>`, to: email, subject, text, html });
+      console.log('Pending-homework digest sent via Gmail to', email);
+    } catch (err) {
+      console.error('Gmail pending-homework digest failed:', err.message);
     }
   }
 }
@@ -269,11 +305,17 @@ app.post('/api/register', async (req, res) => {
       school_name: c.schoolName || null,
       class: c.class || null,
       section: c.section || null,
-      roll_number: c.rollNumber || null
+      roll_number: c.rollNumber || null,
+      area: c.area || null,
+      address: c.address || null
     }));
     if (studentRows.length) {
       const { error: studentsErr } = await supabase.from('students').insert(studentRows);
       if (studentsErr) console.error('Could not save students rows (registration itself still succeeded):', studentsErr.message);
+      // Feeds the school-name <datalist> on both registration forms.
+      for (const c of children) {
+        if (c.schoolName && c.area) await upsertSchoolDirectory(c.schoolName, c.area);
+      }
     }
 
     const extendedFamily = Array.isArray(payload.extendedFamily) ? payload.extendedFamily : [];
@@ -322,29 +364,74 @@ app.post('/api/family/add-member', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// School directory — a lightweight autocomplete/dedup list, not a
+// relational schools table. Populated as a side effect of teacher and
+// family registration whenever a (school name, area) pair is submitted;
+// read by /api/schools to back a <datalist> "pick or add new" input on
+// both registration forms. name_key is the app-computed dedup key
+// (trim+lowercase) so upserting can target a plain unique constraint.
+// ------------------------------------------------------------------
+async function upsertSchoolDirectory(name, area) {
+  if (!supabase || !name || !area) return;
+  const nameKey = String(name).trim().toLowerCase();
+  if (!nameKey) return;
+  const { error } = await supabase.from('school_directory').upsert({
+    name: String(name).trim().slice(0, 200),
+    name_key: nameKey.slice(0, 200),
+    area: String(area).trim().slice(0, 100)
+  }, { onConflict: 'name_key,area', ignoreDuplicates: true });
+  if (error) console.error('Could not upsert school_directory (registration itself still succeeded):', error.message);
+}
+
+app.get('/api/schools', async (req, res) => {
+  try {
+    if (!supabase) return res.json({ names: [] });
+    const { data, error } = await supabase.from('school_directory').select('name, name_key').order('name');
+    if (error) throw error;
+    const seen = new Set();
+    const names = [];
+    for (const row of (data || [])) {
+      if (seen.has(row.name_key)) continue;
+      seen.add(row.name_key);
+      names.push(row.name);
+    }
+    res.json({ names });
+  } catch (err) {
+    console.error('Get schools error:', err);
+    res.status(500).json({ error: 'Could not fetch schools' });
+  }
+});
+
+// ------------------------------------------------------------------
 // Teacher/Tutor registration — separate from family registration. New
 // teachers default to is_approved=false; the site admin flips that
 // manually in the Supabase dashboard after verifying them (no approval
 // UI in this phase). No phone uniqueness enforced — dedup happens
 // manually at approval time, same posture as family_registrations.
+// school_name/area are required (not just school_name) since together
+// they're the matching key homework-to-student resolution depends on.
 // ------------------------------------------------------------------
 app.post('/api/register-teacher', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const { name, phone, subjects, schoolName, classSections } = req.body || {};
+    const { name, phone, subjects, schoolName, area, address, classSections } = req.body || {};
     const subjectList = Array.isArray(subjects) ? subjects.filter(Boolean) : [];
     const sections = Array.isArray(classSections) ? classSections.filter(cs => cs && cs.grade) : [];
-    if (!name || !phone || !subjectList.length || !sections.length) {
-      return res.status(400).json({ error: 'Missing name, phone, subjects, or at least one grade/section' });
+    if (!name || !phone || !subjectList.length || !sections.length || !schoolName || !area) {
+      return res.status(400).json({ error: 'Missing name, phone, subjects, school/tuition name, area, or at least one grade/section' });
     }
 
     const { data, error } = await supabase.from('teachers').insert({
       name: String(name).slice(0, 120),
       phone: String(phone).slice(0, 20),
       subjects: subjectList.map(s => String(s).slice(0, 60)),
-      school_name: schoolName ? String(schoolName).slice(0, 200) : null
+      school_name: String(schoolName).slice(0, 200),
+      area: String(area).slice(0, 100),
+      address: address ? String(address).slice(0, 300) : null
     }).select('id').single();
     if (error) throw error;
+
+    await upsertSchoolDirectory(schoolName, area);
 
     const sectionRows = sections.map(cs => ({
       teacher_id: data.id,
@@ -355,7 +442,7 @@ app.post('/api/register-teacher', async (req, res) => {
     if (sectionsErr) console.error('Could not save teacher_class_sections rows (teacher registration itself still succeeded):', sectionsErr.message);
 
     console.log('New teacher registration:', name, 'id:', data.id);
-    sendTeacherRegistrationEmail({ id: data.id, name, phone, subjects: subjectList, schoolName, classSections: sections }); // fire-and-forget
+    sendTeacherRegistrationEmail({ id: data.id, name, phone, subjects: subjectList, schoolName, area, address, classSections: sections }); // fire-and-forget
     res.json({ ok: true, id: data.id });
   } catch (err) {
     console.error('Teacher registration error:', err);
@@ -365,7 +452,7 @@ app.post('/api/register-teacher', async (req, res) => {
 
 // Looked up by phone from the login page's Teacher/Tutor flow, after OTP
 // verification, to decide between "register", "pending approval", or
-// "approved" (no dashboard yet, so approved just shows a placeholder).
+// "approved" (approved routes to the real teacher dashboard).
 app.get('/api/teacher-status', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -381,6 +468,38 @@ app.get('/api/teacher-status', async (req, res) => {
   } catch (err) {
     console.error('Teacher status error:', err);
     res.status(500).json({ error: 'Could not check teacher status' });
+  }
+});
+
+// Teacher's own profile + their registered grade/sections — powers the
+// teacher dashboard, parallel to /api/family/:id and /api/family/:id/students.
+app.get('/api/teacher/:id', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data, error } = await supabase.from('teachers')
+      .select('id, name, subjects, school_name, area, is_approved')
+      .eq('id', req.params.id).maybeSingle();
+    if (error) throw error;
+    if (!data) return res.status(404).json({ error: 'Teacher not found' });
+    res.json(data);
+  } catch (err) {
+    console.error('Get teacher error:', err);
+    res.status(500).json({ error: 'Could not fetch teacher' });
+  }
+});
+
+app.get('/api/teacher/:id/class-sections', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data, error } = await supabase.from('teacher_class_sections')
+      .select('id, grade, section')
+      .eq('teacher_id', req.params.id)
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    res.json({ classSections: data || [] });
+  } catch (err) {
+    console.error('Get teacher class-sections error:', err);
+    res.status(500).json({ error: 'Could not fetch class/sections' });
   }
 });
 
@@ -712,6 +831,296 @@ app.post('/api/visibility-rules', async (req, res) => {
   } catch (err) {
     console.error('Set visibility rule error:', err);
     res.status(500).json({ error: 'Could not save visibility rule' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Teacher-posted homework assignments — named /api/homework-assignments
+// (not /api/homework) to avoid colliding with the pre-existing
+// /api/homework route below, which is the unrelated AI homework-explain
+// proxy to Claude.
+//
+// There's no schools table — a homework item's audience is resolved at
+// read time by text-matching (school_name, area, grade, section) between
+// the posting teacher and each student, same "good enough" philosophy as
+// the existing phone/name matching elsewhere in this file. homework_status
+// follows member_visibility_rules's convention: a missing row means the
+// default (here, "pending"), only written when a student marks done.
+// ------------------------------------------------------------------
+function normText(s) { return String(s || '').trim().toLowerCase(); }
+
+// Teacher creates an assignment — checked against their own
+// teacher_class_sections so they can only post to a grade/section they
+// actually registered to teach.
+app.post('/api/homework-assignments', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { teacher_id, grade, section, subject, title, description, attachmentUrl } = req.body || {};
+    if (!teacher_id || !grade || !title) {
+      return res.status(400).json({ error: 'Missing teacher_id, grade, or title' });
+    }
+
+    const { data: teacher, error: teacherErr } = await supabase.from('teachers')
+      .select('id, is_approved').eq('id', teacher_id).maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher || !teacher.is_approved) return res.status(403).json({ error: 'Teacher not found or not approved' });
+
+    const { data: sections, error: sectionsErr } = await supabase.from('teacher_class_sections')
+      .select('grade, section').eq('teacher_id', teacher_id);
+    if (sectionsErr) throw sectionsErr;
+    const allowed = (sections || []).some(cs => normText(cs.grade) === normText(grade) && normText(cs.section) === normText(section));
+    if (!allowed) return res.status(403).json({ error: 'You are not registered to teach this grade/section' });
+
+    const { data, error } = await supabase.from('homework').insert({
+      teacher_id,
+      grade: String(grade).slice(0, 40),
+      section: section ? String(section).slice(0, 40) : null,
+      subject: subject ? String(subject).slice(0, 60) : null,
+      title: String(title).slice(0, 200),
+      description: description ? String(description).slice(0, 4000) : null,
+      attachment_url: attachmentUrl || null
+    }).select('id').single();
+    if (error) throw error;
+
+    res.json({ ok: true, id: data.id });
+  } catch (err) {
+    console.error('Post homework assignment error:', err);
+    res.status(500).json({ error: 'Could not save homework: ' + (err.message || '') });
+  }
+});
+
+// Teacher's own posted assignments — feeds their dashboard list.
+app.get('/api/teacher/:id/homework-assignments', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data, error } = await supabase.from('homework')
+      .select('*').eq('teacher_id', req.params.id).order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ homework: data || [] });
+  } catch (err) {
+    console.error('Get teacher homework error:', err);
+    res.status(500).json({ error: 'Could not fetch homework' });
+  }
+});
+
+// Done/pending roster for one assignment — the teacher's monitoring view.
+app.get('/api/homework-assignments/:id/status', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data: hw, error: hwErr } = await supabase.from('homework')
+      .select('id, teacher_id, grade, section').eq('id', req.params.id).maybeSingle();
+    if (hwErr) throw hwErr;
+    if (!hw) return res.status(404).json({ error: 'Homework not found' });
+
+    const { data: teacher, error: teacherErr } = await supabase.from('teachers')
+      .select('school_name, area').eq('id', hw.teacher_id).maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher || !teacher.school_name || !teacher.area) return res.json({ roster: [] });
+
+    let query = supabase.from('students').select('id, name, class, section')
+      .ilike('school_name', teacher.school_name.trim())
+      .ilike('area', teacher.area.trim())
+      .ilike('class', hw.grade.trim());
+    if (hw.section) query = query.ilike('section', hw.section.trim());
+    const { data: students, error: studentsErr } = await query;
+    if (studentsErr) throw studentsErr;
+
+    const studentIds = (students || []).map(s => s.id);
+    let doneSet = new Set();
+    if (studentIds.length) {
+      const { data: statuses, error: statusErr } = await supabase.from('homework_status')
+        .select('student_id, is_done').eq('homework_id', req.params.id).in('student_id', studentIds);
+      if (statusErr) throw statusErr;
+      doneSet = new Set((statuses || []).filter(s => s.is_done).map(s => s.student_id));
+    }
+    res.json({ roster: (students || []).map(s => ({ student_id: s.id, name: s.name, is_done: doneSet.has(s.id) })) });
+  } catch (err) {
+    console.error('Get homework status error:', err);
+    res.status(500).json({ error: 'Could not fetch homework status' });
+  }
+});
+
+// Child marks a homework item done.
+app.post('/api/homework-assignments/:id/mark-done', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { student_id } = req.body || {};
+    if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
+    const { error } = await supabase.from('homework_status').upsert({
+      homework_id: req.params.id,
+      student_id,
+      is_done: true,
+      marked_done_at: new Date().toISOString()
+    }, { onConflict: 'homework_id,student_id' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Mark homework done error:', err);
+    res.status(500).json({ error: 'Could not update homework status' });
+  }
+});
+
+// Resolves every homework item that matches one student's
+// (school_name, area, class, section), with that student's own done/pending
+// status attached. Shared by the for-student and for-family routes below.
+async function homeworkForStudent(student) {
+  if (!student.school_name || !student.area || !student.class) return [];
+
+  const { data: teachersAtSchool, error: teacherErr } = await supabase.from('teachers')
+    .select('id, name')
+    .ilike('school_name', student.school_name.trim())
+    .ilike('area', student.area.trim());
+  if (teacherErr) throw teacherErr;
+  const teacherIds = (teachersAtSchool || []).map(t => t.id);
+  if (!teacherIds.length) return [];
+  const teacherNameById = Object.fromEntries((teachersAtSchool || []).map(t => [t.id, t.name]));
+
+  const { data: hwRows, error: hwErr } = await supabase.from('homework')
+    .select('id, teacher_id, grade, section, subject, title, description, attachment_url, created_at')
+    .in('teacher_id', teacherIds)
+    .ilike('grade', student.class.trim());
+  if (hwErr) throw hwErr;
+  const matched = (hwRows || []).filter(h => !h.section || (student.section && normText(h.section) === normText(student.section)));
+  if (!matched.length) return [];
+
+  const hwIds = matched.map(h => h.id);
+  const { data: statuses, error: statusErr } = await supabase.from('homework_status')
+    .select('homework_id, is_done').eq('student_id', student.id).in('homework_id', hwIds);
+  if (statusErr) throw statusErr;
+  const doneSet = new Set((statuses || []).filter(s => s.is_done).map(s => s.homework_id));
+
+  return matched.map(h => ({
+    id: h.id, subject: h.subject, title: h.title, description: h.description,
+    attachment_url: h.attachment_url, created_at: h.created_at,
+    teacher_name: teacherNameById[h.teacher_id] || null, is_done: doneSet.has(h.id)
+  })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+}
+
+// app/child's homework list.
+app.get('/api/homework-assignments/for-student/:studentId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data: student, error: studentErr } = await supabase.from('students')
+      .select('id, class, section, school_name, area').eq('id', req.params.studentId).maybeSingle();
+    if (studentErr) throw studentErr;
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+    res.json({ homework: await homeworkForStudent(student) });
+  } catch (err) {
+    console.error('Get homework for student error:', err);
+    res.status(500).json({ error: 'Could not fetch homework' });
+  }
+});
+
+// app/mother, app/father, app/family-member's homework list — aggregated
+// across every child in the family. For a family-member viewer, respects
+// the same 'homework' visibility flag member_visibility_rules already
+// reserved for this in Phase 1 (parents always see it in full).
+app.get('/api/homework-assignments/for-family/:familyId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    const viewerMemberId = req.query.viewer_member_id || null;
+
+    if (viewerMemberId) {
+      const { data: rule, error: ruleErr } = await supabase.from('member_visibility_rules')
+        .select('is_visible').eq('family_id', familyId).eq('family_member_id', viewerMemberId).eq('feature_name', 'homework').maybeSingle();
+      if (ruleErr) throw ruleErr;
+      if (rule && rule.is_visible === false) return res.json({ students: [] });
+    }
+
+    const { data: students, error: studentsErr } = await supabase.from('students')
+      .select('id, name, class, section, school_name, area').eq('family_id', familyId);
+    if (studentsErr) throw studentsErr;
+
+    const perStudent = await Promise.all((students || []).map(async s => ({
+      student_id: s.id,
+      student_name: s.name,
+      homework: await homeworkForStudent(s)
+    })));
+    res.json({ students: perStudent });
+  } catch (err) {
+    console.error('Get homework for family error:', err);
+    res.status(500).json({ error: 'Could not fetch homework' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Evening homework alert — called once daily by a Cloud Scheduler job,
+// protected by the same shared-secret-token pattern as ADMIN_TOKEN.
+// Sends one digest email per family covering every child with homework
+// posted today that's still pending, guarded against duplicate sends
+// (e.g. a Scheduler retry) by homework_alerts_sent's unique constraint.
+// ------------------------------------------------------------------
+app.post('/api/cron/evening-homework-alerts', async (req, res) => {
+  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const { data: todaysHomework, error: hwErr } = await supabase.from('homework')
+      .select('id, teacher_id, grade, section, subject, title').gte('created_at', todayStart.toISOString());
+    if (hwErr) throw hwErr;
+    if (!todaysHomework || !todaysHomework.length) return res.json({ ok: true, familiesNotified: 0 });
+
+    const teacherIds = [...new Set(todaysHomework.map(h => h.teacher_id))];
+    const { data: teachers, error: teacherErr } = await supabase.from('teachers')
+      .select('id, school_name, area').in('id', teacherIds);
+    if (teacherErr) throw teacherErr;
+    const teacherById = Object.fromEntries((teachers || []).map(t => [t.id, t]));
+
+    const pendingByFamily = new Map(); // family_id -> [{ studentName, subject, title }]
+
+    for (const hw of todaysHomework) {
+      const teacher = teacherById[hw.teacher_id];
+      if (!teacher || !teacher.school_name || !teacher.area) continue;
+
+      let query = supabase.from('students').select('id, name, family_id, class, section')
+        .ilike('school_name', teacher.school_name.trim())
+        .ilike('area', teacher.area.trim())
+        .ilike('class', hw.grade.trim());
+      if (hw.section) query = query.ilike('section', hw.section.trim());
+      const { data: students, error: studentsErr } = await query;
+      if (studentsErr) throw studentsErr;
+      if (!students || !students.length) continue;
+
+      const studentIds = students.map(s => s.id);
+      const { data: statuses, error: statusErr } = await supabase.from('homework_status')
+        .select('student_id, is_done').eq('homework_id', hw.id).in('student_id', studentIds);
+      if (statusErr) throw statusErr;
+      const doneSet = new Set((statuses || []).filter(s => s.is_done).map(s => s.student_id));
+
+      for (const s of students) {
+        if (doneSet.has(s.id)) continue;
+        if (!pendingByFamily.has(s.family_id)) pendingByFamily.set(s.family_id, []);
+        pendingByFamily.get(s.family_id).push({ studentName: s.name, subject: hw.subject, title: hw.title });
+      }
+    }
+
+    const todayDate = todayStart.toISOString().slice(0, 10);
+    let familiesNotified = 0;
+    for (const [familyId, items] of pendingByFamily.entries()) {
+      const { error: guardErr } = await supabase.from('homework_alerts_sent').insert({ family_id: familyId, sent_date: todayDate });
+      if (guardErr) {
+        if (guardErr.code !== '23505') console.error('Could not record alert guard for family', familyId, guardErr.message);
+        continue; // already sent today, or a real error either way skip rather than double-send
+      }
+      const { data: family, error: familyErr } = await supabase.from('family_registrations')
+        .select('data').eq('id', familyId).maybeSingle();
+      if (familyErr || !family) continue;
+      const email = family.data?.mother?.email || family.data?.father?.email;
+      if (!email) continue; // no channel available for this family yet
+      await sendPendingHomeworkEmail(email, items);
+      familiesNotified++;
+    }
+
+    res.json({ ok: true, familiesNotified });
+  } catch (err) {
+    console.error('Evening homework alert error:', err);
+    res.status(500).json({ error: 'Could not run evening homework alerts' });
   }
 });
 

@@ -374,6 +374,17 @@
 </a>
 </section>
 
+<section class="space-y-3">
+<h2 class="font-headline text-xl text-on-surface">Homework</h2>
+<div class="hidden bg-secondary-container/20 text-on-surface rounded-2xl p-4 flex items-center gap-2" id="homeworkPendingBanner">
+<span class="material-symbols-outlined text-secondary">notifications_active</span>
+<span id="homeworkPendingText"></span>
+</div>
+<div class="space-y-3" id="homeworkList">
+<p class="font-body text-sm text-on-surface-variant" id="homeworkEmptyMsg">Loading…</p>
+</div>
+</section>
+
 </main>
 <nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-2 pb-6 px-4 bg-surface-container-low backdrop-blur-xl rounded-t-full shadow-sm">
 <a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1.5 active:scale-90 duration-300" href="#"><span class="material-symbols-outlined">home</span><span class="font-label text-xs uppercase tracking-widest mt-1">HOME</span></a>
@@ -557,6 +568,55 @@
                 console.error('[father] Could not load bonding score:', err);
                 valueEl.textContent = '—';
                 gapEl.textContent = 'Could not load your bonding score right now.';
+            }
+        })();
+
+        function formatHwDate(iso){
+            try { return new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }); }
+            catch (e) { return iso; }
+        }
+
+        // Read-only for parents — the child marks their own homework done
+        // at their own login; this just reflects that status.
+        (async function loadHomework(){
+            const listEl = document.getElementById('homeworkList');
+            const bannerEl = document.getElementById('homeworkPendingBanner');
+            const bannerText = document.getElementById('homeworkPendingText');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) { listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">No homework yet.</p>'; return; }
+            try {
+                const res = await fetch('/api/homework-assignments/for-family/' + encodeURIComponent(familyId));
+                const data = await res.json();
+                const students = (data.students || []).filter(s => s.homework && s.homework.length);
+                if (!students.length) {
+                    listEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">No homework posted yet.</p>';
+                    bannerEl.classList.add('hidden');
+                    return;
+                }
+                let pendingCount = 0;
+                let html = '';
+                students.forEach(s => {
+                    pendingCount += s.homework.filter(h => !h.is_done).length;
+                    html += `<div class="bg-surface-container-highest rounded-2xl p-4"><h3 class="font-label text-sm text-primary font-semibold mb-2">${s.student_name}</h3><div class="space-y-2">` +
+                        s.homework.map(hw => `
+                            <div class="flex items-start justify-between gap-2 bg-surface-bright rounded-xl p-3">
+                                <div>
+                                    <span class="font-caption text-xs text-on-surface-variant uppercase">${hw.subject || 'Homework'} · ${formatHwDate(hw.created_at)}</span>
+                                    <p class="font-body text-sm text-on-surface">${hw.title}</p>
+                                </div>
+                                <span class="px-2 py-1 rounded-full font-label text-xs shrink-0 ${hw.is_done ? 'bg-tertiary-container/20 text-tertiary' : 'bg-surface-variant text-on-surface-variant'}">${hw.is_done ? '✓ Done' : 'Pending'}</span>
+                            </div>`).join('') + '</div></div>';
+                });
+                listEl.innerHTML = html;
+                if (pendingCount > 0) {
+                    bannerText.textContent = `${pendingCount} pending homework item${pendingCount > 1 ? 's' : ''} in your family today.`;
+                    bannerEl.classList.remove('hidden');
+                } else {
+                    bannerEl.classList.add('hidden');
+                }
+            } catch (err) {
+                console.error('[father] Could not load homework:', err);
+                listEl.innerHTML = '<p class="font-body text-sm text-error">Could not load homework.</p>';
             }
         })();
 </script>

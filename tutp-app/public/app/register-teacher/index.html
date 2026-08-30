@@ -45,7 +45,12 @@
 <input id="teacherPhone" class="w-full h-11 bg-transparent border-none focus:ring-0 font-body-md" placeholder="10-digit phone number" type="tel"/>
 </div>
 </div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School / Tuition Name</label><input id="teacherSchool" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter school or tuition center name" type="text"/></div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School / Tuition Name <span class="text-error">*</span></label><input id="teacherSchool" list="schoolNamesList" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Start typing or add new" type="text" autocomplete="off"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Area / Locality <span class="text-error">*</span></label><select id="teacherArea" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"></select></div>
+</div>
+<datalist id="schoolNamesList"></datalist>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Address <span class="font-caption text-caption text-on-surface-variant">(optional, for reference)</span></label><input id="teacherAddress" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Street, landmark, etc." type="text"/></div>
 
 <div>
 <label class="font-label-md text-label-md text-on-surface mb-xs block">Subject Specialization <span class="text-error">*</span></label>
@@ -112,6 +117,30 @@
     });
   });
 
+  // ---------------- School name + area ----------------
+  // Fixed list (not free text) so homework-to-student matching has a
+  // reliable second key alongside school name — school chains (Sri
+  // Chaitanya, Narayana, etc.) commonly have branches across several of
+  // these localities under the same name.
+  const HYDERABAD_AREAS = ['Ameerpet','Banjara Hills','Dilsukhnagar','Gachibowli','Jubilee Hills','Kondapur','Kukatpally','KPHB','LB Nagar','Madhapur','Miyapur','Secunderabad','Uppal','Begumpet','Malakpet','Tarnaka','Habsiguda','Attapur','Mehdipatnam','ECIL'];
+  const areaSelect = document.getElementById('teacherArea');
+  areaSelect.innerHTML = '<option value="">Select area</option>' + HYDERABAD_AREAS.map(a => `<option>${a}</option>`).join('');
+
+  (async function loadSchoolNames(){
+    try {
+      const res = await fetch('/api/schools');
+      const data = await res.json();
+      const list = document.getElementById('schoolNamesList');
+      (data.names || []).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        list.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('Could not load school names:', err);
+    }
+  })();
+
   // ---------------- Grade/section rows ----------------
   const gradeOptions = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
   function addClassSection(){
@@ -143,13 +172,19 @@
       section: row.querySelector('.cs-section').value.trim() || null
     }));
 
+    const schoolName = document.getElementById('teacherSchool').value.trim();
+    const area = document.getElementById('teacherArea').value;
+    const address = document.getElementById('teacherAddress').value.trim();
+
     if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.classList.add('text-error'); return; }
     if (digits.length !== 10) { errEl.textContent = 'Please enter a valid 10-digit phone number.'; errEl.classList.add('text-error'); return; }
+    if (!schoolName) { errEl.textContent = 'Please enter your school or tuition center name.'; errEl.classList.add('text-error'); return; }
+    if (!area) { errEl.textContent = 'Please select your area/locality.'; errEl.classList.add('text-error'); return; }
     if (!subjects.length) { errEl.textContent = 'Please select at least one subject.'; errEl.classList.add('text-error'); return; }
     if (!classSections.length) { errEl.textContent = 'Please add at least one grade you teach.'; errEl.classList.add('text-error'); return; }
 
     lastPhoneDigits = digits;
-    window.tutpTeacherPayload = { name, phone: '+91' + digits, subjects, schoolName: document.getElementById('teacherSchool').value.trim(), classSections };
+    window.tutpTeacherPayload = { name, phone: '+91' + digits, subjects, schoolName, area, address: address || null, classSections };
 
     const btn = document.getElementById('sendCodeBtn');
     btn.disabled = true; btn.textContent = 'Sending code…';

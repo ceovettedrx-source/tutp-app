@@ -189,14 +189,6 @@
 <p class="font-body-md text-body-md text-on-surface-variant">Your teacher/tutor registration is still being reviewed. We'll let you know once your account is approved — please check back later.</p>
 </div>
 </section>
-
-<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg items-center text-center" id="teacher-approved-view">
-<span class="material-symbols-outlined text-primary text-5xl">check_circle</span>
-<div>
-<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">You're Approved!</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">Your teacher/tutor dashboard is coming soon. We'll notify you as soon as it's ready.</p>
-</div>
-</section>
 </main>
 <script>
         function transitionTo(fromId, toId, focusSelector) {
@@ -381,7 +373,8 @@
                     } else if (!statusData.is_approved) {
                         transitionTo(fromId, 'teacher-pending-view');
                     } else {
-                        transitionTo(fromId, 'teacher-approved-view');
+                        sessionStorage.setItem('tutp_teacher_id', statusData.id);
+                        window.location.href = '/app/teacher/';
                     }
                     return;
                 }
