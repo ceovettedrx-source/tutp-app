@@ -101,16 +101,41 @@ async function sendTeacherRegistrationEmail(teacher) {
 }
 
 // ------------------------------------------------------------------
-// Evening homework digest — one email per family covering every child
-// with pending (not marked done) homework from today. Best-effort, same
-// posture as the other notification helpers here.
+// Evening homework digest — one email per family, grouped by teacher, so
+// each pending item's section reads as coming from the teacher who
+// actually posted it (name, subject, school) rather than a generic
+// system notice. Still clearly marked as automated in the closing line —
+// a parent replying to this reaches hello@tutp.online, not the teacher,
+// so it must not read as if the teacher personally sent it.
+// Best-effort, same posture as the other notification helpers here.
 // ------------------------------------------------------------------
-async function sendPendingHomeworkEmail(email, items) {
-  const subject = `Reminder: ${items.length} pending homework item${items.length > 1 ? 's' : ''} today`;
-  const lines = items.map(i => `- ${i.studentName}: ${i.subject ? i.subject + ' — ' : ''}${i.title}`).join('\n');
-  const text = `Hi,\n\nThe following homework is still marked pending for today:\n\n${lines}\n\n- The Tut-P team`;
-  const listHtml = items.map(i => `<li><strong>${i.studentName}</strong>: ${i.subject ? i.subject + ' — ' : ''}${i.title}</li>`).join('');
-  const html = `<p>The following homework is still marked pending for today:</p><ul>${listHtml}</ul><p>— The Tut-P team</p>`;
+async function sendPendingHomeworkEmail(recipientName, email, items) {
+  const totalCount = items.length;
+  const subject = `Reminder: ${totalCount} pending homework item${totalCount > 1 ? 's' : ''} today`;
+  const greeting = `Hello ${recipientName},`;
+
+  const byTeacher = new Map(); // teacher_id -> { teacherName, subject, schoolName, items: [] }
+  for (const item of items) {
+    if (!byTeacher.has(item.teacherId)) {
+      byTeacher.set(item.teacherId, { teacherName: item.teacherName, subject: item.subject, schoolName: item.schoolName, items: [] });
+    }
+    byTeacher.get(item.teacherId).items.push(item);
+  }
+
+  const textSections = [];
+  const htmlSections = [];
+  for (const group of byTeacher.values()) {
+    const heading = group.subject ? `${group.subject} — ${group.schoolName}` : group.schoolName;
+    const lines = group.items.map(i => `  • ${i.studentName}: ${i.title}`).join('\n');
+    const signature = `— ${group.teacherName}, ${group.subject ? group.subject + ' Teacher' : 'Teacher'}, ${group.schoolName}`;
+    textSections.push(`${heading}\n${lines}\n\n${signature}`);
+
+    const listHtml = group.items.map(i => `<li><strong>${i.studentName}</strong>: ${i.title}</li>`).join('');
+    htmlSections.push(`<p><strong>${heading}</strong></p><ul>${listHtml}</ul><p>${signature}</p>`);
+  }
+
+  const text = `${greeting}\n\nHere's what's still pending for your family today:\n\n${textSections.join('\n\n\n')}\n\n(Sent automatically by Tut-P on behalf of your child's teachers.)`;
+  const html = `<p>${greeting}</p><p>Here's what's still pending for your family today:</p>${htmlSections.join('<hr style="border:none;border-top:1px solid #e5e8ee;margin:16px 0;">')}<p style="color:#727785;font-size:0.9em;">(Sent automatically by Tut-P on behalf of your child's teachers.)</p>`;
 
   if (resend) {
     try {
@@ -1096,7 +1121,7 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
 
     const teacherIds = [...new Set(todaysHomework.map(h => h.teacher_id))];
     const { data: teachers, error: teacherErr } = await supabase.from('teachers')
-      .select('id, school_name, area').in('id', teacherIds);
+      .select('id, name, school_name, area').in('id', teacherIds);
     if (teacherErr) throw teacherErr;
     const teacherById = Object.fromEntries((teachers || []).map(t => [t.id, t]));
 
@@ -1107,7 +1132,7 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
       .select('id, name, family_id, class, section, school_name, area');
     if (allStudentsErr) throw allStudentsErr;
 
-    const pendingByFamily = new Map(); // family_id -> [{ studentName, subject, title }]
+    const pendingByFamily = new Map(); // family_id -> [{ studentName, subject, title, teacherId, teacherName, schoolName }]
 
     for (const hw of todaysHomework) {
       const teacher = teacherById[hw.teacher_id];
@@ -1134,7 +1159,10 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
       for (const s of students) {
         if (doneSet.has(s.id)) continue;
         if (!pendingByFamily.has(s.family_id)) pendingByFamily.set(s.family_id, []);
-        pendingByFamily.get(s.family_id).push({ studentName: s.name, subject: hw.subject, title: hw.title });
+        pendingByFamily.get(s.family_id).push({
+          studentName: s.name, subject: hw.subject, title: hw.title,
+          teacherId: hw.teacher_id, teacherName: teacher.name, schoolName: teacher.school_name
+        });
       }
     }
 
@@ -1149,9 +1177,9 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
       const { data: family, error: familyErr } = await supabase.from('family_registrations')
         .select('data').eq('id', familyId).maybeSingle();
       if (familyErr || !family) continue;
-      const email = family.data?.mother?.email || family.data?.father?.email;
-      if (!email) continue; // no channel available for this family yet
-      await sendPendingHomeworkEmail(email, items);
+      const recipient = family.data?.mother?.email ? family.data.mother : family.data?.father;
+      if (!recipient || !recipient.email) continue; // no channel available for this family yet
+      await sendPendingHomeworkEmail(recipient.name || 'there', recipient.email, items);
       familiesNotified++;
     }
 
