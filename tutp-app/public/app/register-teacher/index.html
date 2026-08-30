@@ -16,7 +16,6 @@
         .soft-input:focus-within { border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
         .proto-banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
-        .section-hidden { display: none; }
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
@@ -76,7 +75,7 @@
 </div>
 
 <!-- OTP -->
-<div id="otpSection" class="glass-card rounded-xl p-md md:p-lg flex flex-col gap-lg mt-lg section-hidden">
+<div id="otpSection" class="glass-card rounded-xl p-md md:p-lg flex flex-col gap-lg mt-lg hidden">
 <div class="text-center">
 <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-container mb-sm"><span class="material-symbols-outlined text-4xl filled">smartphone</span></div>
 <h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Verify Your Number</h2>
@@ -96,7 +95,7 @@
 </div>
 
 <!-- SUCCESS -->
-<div id="successSection" class="glass-card rounded-xl p-lg flex flex-col items-center text-center gap-sm mt-lg section-hidden">
+<div id="successSection" class="glass-card rounded-xl p-lg flex flex-col items-center text-center gap-sm mt-lg hidden">
 <span class="material-symbols-outlined text-primary text-5xl">celebration</span>
 <h2 class="font-headline-md text-headline-md text-primary">Thanks for registering!</h2>
 <p class="font-body-md text-body-md text-on-surface-variant">Your registration is pending approval. We manually review every teacher/tutor account — you'll be able to log in once approved.</p>
@@ -157,8 +156,8 @@
     try {
       await window.tutpSendOTP('+91' + digits);
       document.getElementById('otpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
-      document.getElementById('detailsSection').classList.add('section-hidden');
-      document.getElementById('otpSection').classList.remove('section-hidden');
+      document.getElementById('detailsSection').classList.add('hidden');
+      document.getElementById('otpSection').classList.remove('hidden');
       window.scrollTo({top:0, behavior:'smooth'});
     } catch(err){
       errEl.textContent = 'Could not send the verification code: ' + (err.message || 'please check the number and try again.');
@@ -169,8 +168,8 @@
   }
 
   function backToDetails(){
-    document.getElementById('otpSection').classList.add('section-hidden');
-    document.getElementById('detailsSection').classList.remove('section-hidden');
+    document.getElementById('otpSection').classList.add('hidden');
+    document.getElementById('detailsSection').classList.remove('hidden');
   }
 
   // Guards against a second overlapping tap (slow mobile network + no
@@ -208,9 +207,9 @@
       teacherRegistered = true;
       errEl.textContent = '';
       errEl.classList.add('hidden');
-      document.getElementById('detailsSection').classList.add('section-hidden');
-      document.getElementById('otpSection').classList.add('section-hidden');
-      document.getElementById('successSection').classList.remove('section-hidden');
+      document.getElementById('detailsSection').classList.add('hidden');
+      document.getElementById('otpSection').classList.add('hidden');
+      document.getElementById('successSection').classList.remove('hidden');
       window.scrollTo({top:0, behavior:'smooth'});
     } catch(err){
       errEl.textContent = err.message && err.message.includes('save registration') ? err.message : 'Incorrect code — please try again.';
