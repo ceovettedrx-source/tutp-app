@@ -64,6 +64,43 @@ async function sendWaitlistEmail(name, email) {
 }
 
 // ------------------------------------------------------------------
+// Teacher registration notice — sent to the admin (not the teacher) so
+// they can manually verify and flip is_approved in the Supabase
+// dashboard. Best-effort, same as sendWaitlistEmail: registration is
+// already saved by the time this fires, so email delivery never blocks it.
+// ------------------------------------------------------------------
+async function sendTeacherRegistrationEmail(teacher) {
+  const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || 'ceo.tutp@gmail.com';
+  const classSections = teacher.classSections.map(cs => cs.section ? `${cs.grade} - ${cs.section}` : cs.grade).join(', ');
+  const subject = `New teacher registration pending approval: ${teacher.name}`;
+  const text = `A new teacher/tutor has registered on Tut-P and needs approval.\n\nName: ${teacher.name}\nPhone: ${teacher.phone}\nSubjects: ${teacher.subjects.join(', ')}\nSchool/Tuition: ${teacher.schoolName || '(not provided)'}\nGrades/Sections: ${classSections}\n\nTeacher id (for the Supabase dashboard): ${teacher.id}\nApprove by setting is_approved = true on the teachers table for this id.`;
+  const html = `<p>A new teacher/tutor has registered on Tut-P and needs approval.</p><ul><li><strong>Name:</strong> ${teacher.name}</li><li><strong>Phone:</strong> ${teacher.phone}</li><li><strong>Subjects:</strong> ${teacher.subjects.join(', ')}</li><li><strong>School/Tuition:</strong> ${teacher.schoolName || '(not provided)'}</li><li><strong>Grades/Sections:</strong> ${classSections}</li></ul><p><strong>Teacher id:</strong> ${teacher.id}</p><p>Approve by setting <code>is_approved = true</code> on the <code>teachers</code> table for this id.</p>`;
+
+  if (resend) {
+    try {
+      const { error } = await resend.emails.send({
+        from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>',
+        to: adminEmail,
+        subject, text, html
+      });
+      if (error) throw new Error(JSON.stringify(error));
+      console.log('Teacher registration notice sent via Resend to', adminEmail);
+    } catch (err) {
+      console.error('Resend teacher notice failed (registration still saved):', err.message);
+    }
+    return;
+  }
+  if (mailer) {
+    try {
+      await mailer.sendMail({ from: `"Tut-P" <${process.env.GMAIL_USER}>`, to: adminEmail, subject, text, html });
+      console.log('Teacher registration notice sent via Gmail to', adminEmail);
+    } catch (err) {
+      console.error('Gmail teacher notice failed (registration still saved):', err.message);
+    }
+  }
+}
+
+// ------------------------------------------------------------------
 // Supabase client — server-side only, uses the service_role key so it
 // can write regardless of Row Level Security. Never expose this key
 // to the browser; it only ever lives in Cloud Run env vars.
@@ -281,6 +318,69 @@ app.post('/api/family/add-member', async (req, res) => {
   } catch (err) {
     console.error('Add member error:', err);
     res.status(500).json({ error: 'Could not add family member' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Teacher/Tutor registration — separate from family registration. New
+// teachers default to is_approved=false; the site admin flips that
+// manually in the Supabase dashboard after verifying them (no approval
+// UI in this phase). No phone uniqueness enforced — dedup happens
+// manually at approval time, same posture as family_registrations.
+// ------------------------------------------------------------------
+app.post('/api/register-teacher', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { name, phone, subjects, schoolName, classSections } = req.body || {};
+    const subjectList = Array.isArray(subjects) ? subjects.filter(Boolean) : [];
+    const sections = Array.isArray(classSections) ? classSections.filter(cs => cs && cs.grade) : [];
+    if (!name || !phone || !subjectList.length || !sections.length) {
+      return res.status(400).json({ error: 'Missing name, phone, subjects, or at least one grade/section' });
+    }
+
+    const { data, error } = await supabase.from('teachers').insert({
+      name: String(name).slice(0, 120),
+      phone: String(phone).slice(0, 20),
+      subjects: subjectList.map(s => String(s).slice(0, 60)),
+      school_name: schoolName ? String(schoolName).slice(0, 200) : null
+    }).select('id').single();
+    if (error) throw error;
+
+    const sectionRows = sections.map(cs => ({
+      teacher_id: data.id,
+      grade: String(cs.grade).slice(0, 40),
+      section: cs.section ? String(cs.section).slice(0, 40) : null
+    }));
+    const { error: sectionsErr } = await supabase.from('teacher_class_sections').insert(sectionRows);
+    if (sectionsErr) console.error('Could not save teacher_class_sections rows (teacher registration itself still succeeded):', sectionsErr.message);
+
+    console.log('New teacher registration:', name, 'id:', data.id);
+    sendTeacherRegistrationEmail({ id: data.id, name, phone, subjects: subjectList, schoolName, classSections: sections }); // fire-and-forget
+    res.json({ ok: true, id: data.id });
+  } catch (err) {
+    console.error('Teacher registration error:', err);
+    res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });
+  }
+});
+
+// Looked up by phone from the login page's Teacher/Tutor flow, after OTP
+// verification, to decide between "register", "pending approval", or
+// "approved" (no dashboard yet, so approved just shows a placeholder).
+app.get('/api/teacher-status', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const digits = String(req.query.phone || '').replace(/\D/g, '').slice(-10);
+    if (digits.length !== 10) return res.status(400).json({ error: 'Invalid phone number' });
+
+    const { data, error } = await supabase.from('teachers').select('id, is_approved, phone');
+    if (error) throw error;
+    const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+    const match = (data || []).find(row => norm(row.phone) === digits);
+    if (!match) return res.json({ found: false });
+    res.json({ found: true, is_approved: !!match.is_approved, id: match.id });
+  } catch (err) {
+    console.error('Teacher status error:', err);
+    res.status(500).json({ error: 'Could not check teacher status' });
   }
 });
 

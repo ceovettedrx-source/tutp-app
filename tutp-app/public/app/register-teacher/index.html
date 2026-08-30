@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tut-P - Teacher/Tutor Registration</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="/shared/tailwind-tokens.js"></script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,91,191,0.05); }
+        .soft-input { border: 1px solid #c2c6d4; transition: all 0.2s ease; }
+        .soft-input:focus-within { border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
+        .proto-banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
+        .proto-banner a{color:#fff;text-decoration:underline;}
+        .section-hidden { display: none; }
+</style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<div class="proto-banner">LIVE — form data is saved to our database · Phone verification via SMS is real (Firebase) · <a href="/">Back to Tut-P site</a></div>
+
+<header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full sticky top-0 z-40 bg-surface-container-low shadow-sm">
+<div class="flex items-center gap-sm">
+<span class="material-symbols-outlined text-primary filled">school</span>
+<h1 class="font-headline-md text-headline-md text-primary font-bold">Tut-P</h1>
+</div>
+<div class="font-label-md text-label-md text-on-surface-variant">Teacher / Tutor Registration</div>
+</header>
+
+<main class="flex-grow w-full max-w-2xl mx-auto px-margin-mobile md:px-0 py-lg pb-32">
+
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Register as a Teacher / Tutor</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Tell us about yourself and what you teach. We manually review every teacher account before it's activated.</p>
+</div>
+
+<!-- DETAILS -->
+<div id="detailsSection" class="glass-card rounded-xl p-md md:p-lg space-y-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name <span class="text-error">*</span></label><input id="teacherName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter full name" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone <span class="text-error">*</span></label>
+<div class="flex items-center gap-xs soft-input rounded-lg bg-surface-container-lowest px-3">
+<span class="font-label-lg text-label-lg text-on-surface-variant">+91</span>
+<input id="teacherPhone" class="w-full h-11 bg-transparent border-none focus:ring-0 font-body-md" placeholder="10-digit phone number" type="tel"/>
+</div>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School / Tuition Name</label><input id="teacherSchool" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter school or tuition center name" type="text"/></div>
+
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Subject Specialization <span class="text-error">*</span></label>
+<p class="font-caption text-caption text-on-surface-variant mb-xs">Select all that apply.</p>
+<div class="flex flex-wrap gap-2" id="subjectChips">
+<button type="button" class="subject-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Mathematics</button>
+<button type="button" class="subject-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Science</button>
+<button type="button" class="subject-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">English</button>
+<button type="button" class="subject-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Social Studies</button>
+<button type="button" class="subject-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Language</button>
+<button type="button" class="subject-chip px-4 py-2 rounded-full border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors">Computer Science</button>
+</div>
+<input id="subjectOther" class="w-full h-11 px-3 mt-sm rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Other subject (optional)" type="text"/>
+</div>
+
+<div class="pt-sm">
+<div class="flex items-center justify-between flex-wrap gap-sm mb-sm">
+<h3 class="font-label-md text-label-md text-primary flex items-center gap-2"><span class="material-symbols-outlined">groups</span>Grades &amp; Sections You Teach <span class="text-error">*</span></h3>
+<button class="bg-primary-container text-on-primary-container font-label-md text-sm px-4 py-2 rounded-full flex items-center gap-2 hover:opacity-90 transition-opacity" type="button" onclick="addClassSection()"><span class="material-symbols-outlined text-[18px]">add</span>Add Grade/Section</button>
+</div>
+<p class="font-caption text-caption text-on-surface-variant mb-sm">Leave section blank if you teach the whole grade.</p>
+<div class="space-y-sm" id="classSectionContainer"></div>
+</div>
+
+<p class="text-center font-label-md text-sm" id="detailsError"></p>
+<div class="flex justify-end mt-md"><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="sendCodeBtn" onclick="proceedToPhoneVerification()">Send Verification Code <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+
+<!-- OTP -->
+<div id="otpSection" class="glass-card rounded-xl p-md md:p-lg flex flex-col gap-lg mt-lg section-hidden">
+<div class="text-center">
+<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-container mb-sm"><span class="material-symbols-outlined text-4xl filled">smartphone</span></div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Verify Your Number</h2>
+<p class="font-body-md text-body-md text-on-surface-variant" id="otpSentTo">Enter the 6-digit code sent to your phone.</p>
+</div>
+<div id="recaptcha-container-register-teacher"></div>
+<div class="flex gap-2 justify-center">
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+</div>
+<p id="otpError" class="text-center text-sm text-red-600 hidden"></p>
+<div class="flex justify-between max-w-lg mx-auto w-full"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" type="button" onclick="backToDetails()"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="verifyBtn" onclick="handleVerifyAndSubmit()">Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+
+<!-- SUCCESS -->
+<div id="successSection" class="glass-card rounded-xl p-lg flex flex-col items-center text-center gap-sm mt-lg section-hidden">
+<span class="material-symbols-outlined text-primary text-5xl">celebration</span>
+<h2 class="font-headline-md text-headline-md text-primary">Thanks for registering!</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Your registration is pending approval. We manually review every teacher/tutor account — you'll be able to log in once approved.</p>
+<a href="/app/login/" class="mt-sm bg-primary text-on-primary font-label-lg text-label-lg h-12 px-8 rounded-xl flex items-center justify-center hover:bg-primary/90 transition-colors">Back to Login</a>
+</div>
+
+</main>
+
+<script>
+  // ---------------- Subject chips ----------------
+  document.querySelectorAll('.subject-chip').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      btn.classList.toggle('border-primary'); btn.classList.toggle('bg-primary-container'); btn.classList.toggle('text-on-primary-container');
+    });
+  });
+
+  // ---------------- Grade/section rows ----------------
+  const gradeOptions = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
+  function addClassSection(){
+    const wrap = document.getElementById('classSectionContainer');
+    const row = document.createElement('div');
+    row.className = 'class-section-row flex flex-col md:flex-row gap-sm items-start bg-surface-bright p-3 rounded-lg border border-outline-variant/30 relative';
+    row.innerHTML = `
+      <button class="absolute top-2 right-2 text-on-surface-variant hover:text-error transition-colors" onclick="this.closest('.class-section-row').remove()" type="button"><span class="material-symbols-outlined text-[18px]">close</span></button>
+      <div class="w-full md:w-40"><select class="cs-grade w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm">${gradeOptions.map(g=>`<option>${g}</option>`).join('')}</select></div>
+      <div class="flex-1 w-full"><input class="cs-section w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Section (e.g. A) — optional" type="text"/></div>`;
+    wrap.appendChild(row);
+  }
+  addClassSection(); // start with one row
+
+  // ---------------- Phone verification ----------------
+  let lastPhoneDigits = '';
+  async function proceedToPhoneVerification(){
+    const errEl = document.getElementById('detailsError');
+    errEl.textContent = '';
+    errEl.className = 'text-center font-label-md text-sm';
+
+    const name = document.getElementById('teacherName').value.trim();
+    const digits = document.getElementById('teacherPhone').value.replace(/\D/g,'');
+    const subjects = Array.from(document.querySelectorAll('.subject-chip.bg-primary-container')).map(b => b.textContent.trim());
+    const otherSubject = document.getElementById('subjectOther').value.trim();
+    if (otherSubject) subjects.push(otherSubject);
+    const classSections = Array.from(document.querySelectorAll('.class-section-row')).map(row => ({
+      grade: row.querySelector('.cs-grade').value,
+      section: row.querySelector('.cs-section').value.trim() || null
+    }));
+
+    if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.classList.add('text-error'); return; }
+    if (digits.length !== 10) { errEl.textContent = 'Please enter a valid 10-digit phone number.'; errEl.classList.add('text-error'); return; }
+    if (!subjects.length) { errEl.textContent = 'Please select at least one subject.'; errEl.classList.add('text-error'); return; }
+    if (!classSections.length) { errEl.textContent = 'Please add at least one grade you teach.'; errEl.classList.add('text-error'); return; }
+
+    lastPhoneDigits = digits;
+    window.tutpTeacherPayload = { name, phone: '+91' + digits, subjects, schoolName: document.getElementById('teacherSchool').value.trim(), classSections };
+
+    const btn = document.getElementById('sendCodeBtn');
+    btn.disabled = true; btn.textContent = 'Sending code…';
+    try {
+      await window.tutpSendOTP('+91' + digits);
+      document.getElementById('otpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
+      document.getElementById('detailsSection').classList.add('section-hidden');
+      document.getElementById('otpSection').classList.remove('section-hidden');
+      window.scrollTo({top:0, behavior:'smooth'});
+    } catch(err){
+      errEl.textContent = 'Could not send the verification code: ' + (err.message || 'please check the number and try again.');
+      errEl.classList.add('text-error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Send Verification Code <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  function backToDetails(){
+    document.getElementById('otpSection').classList.add('section-hidden');
+    document.getElementById('detailsSection').classList.remove('section-hidden');
+  }
+
+  async function handleVerifyAndSubmit(){
+    const errEl = document.getElementById('otpError');
+    const btn = document.getElementById('verifyBtn');
+    errEl.classList.add('hidden');
+    const code = Array.from(document.querySelectorAll('#otpSection .otp-box')).map(i => i.value).join('');
+    if (code.length !== 6){
+      errEl.textContent = 'Please enter all 6 digits.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Verifying…';
+    try {
+      await window.tutpVerifyOTP(code);
+      btn.textContent = 'Saving…';
+      const res = await fetch('/api/register-teacher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(window.tutpTeacherPayload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
+      document.getElementById('otpSection').classList.add('section-hidden');
+      document.getElementById('successSection').classList.remove('section-hidden');
+      window.scrollTo({top:0, behavior:'smooth'});
+    } catch(err){
+      errEl.textContent = err.message && err.message.includes('save registration') ? err.message : 'Incorrect code — please try again.';
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  // OTP box auto-advance
+  document.querySelectorAll('#otpSection .otp-box').forEach((input, index, all) => {
+    input.addEventListener('input', (e) => {
+      if (e.target.value.length === 1 && index < all.length - 1) all[index + 1].focus();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !e.target.value && index > 0) all[index - 1].focus();
+    });
+  });
+</script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
+      authDomain: "tut-p-98978.firebaseapp.com",
+      projectId: "tut-p-98978",
+      storageBucket: "tut-p-98978.firebasestorage.app",
+      messagingSenderId: "706069048441",
+      appId: "1:706069048441:web:da5dd699fe431e48fe78a8",
+      measurementId: "G-02PZ2EFZVY"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+
+    let confirmationResult = null;
+    let recaptchaVerifier = null;
+
+    window.tutpSendOTP = async function(fullPhoneNumber){
+        if (!recaptchaVerifier){
+            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-register-teacher', { size: 'invisible' });
+        }
+        confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
+    };
+
+    window.tutpVerifyOTP = async function(code){
+        if (!confirmationResult) throw new Error('Please request a code first.');
+        await confirmationResult.confirm(code);
+    };
+</script>
+</body></html>

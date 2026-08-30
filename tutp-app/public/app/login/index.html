@@ -67,10 +67,14 @@
 <section class="w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg transition-all duration-300" id="login-view">
 <header class="text-center">
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Welcome Back</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">Enter your child's name and your phone number to continue</p>
+<p class="font-body-md text-body-md text-on-surface-variant" id="loginSubtitle">Enter your child's name and your phone number to continue</p>
 </header>
+<div class="flex rounded-full bg-surface-container p-1" role="tablist">
+<button type="button" id="roleTabParent" class="flex-1 h-10 rounded-full font-label-md text-label-md transition-colors bg-primary text-on-primary" onclick="setLoginRole('parent')">Parent</button>
+<button type="button" id="roleTabTeacher" class="flex-1 h-10 rounded-full font-label-md text-label-md transition-colors text-on-surface-variant" onclick="setLoginRole('teacher')">Teacher / Tutor</button>
+</div>
 <form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); handleNamePhoneSubmit();">
-<div class="glass-input rounded-xl p-xs transition-all">
+<div class="glass-input rounded-xl p-xs transition-all" id="loginChildNameWrap">
 <input id="loginChildName" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Child's name (optional)" type="text"/>
 </div>
 <div class="glass-input rounded-xl flex items-center p-xs transition-all">
@@ -83,7 +87,7 @@
 <p id="phoneError" class="text-center text-sm text-red-600 hidden"></p>
 <button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit" id="sendCodeBtn">Continue</button>
 </form>
-<p class="text-center font-label-md text-label-md text-on-surface-variant">New here? <a class="text-primary hover:underline" href="/app/register/">Register</a></p>
+<p class="text-center font-label-md text-label-md text-on-surface-variant" id="registerLinkRow">New here? <a class="text-primary hover:underline" href="/app/register/">Register</a></p>
 </section>
 
 <section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="disambiguate-view">
@@ -168,6 +172,31 @@
 </div>
 <a id="registerPromptLink" href="/app/register/" class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] flex items-center justify-center">Register my family</a>
 </section>
+
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg items-center text-center" id="teacher-register-prompt-view">
+<span class="material-symbols-outlined text-primary text-5xl">school</span>
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">You're new here!</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">We couldn't find a teacher/tutor account for this number. Register to get started.</p>
+</div>
+<a href="/app/register-teacher/" class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] flex items-center justify-center">Register as Teacher/Tutor</a>
+</section>
+
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg items-center text-center" id="teacher-pending-view">
+<span class="material-symbols-outlined text-primary text-5xl">hourglass_top</span>
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Pending Approval</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Your teacher/tutor registration is still being reviewed. We'll let you know once your account is approved — please check back later.</p>
+</div>
+</section>
+
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg items-center text-center" id="teacher-approved-view">
+<span class="material-symbols-outlined text-primary text-5xl">check_circle</span>
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">You're Approved!</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">Your teacher/tutor dashboard is coming soon. We'll notify you as soon as it's ready.</p>
+</div>
+</section>
 </main>
 <script>
         function transitionTo(fromId, toId, focusSelector) {
@@ -210,6 +239,26 @@
         let pendingStudentId = null;   // set once resolve-student confidently identifies a child
         let pendingFamilyId = null;    // set whenever we know which family this phone belongs to
         let resolveFailed = false;     // family found, but couldn't identify which child
+        let loginRole = 'parent';      // 'parent' or 'teacher' — set by the tabs on login-view
+
+        function setLoginRole(role){
+            loginRole = role;
+            const parentTab = document.getElementById('roleTabParent');
+            const teacherTab = document.getElementById('roleTabTeacher');
+            parentTab.classList.toggle('bg-primary', role === 'parent');
+            parentTab.classList.toggle('text-on-primary', role === 'parent');
+            parentTab.classList.toggle('text-on-surface-variant', role !== 'parent');
+            teacherTab.classList.toggle('bg-primary', role === 'teacher');
+            teacherTab.classList.toggle('text-on-primary', role === 'teacher');
+            teacherTab.classList.toggle('text-on-surface-variant', role !== 'teacher');
+            document.getElementById('loginChildNameWrap').classList.toggle('hidden', role === 'teacher');
+            document.getElementById('loginSubtitle').textContent = role === 'teacher'
+                ? 'Enter your phone number to continue'
+                : "Enter your child's name and your phone number to continue";
+            document.getElementById('registerLinkRow').innerHTML = role === 'teacher'
+                ? 'New here? <a class="text-primary hover:underline" href="/app/register-teacher/">Register as Teacher/Tutor</a>'
+                : 'New here? <a class="text-primary hover:underline" href="/app/register/">Register</a>';
+        }
 
         async function sendCodeAndShowOTP(){
             await window.tutpSendOTP('+91' + lastPhoneDigits);
@@ -236,6 +285,11 @@
 
             btn.disabled = true; btn.textContent = 'Checking…';
             try {
+                if (loginRole === 'teacher') {
+                    btn.textContent = 'Sending…';
+                    await sendCodeAndShowOTP();
+                    return;
+                }
                 if (lastChildName) {
                     const resolveRes = await fetch('/api/resolve-student', {
                         method: 'POST',
@@ -317,6 +371,20 @@
             btn.disabled = true; btn.textContent = 'Verifying…';
             try{
                 await window.tutpVerifyOTP(code);
+
+                if (loginRole === 'teacher') {
+                    const statusRes = await fetch('/api/teacher-status?phone=' + encodeURIComponent('+91' + lastPhoneDigits));
+                    const statusData = await statusRes.json();
+                    const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'otp-view' : 'disambiguate-view';
+                    if (!statusData.found) {
+                        transitionTo(fromId, 'teacher-register-prompt-view');
+                    } else if (!statusData.is_approved) {
+                        transitionTo(fromId, 'teacher-pending-view');
+                    } else {
+                        transitionTo(fromId, 'teacher-approved-view');
+                    }
+                    return;
+                }
 
                 // Came here from the homepage "attach homework" flow — skip straight to the
                 // homework helper with the file already attached, regardless of anything else.
