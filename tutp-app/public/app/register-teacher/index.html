@@ -173,9 +173,19 @@
     document.getElementById('detailsSection').classList.remove('section-hidden');
   }
 
+  // Guards against a second overlapping tap (slow mobile network + no
+  // visual feedback yet) re-entering this function while a first call is
+  // still in flight or has already succeeded — without this, a late
+  // second call landing in `catch` after the first already showed the
+  // success screen would stack an "Incorrect code" error on top of it.
+  let verifyInFlight = false;
+  let teacherRegistered = false;
+
   async function handleVerifyAndSubmit(){
+    if (verifyInFlight || teacherRegistered) return;
     const errEl = document.getElementById('otpError');
     const btn = document.getElementById('verifyBtn');
+    errEl.textContent = '';
     errEl.classList.add('hidden');
     const code = Array.from(document.querySelectorAll('#otpSection .otp-box')).map(i => i.value).join('');
     if (code.length !== 6){
@@ -183,6 +193,7 @@
       errEl.classList.remove('hidden');
       return;
     }
+    verifyInFlight = true;
     btn.disabled = true; btn.textContent = 'Verifying…';
     try {
       await window.tutpVerifyOTP(code);
@@ -194,6 +205,10 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
+      teacherRegistered = true;
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+      document.getElementById('detailsSection').classList.add('section-hidden');
       document.getElementById('otpSection').classList.add('section-hidden');
       document.getElementById('successSection').classList.remove('section-hidden');
       window.scrollTo({top:0, behavior:'smooth'});
@@ -201,7 +216,10 @@
       errEl.textContent = err.message && err.message.includes('save registration') ? err.message : 'Incorrect code — please try again.';
       errEl.classList.remove('hidden');
     } finally {
-      btn.disabled = false; btn.innerHTML = 'Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span>';
+      verifyInFlight = false;
+      if (!teacherRegistered) {
+        btn.disabled = false; btn.innerHTML = 'Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span>';
+      }
     }
   }
 
