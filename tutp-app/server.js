@@ -299,22 +299,26 @@ app.post('/api/register', async (req, res) => {
 
     // Best-effort: the registration itself is already saved above, so a
     // students/family_members-table hiccup here shouldn't fail the whole signup.
+    // school_name/area/section are trimmed here (not just client-side) since
+    // they're part of the homework-matching key — an ilike() match against
+    // a teacher's value is exact-but-case-insensitive, so stray whitespace
+    // alone is enough to silently break matching.
     const studentRows = children.filter(c => c && c.name).map(c => ({
       family_id: data.id,
-      name: c.name,
-      school_name: c.schoolName || null,
+      name: String(c.name).trim(),
+      school_name: c.schoolName ? String(c.schoolName).trim() : null,
       class: c.class || null,
-      section: c.section || null,
-      roll_number: c.rollNumber || null,
-      area: c.area || null,
-      address: c.address || null
+      section: c.section ? String(c.section).trim() : null,
+      roll_number: c.rollNumber ? String(c.rollNumber).trim() : null,
+      area: c.area ? String(c.area).trim() : null,
+      address: c.address ? String(c.address).trim() : null
     }));
     if (studentRows.length) {
       const { error: studentsErr } = await supabase.from('students').insert(studentRows);
       if (studentsErr) console.error('Could not save students rows (registration itself still succeeded):', studentsErr.message);
       // Feeds the school-name <datalist> on both registration forms.
-      for (const c of children) {
-        if (c.schoolName && c.area) await upsertSchoolDirectory(c.schoolName, c.area);
+      for (const row of studentRows) {
+        if (row.school_name && row.area) await upsertSchoolDirectory(row.school_name, row.area);
       }
     }
 
@@ -421,22 +425,28 @@ app.post('/api/register-teacher', async (req, res) => {
       return res.status(400).json({ error: 'Missing name, phone, subjects, school/tuition name, area, or at least one grade/section' });
     }
 
+    // Trimmed here (not just client-side) so stray whitespace can never
+    // sneak into the matching key regardless of caller — an ilike() match
+    // against another table's value is exact-but-case-insensitive, so a
+    // trailing space alone is enough to silently break homework matching.
+    const trimmedSchoolName = String(schoolName).trim();
+    const trimmedArea = String(area).trim();
     const { data, error } = await supabase.from('teachers').insert({
-      name: String(name).slice(0, 120),
+      name: String(name).trim().slice(0, 120),
       phone: String(phone).slice(0, 20),
-      subjects: subjectList.map(s => String(s).slice(0, 60)),
-      school_name: String(schoolName).slice(0, 200),
-      area: String(area).slice(0, 100),
-      address: address ? String(address).slice(0, 300) : null
+      subjects: subjectList.map(s => String(s).trim().slice(0, 60)),
+      school_name: trimmedSchoolName.slice(0, 200),
+      area: trimmedArea.slice(0, 100),
+      address: address ? String(address).trim().slice(0, 300) : null
     }).select('id').single();
     if (error) throw error;
 
-    await upsertSchoolDirectory(schoolName, area);
+    await upsertSchoolDirectory(trimmedSchoolName, trimmedArea);
 
     const sectionRows = sections.map(cs => ({
       teacher_id: data.id,
-      grade: String(cs.grade).slice(0, 40),
-      section: cs.section ? String(cs.section).slice(0, 40) : null
+      grade: String(cs.grade).trim().slice(0, 40),
+      section: cs.section ? String(cs.section).trim().slice(0, 40) : null
     }));
     const { error: sectionsErr } = await supabase.from('teacher_class_sections').insert(sectionRows);
     if (sectionsErr) console.error('Could not save teacher_class_sections rows (teacher registration itself still succeeded):', sectionsErr.message);
@@ -873,11 +883,11 @@ app.post('/api/homework-assignments', async (req, res) => {
 
     const { data, error } = await supabase.from('homework').insert({
       teacher_id,
-      grade: String(grade).slice(0, 40),
-      section: section ? String(section).slice(0, 40) : null,
-      subject: subject ? String(subject).slice(0, 60) : null,
-      title: String(title).slice(0, 200),
-      description: description ? String(description).slice(0, 4000) : null,
+      grade: String(grade).trim().slice(0, 40),
+      section: section ? String(section).trim().slice(0, 40) : null,
+      subject: subject ? String(subject).trim().slice(0, 60) : null,
+      title: String(title).trim().slice(0, 200),
+      description: description ? String(description).trim().slice(0, 4000) : null,
       attachment_url: attachmentUrl || null
     }).select('id').single();
     if (error) throw error;
@@ -917,15 +927,27 @@ app.get('/api/homework-assignments/:id/status', async (req, res) => {
     if (teacherErr) throw teacherErr;
     if (!teacher || !teacher.school_name || !teacher.area) return res.json({ roster: [] });
 
-    let query = supabase.from('students').select('id, name, class, section')
-      .ilike('school_name', teacher.school_name.trim())
-      .ilike('area', teacher.area.trim())
-      .ilike('class', hw.grade.trim());
-    if (hw.section) query = query.ilike('section', hw.section.trim());
-    const { data: students, error: studentsErr } = await query;
+    // Matched entirely in JS with normText() on both sides — an ilike()
+    // filter can't tolerate incidental whitespace differences between how
+    // a teacher and a family independently typed the same school name, so
+    // it can silently under-match depending on which side happens to have
+    // the stray whitespace. Table sizes are small enough at this stage
+    // that fetching broadly and filtering in JS is the safer trade-off.
+    const teacherSchool = normText(teacher.school_name);
+    const teacherArea = normText(teacher.area);
+    const hwGrade = normText(hw.grade);
+    const hwSection = normText(hw.section);
+    const { data: allStudents, error: studentsErr } = await supabase.from('students')
+      .select('id, name, class, section, school_name, area');
     if (studentsErr) throw studentsErr;
+    const students = (allStudents || []).filter(s =>
+      normText(s.school_name) === teacherSchool &&
+      normText(s.area) === teacherArea &&
+      normText(s.class) === hwGrade &&
+      (!hw.section || normText(s.section) === hwSection)
+    );
 
-    const studentIds = (students || []).map(s => s.id);
+    const studentIds = students.map(s => s.id);
     let doneSet = new Set();
     if (studentIds.length) {
       const { data: statuses, error: statusErr } = await supabase.from('homework_status')
@@ -933,7 +955,7 @@ app.get('/api/homework-assignments/:id/status', async (req, res) => {
       if (statusErr) throw statusErr;
       doneSet = new Set((statuses || []).filter(s => s.is_done).map(s => s.student_id));
     }
-    res.json({ roster: (students || []).map(s => ({ student_id: s.id, name: s.name, is_done: doneSet.has(s.id) })) });
+    res.json({ roster: students.map(s => ({ student_id: s.id, name: s.name, is_done: doneSet.has(s.id) })) });
   } catch (err) {
     console.error('Get homework status error:', err);
     res.status(500).json({ error: 'Could not fetch homework status' });
@@ -966,21 +988,27 @@ app.post('/api/homework-assignments/:id/mark-done', async (req, res) => {
 async function homeworkForStudent(student) {
   if (!student.school_name || !student.area || !student.class) return [];
 
-  const { data: teachersAtSchool, error: teacherErr } = await supabase.from('teachers')
-    .select('id, name')
-    .ilike('school_name', student.school_name.trim())
-    .ilike('area', student.area.trim());
+  // Matched entirely in JS with normText() on both sides — see the
+  // matching comment in /api/homework-assignments/:id/status for why an
+  // ilike() filter isn't safe here (it can't tolerate incidental
+  // whitespace differences between independently-typed school names).
+  const studentSchool = normText(student.school_name);
+  const studentArea = normText(student.area);
+  const studentGrade = normText(student.class);
+  const studentSection = normText(student.section);
+
+  const { data: allTeachers, error: teacherErr } = await supabase.from('teachers').select('id, name, school_name, area');
   if (teacherErr) throw teacherErr;
-  const teacherIds = (teachersAtSchool || []).map(t => t.id);
+  const teachersAtSchool = (allTeachers || []).filter(t => normText(t.school_name) === studentSchool && normText(t.area) === studentArea);
+  const teacherIds = teachersAtSchool.map(t => t.id);
   if (!teacherIds.length) return [];
-  const teacherNameById = Object.fromEntries((teachersAtSchool || []).map(t => [t.id, t.name]));
+  const teacherNameById = Object.fromEntries(teachersAtSchool.map(t => [t.id, t.name]));
 
   const { data: hwRows, error: hwErr } = await supabase.from('homework')
     .select('id, teacher_id, grade, section, subject, title, description, attachment_url, created_at')
-    .in('teacher_id', teacherIds)
-    .ilike('grade', student.class.trim());
+    .in('teacher_id', teacherIds);
   if (hwErr) throw hwErr;
-  const matched = (hwRows || []).filter(h => !h.section || (student.section && normText(h.section) === normText(student.section)));
+  const matched = (hwRows || []).filter(h => normText(h.grade) === studentGrade && (!h.section || normText(h.section) === studentSection));
   if (!matched.length) return [];
 
   const hwIds = matched.map(h => h.id);
@@ -1072,20 +1100,30 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
     if (teacherErr) throw teacherErr;
     const teacherById = Object.fromEntries((teachers || []).map(t => [t.id, t]));
 
+    // Fetched once and matched in JS with normText() on both sides — see
+    // the matching comment on /api/homework-assignments/:id/status for why
+    // an ilike() filter isn't safe here.
+    const { data: allStudents, error: allStudentsErr } = await supabase.from('students')
+      .select('id, name, family_id, class, section, school_name, area');
+    if (allStudentsErr) throw allStudentsErr;
+
     const pendingByFamily = new Map(); // family_id -> [{ studentName, subject, title }]
 
     for (const hw of todaysHomework) {
       const teacher = teacherById[hw.teacher_id];
       if (!teacher || !teacher.school_name || !teacher.area) continue;
 
-      let query = supabase.from('students').select('id, name, family_id, class, section')
-        .ilike('school_name', teacher.school_name.trim())
-        .ilike('area', teacher.area.trim())
-        .ilike('class', hw.grade.trim());
-      if (hw.section) query = query.ilike('section', hw.section.trim());
-      const { data: students, error: studentsErr } = await query;
-      if (studentsErr) throw studentsErr;
-      if (!students || !students.length) continue;
+      const teacherSchool = normText(teacher.school_name);
+      const teacherArea = normText(teacher.area);
+      const hwGrade = normText(hw.grade);
+      const hwSection = normText(hw.section);
+      const students = allStudents.filter(s =>
+        normText(s.school_name) === teacherSchool &&
+        normText(s.area) === teacherArea &&
+        normText(s.class) === hwGrade &&
+        (!hw.section || normText(s.section) === hwSection)
+      );
+      if (!students.length) continue;
 
       const studentIds = students.map(s => s.id);
       const { data: statuses, error: statusErr } = await supabase.from('homework_status')

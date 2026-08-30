@@ -513,27 +513,27 @@
     if (otherHobby) selectedHobbies.push(otherHobby);
 
     const primaryChild = {
-      name: document.getElementById('childName').value,
+      name: document.getElementById('childName').value.trim(),
       dob: document.getElementById('childDob').value,
       class: document.getElementById('childClass').value,
       curriculum: document.getElementById('childCurriculum').value,
-      schoolName: document.getElementById('childSchool').value,
+      schoolName: document.getElementById('childSchool').value.trim(),
       area: document.getElementById('childArea').value,
-      address: document.getElementById('childAddress').value || null,
-      section: document.getElementById('childSection').value,
-      rollNumber: document.getElementById('childRollNumber').value,
+      address: document.getElementById('childAddress').value.trim() || null,
+      section: document.getElementById('childSection').value.trim(),
+      rollNumber: document.getElementById('childRollNumber').value.trim(),
       photoUrl: uploadedPhotos['child'] || null,
       favoriteSubject: document.getElementById('favSubject').value,
       favoriteGame: document.getElementById('favGame').value,
       hobbies: selectedHobbies
     };
     const extraChildren = Array.from(document.querySelectorAll('.extra-child-row')).map(row => ({
-      name: row.querySelector('.child-name').value,
+      name: row.querySelector('.child-name').value.trim(),
       class: row.querySelector('.child-class').value,
-      schoolName: row.querySelector('.child-school').value,
+      schoolName: row.querySelector('.child-school').value.trim(),
       area: row.querySelector('.child-area').value,
-      section: row.querySelector('.child-section').value,
-      rollNumber: row.querySelector('.child-roll').value
+      section: row.querySelector('.child-section').value.trim(),
+      rollNumber: row.querySelector('.child-roll').value.trim()
     })).filter(c => c.name);
     const children = [primaryChild, ...extraChildren];
 
