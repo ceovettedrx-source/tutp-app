@@ -61,6 +61,26 @@
 </div>
 </section>
 
+<section class="glass-card rounded-xl p-md md:p-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Referrals</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Share your link — when a parent registers through it, it's tracked here.</p>
+<div class="flex items-center gap-2 mb-md">
+<input id="referralLinkInput" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" readonly type="text" value="Loading…"/>
+<button class="shrink-0 h-11 px-4 rounded-lg bg-primary text-on-primary font-label-md text-sm hover:bg-primary/90 transition-colors" id="copyReferralBtn" onclick="copyReferralLink()">Copy link</button>
+</div>
+<div class="grid grid-cols-2 gap-sm">
+<div class="rounded-lg bg-surface-container-lowest p-sm text-center">
+<p class="font-headline-md text-headline-md text-on-surface" id="referralTotalCount">–</p>
+<p class="font-caption text-caption text-on-surface-variant">Total referred</p>
+</div>
+<div class="rounded-lg bg-surface-container-lowest p-sm text-center">
+<p class="font-headline-md text-headline-md text-on-surface" id="referralConvertedCount">–</p>
+<p class="font-caption text-caption text-on-surface-variant">Converted</p>
+</div>
+</div>
+<div id="referralList" class="mt-md space-y-1"></div>
+</section>
+
 </main>
 
 <script>
@@ -238,10 +258,55 @@
     }
   }
 
+  async function loadReferrals(){
+    const linkInput = document.getElementById('referralLinkInput');
+    try {
+      const res = await fetch('/api/teacher/' + encodeURIComponent(teacherId) + '/referral-code');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load referral link');
+      linkInput.value = data.url;
+    } catch (err) {
+      console.error('[teacher] Could not load referral code:', err);
+      linkInput.value = 'Available once your account is approved';
+    }
+
+    const listEl = document.getElementById('referralList');
+    try {
+      const res = await fetch('/api/teacher/' + encodeURIComponent(teacherId) + '/referrals');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load referrals');
+      document.getElementById('referralTotalCount').textContent = data.totalReferred;
+      document.getElementById('referralConvertedCount').textContent = data.totalConverted;
+      const items = data.referrals || [];
+      listEl.innerHTML = items.length
+        ? items.map(r => `<p class="font-body-md text-sm text-on-surface-variant px-xs">${r.childName} · ${formatDate(r.createdAt)}</p>`).join('')
+        : '<p class="font-body-md text-sm text-on-surface-variant px-xs">No referrals yet — share your link above.</p>';
+    } catch (err) {
+      console.error('[teacher] Could not load referrals:', err);
+      document.getElementById('referralTotalCount').textContent = '0';
+      document.getElementById('referralConvertedCount').textContent = '0';
+    }
+  }
+
+  async function copyReferralLink(){
+    const input = document.getElementById('referralLinkInput');
+    const btn = document.getElementById('copyReferralBtn');
+    if (!input.value || !input.value.startsWith('http')) return;
+    try {
+      await navigator.clipboard.writeText(input.value);
+      const original = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = original; }, 1500);
+    } catch (err) {
+      console.error('[teacher] Could not copy referral link:', err);
+    }
+  }
+
   if (teacherId) {
     loadTeacher();
     loadClassSections();
     loadPostedHomework();
+    loadReferrals();
   }
 </script>
 </body></html>

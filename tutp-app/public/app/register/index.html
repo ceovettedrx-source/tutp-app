@@ -264,6 +264,16 @@
     }
   })();
 
+  // ---------------- Referral code (from /r/<code>) ----------------
+  // Uses localStorage (not sessionStorage) so the tag survives a parent
+  // clicking the link, browsing elsewhere, and coming back to register
+  // days later in the same browser. Overwritten on each fresh ?ref= visit
+  // (last-touch attribution); read once at submit time, then cleared.
+  (function captureReferralCode(){
+    const ref = new URLSearchParams(window.location.search).get('ref');
+    if (ref) localStorage.setItem('tutp_ref', ref.trim());
+  })();
+
   // ---------------- School name + area (child's school, not family location) ----------------
   const gradeOptionsFull = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
   // Fixed list (not free text) so homework-to-student matching has a
@@ -551,7 +561,8 @@
       children,
       subjectWorkbooks: Object.keys(uploadedPhotos).filter(k => k.startsWith('subject_')).reduce((acc,k)=>{ acc[k.replace('subject_','')] = uploadedPhotos[k]; return acc; }, {}),
       consentGiven: true,
-      submittedAt: new Date().toISOString()
+      submittedAt: new Date().toISOString(),
+      referralCode: localStorage.getItem('tutp_ref') || null
     };
 
     submitBtn.disabled = true;
@@ -565,6 +576,7 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
+      localStorage.removeItem('tutp_ref');
       statusEl.textContent = "Your family is registered! Redirecting to login…";
       statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
       setTimeout(() => { window.location.href = '/app/login/'; }, 1800);

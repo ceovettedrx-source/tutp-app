@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js';
 import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -359,6 +360,27 @@ app.post('/api/register', async (req, res) => {
       if (membersErr) console.error('Could not save family_members rows (registration itself still succeeded):', membersErr.message);
     }
 
+    // Best-effort: attribute this signup to a referring teacher, if the
+    // registration form carried a referral code. No paid conversion event
+    // exists yet, so amount/teacher_share stay 0 — conversion_type='signup'
+    // records the referral itself for now.
+    const referralCode = payload.referralCode ? String(payload.referralCode).trim() : null;
+    if (referralCode) {
+      const { data: rc, error: rcErr } = await supabase.from('referral_codes')
+        .select('id, teacher_id').eq('code', referralCode).maybeSingle();
+      if (rcErr) {
+        console.error('Could not look up referral code (registration itself still succeeded):', rcErr.message);
+      } else if (rc) {
+        const { error: convErr } = await supabase.from('referral_conversions').insert({
+          referral_code_id: rc.id,
+          teacher_id: rc.teacher_id,
+          family_id: data.id,
+          conversion_type: 'signup'
+        });
+        if (convErr) console.error('Could not record referral conversion (registration itself still succeeded):', convErr.message);
+      }
+    }
+
     console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length);
     res.json({ ok: true, id: data.id });
   } catch (err) {
@@ -411,6 +433,37 @@ async function upsertSchoolDirectory(name, area) {
   }, { onConflict: 'name_key,area', ignoreDuplicates: true });
   if (error) console.error('Could not upsert school_directory (registration itself still succeeded):', error.message);
 }
+
+// ------------------------------------------------------------------
+// Referral links (Phase 3.5) — tracking only, no automated payout yet.
+// Each approved teacher gets one referral_codes row (created lazily on
+// first request). /r/:code redirects into the parent registration form
+// with the code carried as a query param; the register page persists it
+// to localStorage so it survives across a browser session, then sends it
+// back on /api/register, which resolves it into a referral_conversions row.
+// ------------------------------------------------------------------
+async function getOrCreateReferralCode(teacherId) {
+  const { data: existing, error: existingErr } = await supabase
+    .from('referral_codes').select('code').eq('teacher_id', teacherId).maybeSingle();
+  if (existingErr) throw existingErr;
+  if (existing) return existing.code;
+
+  // Short, URL-safe, case-insensitive-friendly code. Collisions are
+  // astronomically unlikely at this scale, but retry once just in case.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const code = crypto.randomBytes(6).toString('base64url').slice(0, 8);
+    const { data, error } = await supabase.from('referral_codes')
+      .insert({ teacher_id: teacherId, code }).select('code').single();
+    if (!error) return data.code;
+    if (error.code !== '23505') throw error; // not a unique-violation — bail
+  }
+  throw new Error('Could not generate a unique referral code');
+}
+
+app.get('/r/:code', async (req, res) => {
+  const code = String(req.params.code || '').trim();
+  res.redirect('/app/register/?ref=' + encodeURIComponent(code));
+});
 
 app.get('/api/schools', async (req, res) => {
   try {
@@ -535,6 +588,65 @@ app.get('/api/teacher/:id/class-sections', async (req, res) => {
   } catch (err) {
     console.error('Get teacher class-sections error:', err);
     res.status(500).json({ error: 'Could not fetch class/sections' });
+  }
+});
+
+// Fetch (or lazily create) this teacher's referral code, and hand back
+// the shareable link. Powers the "Referrals" section on the dashboard.
+app.get('/api/teacher/:id/referral-code', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data: teacher, error: teacherErr } = await supabase.from('teachers')
+      .select('id, is_approved').eq('id', req.params.id).maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+    if (!teacher.is_approved) return res.status(403).json({ error: 'Referral links are available once your account is approved' });
+
+    const code = await getOrCreateReferralCode(teacher.id);
+    res.json({ code, url: `${req.protocol}://${req.get('host')}/r/${code}` });
+  } catch (err) {
+    console.error('Get referral code error:', err);
+    res.status(500).json({ error: 'Could not fetch referral code' });
+  }
+});
+
+// Read-only referral stats for the dashboard: how many people this
+// teacher has referred, and a short list to sanity-check the count.
+// No revenue figures yet — those show up once a paid conversion event
+// exists (referral_conversions.amount/teacher_share are 0 for now).
+app.get('/api/teacher/:id/referrals', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data, error } = await supabase.from('referral_conversions')
+      .select('id, family_id, conversion_type, created_at')
+      .eq('teacher_id', req.params.id)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    const conversions = data || [];
+
+    const familyIds = conversions.map(c => c.family_id).filter(id => id != null);
+    let familyNames = {};
+    if (familyIds.length) {
+      const { data: students, error: studentsErr } = await supabase.from('students')
+        .select('family_id, name').in('family_id', familyIds);
+      if (studentsErr) throw studentsErr;
+      for (const s of (students || [])) {
+        if (!familyNames[s.family_id]) familyNames[s.family_id] = s.name;
+      }
+    }
+
+    res.json({
+      totalReferred: conversions.length,
+      totalConverted: conversions.filter(c => c.conversion_type === 'signup' || c.conversion_type === 'paid').length,
+      referrals: conversions.map(c => ({
+        id: c.id,
+        childName: familyNames[c.family_id] || 'Registered family',
+        createdAt: c.created_at
+      }))
+    });
+  } catch (err) {
+    console.error('Get referrals error:', err);
+    res.status(500).json({ error: 'Could not fetch referrals' });
   }
 });
 
