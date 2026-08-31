@@ -21,19 +21,28 @@
 <body class="bg-background text-on-background font-body-md min-h-screen">
 <div class="proto-banner">LIVE — homework you post here is saved to our database · <a href="/">Back to Tut-P site</a></div>
 
-<header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full sticky top-0 z-40 bg-surface-container-low shadow-sm">
+<div class="sticky top-0 z-40">
+<header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full bg-surface-container-low shadow-sm">
 <div class="flex items-center gap-sm">
 <span class="material-symbols-outlined text-primary filled">school</span>
 <h1 class="font-headline-md text-headline-md text-primary font-bold">Tut-P</h1>
 </div>
 <div class="flex items-center gap-md">
 <span class="font-label-md text-label-md text-on-surface-variant" id="teacherGreeting">Loading…</span>
+<button type="button" class="flex items-center justify-center w-10 h-10 rounded-full text-primary hover:bg-primary-container/20 transition-colors" id="referEarnBtn" aria-label="Refer &amp; Earn" onclick="switchTab('referrals')"><span class="material-symbols-outlined">card_giftcard</span></button>
 <a href="/app/login/" class="font-label-md text-label-md text-primary hover:underline">Log out</a>
 </div>
 </header>
+<nav class="flex items-center gap-md px-margin-mobile md:px-margin-desktop bg-surface-container-low border-t border-outline-variant/30" id="teacherTabBar">
+<button type="button" class="tab-btn px-4 py-3 font-label-md text-label-md border-b-2 transition-colors" data-tab="post-homework" onclick="switchTab('post-homework')">Post Homework</button>
+<button type="button" class="tab-btn px-4 py-3 font-label-md text-label-md border-b-2 transition-colors" data-tab="my-homework" onclick="switchTab('my-homework')">My Homework</button>
+<button type="button" class="tab-btn px-4 py-3 font-label-md text-label-md border-b-2 transition-colors" data-tab="referrals" onclick="switchTab('referrals')">Referrals</button>
+</nav>
+</div>
 
 <main class="max-w-3xl mx-auto px-margin-mobile md:px-0 py-lg pb-32 space-y-lg">
 
+<div data-tab-panel="post-homework">
 <section class="glass-card rounded-xl p-md md:p-lg">
 <h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Post Homework</h2>
 <p class="font-body-md text-body-md text-on-surface-variant mb-md">Choose one of your registered grade/sections and post an assignment for it.</p>
@@ -53,14 +62,18 @@
 <button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors" id="hwPostBtn" onclick="postHomework()">Post Homework</button>
 </div>
 </section>
+</div>
 
+<div data-tab-panel="my-homework" hidden>
 <section class="space-y-sm">
 <h2 class="font-headline-md text-headline-md text-on-surface px-xs">Your Posted Homework</h2>
 <div id="homeworkList" class="space-y-sm">
 <p class="font-body-md text-body-md text-on-surface-variant px-xs" id="homeworkListEmpty">Loading…</p>
 </div>
 </section>
+</div>
 
+<div data-tab-panel="referrals" hidden>
 <section class="glass-card rounded-xl p-md md:p-lg">
 <h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Referrals</h2>
 <p class="font-body-md text-body-md text-on-surface-variant mb-md">Share your link — when a parent registers through it, it's tracked here.</p>
@@ -80,6 +93,7 @@
 </div>
 <div id="referralList" class="mt-md space-y-1"></div>
 </section>
+</div>
 
 </main>
 
@@ -302,11 +316,25 @@
     }
   }
 
+  function switchTab(name){
+    document.querySelectorAll('[data-tab-panel]').forEach(el => {
+      el.hidden = el.getAttribute('data-tab-panel') !== name;
+    });
+    document.querySelectorAll('[data-tab]').forEach(btn => {
+      const active = btn.getAttribute('data-tab') === name;
+      btn.classList.toggle('text-primary', active);
+      btn.classList.toggle('border-primary', active);
+      btn.classList.toggle('text-on-surface-variant', !active);
+      btn.classList.toggle('border-transparent', !active);
+    });
+  }
+
   if (teacherId) {
     loadTeacher();
     loadClassSections();
     loadPostedHomework();
     loadReferrals();
+    switchTab('post-homework');
   }
 </script>
 </body></html>
