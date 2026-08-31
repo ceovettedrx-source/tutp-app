@@ -33,10 +33,10 @@
 <a href="/app/login/" class="font-label-md text-label-md text-primary hover:underline">Log out</a>
 </div>
 </header>
-<nav class="flex items-center gap-md px-margin-mobile md:px-margin-desktop bg-surface-container-low border-t border-outline-variant/30" id="teacherTabBar">
-<button type="button" class="tab-btn px-4 py-3 font-label-md text-label-md border-b-2 transition-colors" data-tab="post-homework" onclick="switchTab('post-homework')">Post Homework</button>
-<button type="button" class="tab-btn px-4 py-3 font-label-md text-label-md border-b-2 transition-colors" data-tab="my-homework" onclick="switchTab('my-homework')">My Homework</button>
-<button type="button" class="tab-btn px-4 py-3 font-label-md text-label-md border-b-2 transition-colors" data-tab="referrals" onclick="switchTab('referrals')">Referrals</button>
+<nav class="flex items-center gap-xs px-margin-mobile md:px-margin-desktop py-sm bg-surface-container-low border-t border-outline-variant/30" id="teacherTabBar">
+<button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="post-homework" onclick="switchTab('post-homework')">Post Homework</button>
+<button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="my-homework" onclick="switchTab('my-homework')">My Homework</button>
+<button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="referrals" onclick="switchTab('referrals')">Referrals</button>
 </nav>
 </div>
 
@@ -322,10 +322,10 @@
     });
     document.querySelectorAll('[data-tab]').forEach(btn => {
       const active = btn.getAttribute('data-tab') === name;
-      btn.classList.toggle('text-primary', active);
-      btn.classList.toggle('border-primary', active);
+      btn.classList.toggle('bg-primary', active);
+      btn.classList.toggle('text-white', active);
       btn.classList.toggle('text-on-surface-variant', !active);
-      btn.classList.toggle('border-transparent', !active);
+      btn.classList.toggle('hover:bg-surface-container-low', !active);
     });
   }
 
