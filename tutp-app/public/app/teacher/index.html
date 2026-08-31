@@ -81,18 +81,37 @@
 <input id="referralLinkInput" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" readonly type="text" value="Loading…"/>
 <button class="shrink-0 h-11 px-4 rounded-lg bg-primary text-on-primary font-label-md text-sm hover:bg-primary/90 transition-colors" id="copyReferralBtn" onclick="copyReferralLink()">Copy link</button>
 </div>
-<div class="grid grid-cols-2 gap-sm">
-<div class="rounded-lg bg-surface-container-lowest p-sm text-center">
+<div class="rounded-lg border border-outline-variant overflow-hidden mb-md">
+<table class="w-full border-collapse text-center">
+<tbody>
+<tr>
+<td class="p-sm border-r border-outline-variant">
 <p class="font-headline-md text-headline-md text-on-surface" id="referralTotalCount">–</p>
 <p class="font-caption text-caption text-on-surface-variant">Total referred</p>
-</div>
-<div class="rounded-lg bg-surface-container-lowest p-sm text-center relative">
+</td>
+<td class="p-sm border-r border-outline-variant">
 <p class="font-headline-md text-headline-md text-on-surface" id="referralConvertedCount">–</p>
 <p class="font-caption text-caption text-on-surface-variant">Converted</p>
-<button class="absolute top-sm right-sm text-primary font-label-md text-sm hover:underline" id="referralListToggle" onclick="toggleReferralList()">View</button>
+</td>
+<td class="p-sm">
+<button class="text-primary font-label-md text-sm hover:underline" id="referralListToggle" onclick="toggleReferralList()">View</button>
+</td>
+</tr>
+</tbody>
+</table>
 </div>
+<div id="referralList" class="rounded-lg border border-outline-variant overflow-hidden" hidden>
+<table class="w-full border-collapse">
+<thead>
+<tr class="bg-surface-container-lowest">
+<th class="text-left p-sm border-b border-r border-outline-variant font-label-md text-sm text-on-surface-variant">S.No</th>
+<th class="text-left p-sm border-b border-r border-outline-variant font-label-md text-sm text-on-surface-variant">Name</th>
+<th class="text-left p-sm border-b border-outline-variant font-label-md text-sm text-on-surface-variant">Date</th>
+</tr>
+</thead>
+<tbody id="referralListBody"></tbody>
+</table>
 </div>
-<div id="referralList" class="mt-md space-y-1" hidden></div>
 </section>
 </div>
 
@@ -285,7 +304,7 @@
       linkInput.value = 'Available once your account is approved';
     }
 
-    const listEl = document.getElementById('referralList');
+    const listBody = document.getElementById('referralListBody');
     try {
       const res = await fetch('/api/teacher/' + encodeURIComponent(teacherId) + '/referrals');
       const data = await res.json();
@@ -293,9 +312,9 @@
       document.getElementById('referralTotalCount').textContent = data.totalReferred;
       document.getElementById('referralConvertedCount').textContent = data.totalConverted;
       const items = data.referrals || [];
-      listEl.innerHTML = items.length
-        ? items.map(r => `<p class="font-body-md text-sm text-on-surface-variant px-xs">${r.childName} · ${formatDate(r.createdAt)}</p>`).join('')
-        : '<p class="font-body-md text-sm text-on-surface-variant px-xs">No referrals yet — share your link above.</p>';
+      listBody.innerHTML = items.length
+        ? items.map((r, i) => `<tr><td class="p-sm border-r border-outline-variant font-body-md text-sm text-on-surface-variant">${i + 1}</td><td class="p-sm border-r border-outline-variant font-body-md text-sm text-on-surface-variant">${r.childName}</td><td class="p-sm font-body-md text-sm text-on-surface-variant">${formatDate(r.createdAt)}</td></tr>`).join('')
+        : '<tr><td colspan="3" class="p-sm text-center font-body-md text-sm text-on-surface-variant">No referrals yet — share your link above.</td></tr>';
     } catch (err) {
       console.error('[teacher] Could not load referrals:', err);
       document.getElementById('referralTotalCount').textContent = '0';
