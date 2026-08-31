@@ -43,6 +43,7 @@
 <button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="my-homework" onclick="switchTab('my-homework')">My Homework</button>
 <button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="referrals" onclick="switchTab('referrals')">Referrals</button>
 <button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="question-papers" onclick="switchTab('question-papers')">Question Papers</button>
+<button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="homework-monitor" onclick="switchTab('homework-monitor')">Homework Monitor</button>
 </nav>
 </div>
 
@@ -156,6 +157,15 @@
 </div>
 <div class="flex gap-2 px-xs" id="qpTierTabs"></div>
 <div id="qpPaperOutput"></div>
+</section>
+</div>
+
+<div data-tab-panel="homework-monitor" hidden>
+<section class="glass-card rounded-xl p-md md:p-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Homework Monitor</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">See who's on track and who needs a nudge, based on homework posted in the last 7 days.</p>
+<div class="flex flex-wrap gap-2 mb-md" id="hmClassSectionPills"></div>
+<div id="hmContent"></div>
 </section>
 </div>
 
@@ -495,6 +505,120 @@
       </div>`;
   }
 
+  // ---------------- Homework Monitor ----------------
+  const HM_STATUS_STYLES = {
+    done: { label: 'Done', dot: 'bg-tertiary' },
+    pending: { label: 'Pending', dot: 'bg-error' },
+    partial: { label: 'Partial', dot: 'bg-secondary-container' },
+    none: { label: 'No homework this week', dot: 'bg-outline-variant' }
+  };
+
+  async function loadHomeworkMonitorTab(){
+    const pillsEl = document.getElementById('hmClassSectionPills');
+    const contentEl = document.getElementById('hmContent');
+    pillsEl.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant">Loading…</p>';
+    contentEl.innerHTML = '';
+    try {
+      const res = await fetch('/api/teacher/' + encodeURIComponent(teacherId) + '/class-sections');
+      const data = await res.json();
+      const list = data.classSections || [];
+      if (!list.length) {
+        pillsEl.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant">No grade/sections registered.</p>';
+        return;
+      }
+      pillsEl.innerHTML = list.map(cs => {
+        const label = cs.section ? (cs.grade + ' - ' + cs.section) : cs.grade;
+        return `<button type="button" class="hm-cs-btn px-4 py-2 rounded-full font-label-md text-sm border border-outline-variant text-on-surface-variant hover:bg-surface-variant transition-colors" data-cs-id="${cs.id}" onclick="loadClassRoster('${cs.id}', this)">${label}</button>`;
+      }).join('');
+      const firstBtn = pillsEl.querySelector('.hm-cs-btn');
+      if (firstBtn) loadClassRoster(list[0].id, firstBtn);
+    } catch (err) {
+      console.error('[teacher] Could not load class/sections for monitor:', err);
+      pillsEl.innerHTML = '<p class="font-body-md text-body-md text-error">Could not load your classes.</p>';
+    }
+  }
+
+  async function loadClassRoster(classSectionId, btnEl){
+    document.querySelectorAll('.hm-cs-btn').forEach(b => {
+      const active = b === btnEl;
+      b.classList.toggle('bg-primary', active);
+      b.classList.toggle('text-white', active);
+      b.classList.toggle('border-primary', active);
+      b.classList.toggle('text-on-surface-variant', !active);
+    });
+    const contentEl = document.getElementById('hmContent');
+    contentEl.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant">Loading roster…</p>';
+    try {
+      const res = await fetch('/api/teacher/' + encodeURIComponent(teacherId) + '/class-sections/' + encodeURIComponent(classSectionId) + '/roster');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Could not load roster');
+      renderClassRoster(data);
+    } catch (err) {
+      console.error('[teacher] Could not load class roster:', err);
+      contentEl.innerHTML = '<p class="font-body-md text-body-md text-error">Could not load this class roster.</p>';
+    }
+  }
+
+  function renderClassRoster(data){
+    const contentEl = document.getElementById('hmContent');
+    if (data.needsLocation) {
+      contentEl.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs">Add your school\'s location to your profile to see your class roster — contact support to update it.</p>';
+      return;
+    }
+    if (!data.students.length) {
+      contentEl.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs">No students matched to this class yet.</p>';
+      return;
+    }
+    const s = data.summary;
+    const summaryHtml = `
+      <div class="grid grid-cols-4 gap-sm mb-md">
+        <div class="rounded-lg bg-surface-container-lowest p-sm text-center"><p class="font-headline-md text-headline-md text-on-surface">${s.done}</p><p class="font-caption text-caption text-on-surface-variant">Done</p></div>
+        <div class="rounded-lg bg-surface-container-lowest p-sm text-center"><p class="font-headline-md text-headline-md text-on-surface">${s.pending}</p><p class="font-caption text-caption text-on-surface-variant">Pending</p></div>
+        <div class="rounded-lg bg-surface-container-lowest p-sm text-center"><p class="font-headline-md text-headline-md text-on-surface">${s.partial}</p><p class="font-caption text-caption text-on-surface-variant">Partial</p></div>
+        <div class="rounded-lg bg-surface-container-lowest p-sm text-center"><p class="font-headline-md text-headline-md text-on-surface">${s.total}</p><p class="font-caption text-caption text-on-surface-variant">Total</p></div>
+      </div>`;
+    const rowsHtml = data.students.map(st => {
+      const style = HM_STATUS_STYLES[st.status] || HM_STATUS_STYLES.none;
+      const canRemind = st.status === 'pending' || st.status === 'partial';
+      const reminderBtn = canRemind
+        ? `<button type="button" class="text-primary font-label-md text-sm hover:underline disabled:text-on-surface-variant disabled:no-underline disabled:cursor-not-allowed" ${st.hasEmail ? '' : 'disabled'} onclick="sendReminder('${st.id}', this)">${st.hasEmail ? 'Send reminder' : 'No email on file'}</button>`
+        : '';
+      return `
+        <div class="flex items-center justify-between gap-sm p-sm border-b border-outline-variant/20 last:border-b-0">
+          <div class="flex items-center gap-sm">
+            <span class="w-3 h-3 rounded-full shrink-0 ${style.dot}"></span>
+            <span class="font-body-md text-on-surface">${st.name}</span>
+          </div>
+          <div class="flex items-center gap-md">
+            <span class="font-caption text-caption text-on-surface-variant">${style.label}</span>
+            ${reminderBtn}
+          </div>
+        </div>`;
+    }).join('');
+    contentEl.innerHTML = summaryHtml + `<div class="rounded-xl border border-outline-variant/30 overflow-hidden">${rowsHtml}</div>`;
+  }
+
+  async function sendReminder(studentId, btnEl){
+    const original = btnEl.textContent;
+    btnEl.disabled = true;
+    btnEl.textContent = 'Sending…';
+    try {
+      const res = await fetch('/api/teacher/' + encodeURIComponent(teacherId) + '/send-reminder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ student_id: studentId })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not send reminder');
+      btnEl.textContent = data.sent ? 'Sent!' : (data.reason || 'Nothing to send');
+      setTimeout(() => { btnEl.textContent = original; btnEl.disabled = false; }, 2500);
+    } catch (err) {
+      console.error('[teacher] Could not send reminder:', err);
+      btnEl.textContent = 'Could not send';
+      setTimeout(() => { btnEl.textContent = original; btnEl.disabled = false; }, 2500);
+    }
+  }
+
   function switchTab(name){
     document.querySelectorAll('[data-tab-panel]').forEach(el => {
       el.hidden = el.getAttribute('data-tab-panel') !== name;
@@ -513,6 +637,7 @@
     loadClassSections();
     loadPostedHomework();
     loadReferrals();
+    loadHomeworkMonitorTab();
     switchTab('post-homework');
   }
 </script>

@@ -786,6 +786,187 @@ app.get('/api/teacher/:id/class-sections', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// Homework Monitor — a general class roster (school+geography+class+
+// section match, same predicate as homework matching elsewhere in this
+// file, but with no homework required to exist) plus a color-coded
+// completion status per student, computed over a 7-day rolling window
+// (not all-time) so the signal reflects "who needs a nudge right now"
+// rather than being diluted by a semester's worth of history.
+// ------------------------------------------------------------------
+async function studentsForTeacherClassSection(teacher, grade, section) {
+  const teacherSchool = normText(teacher.school_name);
+  const csGrade = normText(grade);
+  const csSection = normText(section);
+  const { data: allStudents, error } = await supabase.from('students')
+    .select('id, name, family_id, class, section, school_name, area, state, district, mandal');
+  if (error) throw error;
+  return (allStudents || []).filter(s =>
+    normText(s.school_name) === teacherSchool &&
+    geoMatches(teacher, s) &&
+    normText(s.class) === csGrade &&
+    (!section || normText(s.section) === csSection)
+  );
+}
+
+app.get('/api/teacher/:id/class-sections/:classSectionId/roster', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data: teacher, error: teacherErr } = await supabase.from('teachers')
+      .select('id, name, school_name, area, state, district, mandal').eq('id', req.params.id).maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+
+    const { data: cs, error: csErr } = await supabase.from('teacher_class_sections')
+      .select('id, grade, section').eq('id', req.params.classSectionId).eq('teacher_id', req.params.id).maybeSingle();
+    if (csErr) throw csErr;
+    if (!cs) return res.status(404).json({ error: 'Class/section not found' });
+
+    const emptySummary = { done: 0, pending: 0, partial: 0, none: 0, total: 0 };
+    if (!teacher.school_name || !(teacher.area || (teacher.state && teacher.district && teacher.mandal))) {
+      return res.json({ grade: cs.grade, section: cs.section, needsLocation: true, homeworkInWindow: 0, students: [], summary: emptySummary });
+    }
+
+    const students = await studentsForTeacherClassSection(teacher, cs.grade, cs.section);
+    if (!students.length) {
+      return res.json({ grade: cs.grade, section: cs.section, needsLocation: false, homeworkInWindow: 0, students: [], summary: emptySummary });
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const csGrade = normText(cs.grade);
+    const csSection = normText(cs.section);
+    const { data: recentHomework, error: hwErr } = await supabase.from('homework')
+      .select('id, grade, section, created_at')
+      .eq('teacher_id', req.params.id)
+      .gte('created_at', sevenDaysAgo);
+    if (hwErr) throw hwErr;
+    const windowHomework = (recentHomework || []).filter(h =>
+      normText(h.grade) === csGrade && (!cs.section || normText(h.section) === csSection)
+    );
+
+    const studentIds = students.map(s => s.id);
+    const doneMap = new Map(); // student_id -> Set(homework_id done)
+    if (windowHomework.length) {
+      const hwIds = windowHomework.map(h => h.id);
+      const { data: statuses, error: statusErr } = await supabase.from('homework_status')
+        .select('homework_id, student_id, is_done').in('homework_id', hwIds).in('student_id', studentIds);
+      if (statusErr) throw statusErr;
+      for (const st of (statuses || [])) {
+        if (!st.is_done) continue;
+        if (!doneMap.has(st.student_id)) doneMap.set(st.student_id, new Set());
+        doneMap.get(st.student_id).add(st.homework_id);
+      }
+    }
+
+    const familyIds = [...new Set(students.map(s => s.family_id))];
+    const familyHasEmail = {};
+    if (familyIds.length) {
+      const { data: families, error: famErr } = await supabase.from('family_registrations')
+        .select('id, data').in('id', familyIds);
+      if (famErr) throw famErr;
+      for (const f of (families || [])) {
+        const recipient = f.data?.mother?.email ? f.data.mother : f.data?.father;
+        familyHasEmail[f.id] = Boolean(recipient && recipient.email);
+      }
+    }
+
+    const totalHwCount = windowHomework.length;
+    const summary = { done: 0, pending: 0, partial: 0, none: 0, total: students.length };
+    const studentRows = students.map(s => {
+      const doneCount = doneMap.get(s.id)?.size || 0;
+      let status;
+      if (totalHwCount === 0) status = 'none';
+      else if (doneCount === totalHwCount) status = 'done';
+      else if (doneCount === 0) status = 'pending';
+      else status = 'partial';
+      summary[status]++;
+      return {
+        id: s.id,
+        name: s.name,
+        status,
+        pendingCount: totalHwCount - doneCount,
+        hasEmail: Boolean(familyHasEmail[s.family_id])
+      };
+    });
+
+    res.json({ grade: cs.grade, section: cs.section, needsLocation: false, homeworkInWindow: totalHwCount, students: studentRows, summary });
+  } catch (err) {
+    console.error('Get class roster error:', err);
+    res.status(500).json({ error: 'Could not fetch class roster' });
+  }
+});
+
+// Manual per-student reminder from the Homework Monitor tab — reuses the
+// same email as the automated evening digest, but deliberately does NOT
+// touch homework_alerts_sent: that guard exists to stop the automated
+// cron from double-sending on retries, not to limit how often a teacher
+// can manually nudge one family.
+app.post('/api/teacher/:id/send-reminder', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { student_id } = req.body || {};
+    if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
+
+    const { data: teacher, error: teacherErr } = await supabase.from('teachers')
+      .select('id, name, school_name, area, state, district, mandal').eq('id', req.params.id).maybeSingle();
+    if (teacherErr) throw teacherErr;
+    if (!teacher) return res.status(404).json({ error: 'Teacher not found' });
+
+    const { data: student, error: studentErr } = await supabase.from('students')
+      .select('id, name, family_id, class, section, school_name, area, state, district, mandal').eq('id', student_id).maybeSingle();
+    if (studentErr) throw studentErr;
+    if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    // Authorization: does this student actually fall under a class/section
+    // this teacher teaches, at the same school/geography? Cheap to check,
+    // and stops a teacher's reminder button from ever being pointed at a
+    // student outside their own class.
+    const { data: sections, error: sectionsErr } = await supabase.from('teacher_class_sections')
+      .select('grade, section').eq('teacher_id', req.params.id);
+    if (sectionsErr) throw sectionsErr;
+    const studentGrade = normText(student.class);
+    const studentSection = normText(student.section);
+    const teachesThisStudent = (sections || []).some(cs => normText(cs.grade) === studentGrade && (!cs.section || normText(cs.section) === studentSection));
+    if (!teachesThisStudent || normText(student.school_name) !== normText(teacher.school_name) || !geoMatches(teacher, student)) {
+      return res.status(403).json({ error: 'This student is not in your class' });
+    }
+
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentHomework, error: hwErr } = await supabase.from('homework')
+      .select('id, subject, title, grade, section, created_at')
+      .eq('teacher_id', req.params.id)
+      .gte('created_at', sevenDaysAgo);
+    if (hwErr) throw hwErr;
+    const windowHomework = (recentHomework || []).filter(h =>
+      normText(h.grade) === studentGrade && (!h.section || normText(h.section) === studentSection)
+    );
+    if (!windowHomework.length) return res.json({ ok: true, sent: false, reason: 'No homework posted for this student in the last 7 days' });
+
+    const hwIds = windowHomework.map(h => h.id);
+    const { data: statuses, error: statusErr } = await supabase.from('homework_status')
+      .select('homework_id, is_done').eq('student_id', student.id).in('homework_id', hwIds);
+    if (statusErr) throw statusErr;
+    const doneSet = new Set((statuses || []).filter(s => s.is_done).map(s => s.homework_id));
+    const pendingItems = windowHomework.filter(h => !doneSet.has(h.id)).map(h => ({
+      studentName: student.name, subject: h.subject, title: h.title,
+      teacherId: teacher.id, teacherName: teacher.name, schoolName: teacher.school_name
+    }));
+    if (!pendingItems.length) return res.json({ ok: true, sent: false, reason: 'This student is already caught up' });
+
+    const { data: family, error: familyErr } = await supabase.from('family_registrations')
+      .select('data').eq('id', student.family_id).maybeSingle();
+    if (familyErr) throw familyErr;
+    const recipient = family?.data?.mother?.email ? family.data.mother : family?.data?.father;
+    if (!recipient || !recipient.email) return res.status(400).json({ error: 'No email on file for this family' });
+
+    await sendPendingHomeworkEmail(recipient.name || 'there', recipient.email, pendingItems);
+    res.json({ ok: true, sent: true });
+  } catch (err) {
+    console.error('Send reminder error:', err);
+    res.status(500).json({ error: 'Could not send reminder' });
+  }
+});
+
 // Fetch (or lazily create) this teacher's referral code, and hand back
 // the shareable link. Powers the "Referrals" section on the dashboard.
 app.get('/api/teacher/:id/referral-code', async (req, res) => {
