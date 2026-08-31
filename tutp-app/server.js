@@ -561,9 +561,27 @@ async function getOrCreateReferralCode(teacherId) {
   throw new Error('Could not generate a unique referral code');
 }
 
+// Best-effort link-open tracking for /r/:code, below. No personal data
+// recorded — just that the link was opened; referral_conversions.family_id
+// is where we learn who it was, if and when they actually register.
+async function recordReferralLinkOpen(code) {
+  if (!supabase || !code) return;
+  try {
+    const { data: rc, error: rcErr } = await supabase.from('referral_codes')
+      .select('id, teacher_id').eq('code', code).maybeSingle();
+    if (rcErr || !rc) return;
+    const { error } = await supabase.from('referral_link_opens')
+      .insert({ referral_code_id: rc.id, teacher_id: rc.teacher_id });
+    if (error) console.error('Could not record referral link open (redirect itself unaffected):', error.message);
+  } catch (err) {
+    console.error('Could not record referral link open (redirect itself unaffected):', err.message);
+  }
+}
+
 app.get('/r/:code', async (req, res) => {
   const code = String(req.params.code || '').trim();
   res.redirect('/app/register/?ref=' + encodeURIComponent(code));
+  recordReferralLinkOpen(code); // fire-and-forget, fired after the redirect so it never delays it
 });
 
 app.get('/api/schools', async (req, res) => {
@@ -735,6 +753,15 @@ app.get('/api/teacher/:id/referrals', async (req, res) => {
     if (error) throw error;
     const conversions = data || [];
 
+    // Total link opens, independent of whether they ever converted — see
+    // migration 009. Counted separately (not derived from conversions)
+    // since these two numbers are now genuinely different: an open only
+    // becomes a conversion (with a family_id/name) once someone registers.
+    const { count: totalReferred, error: opensErr } = await supabase.from('referral_link_opens')
+      .select('id', { count: 'exact', head: true })
+      .eq('teacher_id', req.params.id);
+    if (opensErr) throw opensErr;
+
     const familyIds = conversions.map(c => c.family_id).filter(id => id != null);
     let familyNames = {};
     if (familyIds.length) {
@@ -747,7 +774,7 @@ app.get('/api/teacher/:id/referrals', async (req, res) => {
     }
 
     res.json({
-      totalReferred: conversions.length,
+      totalReferred: totalReferred || 0,
       totalConverted: conversions.filter(c => c.conversion_type === 'signup' || c.conversion_type === 'paid').length,
       referrals: conversions.map(c => ({
         id: c.id,
