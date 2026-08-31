@@ -125,9 +125,9 @@ async function sendPendingHomeworkEmail(recipientName, email, items) {
   const textSections = [];
   const htmlSections = [];
   for (const group of byTeacher.values()) {
-    const heading = group.subject ? `${group.subject} — ${group.schoolName}` : group.schoolName;
+    const heading = group.subject ? `${group.subject} at ${group.schoolName}` : group.schoolName;
     const lines = group.items.map(i => `  • ${i.studentName}: ${i.title}`).join('\n');
-    const signature = `— ${group.teacherName}, ${group.subject ? group.subject + ' Teacher' : 'Teacher'}, ${group.schoolName}`;
+    const signature = `- ${group.teacherName}, ${group.subject ? group.subject + ' Teacher' : 'Teacher'}, ${group.schoolName}`;
     textSections.push(`${heading}\n${lines}\n\n${signature}`);
 
     const listHtml = group.items.map(i => `<li><strong>${i.studentName}</strong>: ${i.title}</li>`).join('');
