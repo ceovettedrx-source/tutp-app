@@ -16,6 +16,11 @@
         .soft-input:focus-within { border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
         .proto-banner{background:#006d35;color:#fff;text-align:center;padding:8px 16px;font-family:'Plus Jakarta Sans',sans-serif;font-size:11px;letter-spacing:.02em;font-weight:700;text-transform:uppercase;}
         .proto-banner a{color:#fff;text-decoration:underline;}
+        @media print {
+          body * { visibility: hidden; }
+          #qpPaperOutput, #qpPaperOutput * { visibility: visible; }
+          #qpPaperOutput { position: absolute; top: 0; left: 0; width: 100%; }
+        }
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen">
@@ -37,6 +42,7 @@
 <button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="post-homework" onclick="switchTab('post-homework')">Post Homework</button>
 <button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="my-homework" onclick="switchTab('my-homework')">My Homework</button>
 <button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="referrals" onclick="switchTab('referrals')">Referrals</button>
+<button type="button" class="tab-btn px-4 py-2 rounded-full font-label-md text-label-md transition-colors" data-tab="question-papers" onclick="switchTab('question-papers')">Question Papers</button>
 </nav>
 </div>
 
@@ -100,6 +106,7 @@
 </tbody>
 </table>
 </div>
+<p class="font-caption text-caption text-on-surface-variant mb-md">Converted now means paid subscriber, not just registered.</p>
 <div id="referralList" hidden>
 <p class="font-caption text-caption text-on-surface-variant mb-xs">Showing families who registered. Total referred includes link opens that haven't converted yet.</p>
 <div class="rounded-lg border border-outline-variant overflow-hidden">
@@ -115,6 +122,40 @@
 </table>
 </div>
 </div>
+</section>
+</div>
+
+<div data-tab-panel="question-papers" hidden>
+<section class="glass-card rounded-xl p-md md:p-lg">
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">AI Question Paper Generator</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Attach your lesson content and an old question paper as a style reference — we'll generate three new papers (Logical, Methodology, Tough) on the new content, following the same structure.</p>
+
+<div class="space-y-md">
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Lesson Content <span class="text-error">*</span> <span class="font-caption text-caption text-on-surface-variant">(photo or PDF)</span></label>
+<input type="file" id="qpLessonInput" accept="image/*,application/pdf" class="hidden" onchange="handleQpFileSelect(event, 'lesson')"/>
+<button type="button" class="px-4 py-2 rounded-lg border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors flex items-center gap-2" onclick="document.getElementById('qpLessonInput').click()"><span class="material-symbols-outlined text-lg">attach_file</span>Attach Lesson Content</button>
+<span class="font-caption text-caption text-on-surface-variant ml-2" id="qpLessonStatus"></span>
+</div>
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Old Question Paper <span class="text-error">*</span> <span class="font-caption text-caption text-on-surface-variant">(style reference — photo or PDF)</span></label>
+<input type="file" id="qpOldPaperInput" accept="image/*,application/pdf" class="hidden" onchange="handleQpFileSelect(event, 'oldPaper')"/>
+<button type="button" class="px-4 py-2 rounded-lg border-2 border-outline-variant text-on-surface font-label-md text-sm hover:bg-surface-variant transition-colors flex items-center gap-2" onclick="document.getElementById('qpOldPaperInput').click()"><span class="material-symbols-outlined text-lg">attach_file</span>Attach Old Question Paper</button>
+<span class="font-caption text-caption text-on-surface-variant ml-2" id="qpOldPaperStatus"></span>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Subject <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="qpSubject" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Mathematics" type="text"/></div>
+<p class="text-center font-label-md text-sm" id="qpError"></p>
+<button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors" id="qpGenerateBtn" onclick="generateQuestionPapers()">Generate Question Papers</button>
+</div>
+</section>
+
+<section class="space-y-md mt-md" id="qpResultsSection" hidden>
+<div class="flex items-center justify-between px-xs">
+<h3 class="font-headline-md text-headline-md text-on-surface">Generated Papers</h3>
+<button class="text-primary font-label-md text-sm hover:underline" onclick="window.print()">Print / Save as PDF</button>
+</div>
+<div class="flex gap-2 px-xs" id="qpTierTabs"></div>
+<div id="qpPaperOutput"></div>
 </section>
 </div>
 
@@ -344,6 +385,114 @@
     } catch (err) {
       console.error('[teacher] Could not copy referral link:', err);
     }
+  }
+
+  // ---------------- AI Question Paper Generator ----------------
+  // Files travel as inline base64 content blocks straight to Claude (same
+  // pattern as the existing /api/homework vision demo) — nothing is
+  // uploaded to storage, matching this feature's stateless/no-persistence
+  // scope.
+  let qpLessonContent = null;
+  let qpOldPaperContent = null;
+  let qpResult = null;
+  let qpActiveTier = 'logical';
+
+  function fileToContentBlock(file){
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        const blockType = file.type === 'application/pdf' ? 'document' : 'image';
+        resolve({ type: blockType, source: { type: 'base64', media_type: file.type, data: base64 } });
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function handleQpFileSelect(evt, which){
+    const file = evt.target.files[0];
+    if (!file) return;
+    const statusEl = document.getElementById(which === 'lesson' ? 'qpLessonStatus' : 'qpOldPaperStatus');
+    statusEl.textContent = 'Reading…';
+    try {
+      const block = await fileToContentBlock(file);
+      if (which === 'lesson') qpLessonContent = block; else qpOldPaperContent = block;
+      statusEl.textContent = '✓ ' + file.name;
+    } catch (err) {
+      statusEl.textContent = 'Could not read that file — please try again.';
+      console.error(err);
+    }
+  }
+
+  async function generateQuestionPapers(){
+    const errEl = document.getElementById('qpError');
+    const btn = document.getElementById('qpGenerateBtn');
+    errEl.textContent = '';
+    errEl.className = 'text-center font-label-md text-sm';
+    document.getElementById('qpResultsSection').hidden = true;
+
+    if (!qpLessonContent) { errEl.textContent = 'Please attach the lesson content.'; errEl.classList.add('text-error'); return; }
+    if (!qpOldPaperContent) { errEl.textContent = 'Please attach an old question paper as a style reference.'; errEl.classList.add('text-error'); return; }
+
+    btn.disabled = true; btn.textContent = 'Generating…';
+    try {
+      const res = await fetch('/api/question-paper-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subject: document.getElementById('qpSubject').value.trim() || null,
+          lessonContent: qpLessonContent,
+          oldPaper: qpOldPaperContent
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not generate question papers');
+      qpResult = data.papers;
+      qpActiveTier = 'logical';
+      renderQpTierTabs();
+      renderQpPaper();
+      document.getElementById('qpResultsSection').hidden = false;
+    } catch (err) {
+      errEl.textContent = err.message || 'Could not generate question papers — please try again.';
+      errEl.classList.add('text-error');
+    } finally {
+      btn.disabled = false; btn.textContent = 'Generate Question Papers';
+    }
+  }
+
+  function renderQpTierTabs(){
+    const wrap = document.getElementById('qpTierTabs');
+    const tiers = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
+    wrap.innerHTML = tiers.map(([key, label]) => {
+      const active = key === qpActiveTier;
+      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpTier('${key}')">${label}</button>`;
+    }).join('');
+  }
+
+  function selectQpTier(tier){
+    qpActiveTier = tier;
+    renderQpTierTabs();
+    renderQpPaper();
+  }
+
+  function renderQpPaper(){
+    const out = document.getElementById('qpPaperOutput');
+    const paper = qpResult ? qpResult[qpActiveTier] : null;
+    if (!paper) { out.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs">No paper generated for this tier.</p>'; return; }
+    const meta = [paper.subject, paper.totalMarks ? ('Total Marks: ' + paper.totalMarks) : null].filter(Boolean).join(' · ');
+    out.innerHTML = `
+      <div class="glass-card rounded-xl p-lg">
+        <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-1">${paper.title || 'Question Paper'}</h3>
+        ${meta ? `<p class="font-caption text-caption text-on-surface-variant text-center mb-md">${meta}</p>` : ''}
+        ${(paper.sections || []).map(sec => `
+          <div class="mb-md">
+            <h4 class="font-label-lg text-label-lg text-primary mb-xs">${sec.title || ''}${sec.instructions ? ' — ' + sec.instructions : ''}</h4>
+            <ol class="space-y-2 pl-5 list-decimal">
+              ${(sec.questions || []).map(q => `<li class="font-body-md text-body-md text-on-surface flex justify-between gap-4"><span>${q.text}</span><span class="text-on-surface-variant text-sm shrink-0">[${q.marks}]</span></li>`).join('')}
+            </ol>
+          </div>`).join('')}
+      </div>`;
   }
 
   function switchTab(name){

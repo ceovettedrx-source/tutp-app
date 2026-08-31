@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="/shared/tailwind-tokens.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -247,9 +248,44 @@
 <div><label for="consent" class="font-label-md text-label-md text-on-surface cursor-pointer block mb-1">Parent/guardian consent</label>
 <p class="font-body-md text-sm text-on-surface-variant">I confirm I am the parent or legal guardian of the child registered above, and I consent to Tut-P processing this data in line with India's DPDP Act, 2023. I can withdraw consent anytime from settings.</p></div>
 </div>
-<p class="form-status text-center mt-sm font-label-md text-sm" id="formStatus"></p>
+<p class="text-center font-label-md text-sm" id="step7Error"></p>
 <div class="flex justify-between mt-lg">
 <button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(6)"><span class="material-symbols-outlined">arrow_back</span>Back</button>
+<button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="proceedToPlanStep()">Continue <span class="material-symbols-outlined">arrow_forward</span></button>
+</div>
+</section>
+
+<!-- STEP 8: PLAN SELECTION -->
+<section class="wizard-step step-hidden" data-step="8">
+<div class="text-center mb-lg">
+<h2 class="font-headline-md text-headline-md text-primary mb-xs">Choose Your Plan</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">You can change or cancel your plan later — this doesn't lock you in.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md max-w-2xl mx-auto" id="planCards">
+<button type="button" class="plan-card text-left glass-card rounded-xl p-md border-2 border-transparent hover:border-primary/40 transition-colors" data-tier="free" onclick="selectPlan('free')">
+<h3 class="font-label-lg text-label-lg text-on-surface">Free</h3>
+<p class="font-headline-md text-headline-md text-primary my-1">₹0</p>
+<p class="font-caption text-caption text-on-surface-variant">Get started at no cost.</p>
+</button>
+<button type="button" class="plan-card text-left glass-card rounded-xl p-md border-2 border-transparent hover:border-primary/40 transition-colors" data-tier="pro" onclick="selectPlan('pro')">
+<h3 class="font-label-lg text-label-lg text-on-surface">Pro</h3>
+<p class="font-headline-md text-headline-md text-primary my-1">₹500<span class="font-caption text-caption text-on-surface-variant">/month</span></p>
+<p class="font-caption text-caption text-on-surface-variant">For families who want more.</p>
+</button>
+<button type="button" class="plan-card text-left glass-card rounded-xl p-md border-2 border-transparent hover:border-primary/40 transition-colors" data-tier="ultrapro" onclick="selectPlan('ultrapro')">
+<h3 class="font-label-lg text-label-lg text-on-surface">UltraPro</h3>
+<p class="font-headline-md text-headline-md text-primary my-1">₹1,500<span class="font-caption text-caption text-on-surface-variant">/month</span></p>
+<p class="font-caption text-caption text-on-surface-variant">For families who want it all.</p>
+</button>
+<button type="button" class="plan-card text-left glass-card rounded-xl p-md border-2 border-transparent hover:border-primary/40 transition-colors" data-tier="max" onclick="selectPlan('max')">
+<h3 class="font-label-lg text-label-lg text-on-surface">Max</h3>
+<p class="font-headline-md text-headline-md text-primary my-1">₹2,500<span class="font-caption text-caption text-on-surface-variant">/month</span></p>
+<p class="font-caption text-caption text-on-surface-variant">Our most complete plan.</p>
+</button>
+</div>
+<p class="form-status text-center mt-md font-label-md text-sm" id="formStatus"></p>
+<div class="flex justify-between mt-lg max-w-2xl mx-auto">
+<button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(7)"><span class="material-symbols-outlined">arrow_back</span>Back</button>
 <button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="submitBtn" onclick="submitRegistration()"><span class="material-symbols-outlined filled">task_alt</span>Complete Registration</button>
 </div>
 </section>
@@ -507,7 +543,7 @@
   }
 
   // ---------------- Wizard navigation ----------------
-  const totalSteps = 7;
+  const totalSteps = 8;
   function goToStep(n){
     if(n === 7){
       document.getElementById('reviewMotherName').textContent = document.getElementById('motherName').value || '—';
@@ -539,6 +575,58 @@
     window.scrollTo({top:0, behavior:'smooth'});
   }
 
+  // ---------------- Plan selection (Step 8) ----------------
+  let selectedTier = 'free';
+  function selectPlan(tier){
+    selectedTier = tier;
+    document.querySelectorAll('.plan-card').forEach(card => {
+      const active = card.getAttribute('data-tier') === tier;
+      card.classList.toggle('border-primary', active);
+      card.classList.toggle('border-transparent', !active);
+    });
+  }
+  selectPlan('free'); // default selection when Step 8 first shows
+
+  function proceedToPlanStep(){
+    const errEl = document.getElementById('step7Error');
+    errEl.textContent = '';
+    errEl.className = 'text-center font-label-md text-sm';
+    if(!document.getElementById('consent').checked){
+      errEl.textContent = "Please confirm parent/guardian consent before continuing — this protects your child's data.";
+      errEl.classList.add('text-error');
+      return;
+    }
+    goToStep(8);
+  }
+
+  function openRazorpayCheckout(subscription){
+    const statusEl = document.getElementById('formStatus');
+    const rzp = new Razorpay({
+      key: subscription.razorpayKeyId,
+      subscription_id: subscription.subscriptionId,
+      name: 'Tut-P',
+      description: 'Tut-P subscription',
+      prefill: {
+        name: document.getElementById('motherName').value || document.getElementById('fatherName').value || '',
+        email: document.getElementById('motherEmail').value || document.getElementById('fatherEmail').value || '',
+        contact: document.getElementById('motherPhone').value || document.getElementById('fatherPhone').value || ''
+      },
+      handler: function(){
+        statusEl.textContent = 'Payment received — finalizing your subscription. Redirecting to login…';
+        statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
+        setTimeout(() => { window.location.href = '/app/login/'; }, 1800);
+      },
+      modal: {
+        ondismiss: function(){
+          statusEl.textContent = "You're registered, but payment wasn't completed — you can finish payment later from your account. Redirecting to login…";
+          statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
+          setTimeout(() => { window.location.href = '/app/login/'; }, 2200);
+        }
+      }
+    });
+    rzp.open();
+  }
+
   // ---------------- Real submission ----------------
   async function submitRegistration(){
     const statusEl = document.getElementById('formStatus');
@@ -546,6 +634,7 @@
     if(!document.getElementById('consent').checked){
       statusEl.textContent = "Please confirm parent/guardian consent before continuing — this protects your child's data.";
       statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-error';
+      goToStep(7);
       return;
     }
     if(!document.getElementById('childName').value.trim()){
@@ -607,7 +696,8 @@
       subjectWorkbooks: Object.keys(uploadedPhotos).filter(k => k.startsWith('subject_')).reduce((acc,k)=>{ acc[k.replace('subject_','')] = uploadedPhotos[k]; return acc; }, {}),
       consentGiven: true,
       submittedAt: new Date().toISOString(),
-      referralCode: localStorage.getItem('tutp_ref') || null
+      referralCode: localStorage.getItem('tutp_ref') || null,
+      tier: selectedTier
     };
 
     submitBtn.disabled = true;
@@ -622,9 +712,15 @@
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
       localStorage.removeItem('tutp_ref');
-      statusEl.textContent = "Your family is registered! Redirecting to login…";
-      statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
-      setTimeout(() => { window.location.href = '/app/login/'; }, 1800);
+      if (data.subscription && data.subscription.subscriptionId) {
+        statusEl.textContent = 'Almost done — complete your payment to activate your plan.';
+        statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
+        openRazorpayCheckout(data.subscription);
+      } else {
+        statusEl.textContent = "Your family is registered! Redirecting to login…";
+        statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
+        setTimeout(() => { window.location.href = '/app/login/'; }, 1800);
+      }
     } catch (err) {
       statusEl.textContent = 'Something went wrong saving your registration — please try again or email hello@tutp.online.';
       statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-error';

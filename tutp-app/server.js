@@ -6,6 +6,7 @@ import nodemailer from 'nodemailer';
 import { Resend } from 'resend';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
+import Razorpay from 'razorpay';
 import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -175,8 +176,39 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
 }
 
-app.use(express.json({ limit: '12mb' })); // photo uploads travel as base64
+// The `verify` hook stashes the exact raw bytes for the Razorpay webhook
+// route (req.rawBody) alongside the normally-parsed req.body — Razorpay's
+// signature is an HMAC over the raw request bytes, and by the time a route
+// handler runs after this middleware the raw stream is already consumed,
+// so this is the one place that can still capture it.
+app.use(express.json({
+  limit: '12mb', // photo uploads travel as base64
+  verify: (req, res, buf) => {
+    if (req.originalUrl === '/api/webhooks/razorpay') req.rawBody = buf;
+  }
+}));
 app.use(express.static(path.join(__dirname, 'public')));
+
+// ------------------------------------------------------------------
+// Razorpay — subscriptions (recurring billing) for the paid tiers.
+// Registration itself stays free either way; this only ever gets used for
+// a family that picked a paid tier. Uses the official SDK (unlike the
+// Claude API integration's raw fetch elsewhere in this file) — deliberate:
+// payments are the one place where a vendor-maintained, widely-audited
+// client is worth the dependency over hand-rolled HTTP.
+// ------------------------------------------------------------------
+const razorpay = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET)
+  ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET })
+  : null;
+if (!razorpay) {
+  console.warn('RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET not set — paid-tier registration is disabled (Free tier is unaffected).');
+}
+
+const RAZORPAY_PLAN_ID_BY_TIER = {
+  pro: process.env.RAZORPAY_PLAN_ID_PRO,
+  ultrapro: process.env.RAZORPAY_PLAN_ID_ULTRAPRO,
+  max: process.env.RAZORPAY_PLAN_ID_MAX
+};
 
 // ------------------------------------------------------------------
 // Waitlist capture — powers the "Join waitlist" form on the homepage.
@@ -398,8 +430,42 @@ app.post('/api/register', async (req, res) => {
       }
     }
 
-    console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length);
-    res.json({ ok: true, id: data.id });
+    // Registration itself is always free — this only determines whether a
+    // Razorpay subscription gets created alongside it. Best-effort like
+    // everything else above: if Razorpay is unreachable or misconfigured,
+    // the family is left in 'pending_payment' rather than failing the
+    // whole registration — functionally identical to an abandoned
+    // checkout (behaves like Free until/unless payment completes; no
+    // cleanup job needed, see migration 010's comment).
+    const tier = ['pro', 'ultrapro', 'max'].includes(payload.tier) ? payload.tier : 'free';
+    const subRow = { family_id: data.id, tier, status: tier === 'free' ? 'active' : 'pending_payment' };
+    let subscriptionInfo = null;
+
+    if (tier !== 'free') {
+      const planId = RAZORPAY_PLAN_ID_BY_TIER[tier];
+      if (razorpay && planId) {
+        try {
+          const subscription = await razorpay.subscriptions.create({
+            plan_id: planId,
+            total_count: 120, // ~10 years of monthly cycles; cancellation is handled via support for now, not a self-serve UI in this phase
+            customer_notify: 1,
+            notes: { family_id: String(data.id) }
+          });
+          subRow.razorpay_subscription_id = subscription.id;
+          subscriptionInfo = { subscriptionId: subscription.id, razorpayKeyId: process.env.RAZORPAY_KEY_ID };
+        } catch (rzpErr) {
+          console.error('Could not create Razorpay subscription (registration itself still succeeded, family left pending_payment):', rzpErr.message);
+        }
+      } else {
+        console.error('Razorpay not configured for tier', tier, '— family left pending_payment.');
+      }
+    }
+
+    const { error: subErr } = await supabase.from('family_subscriptions').insert(subRow);
+    if (subErr) console.error('Could not save family_subscriptions row (registration itself still succeeded):', subErr.message);
+
+    console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length, 'tier:', tier);
+    res.json({ ok: true, id: data.id, subscription: subscriptionInfo });
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });
@@ -741,15 +807,21 @@ app.get('/api/teacher/:id/referral-code', async (req, res) => {
 
 // Read-only referral stats for the dashboard: how many people this
 // teacher has referred, and a short list to sanity-check the count.
-// No revenue figures yet — those show up once a paid conversion event
-// exists (referral_conversions.amount/teacher_share are 0 for now).
+//
+// A referred family can now have many referral_conversions rows — one
+// 'signup' row from registration, plus one 'paid' row per monthly charge
+// for as long as they stay subscribed (see handleSubscriptionCharged) — so
+// everything here is deduped to one entry per family. "Converted" now
+// means "became a paying subscriber" (>=1 'paid' row), not just
+// "registered via my link" like it did before payments existed — the
+// dashboard caption next to this tile spells that out for returning users.
 app.get('/api/teacher/:id/referrals', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const { data, error } = await supabase.from('referral_conversions')
       .select('id, family_id, conversion_type, created_at')
       .eq('teacher_id', req.params.id)
-      .order('created_at', { ascending: false });
+      .order('created_at', { ascending: true }); // ascending so the first row seen per family is the earliest (registration date)
     if (error) throw error;
     const conversions = data || [];
 
@@ -762,7 +834,14 @@ app.get('/api/teacher/:id/referrals', async (req, res) => {
       .eq('teacher_id', req.params.id);
     if (opensErr) throw opensErr;
 
-    const familyIds = conversions.map(c => c.family_id).filter(id => id != null);
+    const firstSeenByFamily = new Map(); // family_id -> earliest conversion row
+    const everPaidFamilyIds = new Set();
+    for (const c of conversions) {
+      if (!firstSeenByFamily.has(c.family_id)) firstSeenByFamily.set(c.family_id, c);
+      if (c.conversion_type === 'paid') everPaidFamilyIds.add(c.family_id);
+    }
+
+    const familyIds = [...firstSeenByFamily.keys()].filter(id => id != null);
     let familyNames = {};
     if (familyIds.length) {
       const { data: students, error: studentsErr } = await supabase.from('students')
@@ -773,18 +852,159 @@ app.get('/api/teacher/:id/referrals', async (req, res) => {
       }
     }
 
+    const referrals = [...firstSeenByFamily.entries()]
+      .sort((a, b) => new Date(b[1].created_at) - new Date(a[1].created_at))
+      .map(([familyId, c]) => ({
+        id: c.id,
+        childName: familyNames[familyId] || 'Registered family',
+        createdAt: c.created_at
+      }));
+
     res.json({
       totalReferred: totalReferred || 0,
-      totalConverted: conversions.filter(c => c.conversion_type === 'signup' || c.conversion_type === 'paid').length,
-      referrals: conversions.map(c => ({
-        id: c.id,
-        childName: familyNames[c.family_id] || 'Registered family',
-        createdAt: c.created_at
-      }))
+      totalConverted: everPaidFamilyIds.size,
+      referrals
     });
   } catch (err) {
     console.error('Get referrals error:', err);
     res.status(500).json({ error: 'Could not fetch referrals' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Razorpay webhook — the source of truth for subscription state. The
+// client-side Checkout success callback (registration UI) is only for
+// fast optimistic UI; this is what actually finalizes everything.
+// Signature verified via HMAC-SHA256 over the raw request body (see the
+// express.json({verify}) hook above) using Node's built-in crypto —
+// deliberately not the SDK's own signature helper, since its exact export
+// path isn't something this environment can live-test against a real
+// Razorpay account; a plain, well-documented HMAC compare is simple enough
+// to trust directly.
+// ------------------------------------------------------------------
+async function findFamilySubscriptionByRazorpaySubId(subId) {
+  const { data, error } = await supabase.from('family_subscriptions').select('*').eq('razorpay_subscription_id', subId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function handleSubscriptionActivated(event) {
+  const sub = event.payload?.subscription?.entity;
+  if (!sub) return;
+  const { error } = await supabase.from('family_subscriptions')
+    .update({ status: 'active', updated_at: new Date().toISOString() })
+    .eq('razorpay_subscription_id', sub.id);
+  if (error) console.error('Could not mark subscription active:', error.message);
+}
+
+async function handleSubscriptionCancelled(event) {
+  const sub = event.payload?.subscription?.entity;
+  if (!sub) return;
+  const { error } = await supabase.from('family_subscriptions')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('razorpay_subscription_id', sub.id);
+  if (error) console.error('Could not mark subscription cancelled:', error.message);
+}
+
+async function handleSubscriptionHalted(event) {
+  const sub = event.payload?.subscription?.entity;
+  if (!sub) return;
+  const { error } = await supabase.from('family_subscriptions')
+    .update({ status: 'past_due', updated_at: new Date().toISOString() })
+    .eq('razorpay_subscription_id', sub.id);
+  if (error) console.error('Could not mark subscription past_due:', error.message);
+}
+
+// Fires on every successful recurring charge, including the very first
+// one. Records the referral-share math (25% on the family's first-ever
+// paid charge, 10% on every renewal after) — see the migration 010
+// comment for the schema this depends on.
+async function handleSubscriptionCharged(event) {
+  const sub = event.payload?.subscription?.entity;
+  const payment = event.payload?.payment?.entity;
+  if (!sub || !payment) return;
+
+  const famSub = await findFamilySubscriptionByRazorpaySubId(sub.id);
+  if (!famSub) { console.error('subscription.charged for unknown razorpay_subscription_id:', sub.id); return; }
+
+  const periodEnd = sub.current_end ? new Date(sub.current_end * 1000).toISOString() : famSub.current_period_end;
+  const { error: subUpdateErr } = await supabase.from('family_subscriptions')
+    .update({
+      status: 'active',
+      current_period_end: periodEnd,
+      razorpay_customer_id: payment.customer_id || famSub.razorpay_customer_id,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', famSub.id);
+  if (subUpdateErr) console.error('Could not update family_subscriptions on charge:', subUpdateErr.message);
+
+  // Idempotency — Razorpay redelivers webhooks; never double-record the
+  // same charge.
+  const { data: existingPayment, error: existingErr } = await supabase.from('referral_conversions')
+    .select('id').eq('razorpay_payment_id', payment.id).maybeSingle();
+  if (existingErr) { console.error('Could not check existing referral_conversions row:', existingErr.message); return; }
+  if (existingPayment) return;
+
+  // Was this family ever referred? Any existing row (the 'signup' row from
+  // registration, if present) is the anchor — a family is referred by
+  // exactly one teacher, so referral_code_id/teacher_id are the same on
+  // every row for this family.
+  const { data: referralAnchor, error: anchorErr } = await supabase.from('referral_conversions')
+    .select('referral_code_id, teacher_id').eq('family_id', famSub.family_id).limit(1).maybeSingle();
+  if (anchorErr) { console.error('Could not look up referral anchor:', anchorErr.message); return; }
+  if (!referralAnchor) return; // not a referred family — nothing to record
+
+  const { count: priorPaidCount, error: countErr } = await supabase.from('referral_conversions')
+    .select('id', { count: 'exact', head: true })
+    .eq('family_id', famSub.family_id).eq('conversion_type', 'paid');
+  if (countErr) { console.error('Could not count prior paid conversions:', countErr.message); return; }
+
+  const sharePercentage = (priorPaidCount || 0) === 0 ? 25 : 10;
+  const amount = (payment.amount || 0) / 100; // Razorpay amounts are in paise
+  const teacherShare = Math.round(amount * sharePercentage) / 100;
+
+  const { error: insertErr } = await supabase.from('referral_conversions').insert({
+    referral_code_id: referralAnchor.referral_code_id,
+    teacher_id: referralAnchor.teacher_id,
+    family_id: famSub.family_id,
+    conversion_type: 'paid',
+    amount,
+    share_percentage: sharePercentage,
+    teacher_share: teacherShare,
+    razorpay_subscription_id: sub.id,
+    razorpay_payment_id: payment.id
+  });
+  if (insertErr) console.error('Could not insert referral_conversions row for charge:', insertErr.message);
+}
+
+app.post('/api/webhooks/razorpay', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const signature = req.headers['x-razorpay-signature'];
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET || !signature || !req.rawBody) {
+      return res.status(400).json({ error: 'Missing webhook signature or secret' });
+    }
+    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(req.rawBody).digest('hex');
+    if (expected !== signature) {
+      console.error('Razorpay webhook signature mismatch');
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    const event = req.body || {};
+    switch (event.event) {
+      case 'subscription.activated': await handleSubscriptionActivated(event); break;
+      case 'subscription.charged': await handleSubscriptionCharged(event); break;
+      case 'subscription.cancelled': await handleSubscriptionCancelled(event); break;
+      case 'subscription.halted': await handleSubscriptionHalted(event); break;
+      default: break; // unhandled event types are fine to ignore — ack so Razorpay stops retrying
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Razorpay webhook error:', err);
+    // 500 (not 200) so Razorpay's own retry schedule kicks in — a failure
+    // here is assumed transient (e.g. a momentary Supabase hiccup), not a
+    // reason to silently drop the event.
+    res.status(500).json({ error: 'Webhook processing error' });
   }
 });
 
@@ -1589,6 +1809,93 @@ app.post('/api/homework-explain', async (req, res) => {
   } catch (err) {
     console.error('Homework-explain error:', err);
     res.status(500).json({ error: 'Server error generating explanation' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Phase 3.6: AI Question Paper Generator. Stateless, single-shot — the two
+// attachments (lesson content + an old paper as a style reference) travel
+// as inline base64 vision/document content blocks straight through to
+// Claude, same as /api/homework's demo pattern, and nothing is persisted.
+// Prompt is built server-side (like /api/homework-explain, not left to the
+// client like /api/homework) so the extraction/generation instructions stay
+// centralized and can't be tampered with by the caller.
+// ------------------------------------------------------------------
+function buildQuestionPaperSystemPrompt(subject) {
+  return `You are an experienced Indian school exam-paper setter. You will be given two attachments: an OLD QUESTION PAPER (a style reference) and NEW LESSON CONTENT.
+
+Step 1 — analyze the old question paper's structure: its sections, any section instructions, how many questions are in each section, each question's type (MCQ, short answer, long answer, fill-in-the-blank, etc.), and the marks assigned to each question and section.
+
+Step 2 — using that exact structure (same sections, same question counts per section, same question types, same marks distribution), write three NEW question papers based on the NEW LESSON CONTENT (not the old paper's content) at three difficulty tiers:
+- "logical": questions that test conceptual/logical reasoning and application of the ideas in the lesson content, not rote recall.
+- "methodology": questions that test correct step-by-step procedure/method for solving problems from the lesson content.
+- "tough": higher cognitive demand — multi-step, less scaffolding, application-heavy questions that stretch a strong student.
+
+Every tier must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves and their difficulty differ between tiers.
+
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"papers":{"logical":{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]},"methodology":{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]},"tough":{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]}}}${subject ? `\nSubject: ${subject}.` : ''}`;
+}
+
+function isValidQpContentBlock(block) {
+  return block && (block.type === 'image' || block.type === 'document') &&
+    block.source && block.source.type === 'base64' && block.source.media_type && block.source.data;
+}
+
+app.post('/api/question-paper-generate', async (req, res) => {
+  try {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
+    }
+    const { subject, lessonContent, oldPaper } = req.body || {};
+    if (!isValidQpContentBlock(lessonContent) || !isValidQpContentBlock(oldPaper)) {
+      return res.status(400).json({ error: 'Missing or invalid lessonContent/oldPaper attachment' });
+    }
+
+    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null);
+    const userContent = [
+      { type: 'text', text: 'OLD QUESTION PAPER (style reference):' },
+      oldPaper,
+      { type: 'text', text: 'NEW LESSON CONTENT (generate the new papers from this):' },
+      lessonContent
+    ];
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 4000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Anthropic API error (question-paper-generate):', response.status, errText);
+      return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
+    }
+
+    const data = await response.json();
+    const raw = data.content?.[0]?.text || '';
+    let papers;
+    try {
+      papers = JSON.parse(raw).papers;
+      if (!papers) throw new Error('Response JSON had no "papers" key');
+    } catch (parseErr) {
+      console.error('Could not parse question-paper JSON:', parseErr.message, raw.slice(0, 500));
+      return res.status(502).json({ error: 'Claude returned an unexpected response — please try again.' });
+    }
+
+    res.json({ ok: true, papers });
+  } catch (err) {
+    console.error('Question paper generate error:', err);
+    res.status(500).json({ error: 'Server error generating question papers' });
   }
 });
 
