@@ -91,7 +91,10 @@
 <p class="font-caption text-caption text-on-surface-variant">Converted</p>
 </div>
 </div>
-<div id="referralList" class="mt-md space-y-1"></div>
+<div class="mt-sm text-center">
+<button class="text-primary font-label-md text-sm hover:underline" id="referralListToggle" onclick="toggleReferralList()">View</button>
+</div>
+<div id="referralList" class="mt-md space-y-1" hidden></div>
 </section>
 </div>
 
@@ -300,6 +303,13 @@
       document.getElementById('referralTotalCount').textContent = '0';
       document.getElementById('referralConvertedCount').textContent = '0';
     }
+  }
+
+  function toggleReferralList(){
+    const listEl = document.getElementById('referralList');
+    const btn = document.getElementById('referralListToggle');
+    listEl.hidden = !listEl.hidden;
+    btn.textContent = listEl.hidden ? 'View' : 'Hide';
   }
 
   async function copyReferralLink(){

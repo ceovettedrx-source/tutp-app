@@ -151,13 +151,16 @@
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Class / Grade</label><select id="childClass" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select grade</option><option>Class 1</option><option>Class 2</option><option>Class 3</option><option>Class 4</option><option>Class 5</option><option>Class 6</option><option>Class 7</option><option>Class 8</option><option>Class 9</option><option>Class 10</option><option>Class 11</option><option>Class 12</option></select></div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Curriculum</label><select id="childCurriculum" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"><option value="">Select curriculum</option><option>State Board</option><option>CBSE</option><option>ICSE</option><option>Cambridge</option><option>Other</option></select></div>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">School Name</label><input id="childSchool" list="schoolNamesListReg" autocomplete="off" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Start typing or add new" type="text"/></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Area / Locality</label><select id="childArea" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"></select></div>
-</div>
 <datalist id="schoolNamesListReg"></datalist>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Mandal / Tehsil (school)</label><input id="childMandal" list="childMandalList" autocomplete="off" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Start typing or add new" type="text" onchange="onChildMandalChange()"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Village / Locality (school)</label><input id="childVillage" list="childVillageList" autocomplete="off" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Start typing or add new" type="text"/></div>
+</div>
+<datalist id="childMandalList"></datalist>
+<datalist id="childVillageList"></datalist>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Address <span class="font-caption text-caption text-on-surface-variant">(optional, for reference)</span></label><input id="childAddress" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Street, landmark, etc." type="text"/></div>
-<p class="font-caption text-caption text-on-surface-variant">School Name and Area together help match your child to their teacher's homework — please pick from the list or add your school if it's not there yet.</p>
+<p class="font-caption text-caption text-on-surface-variant">School Name and Mandal together help match your child to their teacher's homework (using the State/District from Step 1) — please pick from the list or add your school/mandal if it's not there yet.</p>
 <div class="grid grid-cols-2 gap-md">
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Section</label><input id="childSection" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. A" type="text"/></div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Roll Number</label><input id="childRollNumber" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. 23" type="text"/></div>
@@ -274,14 +277,52 @@
     if (ref) localStorage.setItem('tutp_ref', ref.trim());
   })();
 
-  // ---------------- School name + area (child's school, not family location) ----------------
+  // ---------------- School name + mandal/village (child's school, not family location) ----------------
   const gradeOptionsFull = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
-  // Fixed list (not free text) so homework-to-student matching has a
-  // reliable second key alongside school name — school chains (Sri
-  // Chaitanya, Narayana, etc.) commonly have branches across several of
-  // these localities under the same name.
-  const HYDERABAD_AREAS = ['Ameerpet','Banjara Hills','Dilsukhnagar','Gachibowli','Jubilee Hills','Kondapur','Kukatpally','KPHB','LB Nagar','Madhapur','Miyapur','Secunderabad','Uppal','Begumpet','Malakpet','Tarnaka','Habsiguda','Attapur','Mehdipatnam','ECIL'];
-  document.getElementById('childArea').innerHTML = '<option value="">Select area</option>' + HYDERABAD_AREAS.map(a => `<option>${a}</option>`).join('');
+
+  // Mandal/Village <datalist> "pick or add new" inputs, scoped by Step 1's
+  // already-selected State/District — not re-asked here. Shared across the
+  // primary child and any extra-child rows since mandal only depends on
+  // state+district; village is refreshed per-input on that input's own
+  // mandal value (see onChildMandalChange), so siblings can differ.
+  function fillDatalist(listId, names){
+    const list = document.getElementById(listId);
+    if (!list) return;
+    list.innerHTML = '';
+    names.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      list.appendChild(opt);
+    });
+  }
+
+  async function refreshChildMandalList(){
+    const state = document.getElementById('state').value;
+    const district = document.getElementById('district').value;
+    if (!state || !district) { fillDatalist('childMandalList', []); return; }
+    try {
+      const res = await fetch('/api/mandals?state=' + encodeURIComponent(state) + '&district=' + encodeURIComponent(district));
+      const data = await res.json();
+      fillDatalist('childMandalList', data.names || []);
+    } catch (err) {
+      console.error('Could not load mandals:', err);
+    }
+  }
+
+  async function onChildMandalChange(inputEl){
+    const el = inputEl && inputEl.tagName ? inputEl : document.getElementById('childMandal');
+    const state = document.getElementById('state').value;
+    const district = document.getElementById('district').value;
+    const mandal = el.value.trim();
+    if (!state || !district || !mandal) return;
+    try {
+      const res = await fetch('/api/villages?state=' + encodeURIComponent(state) + '&district=' + encodeURIComponent(district) + '&mandal=' + encodeURIComponent(mandal));
+      const data = await res.json();
+      fillDatalist('childVillageList', data.names || []);
+    } catch (err) {
+      console.error('Could not load villages:', err);
+    }
+  }
 
   (async function loadSchoolNames(){
     try {
@@ -352,7 +393,8 @@
       <div class="flex-1 w-full"><input class="child-name w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Child's full name" type="text"/></div>
       <div class="w-full md:w-32"><select class="child-class w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm"><option value="">Grade</option>${gradeOptionsFull.map(g=>`<option>${g}</option>`).join('')}</select></div>
       <div class="flex-1 w-full"><input class="child-school w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="schoolNamesListReg" autocomplete="off" placeholder="School name" type="text"/></div>
-      <div class="w-full md:w-36"><select class="child-area w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm"><option value="">Area</option>${HYDERABAD_AREAS.map(a=>`<option>${a}</option>`).join('')}</select></div>
+      <div class="w-full md:w-36"><input class="child-mandal w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="childMandalList" autocomplete="off" placeholder="Mandal" type="text" onchange="onChildMandalChange(this)"/></div>
+      <div class="w-full md:w-36"><input class="child-village w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="childVillageList" autocomplete="off" placeholder="Village" type="text"/></div>
       <div class="w-full md:w-24"><input class="child-section w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Section" type="text"/></div>
       <div class="w-full md:w-28"><input class="child-roll w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Roll no." type="text"/></div>`;
     wrap.appendChild(row);
@@ -487,6 +529,7 @@
       const members = Array.from(document.querySelectorAll('.family-member-row')).map(r => r.querySelector('.member-name').value).filter(Boolean);
       document.getElementById('reviewExtendedFamily').textContent = members.length ? members.join(', ') : 'None added';
     }
+    if (n === 4) refreshChildMandalList();
     document.querySelectorAll('.wizard-step').forEach(s=>{
       s.classList.toggle('step-active', +s.dataset.step === n);
       s.classList.toggle('step-hidden', +s.dataset.step !== n);
@@ -528,7 +571,8 @@
       class: document.getElementById('childClass').value,
       curriculum: document.getElementById('childCurriculum').value,
       schoolName: document.getElementById('childSchool').value.trim(),
-      area: document.getElementById('childArea').value,
+      mandal: document.getElementById('childMandal').value.trim(),
+      village: document.getElementById('childVillage').value.trim(),
       address: document.getElementById('childAddress').value.trim() || null,
       section: document.getElementById('childSection').value.trim(),
       rollNumber: document.getElementById('childRollNumber').value.trim(),
@@ -541,7 +585,8 @@
       name: row.querySelector('.child-name').value.trim(),
       class: row.querySelector('.child-class').value,
       schoolName: row.querySelector('.child-school').value.trim(),
-      area: row.querySelector('.child-area').value,
+      mandal: row.querySelector('.child-mandal').value.trim(),
+      village: row.querySelector('.child-village').value.trim(),
       section: row.querySelector('.child-section').value.trim(),
       rollNumber: row.querySelector('.child-roll').value.trim()
     })).filter(c => c.name);

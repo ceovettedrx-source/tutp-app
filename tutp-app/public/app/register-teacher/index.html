@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="/shared/tailwind-tokens.js"></script>
+<script src="/shared/india-geo.js"></script>
 <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
         .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -45,11 +46,22 @@
 <input id="teacherPhone" class="w-full h-11 bg-transparent border-none focus:ring-0 font-body-md" placeholder="10-digit phone number" type="tel"/>
 </div>
 </div>
-<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">School / Tuition Name <span class="text-error">*</span></label><input id="teacherSchool" list="schoolNamesList" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Start typing or add new" type="text" autocomplete="off"/></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Area / Locality <span class="text-error">*</span></label><select id="teacherArea" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"></select></div>
-</div>
 <datalist id="schoolNamesList"></datalist>
+
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Area / Locality <span class="text-error">*</span></label>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<select id="teacherState" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" onchange="onTeacherStateChange()"></select>
+<select id="teacherDistrict" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" onchange="onTeacherDistrictChange()"></select>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md mt-sm">
+<input id="teacherMandal" list="teacherMandalList" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Mandal / Tehsil" type="text" autocomplete="off" onchange="onTeacherMandalChange()"/>
+<input id="teacherVillage" list="teacherVillageList" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Village / Locality" type="text" autocomplete="off"/>
+</div>
+<datalist id="teacherMandalList"></datalist>
+<datalist id="teacherVillageList"></datalist>
+</div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Address <span class="font-caption text-caption text-on-surface-variant">(optional, for reference)</span></label><input id="teacherAddress" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Street, landmark, etc." type="text"/></div>
 
 <div>
@@ -117,15 +129,7 @@
     });
   });
 
-  // ---------------- School name + area ----------------
-  // Fixed list (not free text) so homework-to-student matching has a
-  // reliable second key alongside school name — school chains (Sri
-  // Chaitanya, Narayana, etc.) commonly have branches across several of
-  // these localities under the same name.
-  const HYDERABAD_AREAS = ['Ameerpet','Banjara Hills','Dilsukhnagar','Gachibowli','Jubilee Hills','Kondapur','Kukatpally','KPHB','LB Nagar','Madhapur','Miyapur','Secunderabad','Uppal','Begumpet','Malakpet','Tarnaka','Habsiguda','Attapur','Mehdipatnam','ECIL'];
-  const areaSelect = document.getElementById('teacherArea');
-  areaSelect.innerHTML = '<option value="">Select area</option>' + HYDERABAD_AREAS.map(a => `<option>${a}</option>`).join('');
-
+  // ---------------- School name ----------------
   (async function loadSchoolNames(){
     try {
       const res = await fetch('/api/schools');
@@ -139,6 +143,70 @@
     } catch (err) {
       console.error('Could not load school names:', err);
     }
+  })();
+
+  // ---------------- State / District / Mandal / Village cascade ----------------
+  // State+District are closed <select>s (india-geo.js, no typo risk).
+  // Mandal+Village are <datalist> "pick or add new" inputs, same
+  // convergence pattern as school name — see server.js's geoMatches()
+  // comment for why village isn't part of the homework-matching key even
+  // though it's collected here.
+  function fillDatalist(listId, names){
+    const list = document.getElementById(listId);
+    list.innerHTML = '';
+    names.forEach(name => {
+      const opt = document.createElement('option');
+      opt.value = name;
+      list.appendChild(opt);
+    });
+  }
+
+  function onTeacherStateChange(){
+    const state = document.getElementById('teacherState').value;
+    const distSel = document.getElementById('teacherDistrict');
+    distSel.innerHTML = '<option value="">Select district</option>' +
+      (INDIA_STATE_DISTRICTS[state] || []).map(d => `<option>${d}</option>`).join('');
+    document.getElementById('teacherMandal').value = '';
+    document.getElementById('teacherVillage').value = '';
+    fillDatalist('teacherMandalList', []);
+    fillDatalist('teacherVillageList', []);
+  }
+
+  async function onTeacherDistrictChange(){
+    document.getElementById('teacherMandal').value = '';
+    document.getElementById('teacherVillage').value = '';
+    fillDatalist('teacherVillageList', []);
+    const state = document.getElementById('teacherState').value;
+    const district = document.getElementById('teacherDistrict').value;
+    if (!state || !district) { fillDatalist('teacherMandalList', []); return; }
+    try {
+      const res = await fetch('/api/mandals?state=' + encodeURIComponent(state) + '&district=' + encodeURIComponent(district));
+      const data = await res.json();
+      fillDatalist('teacherMandalList', data.names || []);
+    } catch (err) {
+      console.error('Could not load mandals:', err);
+    }
+  }
+
+  async function onTeacherMandalChange(){
+    document.getElementById('teacherVillage').value = '';
+    const state = document.getElementById('teacherState').value;
+    const district = document.getElementById('teacherDistrict').value;
+    const mandal = document.getElementById('teacherMandal').value.trim();
+    if (!state || !district || !mandal) { fillDatalist('teacherVillageList', []); return; }
+    try {
+      const res = await fetch('/api/villages?state=' + encodeURIComponent(state) + '&district=' + encodeURIComponent(district) + '&mandal=' + encodeURIComponent(mandal));
+      const data = await res.json();
+      fillDatalist('teacherVillageList', data.names || []);
+    } catch (err) {
+      console.error('Could not load villages:', err);
+    }
+  }
+
+  (function initTeacherState(){
+    const stateSel = document.getElementById('teacherState');
+    stateSel.innerHTML = '<option value="">Select state</option>' +
+      Object.keys(INDIA_STATE_DISTRICTS).map(s => `<option>${s}</option>`).join('');
   })();
 
   // ---------------- Grade/section rows ----------------
@@ -173,18 +241,23 @@
     }));
 
     const schoolName = document.getElementById('teacherSchool').value.trim();
-    const area = document.getElementById('teacherArea').value;
+    const state = document.getElementById('teacherState').value;
+    const district = document.getElementById('teacherDistrict').value;
+    const mandal = document.getElementById('teacherMandal').value.trim();
+    const village = document.getElementById('teacherVillage').value.trim();
     const address = document.getElementById('teacherAddress').value.trim();
 
     if (!name) { errEl.textContent = 'Please enter your full name.'; errEl.classList.add('text-error'); return; }
     if (digits.length !== 10) { errEl.textContent = 'Please enter a valid 10-digit phone number.'; errEl.classList.add('text-error'); return; }
     if (!schoolName) { errEl.textContent = 'Please enter your school or tuition center name.'; errEl.classList.add('text-error'); return; }
-    if (!area) { errEl.textContent = 'Please select your area/locality.'; errEl.classList.add('text-error'); return; }
+    if (!state || !district) { errEl.textContent = 'Please select your state and district.'; errEl.classList.add('text-error'); return; }
+    if (!mandal) { errEl.textContent = 'Please enter your mandal/tehsil.'; errEl.classList.add('text-error'); return; }
+    if (!village) { errEl.textContent = 'Please enter your village/locality.'; errEl.classList.add('text-error'); return; }
     if (!subjects.length) { errEl.textContent = 'Please select at least one subject.'; errEl.classList.add('text-error'); return; }
     if (!classSections.length) { errEl.textContent = 'Please add at least one grade you teach.'; errEl.classList.add('text-error'); return; }
 
     lastPhoneDigits = digits;
-    window.tutpTeacherPayload = { name, phone: '+91' + digits, subjects, schoolName, area, address: address || null, classSections };
+    window.tutpTeacherPayload = { name, phone: '+91' + digits, subjects, schoolName, state, district, mandal, village, address: address || null, classSections };
 
     const btn = document.getElementById('sendCodeBtn');
     btn.disabled = true; btn.textContent = 'Sending code…';

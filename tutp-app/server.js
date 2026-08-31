@@ -74,8 +74,9 @@ async function sendTeacherRegistrationEmail(teacher) {
   const adminEmail = process.env.ADMIN_NOTIFY_EMAIL || 'ceo.tutp@gmail.com';
   const classSections = teacher.classSections.map(cs => cs.section ? `${cs.grade} - ${cs.section}` : cs.grade).join(', ');
   const subject = `New teacher registration pending approval: ${teacher.name}`;
-  const text = `A new teacher/tutor has registered on Tut-P and needs approval.\n\nName: ${teacher.name}\nPhone: ${teacher.phone}\nSubjects: ${teacher.subjects.join(', ')}\nSchool/Tuition: ${teacher.schoolName || '(not provided)'}\nArea: ${teacher.area || '(not provided)'}\nAddress: ${teacher.address || '(not provided)'}\nGrades/Sections: ${classSections}\n\nTeacher id (for the Supabase dashboard): ${teacher.id}\nApprove by setting is_approved = true on the teachers table for this id.`;
-  const html = `<p>A new teacher/tutor has registered on Tut-P and needs approval.</p><ul><li><strong>Name:</strong> ${teacher.name}</li><li><strong>Phone:</strong> ${teacher.phone}</li><li><strong>Subjects:</strong> ${teacher.subjects.join(', ')}</li><li><strong>School/Tuition:</strong> ${teacher.schoolName || '(not provided)'}</li><li><strong>Area:</strong> ${teacher.area || '(not provided)'}</li><li><strong>Address:</strong> ${teacher.address || '(not provided)'}</li><li><strong>Grades/Sections:</strong> ${classSections}</li></ul><p><strong>Teacher id:</strong> ${teacher.id}</p><p>Approve by setting <code>is_approved = true</code> on the <code>teachers</code> table for this id.</p>`;
+  const locality = [teacher.mandal, teacher.district, teacher.state].filter(Boolean).join(', ');
+  const text = `A new teacher/tutor has registered on Tut-P and needs approval.\n\nName: ${teacher.name}\nPhone: ${teacher.phone}\nSubjects: ${teacher.subjects.join(', ')}\nSchool/Tuition: ${teacher.schoolName || '(not provided)'}\nLocality: ${locality || '(not provided)'}\nVillage: ${teacher.village || '(not provided)'}\nAddress: ${teacher.address || '(not provided)'}\nGrades/Sections: ${classSections}\n\nTeacher id (for the Supabase dashboard): ${teacher.id}\nApprove by setting is_approved = true on the teachers table for this id.`;
+  const html = `<p>A new teacher/tutor has registered on Tut-P and needs approval.</p><ul><li><strong>Name:</strong> ${teacher.name}</li><li><strong>Phone:</strong> ${teacher.phone}</li><li><strong>Subjects:</strong> ${teacher.subjects.join(', ')}</li><li><strong>School/Tuition:</strong> ${teacher.schoolName || '(not provided)'}</li><li><strong>Locality:</strong> ${locality || '(not provided)'}</li><li><strong>Village:</strong> ${teacher.village || '(not provided)'}</li><li><strong>Address:</strong> ${teacher.address || '(not provided)'}</li><li><strong>Grades/Sections:</strong> ${classSections}</li></ul><p><strong>Teacher id:</strong> ${teacher.id}</p><p>Approve by setting <code>is_approved = true</code> on the <code>teachers</code> table for this id.</p>`;
 
   if (resend) {
     try {
@@ -325,10 +326,16 @@ app.post('/api/register', async (req, res) => {
 
     // Best-effort: the registration itself is already saved above, so a
     // students/family_members-table hiccup here shouldn't fail the whole signup.
-    // school_name/area/section are trimmed here (not just client-side) since
-    // they're part of the homework-matching key — an ilike() match against
-    // a teacher's value is exact-but-case-insensitive, so stray whitespace
-    // alone is enough to silently break matching.
+    // school_name/geography/section are trimmed here (not just client-side)
+    // since they're part of the homework-matching key — an ilike() match
+    // against a teacher's value is exact-but-case-insensitive, so stray
+    // whitespace alone is enough to silently break matching.
+    // state/district come from the family's Step-1 location (not re-asked
+    // per child) — see geoMatches()/migration 008 for why village isn't
+    // part of the matching key even though it's captured here.
+    const location = payload.location || {};
+    const locState = location.state ? String(location.state).trim() : null;
+    const locDistrict = location.district ? String(location.district).trim() : null;
     const studentRows = children.filter(c => c && c.name).map(c => ({
       family_id: data.id,
       name: String(c.name).trim(),
@@ -336,15 +343,25 @@ app.post('/api/register', async (req, res) => {
       class: c.class || null,
       section: c.section ? String(c.section).trim() : null,
       roll_number: c.rollNumber ? String(c.rollNumber).trim() : null,
-      area: c.area ? String(c.area).trim() : null,
+      state: locState,
+      district: locDistrict,
+      mandal: c.mandal ? String(c.mandal).trim() : null,
+      village: c.village ? String(c.village).trim() : null,
       address: c.address ? String(c.address).trim() : null
     }));
     if (studentRows.length) {
       const { error: studentsErr } = await supabase.from('students').insert(studentRows);
       if (studentsErr) console.error('Could not save students rows (registration itself still succeeded):', studentsErr.message);
-      // Feeds the school-name <datalist> on both registration forms.
+      // Feeds the Mandal/Village <datalist>s and the school-name <datalist>
+      // on both registration forms.
       for (const row of studentRows) {
-        if (row.school_name && row.area) await upsertSchoolDirectory(row.school_name, row.area);
+        if (row.state && row.district && row.mandal) {
+          await upsertMandalDirectory(row.state, row.district, row.mandal);
+          if (row.village) await upsertVillageDirectory(row.state, row.district, row.mandal, row.village);
+        }
+        if (row.school_name && row.state && row.district && row.mandal) {
+          await upsertSchoolDirectory(row.school_name, row.state, row.district, row.mandal);
+        }
       }
     }
 
@@ -417,22 +434,106 @@ app.post('/api/family/add-member', async (req, res) => {
 // ------------------------------------------------------------------
 // School directory — a lightweight autocomplete/dedup list, not a
 // relational schools table. Populated as a side effect of teacher and
-// family registration whenever a (school name, area) pair is submitted;
-// read by /api/schools to back a <datalist> "pick or add new" input on
-// both registration forms. name_key is the app-computed dedup key
-// (trim+lowercase) so upserting can target a plain unique constraint.
+// family registration whenever a (school name, state, district, mandal)
+// combination is submitted; read by /api/schools to back a <datalist>
+// "pick or add new" input on both registration forms. name_key is the
+// app-computed dedup key (trim+lowercase) so upserting can target a plain
+// unique constraint. The old (name_key, area) constraint/column are
+// untouched (migration 008) — this only writes the new geo columns now.
 // ------------------------------------------------------------------
-async function upsertSchoolDirectory(name, area) {
-  if (!supabase || !name || !area) return;
+async function upsertSchoolDirectory(name, state, district, mandal) {
+  if (!supabase || !name || !state || !district || !mandal) return;
   const nameKey = String(name).trim().toLowerCase();
   if (!nameKey) return;
   const { error } = await supabase.from('school_directory').upsert({
     name: String(name).trim().slice(0, 200),
     name_key: nameKey.slice(0, 200),
-    area: String(area).trim().slice(0, 100)
-  }, { onConflict: 'name_key,area', ignoreDuplicates: true });
+    state: String(state).trim().slice(0, 100),
+    district: String(district).trim().slice(0, 100),
+    mandal: String(mandal).trim().slice(0, 100)
+  }, { onConflict: 'name_key,state,district,mandal', ignoreDuplicates: true });
   if (error) console.error('Could not upsert school_directory (registration itself still succeeded):', error.message);
 }
+
+// ------------------------------------------------------------------
+// Mandal/Village directories — same "pick or add new" convergence purpose
+// as school_directory, scoped by state+district (mandal) and
+// state+district+mandal (village). Feed the Mandal/Village <datalist>s on
+// both registration forms via /api/mandals and /api/villages below.
+// ------------------------------------------------------------------
+async function upsertMandalDirectory(state, district, mandal) {
+  if (!supabase || !state || !district || !mandal) return;
+  const mandalKey = String(mandal).trim().toLowerCase();
+  if (!mandalKey) return;
+  const { error } = await supabase.from('mandal_directory').upsert({
+    state: String(state).trim().slice(0, 100),
+    district: String(district).trim().slice(0, 100),
+    mandal: String(mandal).trim().slice(0, 100),
+    mandal_key: mandalKey.slice(0, 100)
+  }, { onConflict: 'state,district,mandal_key', ignoreDuplicates: true });
+  if (error) console.error('Could not upsert mandal_directory (registration itself still succeeded):', error.message);
+}
+
+async function upsertVillageDirectory(state, district, mandal, village) {
+  if (!supabase || !state || !district || !mandal || !village) return;
+  const villageKey = String(village).trim().toLowerCase();
+  if (!villageKey) return;
+  const { error } = await supabase.from('village_directory').upsert({
+    state: String(state).trim().slice(0, 100),
+    district: String(district).trim().slice(0, 100),
+    mandal: String(mandal).trim().slice(0, 100),
+    village: String(village).trim().slice(0, 100),
+    village_key: villageKey.slice(0, 100)
+  }, { onConflict: 'state,district,mandal,village_key', ignoreDuplicates: true });
+  if (error) console.error('Could not upsert village_directory (registration itself still succeeded):', error.message);
+}
+
+app.get('/api/mandals', async (req, res) => {
+  try {
+    if (!supabase) return res.json({ names: [] });
+    const state = String(req.query.state || '').trim();
+    const district = String(req.query.district || '').trim();
+    if (!state || !district) return res.json({ names: [] });
+    const { data, error } = await supabase.from('mandal_directory')
+      .select('mandal, mandal_key').eq('state', state).eq('district', district).order('mandal');
+    if (error) throw error;
+    const seen = new Set();
+    const names = [];
+    for (const row of (data || [])) {
+      if (seen.has(row.mandal_key)) continue;
+      seen.add(row.mandal_key);
+      names.push(row.mandal);
+    }
+    res.json({ names });
+  } catch (err) {
+    console.error('Get mandals error:', err);
+    res.status(500).json({ error: 'Could not fetch mandals' });
+  }
+});
+
+app.get('/api/villages', async (req, res) => {
+  try {
+    if (!supabase) return res.json({ names: [] });
+    const state = String(req.query.state || '').trim();
+    const district = String(req.query.district || '').trim();
+    const mandal = String(req.query.mandal || '').trim();
+    if (!state || !district || !mandal) return res.json({ names: [] });
+    const { data, error } = await supabase.from('village_directory')
+      .select('village, village_key').eq('state', state).eq('district', district).eq('mandal', mandal).order('village');
+    if (error) throw error;
+    const seen = new Set();
+    const names = [];
+    for (const row of (data || [])) {
+      if (seen.has(row.village_key)) continue;
+      seen.add(row.village_key);
+      names.push(row.village);
+    }
+    res.json({ names });
+  } catch (err) {
+    console.error('Get villages error:', err);
+    res.status(500).json({ error: 'Could not fetch villages' });
+  }
+});
 
 // ------------------------------------------------------------------
 // Referral links (Phase 3.5) — tracking only, no automated payout yet.
@@ -490,17 +591,19 @@ app.get('/api/schools', async (req, res) => {
 // manually in the Supabase dashboard after verifying them (no approval
 // UI in this phase). No phone uniqueness enforced — dedup happens
 // manually at approval time, same posture as family_registrations.
-// school_name/area are required (not just school_name) since together
-// they're the matching key homework-to-student resolution depends on.
+// school_name/state/district/mandal are required (not just school_name)
+// since together they're the matching key homework-to-student resolution
+// depends on (village is captured too but isn't part of the match key —
+// see geoMatches() in the homework-assignments section for why).
 // ------------------------------------------------------------------
 app.post('/api/register-teacher', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const { name, phone, subjects, schoolName, area, address, classSections } = req.body || {};
+    const { name, phone, subjects, schoolName, state, district, mandal, village, address, classSections } = req.body || {};
     const subjectList = Array.isArray(subjects) ? subjects.filter(Boolean) : [];
     const sections = Array.isArray(classSections) ? classSections.filter(cs => cs && cs.grade) : [];
-    if (!name || !phone || !subjectList.length || !sections.length || !schoolName || !area) {
-      return res.status(400).json({ error: 'Missing name, phone, subjects, school/tuition name, area, or at least one grade/section' });
+    if (!name || !phone || !subjectList.length || !sections.length || !schoolName || !state || !district || !mandal || !village) {
+      return res.status(400).json({ error: 'Missing name, phone, subjects, school/tuition name, state/district/mandal/village, or at least one grade/section' });
     }
 
     // Trimmed here (not just client-side) so stray whitespace can never
@@ -508,18 +611,26 @@ app.post('/api/register-teacher', async (req, res) => {
     // against another table's value is exact-but-case-insensitive, so a
     // trailing space alone is enough to silently break homework matching.
     const trimmedSchoolName = String(schoolName).trim();
-    const trimmedArea = String(area).trim();
+    const trimmedState = String(state).trim();
+    const trimmedDistrict = String(district).trim();
+    const trimmedMandal = String(mandal).trim();
+    const trimmedVillage = String(village).trim();
     const { data, error } = await supabase.from('teachers').insert({
       name: String(name).trim().slice(0, 120),
       phone: String(phone).slice(0, 20),
       subjects: subjectList.map(s => String(s).trim().slice(0, 60)),
       school_name: trimmedSchoolName.slice(0, 200),
-      area: trimmedArea.slice(0, 100),
+      state: trimmedState.slice(0, 100),
+      district: trimmedDistrict.slice(0, 100),
+      mandal: trimmedMandal.slice(0, 100),
+      village: trimmedVillage.slice(0, 100),
       address: address ? String(address).trim().slice(0, 300) : null
     }).select('id').single();
     if (error) throw error;
 
-    await upsertSchoolDirectory(trimmedSchoolName, trimmedArea);
+    await upsertSchoolDirectory(trimmedSchoolName, trimmedState, trimmedDistrict, trimmedMandal);
+    await upsertMandalDirectory(trimmedState, trimmedDistrict, trimmedMandal);
+    await upsertVillageDirectory(trimmedState, trimmedDistrict, trimmedMandal, trimmedVillage);
 
     const sectionRows = sections.map(cs => ({
       teacher_id: data.id,
@@ -530,7 +641,7 @@ app.post('/api/register-teacher', async (req, res) => {
     if (sectionsErr) console.error('Could not save teacher_class_sections rows (teacher registration itself still succeeded):', sectionsErr.message);
 
     console.log('New teacher registration:', name, 'id:', data.id);
-    sendTeacherRegistrationEmail({ id: data.id, name, phone, subjects: subjectList, schoolName, area, address, classSections: sections }); // fire-and-forget
+    sendTeacherRegistrationEmail({ id: data.id, name, phone, subjects: subjectList, schoolName, state, district, mandal, village, address, classSections: sections }); // fire-and-forget
     res.json({ ok: true, id: data.id });
   } catch (err) {
     console.error('Teacher registration error:', err);
@@ -988,13 +1099,38 @@ app.post('/api/visibility-rules', async (req, res) => {
 // proxy to Claude.
 //
 // There's no schools table — a homework item's audience is resolved at
-// read time by text-matching (school_name, area, grade, section) between
-// the posting teacher and each student, same "good enough" philosophy as
-// the existing phone/name matching elsewhere in this file. homework_status
-// follows member_visibility_rules's convention: a missing row means the
-// default (here, "pending"), only written when a student marks done.
+// read time by text-matching (school_name, geography, grade, section)
+// between the posting teacher and each student, same "good enough"
+// philosophy as the existing phone/name matching elsewhere in this file.
+// homework_status follows member_visibility_rules's convention: a missing
+// row means the default (here, "pending"), only written when a student
+// marks done.
 // ------------------------------------------------------------------
 function normText(s) { return String(s || '').trim().toLowerCase(); }
+
+// Geography half of the school-matching key. Dual-mode, deliberately not
+// backfilled: rows registered before the state/district/mandal cascade
+// shipped only have `area` (the old fixed Hyderabad-locality dropdown) —
+// those keep matching each other on `area` exactly as before. Rows
+// registered after the cascade shipped only have state/district/mandal —
+// those match each other on that triple instead. `village` is captured on
+// both forms but intentionally excluded here: it's the most typo-prone
+// level of the cascade (a free-text "pick or add new" datalist, unlike the
+// closed state/district dropdowns) and isn't needed to disambiguate
+// same-named school branches — district+mandal already match the
+// granularity the old 20-item area list operated at, so this doesn't widen
+// the false-positive risk that `area`/`school_name` were required together
+// to prevent in the first place.
+function geoMatches(a, b) {
+  const aHasGeo = a.state && a.district && a.mandal;
+  const bHasGeo = b.state && b.district && b.mandal;
+  if (aHasGeo && bHasGeo) {
+    return normText(a.state) === normText(b.state) &&
+      normText(a.district) === normText(b.district) &&
+      normText(a.mandal) === normText(b.mandal);
+  }
+  return Boolean(a.area) && Boolean(b.area) && normText(a.area) === normText(b.area);
+}
 
 // Teacher creates an assignment — checked against their own
 // teacher_class_sections so they can only post to a grade/section they
@@ -1060,9 +1196,9 @@ app.get('/api/homework-assignments/:id/status', async (req, res) => {
     if (!hw) return res.status(404).json({ error: 'Homework not found' });
 
     const { data: teacher, error: teacherErr } = await supabase.from('teachers')
-      .select('school_name, area').eq('id', hw.teacher_id).maybeSingle();
+      .select('school_name, area, state, district, mandal').eq('id', hw.teacher_id).maybeSingle();
     if (teacherErr) throw teacherErr;
-    if (!teacher || !teacher.school_name || !teacher.area) return res.json({ roster: [] });
+    if (!teacher || !teacher.school_name || !(teacher.area || (teacher.state && teacher.district && teacher.mandal))) return res.json({ roster: [] });
 
     // Matched entirely in JS with normText() on both sides — an ilike()
     // filter can't tolerate incidental whitespace differences between how
@@ -1071,15 +1207,14 @@ app.get('/api/homework-assignments/:id/status', async (req, res) => {
     // the stray whitespace. Table sizes are small enough at this stage
     // that fetching broadly and filtering in JS is the safer trade-off.
     const teacherSchool = normText(teacher.school_name);
-    const teacherArea = normText(teacher.area);
     const hwGrade = normText(hw.grade);
     const hwSection = normText(hw.section);
     const { data: allStudents, error: studentsErr } = await supabase.from('students')
-      .select('id, name, class, section, school_name, area');
+      .select('id, name, class, section, school_name, area, state, district, mandal');
     if (studentsErr) throw studentsErr;
     const students = (allStudents || []).filter(s =>
       normText(s.school_name) === teacherSchool &&
-      normText(s.area) === teacherArea &&
+      geoMatches(teacher, s) &&
       normText(s.class) === hwGrade &&
       (!hw.section || normText(s.section) === hwSection)
     );
@@ -1120,23 +1255,23 @@ app.post('/api/homework-assignments/:id/mark-done', async (req, res) => {
 });
 
 // Resolves every homework item that matches one student's
-// (school_name, area, class, section), with that student's own done/pending
-// status attached. Shared by the for-student and for-family routes below.
+// (school_name, geography, class, section), with that student's own
+// done/pending status attached. Shared by the for-student and for-family
+// routes below.
 async function homeworkForStudent(student) {
-  if (!student.school_name || !student.area || !student.class) return [];
+  if (!student.school_name || !student.class || !(student.area || (student.state && student.district && student.mandal))) return [];
 
   // Matched entirely in JS with normText() on both sides — see the
   // matching comment in /api/homework-assignments/:id/status for why an
   // ilike() filter isn't safe here (it can't tolerate incidental
   // whitespace differences between independently-typed school names).
   const studentSchool = normText(student.school_name);
-  const studentArea = normText(student.area);
   const studentGrade = normText(student.class);
   const studentSection = normText(student.section);
 
-  const { data: allTeachers, error: teacherErr } = await supabase.from('teachers').select('id, name, school_name, area');
+  const { data: allTeachers, error: teacherErr } = await supabase.from('teachers').select('id, name, school_name, area, state, district, mandal');
   if (teacherErr) throw teacherErr;
-  const teachersAtSchool = (allTeachers || []).filter(t => normText(t.school_name) === studentSchool && normText(t.area) === studentArea);
+  const teachersAtSchool = (allTeachers || []).filter(t => normText(t.school_name) === studentSchool && geoMatches(t, student));
   const teacherIds = teachersAtSchool.map(t => t.id);
   if (!teacherIds.length) return [];
   const teacherNameById = Object.fromEntries(teachersAtSchool.map(t => [t.id, t.name]));
@@ -1166,7 +1301,7 @@ app.get('/api/homework-assignments/for-student/:studentId', async (req, res) => 
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const { data: student, error: studentErr } = await supabase.from('students')
-      .select('id, class, section, school_name, area').eq('id', req.params.studentId).maybeSingle();
+      .select('id, class, section, school_name, area, state, district, mandal').eq('id', req.params.studentId).maybeSingle();
     if (studentErr) throw studentErr;
     if (!student) return res.status(404).json({ error: 'Student not found' });
     res.json({ homework: await homeworkForStudent(student) });
@@ -1195,7 +1330,7 @@ app.get('/api/homework-assignments/for-family/:familyId', async (req, res) => {
     }
 
     const { data: students, error: studentsErr } = await supabase.from('students')
-      .select('id, name, class, section, school_name, area').eq('family_id', familyId);
+      .select('id, name, class, section, school_name, area, state, district, mandal').eq('family_id', familyId);
     if (studentsErr) throw studentsErr;
 
     const perStudent = await Promise.all((students || []).map(async s => ({
@@ -1233,7 +1368,7 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
 
     const teacherIds = [...new Set(todaysHomework.map(h => h.teacher_id))];
     const { data: teachers, error: teacherErr } = await supabase.from('teachers')
-      .select('id, name, school_name, area').in('id', teacherIds);
+      .select('id, name, school_name, area, state, district, mandal').in('id', teacherIds);
     if (teacherErr) throw teacherErr;
     const teacherById = Object.fromEntries((teachers || []).map(t => [t.id, t]));
 
@@ -1241,22 +1376,21 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
     // the matching comment on /api/homework-assignments/:id/status for why
     // an ilike() filter isn't safe here.
     const { data: allStudents, error: allStudentsErr } = await supabase.from('students')
-      .select('id, name, family_id, class, section, school_name, area');
+      .select('id, name, family_id, class, section, school_name, area, state, district, mandal');
     if (allStudentsErr) throw allStudentsErr;
 
     const pendingByFamily = new Map(); // family_id -> [{ studentName, subject, title, teacherId, teacherName, schoolName }]
 
     for (const hw of todaysHomework) {
       const teacher = teacherById[hw.teacher_id];
-      if (!teacher || !teacher.school_name || !teacher.area) continue;
+      if (!teacher || !teacher.school_name || !(teacher.area || (teacher.state && teacher.district && teacher.mandal))) continue;
 
       const teacherSchool = normText(teacher.school_name);
-      const teacherArea = normText(teacher.area);
       const hwGrade = normText(hw.grade);
       const hwSection = normText(hw.section);
       const students = allStudents.filter(s =>
         normText(s.school_name) === teacherSchool &&
-        normText(s.area) === teacherArea &&
+        geoMatches(teacher, s) &&
         normText(s.class) === hwGrade &&
         (!hw.section || normText(s.section) === hwSection)
       );
