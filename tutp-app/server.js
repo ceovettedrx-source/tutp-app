@@ -2002,11 +2002,12 @@ app.post('/api/homework-explain', async (req, res) => {
 // client like /api/homework) so the extraction/generation instructions stay
 // centralized and can't be tampered with by the caller.
 //
-// One tier per call (not all 3 tiers in a single response): a combined
-// call was truncating mid-generation even at max_tokens 8000 shared across
-// all three papers, since each full tiered paper can itself need more than
-// that. The frontend fires one request per tier in parallel and renders
-// each as it completes.
+// One tier per call, teacher-selected (not all 3 tiers auto-generated):
+// a combined call was truncating mid-generation even at max_tokens 8000
+// shared across all three papers, since each full tiered paper can itself
+// need more than that. The teacher picks exactly one tier and one exam
+// pattern up front, and the frontend fires a single request for that
+// combination.
 // ------------------------------------------------------------------
 const QP_TIERS = {
   logical: 'questions that test conceptual/logical reasoning and application of the ideas in the lesson content, not rote recall',
@@ -2014,14 +2015,28 @@ const QP_TIERS = {
   tough: 'higher cognitive demand — multi-step, less scaffolding, application-heavy questions that stretch a strong student'
 };
 
-function buildQuestionPaperSystemPrompt(subject, tier) {
+// Exam pattern is tone/scope guidance only — it does NOT define the paper's
+// structure. The uploaded old question paper remains the sole source of
+// truth for sections, question counts, and marks distribution.
+const QP_EXAM_PATTERNS = {
+  weekly: 'Weekly Test — narrow scope, typically covering only the most recent lesson(s); shorter and lower-stakes',
+  monthly: 'Monthly Test — moderate scope, covering roughly a month of content',
+  quarterly: '3-Month Exam — broader scope, covering a full term/quarter of content',
+  half_yearly: '6-Month Exam — broad, cumulative scope covering half a year of content',
+  pre_final: 'Pre-Final Exam — comprehensive, revision-level scope, close to full-year coverage',
+  final: 'Final Exam — full-year cumulative scope; the highest-stakes exam of the year'
+};
+
+function buildQuestionPaperSystemPrompt(subject, tier, examPattern) {
   return `You are an experienced Indian school exam-paper setter. You will be given two attachments: an OLD QUESTION PAPER (a style reference) and NEW LESSON CONTENT.
 
 Step 1 — analyze the old question paper's structure: its sections, any section instructions, how many questions are in each section, each question's type (MCQ, short answer, long answer, fill-in-the-blank, etc.), and the marks assigned to each question and section.
 
 Step 2 — using that exact structure (same sections, same question counts per section, same question types, same marks distribution), write ONE new question paper based on the NEW LESSON CONTENT (not the old paper's content) at this difficulty tier: "${tier}" — ${QP_TIERS[tier]}.
 
-The paper must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves reflect this tier's difficulty.
+This paper is for a: ${QP_EXAM_PATTERNS[examPattern]}. Let this shape the scope and tone of the questions you write — a Weekly Test should feel narrower and lower-stakes than a Final Exam, even at the same difficulty tier — but it does NOT change the structure: the OLD QUESTION PAPER's sections, question counts, and marks distribution from Step 1 are still what you must follow exactly.
+
+The paper must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves reflect this tier's difficulty and the exam pattern's scope/tone.
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]}${subject ? `\nSubject: ${subject}.` : ''}`;
@@ -2037,15 +2052,18 @@ app.post('/api/question-paper-generate', async (req, res) => {
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
-    const { subject, lessonContent, oldPaper, tier } = req.body || {};
+    const { subject, lessonContent, oldPaper, tier, examPattern } = req.body || {};
     if (!Object.prototype.hasOwnProperty.call(QP_TIERS, tier)) {
       return res.status(400).json({ error: 'Missing or invalid tier' });
+    }
+    if (!Object.prototype.hasOwnProperty.call(QP_EXAM_PATTERNS, examPattern)) {
+      return res.status(400).json({ error: 'Missing or invalid examPattern' });
     }
     if (!isValidQpContentBlock(lessonContent) || !isValidQpContentBlock(oldPaper)) {
       return res.status(400).json({ error: 'Missing or invalid lessonContent/oldPaper attachment' });
     }
 
-    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, tier);
+    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, tier, examPattern);
     const userContent = [
       { type: 'text', text: 'OLD QUESTION PAPER (style reference):' },
       oldPaper,

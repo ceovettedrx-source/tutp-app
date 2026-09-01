@@ -129,9 +129,9 @@
 <div data-tab-panel="question-papers" hidden>
 <section class="glass-card rounded-xl p-md md:p-lg">
 <h2 class="font-headline-md text-headline-md text-on-surface mb-xs">AI Question Paper Generator</h2>
-<p class="font-body-md text-body-md text-on-surface-variant mb-md">Attach your lesson content and an old question paper as a style reference — we'll generate three new papers (Logical, Methodology, Tough) on the new content, following the same structure.</p>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Attach your lesson content and an old question paper as a style reference, pick an exam pattern and a difficulty tier — we'll generate one new paper on the new content, following the old paper's structure.</p>
 
-<div class="space-y-md">
+<div class="space-y-md" id="qpFormSection">
 <div>
 <label class="font-label-md text-label-md text-on-surface mb-xs block">Lesson Content <span class="text-error">*</span> <span class="font-caption text-caption text-on-surface-variant">(photo or PDF)</span></label>
 <input type="file" id="qpLessonInput" accept="image/*,application/pdf" class="hidden" onchange="handleQpFileSelect(event, 'lesson')"/>
@@ -145,18 +145,36 @@
 <span class="font-caption text-caption text-on-surface-variant ml-2" id="qpOldPaperStatus"></span>
 </div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Subject <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="qpSubject" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Mathematics" type="text"/></div>
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Exam Pattern <span class="text-error">*</span></label>
+<select id="qpExamPattern" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" onchange="updateQpGenerateState()">
+<option value="" selected disabled>Select exam pattern…</option>
+<option value="weekly">Weekly Test</option>
+<option value="monthly">Monthly Test</option>
+<option value="quarterly">3-Month Exam</option>
+<option value="half_yearly">6-Month Exam</option>
+<option value="pre_final">Pre-Final</option>
+<option value="final">Final</option>
+</select>
+</div>
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Difficulty Tier <span class="text-error">*</span></label>
+<div class="flex gap-2" id="qpTierPills"></div>
+</div>
 <p class="text-center font-label-md text-sm" id="qpError"></p>
-<button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center" id="qpGenerateBtn" onclick="generateQuestionPapers()">Generate Question Papers</button>
-<p class="text-center font-caption text-caption text-on-surface-variant" id="qpBusyNote" hidden>Generating your papers — this may take a minute. Each paper will appear as it's ready.</p>
+<button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center disabled:opacity-50" id="qpGenerateBtn" disabled onclick="generateQuestionPaper()">Generate Question Paper</button>
+<p class="text-center font-caption text-caption text-on-surface-variant" id="qpBusyNote" hidden>Generating your paper — this may take a minute.</p>
 </div>
 </section>
 
 <section class="space-y-md mt-md" id="qpResultsSection" hidden>
 <div class="flex items-center justify-between px-xs">
-<h3 class="font-headline-md text-headline-md text-on-surface">Generated Papers</h3>
+<h3 class="font-headline-md text-headline-md text-on-surface">Generated Paper</h3>
+<div class="flex items-center gap-4">
+<button class="text-primary font-label-md text-sm hover:underline" onclick="resetQpSelection()">Generate a different tier/pattern</button>
 <button class="text-primary font-label-md text-sm hover:underline" onclick="window.print()">Print / Save as PDF</button>
 </div>
-<div class="flex gap-2 px-xs" id="qpTierTabs"></div>
+</div>
 <div id="qpPaperOutput"></div>
 </section>
 </div>
@@ -406,7 +424,10 @@
   let qpLessonContent = null;
   let qpOldPaperContent = null;
   let qpResult = null;
-  let qpActiveTier = 'logical';
+  let qpSelectedTier = null;
+  let qpSelectedPattern = null;
+
+  const QP_TIER_LIST = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
 
   function fileToContentBlock(file){
     return new Promise((resolve, reject) => {
@@ -434,35 +455,57 @@
       statusEl.textContent = 'Could not read that file — please try again.';
       console.error(err);
     }
+    updateQpGenerateState();
   }
 
-  const QP_TIER_LIST = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
-  let qpTierStatus = {}; // tier -> 'pending' | 'done' | 'error'
+  function renderQpTierPills(){
+    document.getElementById('qpTierPills').innerHTML = QP_TIER_LIST.map(([key, label]) => {
+      const active = key === qpSelectedTier;
+      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpTier('${key}')">${label}</button>`;
+    }).join('');
+  }
 
-  async function generateQuestionPapers(){
+  function selectQpTier(tier){
+    qpSelectedTier = tier;
+    renderQpTierPills();
+    updateQpGenerateState();
+  }
+
+  function updateQpGenerateState(){
+    qpSelectedPattern = document.getElementById('qpExamPattern').value || null;
+    const ready = !!(qpLessonContent && qpOldPaperContent && qpSelectedTier && qpSelectedPattern);
+    document.getElementById('qpGenerateBtn').disabled = !ready;
+  }
+
+  async function generateQuestionPaper(){
     const errEl = document.getElementById('qpError');
     const btn = document.getElementById('qpGenerateBtn');
     errEl.textContent = '';
     errEl.className = 'text-center font-label-md text-sm';
 
-    if (!qpLessonContent) { errEl.textContent = 'Please attach the lesson content.'; errEl.classList.add('text-error'); return; }
-    if (!qpOldPaperContent) { errEl.textContent = 'Please attach an old question paper as a style reference.'; errEl.classList.add('text-error'); return; }
-
-    qpResult = {};
-    qpTierStatus = { logical: 'pending', methodology: 'pending', tough: 'pending' };
-    qpActiveTier = 'logical';
-    document.getElementById('qpResultsSection').hidden = false;
-    renderQpTierTabs();
-    renderQpPaper();
     setQpBusy(true, btn);
-
-    const subject = document.getElementById('qpSubject').value.trim() || null;
-    await Promise.allSettled(QP_TIER_LIST.map(([tier]) => fetchQpTier(tier, subject)));
-
-    setQpBusy(false, btn);
-    if (Object.values(qpTierStatus).every(s => s === 'error')) {
-      errEl.textContent = 'Could not generate any of the papers — please try again.';
+    try {
+      const res = await fetch('/api/question-paper-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tier: qpSelectedTier,
+          examPattern: qpSelectedPattern,
+          subject: document.getElementById('qpSubject').value.trim() || null,
+          lessonContent: qpLessonContent,
+          oldPaper: qpOldPaperContent
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not generate the paper');
+      qpResult = data.paper;
+      renderQpPaper();
+      document.getElementById('qpResultsSection').hidden = false;
+    } catch (err) {
+      errEl.textContent = err.message || 'Could not generate the paper — please try again.';
       errEl.classList.add('text-error');
+    } finally {
+      setQpBusy(false, btn);
     }
   }
 
@@ -470,69 +513,26 @@
     btn.disabled = busy;
     btn.innerHTML = busy
       ? '<span class="inline-block h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin align-[-2px] mr-2"></span>Generating…'
-      : 'Generate Question Papers';
+      : 'Generate Question Paper';
     document.getElementById('qpBusyNote').hidden = !busy;
+    if (!busy) updateQpGenerateState();
   }
 
-  async function fetchQpTier(tier, subject){
-    try {
-      const res = await fetch('/api/question-paper-generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tier, subject, lessonContent: qpLessonContent, oldPaper: qpOldPaperContent })
-      });
-      const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not generate this paper');
-      qpResult[tier] = data.paper;
-      qpTierStatus[tier] = 'done';
-    } catch (err) {
-      console.error('[teacher] question paper tier failed:', tier, err);
-      qpTierStatus[tier] = 'error';
-    }
-    renderQpTierTabs();
-    if (qpActiveTier === tier) renderQpPaper();
-  }
-
-  function retryQpTier(tier){
-    qpTierStatus[tier] = 'pending';
-    renderQpTierTabs();
-    if (qpActiveTier === tier) renderQpPaper();
-    fetchQpTier(tier, document.getElementById('qpSubject').value.trim() || null);
-  }
-
-  function renderQpTierTabs(){
-    const wrap = document.getElementById('qpTierTabs');
-    wrap.innerHTML = QP_TIER_LIST.map(([key, label]) => {
-      const active = key === qpActiveTier;
-      const status = qpTierStatus[key];
-      const icon = status === 'pending'
-        ? '<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>'
-        : status === 'error' ? '<span class="material-symbols-outlined text-base leading-none">error</span>'
-        : status === 'done' ? '<span class="material-symbols-outlined text-base leading-none">check</span>'
-        : '';
-      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors flex items-center gap-1.5 ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpTier('${key}')">${icon}${label}</button>`;
-    }).join('');
-  }
-
-  function selectQpTier(tier){
-    qpActiveTier = tier;
-    renderQpTierTabs();
-    renderQpPaper();
+  function resetQpSelection(){
+    qpSelectedTier = null;
+    qpSelectedPattern = null;
+    qpResult = null;
+    document.getElementById('qpExamPattern').value = '';
+    document.getElementById('qpResultsSection').hidden = true;
+    renderQpTierPills();
+    updateQpGenerateState();
+    document.getElementById('qpFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function renderQpPaper(){
     const out = document.getElementById('qpPaperOutput');
-    const status = qpTierStatus[qpActiveTier];
-    if (status === 'pending') {
-      out.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs flex items-center gap-2"><span class="inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>Generating this paper — this may take a minute…</p>';
-      return;
-    }
-    if (status === 'error') {
-      out.innerHTML = `<p class="font-body-md text-body-md text-error px-xs">Could not generate this paper. <button type="button" class="text-primary hover:underline" onclick="retryQpTier('${qpActiveTier}')">Retry</button></p>`;
-      return;
-    }
-    const paper = qpResult ? qpResult[qpActiveTier] : null;
-    if (!paper) { out.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs">No paper generated for this tier.</p>'; return; }
+    const paper = qpResult;
+    if (!paper) { out.innerHTML = ''; return; }
     const meta = [paper.subject, paper.totalMarks ? ('Total Marks: ' + paper.totalMarks) : null].filter(Boolean).join(' · ');
     out.innerHTML = `
       <div class="glass-card rounded-xl p-lg">
@@ -547,6 +547,8 @@
           </div>`).join('')}
       </div>`;
   }
+
+  renderQpTierPills();
 
   // ---------------- Homework Monitor ----------------
   const HM_STATUS_STYLES = {
