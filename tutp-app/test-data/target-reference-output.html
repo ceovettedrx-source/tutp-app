@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Monthly Examination Question Paper - Standard A4</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #1e3a8a;
+            --secondary-color: #2563eb;
+            --bg-light: #f8fafc;
+            --card-border: #cbd5e1;
+            --text-main: #0f172a;
+            --text-muted: #334155;
+        }
+
+        /* Pure A4 Dimensions Setup */
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px 0;
+            color: var(--text-main);
+            background-color: #e2e8f0;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* Real A4 Sheet Dimensions on Screen */
+        .paper-container {
+            width: 210mm;
+            min-height: 297mm;
+            background: #ffffff;
+            padding: 20mm 18mm;
+            box-sizing: border-box;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            border: 1px solid var(--card-border);
+        }
+
+        /* Modern School Header */
+        .header-card {
+            border-bottom: 2.5px solid var(--primary-color);
+            padding-bottom: 12px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .school-name {
+            font-size: 22pt;
+            font-weight: 700;
+            color: var(--primary-color);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin: 0;
+        }
+
+        .exam-title {
+            font-size: 13pt;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-top: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        /* Exact 2-Column Info Table with Centered Colon & Underline Answers */
+        .info-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            background: var(--bg-light);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+        }
+
+        .info-table td {
+            width: 50%;
+            padding: 6px 12px;
+            vertical-align: middle;
+            font-size: 10pt;
+            box-sizing: border-box;
+        }
+
+        /* Flex Container to align Label, Colon (Center), and Underlined Value */
+        .info-field {
+            display: flex;
+            align-items: center;
+            width: 100%;
+        }
+
+        .info-label {
+            width: 48%;
+            font-weight: 600;
+            color: var(--text-main);
+            text-align: left;
+        }
+
+        .info-colon {
+            width: 4%;
+            font-weight: 700;
+            text-align: center;
+            color: var(--primary-color);
+        }
+
+        .info-value {
+            width: 48%;
+            font-weight: 600;
+            color: var(--text-main);
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            padding-left: 4px;
+        }
+
+        /* General Instructions Box */
+        .instructions-box {
+            background-color: #eff6ff;
+            border-left: 4px solid var(--secondary-color);
+            padding: 10px 15px;
+            border-radius: 0 6px 6px 0;
+            margin-bottom: 25px;
+            font-size: 9.5pt;
+        }
+
+        .instructions-title {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .instructions-list {
+            margin: 0;
+            padding-left: 18px;
+            color: var(--text-muted);
+        }
+
+        .instructions-list li {
+            margin-bottom: 2px;
+        }
+
+        /* Section Header Layout */
+        .section-header {
+            background: var(--primary-color);
+            color: #ffffff;
+            padding: 6px 14px;
+            border-radius: 4px;
+            font-size: 10.5pt;
+            font-weight: 600;
+            text-transform: uppercase;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .section-badge {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 9pt;
+        }
+
+        .main-question-title {
+            font-weight: 600;
+            font-size: 10.5pt;
+            margin-bottom: 12px;
+            color: var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--card-border);
+            padding-bottom: 6px;
+        }
+
+        .sub-questions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .sub-question-card {
+            background-color: #fff;
+            border: 1px solid var(--card-border);
+            padding: 12px 15px;
+            border-radius: 6px;
+            font-size: 10pt;
+            line-height: 1.5;
+        }
+
+        .q-number {
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-right: 4px;
+        }
+
+        .options-list {
+            list-style-type: none;
+            padding-left: 10px;
+            margin: 8px 0 0 0;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+        }
+
+        .options-list li {
+            background: var(--bg-light);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 9pt;
+            border: 1px solid #e2e8f0;
+        }
+
+        /* Exact A4 Printing Settings */
+        @media print {
+            body {
+                background: none;
+                padding: 0;
+            }
+            .paper-container {
+                width: 100%;
+                min-height: auto;
+                border: none;
+                box-shadow: none;
+                padding: 0;
+            }
+            .header-card {
+                border-bottom: 2px solid #000;
+            }
+            .school-name {
+                color: #000;
+            }
+            .section-header {
+                background: #f1f5f9;
+                color: #000;
+                border: 1px solid #000;
+            }
+            .section-badge {
+                background: none;
+                color: #000;
+                font-weight: bold;
+            }
+            .instructions-box {
+                background: none;
+                border: 1px solid #000;
+            }
+            .sub-question-card {
+                border: 1px solid #94a3b8;
+                page-break-inside: avoid;
+            }
+            .options-list li {
+                background: none;
+                border: 1px solid #cbd5e1;
+            }
+            .info-table {
+                background: none;
+                border: 1px solid #000;
+            }
+            .info-colon {
+                color: #000;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="paper-container">
+    <!-- Header Section -->
+    <div class="header-card">
+        <div class="school-name">Raman International</div>
+        <div class="exam-title">Monthly Test - Artificial Intelligence</div>
+    </div>
+
+    <!-- Student & Exam Details (2 Equal Columns, Centered Colon, Underlined Answers) -->
+    <table class="info-table">
+        <tr>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Student Name</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">____________________</span>
+                </div>
+            </td>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Board</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">CBSE</span>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Roll Number</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">____________________</span>
+                </div>
+            </td>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Date</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">1 September 2026</span>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Subject</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">Artificial Intelligence</span>
+                </div>
+            </td>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Time Allowed</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">1.5 Hours</span>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Total Marks</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">40 Marks</span>
+                </div>
+            </td>
+            <td>
+                <div class="info-field">
+                    <span class="info-label">Pass Marks</span>
+                    <span class="info-colon">:</span>
+                    <span class="info-value">13 Marks</span>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- General Instructions -->
+    <div class="instructions-box">
+        <div class="instructions-title">General Instructions:</div>
+        <ol class="instructions-list">
+            <li>Read each question carefully before attempting it.</li>
+            <li>Attempt the required number of questions as specified in each section.</li>
+            <li>Marks allotted to each question are indicated against it.</li>
+            <li>Write your answers clearly and legibly.</li>
+            <li>Do any rough work separately, not in the main answer space.</li>
+        </ol>
+    </div>
+
+    <!-- SECTION A -->
+    <div class="section-header">
+        <span>SECTION A: VERY SHORT ANSWER QUESTIONS</span>
+        <span class="section-badge">Total Marks: 8</span>
+    </div>
+
+    <div class="main-question-title">
+        <span>Question 1: Answer any 8 out of 10 questions.</span>
+        <span>[8 × 1 = 8 Marks]</span>
+    </div>
+
+    <div class="sub-questions">
+        <div class="sub-question-card"><span class="q-number">1.</span> What is the full form of <strong>NLP</strong> in the context of Artificial Intelligence?</div>
+        <div class="sub-question-card"><span class="q-number">2.</span> Name the first stage of the <strong>AI Project Cycle</strong>.</div>
+        <div class="sub-question-card"><span class="q-number">3.</span> Define '<strong>Ethical Framework</strong>' in the context of AI.</div>
+        <div class="sub-question-card"><span class="q-number">4.</span> <em>Fill in the blank:</em> Bioethics is a ___________________-based ethical framework primarily used in the healthcare sector.</div>
+        <div class="sub-question-card"><span class="q-number">5.</span> State the core ethical principle of '<strong>Non-maleficence</strong>' as applied in bioethics.</div>
+        <div class="sub-question-card"><span class="q-number">6.</span> Name the three primary domains into which AI models are broadly categorized based on the type of data they process.</div>
+        <div class="sub-question-card"><span class="q-number">7.</span> What does the <strong>Deployment stage</strong> of the AI Project Cycle ensure in a real-world environment?</div>
+        <div class="sub-question-card"><span class="q-number">8.</span> If an AI algorithm discriminates against a specific group of people in its recommendations, which principle of bioethics is being violated?</div>
+        <div class="sub-question-card"><span class="q-number">9.</span> What is the main objective of the <strong>Data Exploration</strong> stage in the AI Project Cycle?</div>
+        <div class="sub-question-card"><span class="q-number">10.</span> Define the term <strong>Computer Vision (CV)</strong> domain in one sentence.</div>
+    </div>
+
+    <!-- SECTION B -->
+    <div class="section-header">
+        <span>SECTION B: SHORT ANSWER QUESTIONS</span>
+        <span class="section-badge">Total Marks: 12</span>
+    </div>
+
+    <div class="main-question-title">
+        <span>Question 2: Answer any 4 out of 6 questions.</span>
+        <span>[4 × 3 = 12 Marks]</span>
+    </div>
+
+    <div class="sub-questions">
+        <div class="sub-question-card">
+            <span class="q-number">1.</span> <strong>AI Project Cycle Data Stages:</strong>
+            <br>(i) Distinguish between the <em>Data Acquisition</em> and <em>Data Exploration</em> stages of the AI Project Cycle. Why is it important to represent acquired data visually?
+            <br>(ii) At which stage would you identify that your AI model is performing poorly on unseen data, and what action would you take next?
+            <br>(iii) Why is the AI Project Cycle described as 'cyclical' rather than 'linear'?
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">2.</span> <strong>AI Domains (Computer Vision vs. NLP):</strong>
+            <br>(i) A smart traffic management system uses cameras to detect vehicles that jump red lights and automatically issues fines. Identify the AI domain being used and justify your answer.
+            <br>(ii) A chatbot on a banking website understands and responds to customer queries in Hindi. Identify the AI domain and state two key challenges this system might face.
+            <br>(iii) Can a single AI solution employ more than one domain simultaneously? Give one real-world example to support your answer.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">3.</span> <strong>Types of Ethical Frameworks:</strong>
+            <br>(i) Differentiate between <em>sector-based</em> and <em>value-based</em> ethical frameworks with one example for each.
+            <br>(ii) A self-driving car's AI must decide whether to swerve and harm one pedestrian or stay on course and harm three passengers in an unavoidable accident scenario. Which value-based ethical framework would evaluate this by calculating the greatest good for the greatest number? Explain its application here.
+            <br>(iii) How does a <em>virtue-based framework</em> differ from a <em>rights-based framework</em> when applied to AI development?
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">4.</span> <strong>Bioethics and its Principles:</strong>
+            <br>(i) An AI diagnostic tool used in a hospital provides its risk predictions to doctors but does not disclose its underlying logic or training data to patients. Which principle of bioethics is being violated? Explain.
+            <br>(ii) Distinguish between '<em>Maleficence</em>' and '<em>Non-maleficence</em>' with an example from AI system design.
+            <br>(iii) How does the principle of '<em>Justice</em>' in bioethics require AI developers to go beyond simply avoiding harm in their systems?
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">5.</span> <strong>AI Model Evaluation & Overfitting:</strong>
+            <br>(i) What is model evaluation, and why is testing on unseen data critical before deployment?
+            <br>(ii) Explain the term 'Overfitting' in simple terms. How can it be prevented during the Modelling stage?
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">6.</span> <strong>Statistical Data & Decision Making:</strong>
+            <br>(i) Explain how statistical data models help businesses in predictive analysis.
+            <br>(ii) List two key differences between structured statistical data and unstructured visual data used in AI.
+        </div>
+    </div>
+
+    <!-- SECTION C -->
+    <div class="section-header">
+        <span>SECTION C: APPLICATION, ANALYSIS & CASE-BASED QUESTIONS</span>
+        <span class="section-badge">Total Marks: 20</span>
+    </div>
+
+    <div class="main-question-title">
+        <span>Question 3: Answer any 10 out of 12 questions.</span>
+        <span>[10 × 2 = 20 Marks]</span>
+    </div>
+
+    <div class="sub-questions">
+        <div class="sub-question-card">
+            <span class="q-number">1.</span> <strong>Recruitment Bias Scenario:</strong> An AI recruitment tool trained on historical hiring data consistently ranks male candidates higher than equally qualified female candidates.
+            <br>(i) Identify the stage in the AI Project Cycle where this bias most likely originated.
+            <br>(ii) Which AI domain is this tool primarily based on, and what type of data would it have been trained on?
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">2.</span> <strong>Healthcare Allocation:</strong> A healthcare company develops an AI model to predict the likelihood of patients defaulting on their medical bill payments and uses this as a proxy for deciding the level of treatment priority.
+            <br>(i) Which principle of bioethics does this approach most severely violate, and why?
+            <br>(ii) Suggest one corrective measure using the principle of 'Beneficence'.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">3.</span> <strong>Assertion & Reasoning (Model Evaluation):</strong>
+            <br><em>Assertion (A):</em> An AI model evaluated successfully on training data may still fail in real-world deployment.
+            <br><em>Reasoning (R):</em> The Evaluation stage in the AI Project Cycle tests the model on newly fetched, unseen data to identify gaps before deployment.
+            <ul class="options-list">
+                <li>A) Both A and R are true, and R is the correct explanation of A.</li>
+                <li>B) Both A and R are true, but R is not the correct explanation of A.</li>
+                <li>C) A is true, but R is false.</li>
+                <li>D) A is false, but R is true.</li>
+            </ul>
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">4.</span> <strong>Assertion & Reasoning (Ethical Surveillance):</strong>
+            <br><em>Assertion (A):</em> A utility-based ethical framework would fully justify an AI surveillance system that monitors all citizens to prevent crime, as it maximizes safety for the majority.
+            <br><em>Reasoning (R):</em> Utility-based frameworks evaluate actions solely on the basis of maximizing overall good without any consideration for individual rights.
+            <ul class="options-list">
+                <li>A) Both A and R are true, and R is the correct explanation of A.</li>
+                <li>B) Both A and R are true, but R is not the correct explanation of A.</li>
+                <li>C) A is true, but R is false.</li>
+                <li>D) A is false, but R is false.</li>
+            </ul>
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">5.</span> <strong>Smart Agriculture:</strong> A farmer uses a drone-based AI system that captures aerial images of his fields and identifies patches where crops are diseased. The system then recommends targeted pesticide spraying only in affected zones.
+            <br>(i) Identify the AI domain this system belongs to and name the process by which the drone images are converted into actionable recommendations.
+            <br>(ii) Name one additional application of this AI domain in a completely different sector.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">6.</span> <strong>Project Cycle Structure:</strong> Draw a neat, labelled diagram of the AI Project Cycle showing all six stages in the correct cyclical sequence. Briefly explain why the arrow from the Evaluation stage can point back to the Modelling stage.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">7.</span> <strong>Language Barrier in Moderation:</strong> An NLP-based AI content moderation tool is trained on social media posts in English to detect hate speech. When deployed in India to moderate posts in regional languages, its accuracy drops significantly.
+            <br>(i) At which stage of the AI Project Cycle should this limitation have been identified and addressed?
+            <br>(ii) Apply any ONE principle of bioethics to argue why deploying this flawed tool causes harm.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">8.</span> <strong>Domain Classification:</strong> Classify the following AI applications into their correct AI domain (<em>Statistical Data, Computer Vision, or NLP</em>) and provide a one-line justification for each:
+            <br>(i) A price prediction model for second-hand cars based on mileage, age, and service history.
+            <br>(ii) A system that automatically generates subtitles for a video by processing the spoken audio.
+            <br>(iii) A quality control system on a manufacturing line that uses cameras to detect defective products.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">9.</span> <strong>Case Scenario (Predictive Policing):</strong> A municipal corporation deploys an AI-based system to allocate police patrol resources across different neighbourhoods. The algorithm is trained on historical crime data. It consistently directs more police to economically weaker areas because those areas have historically had more recorded crime—in part because they were already over-policed. This creates a self-reinforcing feedback loop.
+            <br><em>Question:</em> Using any TWO principles of bioethics, critically evaluate whether this AI deployment is ethically justified. Suggest one concrete corrective measure for each principle you apply.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">10.</span> <strong>Case Scenario (EdTech Platform):</strong> An EdTech company launches an AI tutoring platform that adapts its teaching style and content based on each student's learning pace and performance data. The system collects detailed data on students' academic struggles, attention span patterns, and emotional responses (via facial expression analysis using computer vision). Parents and students are not explicitly informed about the extent of data being collected or how it is used to profile the student.
+            <br><em>Question:</em>
+            <br>(i) Identify the TWO AI domains being used in this platform.
+            <br>(ii) Analyse this scenario using the principle of 'Respect for Autonomy' from bioethics.
+            <br>(iii) From a rights-based value framework perspective, state ONE right of the students that is being violated and justify your answer.
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">11.</span> <strong>Autonomous Medical Diagnosis:</strong> An AI system is designed to independently diagnose skin cancer from patient photographs without requiring a doctor's final review.
+            <br>(i) Evaluate this setup using the principle of 'Non-maleficence'.
+            <br>(ii) Why is human-in-the-loop (HITL) deployment crucial in critical domains like healthcare?
+        </div>
+
+        <div class="sub-question-card">
+            <span class="q-number">12.</span> <strong>Data Privacy in Smart Cities:</strong> A smart city initiative installs facial recognition cameras across public parks to track footfall and enhance public safety. However, citizens' biometric data is stored without encryption on cloud servers.
+            <br>(i) State two ethical risks associated with this deployment.
+            <br>(ii) Which ethical framework (Sector-based or Value-based) should govern the storage of biometric data in public infrastructure?
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

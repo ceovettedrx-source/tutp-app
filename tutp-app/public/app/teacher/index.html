@@ -575,14 +575,14 @@
   }
 
   function renderQpQuestionGroup(g, index){
-    const plural = g.marksPerQuestion === 1 ? '' : 's';
     const instruction = g.chooseCount >= g.totalCount
-      ? `Answer all ${g.totalCount} question${g.totalCount === 1 ? '' : 's'}. Each carries ${g.marksPerQuestion} mark${plural}.`
-      : `Answer any ${g.chooseCount} out of the given ${g.totalCount} questions. Each carries ${g.marksPerQuestion} mark${plural}.`;
+      ? `Answer all ${g.totalCount} question${g.totalCount === 1 ? '' : 's'}.`
+      : `Answer any ${g.chooseCount} out of ${g.totalCount} questions.`;
+    const marksCalc = `[${g.chooseCount} × ${g.marksPerQuestion} = ${g.chooseCount * g.marksPerQuestion} Marks]`;
     return `
       <div class="mb-sm">
-        <p class="font-label-md text-label-md text-on-surface mb-1">Question ${index + 1}: ${instruction}</p>
-        <ol class="space-y-1 pl-5" style="list-style-type: lower-alpha;">
+        <p class="font-label-md text-label-md text-on-surface mb-1 flex justify-between gap-4"><span>Question ${index + 1}: ${instruction}</span><span class="text-on-surface-variant text-sm shrink-0">${marksCalc}</span></p>
+        <ol class="space-y-1 pl-5 list-decimal">
           ${(g.questions || []).map(q => `<li class="font-body-md text-body-md text-on-surface">${q.text}</li>`).join('')}
         </ol>
       </div>`;
