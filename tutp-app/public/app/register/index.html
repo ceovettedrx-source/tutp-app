@@ -128,6 +128,7 @@
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 </div>
 <p id="regOtpError" class="text-center text-sm text-red-600 hidden"></p>
+<p id="resendRegOtpBtn" class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline" onclick="resendRegisterOtp()">Resend Code</p>
 </div>
 <div class="flex justify-between mt-lg max-w-lg mx-auto"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" onclick="goToStep(2)"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" onclick="handleRegisterVerify()" id="verifyStep3Btn">Verify &amp; Continue <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </section>
@@ -745,6 +746,29 @@
       alert('Could not send the verification code: ' + (err.message || 'please check the number and try again.'));
     } finally {
       btn.disabled = false; btn.innerHTML = 'Continue <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  let regResendInFlight = false;
+  async function resendRegisterOtp(){
+    if (regResendInFlight) return;
+    const errEl = document.getElementById('regOtpError');
+    const resendEl = document.getElementById('resendRegOtpBtn');
+    const digits = document.getElementById('motherPhone').value.replace(/\D/g,'').slice(-10);
+    errEl.classList.add('hidden');
+    regResendInFlight = true;
+    resendEl.textContent = 'Sending…';
+    try {
+      await window.tutpSendOTP('+91' + digits);
+      document.getElementById('regOtpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
+      resendEl.textContent = 'Code sent';
+      setTimeout(() => { resendEl.textContent = 'Resend Code'; }, 3000);
+    } catch(err){
+      errEl.textContent = 'Could not resend the code: ' + (err.message || 'please try again.');
+      errEl.classList.remove('hidden');
+      resendEl.textContent = 'Resend Code';
+    } finally {
+      regResendInFlight = false;
     }
   }
 

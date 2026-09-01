@@ -129,7 +129,7 @@
 </div>
 <p id="otpError" class="text-center text-sm text-red-600 hidden"></p>
 <button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] mt-sm" type="submit" id="verifyBtn">Verify</button>
-<p class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline">Resend Code</p>
+<p class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline" id="resendCodeBtn" onclick="handleResendOtp()">Resend Code</p>
 </form>
 </section>
 
@@ -257,6 +257,27 @@
             document.getElementById('otpSentTo').textContent = 'Sent to +91 ' + lastPhoneDigits.slice(0,5) + ' ' + lastPhoneDigits.slice(5);
             const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'login-view' : 'disambiguate-view';
             transitionTo(fromId, 'otp-view', 'input');
+        }
+
+        let resendInFlight = false;
+        async function handleResendOtp(){
+            if (resendInFlight) return;
+            const errEl = document.getElementById('otpError');
+            const resendEl = document.getElementById('resendCodeBtn');
+            errEl.classList.add('hidden');
+            resendInFlight = true;
+            resendEl.textContent = 'Sending…';
+            try {
+                await window.tutpSendOTP('+91' + lastPhoneDigits);
+                resendEl.textContent = 'Code sent';
+                setTimeout(() => { resendEl.textContent = 'Resend Code'; }, 3000);
+            } catch (err) {
+                errEl.textContent = err.message || 'Could not resend the code — please try again.';
+                errEl.classList.remove('hidden');
+                resendEl.textContent = 'Resend Code';
+            } finally {
+                resendInFlight = false;
+            }
         }
 
         async function handleNamePhoneSubmit(){

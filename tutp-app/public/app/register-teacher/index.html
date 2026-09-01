@@ -108,6 +108,7 @@
 <input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
 </div>
 <p id="otpError" class="text-center text-sm text-red-600 hidden"></p>
+<p id="resendOtpBtn" class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline" onclick="resendTeacherOtp()">Resend Code</p>
 <div class="flex justify-between max-w-lg mx-auto w-full"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" type="button" onclick="backToDetails()"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="verifyBtn" onclick="handleVerifyAndSubmit()">Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span></button></div>
 </div>
 
@@ -272,6 +273,29 @@
       errEl.classList.add('text-error');
     } finally {
       btn.disabled = false; btn.innerHTML = 'Send Verification Code <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  let teacherResendInFlight = false;
+  async function resendTeacherOtp(){
+    if (teacherResendInFlight) return;
+    const errEl = document.getElementById('otpError');
+    const resendEl = document.getElementById('resendOtpBtn');
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+    teacherResendInFlight = true;
+    resendEl.textContent = 'Sending…';
+    try {
+      await window.tutpSendOTP('+91' + lastPhoneDigits);
+      document.getElementById('otpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + lastPhoneDigits.slice(0,5) + ' ' + lastPhoneDigits.slice(5);
+      resendEl.textContent = 'Code sent';
+      setTimeout(() => { resendEl.textContent = 'Resend Code'; }, 3000);
+    } catch(err){
+      errEl.textContent = 'Could not resend the code: ' + (err.message || 'please try again.');
+      errEl.classList.remove('hidden');
+      resendEl.textContent = 'Resend Code';
+    } finally {
+      teacherResendInFlight = false;
     }
   }
 
