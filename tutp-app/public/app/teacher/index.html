@@ -574,6 +574,20 @@
     document.getElementById('qpFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+  function renderQpQuestionGroup(g, index){
+    const plural = g.marksPerQuestion === 1 ? '' : 's';
+    const instruction = g.chooseCount >= g.totalCount
+      ? `Answer all ${g.totalCount} question${g.totalCount === 1 ? '' : 's'}. Each carries ${g.marksPerQuestion} mark${plural}.`
+      : `Answer any ${g.chooseCount} out of the given ${g.totalCount} questions. Each carries ${g.marksPerQuestion} mark${plural}.`;
+    return `
+      <div class="mb-sm">
+        <p class="font-label-md text-label-md text-on-surface mb-1">Question ${index + 1}: ${instruction}</p>
+        <ol class="space-y-1 pl-5" style="list-style-type: lower-alpha;">
+          ${(g.questions || []).map(q => `<li class="font-body-md text-body-md text-on-surface">${q.text}</li>`).join('')}
+        </ol>
+      </div>`;
+  }
+
   function renderQpPaper(){
     const out = document.getElementById('qpPaperOutput');
     const paper = qpResult;
@@ -585,11 +599,16 @@
       <div class="glass-card rounded-xl p-lg">
         ${meta.schoolName ? `<p class="font-label-lg text-label-lg text-on-surface text-center font-semibold mb-1">${meta.schoolName}</p>` : ''}
         <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-md">${paper.title || 'Question Paper'}</h3>
+        <div class="flex justify-between font-body-md text-body-md text-on-surface mb-md px-xs border-t border-b border-outline-variant py-2">
+          <span>Name: <span class="inline-block border-b border-on-surface-variant w-40">&nbsp;</span></span>
+          <span>Roll No.: <span class="inline-block border-b border-on-surface-variant w-24">&nbsp;</span></span>
+        </div>
         <div class="grid grid-cols-2 gap-x-md gap-y-1 font-body-md text-body-md text-on-surface mb-md px-xs">
           <div>${meta.subject ? 'Subject: ' + meta.subject : ''}</div>
           <div>Board: ${meta.boardLabel}</div>
           <div>Exam: ${meta.examPatternLabel}</div>
           <div>Date: ${meta.date}</div>
+          <div>Time Allowed: ${paper.timeAllowed || ''}</div>
           <div>Total Marks: ${totalMarks}</div>
           <div class="flex items-center gap-1">Pass Marks: <input type="number" id="qpPassMarksInput" class="w-16 h-7 px-1 rounded border border-outline-variant bg-surface-container-lowest font-body-md" value="${passMarksDefault}" min="0" max="${totalMarks}"/></div>
         </div>
@@ -610,10 +629,8 @@
         </div>
         ${(paper.sections || []).map(sec => `
           <div class="mb-md">
-            <h4 class="font-label-lg text-label-lg text-primary mb-xs">${sec.title || ''}${sec.instructions ? ' — ' + sec.instructions : ''}</h4>
-            <ol class="space-y-2 pl-5 list-decimal">
-              ${(sec.questions || []).map(q => `<li class="font-body-md text-body-md text-on-surface flex justify-between gap-4"><span>${q.text}</span><span class="text-on-surface-variant text-sm shrink-0">[${q.marks}]</span></li>`).join('')}
-            </ol>
+            <h4 class="font-label-lg text-label-lg text-primary mb-xs">${sec.title || ''} (${sec.totalMarks || 0} Marks)${sec.instructions ? ' — ' + sec.instructions : ''}</h4>
+            ${(sec.questionGroups || []).map((g, gi) => renderQpQuestionGroup(g, gi)).join('')}
           </div>`).join('')}
       </div>`;
   }

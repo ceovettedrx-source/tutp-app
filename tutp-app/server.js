@@ -2039,23 +2039,46 @@ const QP_BOARDS = {
 function buildQuestionPaperSystemPrompt(subject, tier, examPattern, boardLabel) {
   return `You are an experienced Indian school exam-paper setter. You will be given two attachments: an OLD QUESTION PAPER (a style reference) and NEW LESSON CONTENT.
 
-Step 1 — analyze the old question paper's structure: its sections, any section instructions, how many questions are in each section, each question's type (MCQ, short answer, long answer, fill-in-the-blank, etc.), and the marks assigned to each question and section.
+Step 1 — analyze the old question paper's structure:
+- Its sections. SKIP any generic/administrative preamble such as a "General Instructions" block or a Name/Roll No. line — those are added separately by our own system, never extract them as a section.
+- For each section, any section-level instructions (e.g. "1 mark questions").
+- For each section, how its questions are grouped. Many exam papers use a CHOICE pattern per group — e.g. "Answer any 4 out of the given 6 questions, each carrying 3 marks" — where more candidate questions are printed than the student is required to answer. For every group in every section, extract exactly: how many the student must answer (chooseCount), how many candidate questions are printed (totalCount — equal to chooseCount when the section has no choice, i.e. every question is compulsory), and the marks each one carries (marksPerQuestion). Do not flatten a choice group into a plain compulsory list — the choice is part of the structure and must be preserved.
+- The time allowed for the whole exam, only if it is printed on the old paper (e.g. "Time: 2 Hours"). If it is not stated, report null — never guess a time.
 
-Step 2 — using that exact structure (same sections, same question counts per section, same question types, same marks distribution), write ONE new question paper based on the NEW LESSON CONTENT (not the old paper's content) at this difficulty tier: "${tier}" — ${QP_TIERS[tier]}.
+Step 2 — using that exact structure (same sections, same groups, same chooseCount/totalCount/marksPerQuestion per group), write ONE new question paper based on the NEW LESSON CONTENT (not the old paper's content) at this difficulty tier: "${tier}" — ${QP_TIERS[tier]}. For every group, write exactly totalCount NEW candidate questions, not just chooseCount — if the old paper offered 6 candidates for 4 required answers, your new paper must also offer 6 new candidates for 4 required answers.
 
-This paper is for a: ${QP_EXAM_PATTERNS[examPattern]}. Let this shape the scope and tone of the questions you write — a Weekly Test should feel narrower and lower-stakes than a Final Exam, even at the same difficulty tier — but it does NOT change the structure: the OLD QUESTION PAPER's sections, question counts, and marks distribution from Step 1 are still what you must follow exactly.
+This paper is for a: ${QP_EXAM_PATTERNS[examPattern]}. Let this shape the scope and tone of the questions you write — a Weekly Test should feel narrower and lower-stakes than a Final Exam, even at the same difficulty tier — but it does NOT change the structure: the OLD QUESTION PAPER's sections and groups from Step 1 are still what you must follow exactly.
 
 This paper is being written for: ${boardLabel}. Let this shape terminology and question phrasing typical of that board's exams, but it does NOT change the structure either — the OLD QUESTION PAPER's structure from Step 1 remains authoritative.
 
-The paper must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves reflect this tier's difficulty, the exam pattern's scope/tone, and the board's phrasing conventions.
-
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]}${subject ? `\nSubject: ${subject}.` : ''}`;
+{"title":"string","subject":"string","timeAllowedFromOldPaper":"string or null","sections":[{"title":"string","instructions":"string or null","questionGroups":[{"chooseCount":number,"totalCount":number,"marksPerQuestion":number,"questions":[{"text":"string"}]}]}]}${subject ? `\nSubject: ${subject}.` : ''}`;
 }
 
 function isValidQpContentBlock(block) {
   return block && (block.type === 'image' || block.type === 'document') &&
     block.source && block.source.type === 'base64' && block.source.media_type && block.source.data;
+}
+
+// Defensive net for BUG 1: catches an administrative-preamble section that
+// slips through despite the Step 1 instruction to skip it (e.g. the old
+// paper's own "General Instructions" block echoed back as a fake section).
+function isAdministrativeSectionTitle(title) {
+  const t = String(title || '').trim().replace(/:$/, '').toLowerCase();
+  return t === 'general instructions' || t === 'instructions' || t === 'special instructions' ||
+    t === 'name' || t === 'roll no' || t === 'roll no.' || t === 'roll number';
+}
+
+// Fallback when the old paper doesn't state a time allowed: ~1 minute per
+// mark, rounded up to the nearest 30 minutes — a standard rule-of-thumb for
+// written exams. Deterministic, not left to the model.
+function computeDefaultTimeAllowed(totalMarks) {
+  const minutes = Math.ceil((totalMarks || 0) / 30) * 30 || 30;
+  const hours = Math.floor(minutes / 60);
+  const rem = minutes % 60;
+  if (hours === 0) return `${minutes} minutes`;
+  if (rem === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+  return `${hours} hour${hours > 1 ? 's' : ''} ${rem} minutes`;
 }
 
 app.post('/api/question-paper-generate', async (req, res) => {
@@ -2122,6 +2145,27 @@ app.post('/api/question-paper-generate', async (req, res) => {
       console.error('Could not parse question-paper JSON:', tier, parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
       return res.status(502).json({ error: 'Claude returned an unexpected response — please try again.' });
     }
+
+    // Drop any administrative-preamble section that slipped through (BUG 1
+    // defensive net), then compute marks totals and the time-allowed
+    // fallback ourselves rather than trusting the model's arithmetic.
+    paper.sections = (paper.sections || [])
+      .filter(sec => !isAdministrativeSectionTitle(sec.title))
+      .map(sec => {
+        const questionGroups = (Array.isArray(sec.questionGroups) ? sec.questionGroups : []).map(g => {
+          const chooseCount = Number(g.chooseCount) || 0;
+          const totalCount = Number(g.totalCount) || chooseCount;
+          const marksPerQuestion = Number(g.marksPerQuestion) || 0;
+          return { chooseCount, totalCount, marksPerQuestion, questions: Array.isArray(g.questions) ? g.questions : [] };
+        });
+        const totalMarks = questionGroups.reduce((sum, g) => sum + g.chooseCount * g.marksPerQuestion, 0);
+        return { ...sec, questionGroups, totalMarks };
+      });
+    paper.totalMarks = paper.sections.reduce((sum, sec) => sum + (sec.totalMarks || 0), 0);
+    paper.timeAllowed = paper.timeAllowedFromOldPaper && String(paper.timeAllowedFromOldPaper).trim()
+      ? String(paper.timeAllowedFromOldPaper).trim()
+      : computeDefaultTimeAllowed(paper.totalMarks);
+    delete paper.timeAllowedFromOldPaper;
 
     res.json({ ok: true, tier, paper });
   } catch (err) {
