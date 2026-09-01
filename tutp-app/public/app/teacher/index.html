@@ -20,6 +20,9 @@
           body * { visibility: hidden; }
           #qpPaperOutput, #qpPaperOutput * { visibility: visible; }
           #qpPaperOutput { position: absolute; top: 0; left: 0; width: 100%; }
+          .qp-section-header { background: #f1f5f9 !important; color: #000 !important; border: 1px solid #000; }
+          .qp-section-badge { background: none !important; color: #000 !important; font-weight: bold; border: 1px solid #000; }
+          .qp-question-card { border: 1px solid #444 !important; page-break-inside: avoid; }
         }
 </style>
 </head>
@@ -580,11 +583,11 @@
       : `Answer any ${g.chooseCount} out of ${g.totalCount} questions.`;
     const marksCalc = `[${g.chooseCount} × ${g.marksPerQuestion} = ${g.chooseCount * g.marksPerQuestion} Marks]`;
     return `
-      <div class="mb-sm">
-        <p class="font-label-md text-label-md text-on-surface mb-1 flex justify-between gap-4"><span>Question ${index + 1}: ${instruction}</span><span class="text-on-surface-variant text-sm shrink-0">${marksCalc}</span></p>
-        <ol class="space-y-1 pl-5 list-decimal">
-          ${(g.questions || []).map(q => `<li class="font-body-md text-body-md text-on-surface">${q.text}</li>`).join('')}
-        </ol>
+      <div class="mb-md">
+        <p class="font-label-md text-label-md text-primary mb-2 flex justify-between gap-4 border-b border-outline-variant pb-1"><span>Question ${index + 1}: ${instruction}</span><span class="text-on-surface-variant shrink-0">${marksCalc}</span></p>
+        <div class="space-y-2">
+          ${(g.questions || []).map((q, qi) => `<div class="qp-question-card rounded-lg border border-outline-variant p-3"><span class="font-label-md text-label-md text-primary mr-1">${qi + 1}.</span><span class="font-body-md text-body-md text-on-surface">${q.text}</span></div>`).join('')}
+        </div>
       </div>`;
   }
 
@@ -595,22 +598,32 @@
     if (!paper || !meta) { out.innerHTML = ''; return; }
     const totalMarks = paper.totalMarks || 0;
     const passMarksDefault = totalMarks ? Math.round(totalMarks * 0.33) : 0;
+    // Bug 1: the first General Instructions bullet used to unconditionally
+    // claim "All questions are compulsory.", which is false — and visibly
+    // self-contradicting right above the section text — whenever any group
+    // actually has a real choice (chooseCount < totalCount), the common case.
+    const hasAnyChoice = (paper.sections || []).some(sec => (sec.questionGroups || []).some(g => g.chooseCount < g.totalCount));
+    const firstInstructionLine = hasAnyChoice
+      ? 'Attempt the required number of questions as specified in each section.'
+      : 'All questions are compulsory.';
+    const infoField = (label, valueHtml) => `
+          <div class="flex items-center w-full">
+            <span class="w-[46%] font-label-md text-label-md text-on-surface">${label}</span>
+            <span class="w-[8%] text-center font-label-md text-label-md text-primary">:</span>
+            <span class="w-[46%] font-body-md text-body-md text-on-surface">${valueHtml}</span>
+          </div>`;
+    const infoRow = (a, b) => `<div class="grid grid-cols-2 gap-x-md py-1.5 px-3">${a}${b || ''}</div>`;
+    const blankLine = `<span class="inline-block border-b border-on-surface-variant w-full">&nbsp;</span>`;
     out.innerHTML = `
       <div class="glass-card rounded-xl p-lg">
         ${meta.schoolName ? `<p class="font-label-lg text-label-lg text-on-surface text-center font-semibold mb-1">${meta.schoolName}</p>` : ''}
         <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-md">${paper.title || 'Question Paper'}</h3>
-        <div class="flex justify-between font-body-md text-body-md text-on-surface mb-md px-xs border-t border-b border-outline-variant py-2">
-          <span>Name: <span class="inline-block border-b border-on-surface-variant w-40">&nbsp;</span></span>
-          <span>Roll No.: <span class="inline-block border-b border-on-surface-variant w-24">&nbsp;</span></span>
-        </div>
-        <div class="grid grid-cols-2 gap-x-md gap-y-1 font-body-md text-body-md text-on-surface mb-md px-xs">
-          <div>${meta.subject ? 'Subject: ' + meta.subject : ''}</div>
-          <div>Board: ${meta.boardLabel}</div>
-          <div>Exam: ${meta.examPatternLabel}</div>
-          <div>Date: ${meta.date}</div>
-          <div>Time Allowed: ${paper.timeAllowed || ''}</div>
-          <div>Total Marks: ${totalMarks}</div>
-          <div class="flex items-center gap-1">Pass Marks: <input type="number" id="qpPassMarksInput" class="w-16 h-7 px-1 rounded border border-outline-variant bg-surface-container-lowest font-body-md" value="${passMarksDefault}" min="0" max="${totalMarks}"/></div>
+        <div class="rounded-lg border border-outline-variant bg-surface-container-low divide-y divide-outline-variant mb-md">
+          ${infoRow(infoField('Name', blankLine), infoField('Roll No.', blankLine))}
+          ${infoRow(infoField('Subject', meta.subject || ''), infoField('Board', meta.boardLabel || ''))}
+          ${infoRow(infoField('Exam', meta.examPatternLabel || ''), infoField('Date', meta.date || ''))}
+          ${infoRow(infoField('Time Allowed', paper.timeAllowed || ''), infoField('Total Marks', String(totalMarks)))}
+          ${infoRow(infoField('Pass Marks', `<input type="number" id="qpPassMarksInput" class="w-16 h-7 px-1 rounded border border-outline-variant bg-surface-container-lowest font-body-md" value="${passMarksDefault}" min="0" max="${totalMarks}"/>`))}
         </div>
         ${meta.specialInstructions ? `
         <div class="mb-md p-3 rounded-lg border border-outline-variant">
@@ -620,7 +633,7 @@
         <div class="mb-md p-3 rounded-lg border border-outline-variant">
           <h4 class="font-label-lg text-label-lg text-primary mb-xs">General Instructions</h4>
           <ol class="space-y-1 pl-5 list-decimal font-body-md text-body-md text-on-surface">
-            <li>All questions are compulsory.</li>
+            <li>${firstInstructionLine}</li>
             <li>Marks allotted to each question are indicated in square brackets.</li>
             <li>Read each question carefully before attempting it.</li>
             <li>Write your answers clearly and legibly.</li>
@@ -629,7 +642,10 @@
         </div>
         ${(paper.sections || []).map(sec => `
           <div class="mb-md">
-            <h4 class="font-label-lg text-label-lg text-primary mb-xs">${sec.title || ''} (${sec.totalMarks || 0} Marks)${sec.instructions ? ' — ' + sec.instructions : ''}</h4>
+            <div class="qp-section-header bg-primary text-on-primary rounded-lg px-4 py-2 mb-sm flex items-center justify-between gap-4">
+              <span class="font-label-lg text-label-lg uppercase">${sec.title || ''}${sec.instructions ? ' — ' + sec.instructions : ''}</span>
+              <span class="qp-section-badge bg-white/20 rounded-full px-3 py-0.5 font-label-md text-label-md shrink-0">${sec.totalMarks || 0} Marks</span>
+            </div>
             ${(sec.questionGroups || []).map((g, gi) => renderQpQuestionGroup(g, gi)).join('')}
           </div>`).join('')}
       </div>`;
