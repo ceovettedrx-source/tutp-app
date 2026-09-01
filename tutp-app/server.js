@@ -2064,9 +2064,14 @@ function isValidQpContentBlock(block) {
 // slips through despite the Step 1 instruction to skip it (e.g. the old
 // paper's own "General Instructions" block echoed back as a fake section).
 function isAdministrativeSectionTitle(title) {
-  const t = String(title || '').trim().replace(/:$/, '').toLowerCase();
-  return t === 'general instructions' || t === 'instructions' || t === 'special instructions' ||
-    t === 'name' || t === 'roll no' || t === 'roll no.' || t === 'roll number';
+  const t = String(title || '').trim().toLowerCase();
+  // Substring match, not exact equality: no real exam section title contains
+  // the word "instruction" — that word only ever belongs to a preamble.
+  // Exact equality was too brittle (missed e.g. "GENERAL INSTRUCTIONS TO
+  // CANDIDATES") and let a duplicate slip through to print.
+  if (t.includes('instruction')) return true;
+  return t === 'name' || t === 'roll no' || t === 'roll no.' || t === 'roll number' ||
+    t === 'name / roll no' || t === 'name and roll no';
 }
 
 // Fallback when the old paper doesn't state a time allowed: ~1 minute per
@@ -2145,6 +2150,8 @@ app.post('/api/question-paper-generate', async (req, res) => {
       console.error('Could not parse question-paper JSON:', tier, parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
       return res.status(502).json({ error: 'Claude returned an unexpected response — please try again.' });
     }
+
+    console.log('[QP-DEBUG] RAW pre-post-processing paper.sections:', JSON.stringify(paper.sections));
 
     // Drop any administrative-preamble section that slipped through (BUG 1
     // defensive net), then compute marks totals and the time-allowed
