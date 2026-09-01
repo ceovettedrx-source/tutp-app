@@ -2027,7 +2027,16 @@ const QP_EXAM_PATTERNS = {
   final: 'Final Exam — full-year cumulative scope; the highest-stakes exam of the year'
 };
 
-function buildQuestionPaperSystemPrompt(subject, tier, examPattern) {
+// Board, like exam pattern, is tone/terminology guidance only — it does NOT
+// define the paper's structure. 'other' uses the teacher's own free-text
+// board name in place of a description below.
+const QP_BOARDS = {
+  cbse: 'CBSE (Central Board of Secondary Education)',
+  state_board: 'a State Board',
+  icse: 'ICSE (Indian Certificate of Secondary Education)'
+};
+
+function buildQuestionPaperSystemPrompt(subject, tier, examPattern, boardLabel) {
   return `You are an experienced Indian school exam-paper setter. You will be given two attachments: an OLD QUESTION PAPER (a style reference) and NEW LESSON CONTENT.
 
 Step 1 — analyze the old question paper's structure: its sections, any section instructions, how many questions are in each section, each question's type (MCQ, short answer, long answer, fill-in-the-blank, etc.), and the marks assigned to each question and section.
@@ -2036,7 +2045,9 @@ Step 2 — using that exact structure (same sections, same question counts per s
 
 This paper is for a: ${QP_EXAM_PATTERNS[examPattern]}. Let this shape the scope and tone of the questions you write — a Weekly Test should feel narrower and lower-stakes than a Final Exam, even at the same difficulty tier — but it does NOT change the structure: the OLD QUESTION PAPER's sections, question counts, and marks distribution from Step 1 are still what you must follow exactly.
 
-The paper must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves reflect this tier's difficulty and the exam pattern's scope/tone.
+This paper is being written for: ${boardLabel}. Let this shape terminology and question phrasing typical of that board's exams, but it does NOT change the structure either — the OLD QUESTION PAPER's structure from Step 1 remains authoritative.
+
+The paper must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves reflect this tier's difficulty, the exam pattern's scope/tone, and the board's phrasing conventions.
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]}${subject ? `\nSubject: ${subject}.` : ''}`;
@@ -2052,18 +2063,27 @@ app.post('/api/question-paper-generate', async (req, res) => {
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
-    const { subject, lessonContent, oldPaper, tier, examPattern } = req.body || {};
+    const { subject, lessonContent, oldPaper, tier, examPattern, board, boardOther } = req.body || {};
     if (!Object.prototype.hasOwnProperty.call(QP_TIERS, tier)) {
       return res.status(400).json({ error: 'Missing or invalid tier' });
     }
     if (!Object.prototype.hasOwnProperty.call(QP_EXAM_PATTERNS, examPattern)) {
       return res.status(400).json({ error: 'Missing or invalid examPattern' });
     }
+    let boardLabel;
+    if (board === 'other') {
+      boardLabel = boardOther ? String(boardOther).trim().slice(0, 60) : '';
+      if (!boardLabel) return res.status(400).json({ error: 'Missing board name for "Other"' });
+    } else if (Object.prototype.hasOwnProperty.call(QP_BOARDS, board)) {
+      boardLabel = QP_BOARDS[board];
+    } else {
+      return res.status(400).json({ error: 'Missing or invalid board' });
+    }
     if (!isValidQpContentBlock(lessonContent) || !isValidQpContentBlock(oldPaper)) {
       return res.status(400).json({ error: 'Missing or invalid lessonContent/oldPaper attachment' });
     }
 
-    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, tier, examPattern);
+    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, tier, examPattern, boardLabel);
     const userContent = [
       { type: 'text', text: 'OLD QUESTION PAPER (style reference):' },
       oldPaper,

@@ -146,6 +146,17 @@
 </div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Subject <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="qpSubject" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Mathematics" type="text"/></div>
 <div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Board <span class="text-error">*</span> <span class="font-caption text-caption text-on-surface-variant">(this test only — not saved to your profile)</span></label>
+<select id="qpBoard" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" onchange="handleQpBoardChange()">
+<option value="" selected disabled>Select board…</option>
+<option value="cbse">CBSE</option>
+<option value="state_board">State Board</option>
+<option value="icse">ICSE</option>
+<option value="other">Other</option>
+</select>
+<input id="qpBoardOther" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md mt-xs" placeholder="Enter board name" type="text" oninput="updateQpGenerateState()" hidden/>
+</div>
+<div>
 <label class="font-label-md text-label-md text-on-surface mb-xs block">Exam Pattern <span class="text-error">*</span></label>
 <select id="qpExamPattern" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" onchange="updateQpGenerateState()">
 <option value="" selected disabled>Select exam pattern…</option>
@@ -161,6 +172,7 @@
 <label class="font-label-md text-label-md text-on-surface mb-xs block">Difficulty Tier <span class="text-error">*</span></label>
 <div class="flex gap-2" id="qpTierPills"></div>
 </div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Special Instructions <span class="font-caption text-caption text-on-surface-variant">(optional — printed on the paper as-is, e.g. "Calculators are not allowed")</span></label><textarea id="qpSpecialInstructions" class="w-full px-3 py-2 rounded-lg soft-input bg-surface-container-lowest font-body-md" rows="2" placeholder="e.g. Calculators are not allowed for this test"></textarea></div>
 <p class="text-center font-label-md text-sm" id="qpError"></p>
 <button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center disabled:opacity-50" id="qpGenerateBtn" disabled onclick="generateQuestionPaper()">Generate Question Paper</button>
 <p class="text-center font-caption text-caption text-on-surface-variant" id="qpBusyNote" hidden>Generating your paper — this may take a minute.</p>
@@ -171,7 +183,7 @@
 <div class="flex items-center justify-between px-xs">
 <h3 class="font-headline-md text-headline-md text-on-surface">Generated Paper</h3>
 <div class="flex items-center gap-4">
-<button class="text-primary font-label-md text-sm hover:underline" onclick="resetQpSelection()">Generate a different tier/pattern</button>
+<button class="text-primary font-label-md text-sm hover:underline" onclick="resetQpSelection()">Generate a different paper</button>
 <button class="text-primary font-label-md text-sm hover:underline" onclick="window.print()">Print / Save as PDF</button>
 </div>
 </div>
@@ -196,6 +208,7 @@
 
   let attachmentUrl = null;
   let classSections = [];
+  let teacherSchoolName = '';
 
   async function loadTeacher(){
     try {
@@ -203,6 +216,7 @@
       if (!res.ok) { window.location.href = '/app/login/'; return; }
       const data = await res.json();
       document.getElementById('teacherGreeting').textContent = data.name ? ('Hi, ' + data.name) : 'Teacher';
+      teacherSchoolName = data.school_name || '';
     } catch (err) {
       console.error('[teacher] Could not load teacher profile:', err);
       document.getElementById('teacherGreeting').textContent = 'Teacher';
@@ -424,10 +438,13 @@
   let qpLessonContent = null;
   let qpOldPaperContent = null;
   let qpResult = null;
+  let qpMeta = null; // snapshot taken at generation time: schoolName, subject, boardLabel, examPatternLabel, date, specialInstructions
   let qpSelectedTier = null;
   let qpSelectedPattern = null;
 
   const QP_TIER_LIST = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
+  const QP_BOARD_LABELS = { cbse: 'CBSE', state_board: 'State Board', icse: 'ICSE' };
+  const QP_PATTERN_LABELS = { weekly: 'Weekly Test', monthly: 'Monthly Test', quarterly: '3-Month Exam', half_yearly: '6-Month Exam', pre_final: 'Pre-Final', final: 'Final' };
 
   function fileToContentBlock(file){
     return new Promise((resolve, reject) => {
@@ -471,9 +488,17 @@
     updateQpGenerateState();
   }
 
+  function handleQpBoardChange(){
+    document.getElementById('qpBoardOther').hidden = document.getElementById('qpBoard').value !== 'other';
+    updateQpGenerateState();
+  }
+
   function updateQpGenerateState(){
     qpSelectedPattern = document.getElementById('qpExamPattern').value || null;
-    const ready = !!(qpLessonContent && qpOldPaperContent && qpSelectedTier && qpSelectedPattern);
+    const board = document.getElementById('qpBoard').value;
+    const boardOther = document.getElementById('qpBoardOther').value.trim();
+    const boardReady = !!board && (board !== 'other' || !!boardOther);
+    const ready = !!(qpLessonContent && qpOldPaperContent && qpSelectedTier && qpSelectedPattern && boardReady);
     document.getElementById('qpGenerateBtn').disabled = !ready;
   }
 
@@ -483,6 +508,10 @@
     errEl.textContent = '';
     errEl.className = 'text-center font-label-md text-sm';
 
+    const board = document.getElementById('qpBoard').value;
+    const boardOther = document.getElementById('qpBoardOther').value.trim();
+    const subject = document.getElementById('qpSubject').value.trim() || null;
+
     setQpBusy(true, btn);
     try {
       const res = await fetch('/api/question-paper-generate', {
@@ -491,7 +520,9 @@
         body: JSON.stringify({
           tier: qpSelectedTier,
           examPattern: qpSelectedPattern,
-          subject: document.getElementById('qpSubject').value.trim() || null,
+          board,
+          boardOther: board === 'other' ? boardOther : undefined,
+          subject,
           lessonContent: qpLessonContent,
           oldPaper: qpOldPaperContent
         })
@@ -499,6 +530,16 @@
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not generate the paper');
       qpResult = data.paper;
+      // Special Instructions is captured here and never sent to the API above —
+      // it's a pure print-layer passthrough, rendered as-is on the paper.
+      qpMeta = {
+        schoolName: teacherSchoolName,
+        subject,
+        boardLabel: board === 'other' ? boardOther : QP_BOARD_LABELS[board],
+        examPatternLabel: QP_PATTERN_LABELS[qpSelectedPattern],
+        date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
+        specialInstructions: document.getElementById('qpSpecialInstructions').value.trim()
+      };
       renderQpPaper();
       document.getElementById('qpResultsSection').hidden = false;
     } catch (err) {
@@ -522,7 +563,11 @@
     qpSelectedTier = null;
     qpSelectedPattern = null;
     qpResult = null;
+    qpMeta = null;
     document.getElementById('qpExamPattern').value = '';
+    document.getElementById('qpBoard').value = '';
+    document.getElementById('qpBoardOther').value = '';
+    document.getElementById('qpBoardOther').hidden = true;
     document.getElementById('qpResultsSection').hidden = true;
     renderQpTierPills();
     updateQpGenerateState();
@@ -532,12 +577,37 @@
   function renderQpPaper(){
     const out = document.getElementById('qpPaperOutput');
     const paper = qpResult;
-    if (!paper) { out.innerHTML = ''; return; }
-    const meta = [paper.subject, paper.totalMarks ? ('Total Marks: ' + paper.totalMarks) : null].filter(Boolean).join(' · ');
+    const meta = qpMeta;
+    if (!paper || !meta) { out.innerHTML = ''; return; }
+    const totalMarks = paper.totalMarks || 0;
+    const passMarksDefault = totalMarks ? Math.round(totalMarks * 0.33) : 0;
     out.innerHTML = `
       <div class="glass-card rounded-xl p-lg">
-        <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-1">${paper.title || 'Question Paper'}</h3>
-        ${meta ? `<p class="font-caption text-caption text-on-surface-variant text-center mb-md">${meta}</p>` : ''}
+        ${meta.schoolName ? `<p class="font-label-lg text-label-lg text-on-surface text-center font-semibold mb-1">${meta.schoolName}</p>` : ''}
+        <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-md">${paper.title || 'Question Paper'}</h3>
+        <div class="grid grid-cols-2 gap-x-md gap-y-1 font-body-md text-body-md text-on-surface mb-md px-xs">
+          <div>${meta.subject ? 'Subject: ' + meta.subject : ''}</div>
+          <div>Board: ${meta.boardLabel}</div>
+          <div>Exam: ${meta.examPatternLabel}</div>
+          <div>Date: ${meta.date}</div>
+          <div>Total Marks: ${totalMarks}</div>
+          <div class="flex items-center gap-1">Pass Marks: <input type="number" id="qpPassMarksInput" class="w-16 h-7 px-1 rounded border border-outline-variant bg-surface-container-lowest font-body-md" value="${passMarksDefault}" min="0" max="${totalMarks}"/></div>
+        </div>
+        ${meta.specialInstructions ? `
+        <div class="mb-md p-3 rounded-lg border border-outline-variant">
+          <h4 class="font-label-lg text-label-lg text-primary mb-xs">Special Instructions</h4>
+          <p class="font-body-md text-body-md text-on-surface whitespace-pre-line">${meta.specialInstructions}</p>
+        </div>` : ''}
+        <div class="mb-md p-3 rounded-lg border border-outline-variant">
+          <h4 class="font-label-lg text-label-lg text-primary mb-xs">General Instructions</h4>
+          <ol class="space-y-1 pl-5 list-decimal font-body-md text-body-md text-on-surface">
+            <li>All questions are compulsory.</li>
+            <li>Marks allotted to each question are indicated in square brackets.</li>
+            <li>Read each question carefully before attempting it.</li>
+            <li>Write your answers clearly and legibly.</li>
+            <li>Do any rough work separately, not in the answer space.</li>
+          </ol>
+        </div>
         ${(paper.sections || []).map(sec => `
           <div class="mb-md">
             <h4 class="font-label-lg text-label-lg text-primary mb-xs">${sec.title || ''}${sec.instructions ? ' — ' + sec.instructions : ''}</h4>
