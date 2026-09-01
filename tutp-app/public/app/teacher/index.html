@@ -146,7 +146,8 @@
 </div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Subject <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="qpSubject" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Mathematics" type="text"/></div>
 <p class="text-center font-label-md text-sm" id="qpError"></p>
-<button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors" id="qpGenerateBtn" onclick="generateQuestionPapers()">Generate Question Papers</button>
+<button class="w-full min-h-[52px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors flex items-center justify-center" id="qpGenerateBtn" onclick="generateQuestionPapers()">Generate Question Papers</button>
+<p class="text-center font-caption text-caption text-on-surface-variant" id="qpBusyNote" hidden>Generating your papers — this may take a minute. Each paper will appear as it's ready.</p>
 </div>
 </section>
 
@@ -435,48 +436,81 @@
     }
   }
 
+  const QP_TIER_LIST = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
+  let qpTierStatus = {}; // tier -> 'pending' | 'done' | 'error'
+
   async function generateQuestionPapers(){
     const errEl = document.getElementById('qpError');
     const btn = document.getElementById('qpGenerateBtn');
     errEl.textContent = '';
     errEl.className = 'text-center font-label-md text-sm';
-    document.getElementById('qpResultsSection').hidden = true;
 
     if (!qpLessonContent) { errEl.textContent = 'Please attach the lesson content.'; errEl.classList.add('text-error'); return; }
     if (!qpOldPaperContent) { errEl.textContent = 'Please attach an old question paper as a style reference.'; errEl.classList.add('text-error'); return; }
 
-    btn.disabled = true; btn.textContent = 'Generating…';
+    qpResult = {};
+    qpTierStatus = { logical: 'pending', methodology: 'pending', tough: 'pending' };
+    qpActiveTier = 'logical';
+    document.getElementById('qpResultsSection').hidden = false;
+    renderQpTierTabs();
+    renderQpPaper();
+    setQpBusy(true, btn);
+
+    const subject = document.getElementById('qpSubject').value.trim() || null;
+    await Promise.allSettled(QP_TIER_LIST.map(([tier]) => fetchQpTier(tier, subject)));
+
+    setQpBusy(false, btn);
+    if (Object.values(qpTierStatus).every(s => s === 'error')) {
+      errEl.textContent = 'Could not generate any of the papers — please try again.';
+      errEl.classList.add('text-error');
+    }
+  }
+
+  function setQpBusy(busy, btn){
+    btn.disabled = busy;
+    btn.innerHTML = busy
+      ? '<span class="inline-block h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin align-[-2px] mr-2"></span>Generating…'
+      : 'Generate Question Papers';
+    document.getElementById('qpBusyNote').hidden = !busy;
+  }
+
+  async function fetchQpTier(tier, subject){
     try {
       const res = await fetch('/api/question-paper-generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          subject: document.getElementById('qpSubject').value.trim() || null,
-          lessonContent: qpLessonContent,
-          oldPaper: qpOldPaperContent
-        })
+        body: JSON.stringify({ tier, subject, lessonContent: qpLessonContent, oldPaper: qpOldPaperContent })
       });
       const data = await res.json();
-      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not generate question papers');
-      qpResult = data.papers;
-      qpActiveTier = 'logical';
-      renderQpTierTabs();
-      renderQpPaper();
-      document.getElementById('qpResultsSection').hidden = false;
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not generate this paper');
+      qpResult[tier] = data.paper;
+      qpTierStatus[tier] = 'done';
     } catch (err) {
-      errEl.textContent = err.message || 'Could not generate question papers — please try again.';
-      errEl.classList.add('text-error');
-    } finally {
-      btn.disabled = false; btn.textContent = 'Generate Question Papers';
+      console.error('[teacher] question paper tier failed:', tier, err);
+      qpTierStatus[tier] = 'error';
     }
+    renderQpTierTabs();
+    if (qpActiveTier === tier) renderQpPaper();
+  }
+
+  function retryQpTier(tier){
+    qpTierStatus[tier] = 'pending';
+    renderQpTierTabs();
+    if (qpActiveTier === tier) renderQpPaper();
+    fetchQpTier(tier, document.getElementById('qpSubject').value.trim() || null);
   }
 
   function renderQpTierTabs(){
     const wrap = document.getElementById('qpTierTabs');
-    const tiers = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
-    wrap.innerHTML = tiers.map(([key, label]) => {
+    wrap.innerHTML = QP_TIER_LIST.map(([key, label]) => {
       const active = key === qpActiveTier;
-      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpTier('${key}')">${label}</button>`;
+      const status = qpTierStatus[key];
+      const icon = status === 'pending'
+        ? '<span class="inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>'
+        : status === 'error' ? '<span class="material-symbols-outlined text-base leading-none">error</span>'
+        : status === 'done' ? '<span class="material-symbols-outlined text-base leading-none">check</span>'
+        : '';
+      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors flex items-center gap-1.5 ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpTier('${key}')">${icon}${label}</button>`;
     }).join('');
   }
 
@@ -488,6 +522,15 @@
 
   function renderQpPaper(){
     const out = document.getElementById('qpPaperOutput');
+    const status = qpTierStatus[qpActiveTier];
+    if (status === 'pending') {
+      out.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs flex items-center gap-2"><span class="inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full animate-spin"></span>Generating this paper — this may take a minute…</p>';
+      return;
+    }
+    if (status === 'error') {
+      out.innerHTML = `<p class="font-body-md text-body-md text-error px-xs">Could not generate this paper. <button type="button" class="text-primary hover:underline" onclick="retryQpTier('${qpActiveTier}')">Retry</button></p>`;
+      return;
+    }
     const paper = qpResult ? qpResult[qpActiveTier] : null;
     if (!paper) { out.innerHTML = '<p class="font-body-md text-body-md text-on-surface-variant px-xs">No paper generated for this tier.</p>'; return; }
     const meta = [paper.subject, paper.totalMarks ? ('Total Marks: ' + paper.totalMarks) : null].filter(Boolean).join(' · ');

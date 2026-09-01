@@ -1994,28 +1994,37 @@ app.post('/api/homework-explain', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// Phase 3.6: AI Question Paper Generator. Stateless, single-shot — the two
-// attachments (lesson content + an old paper as a style reference) travel
-// as inline base64 vision/document content blocks straight through to
-// Claude, same as /api/homework's demo pattern, and nothing is persisted.
+// Phase 3.6: AI Question Paper Generator. Stateless — the two attachments
+// (lesson content + an old paper as a style reference) travel as inline
+// base64 vision/document content blocks straight through to Claude, same
+// as /api/homework's demo pattern, and nothing is persisted.
 // Prompt is built server-side (like /api/homework-explain, not left to the
 // client like /api/homework) so the extraction/generation instructions stay
 // centralized and can't be tampered with by the caller.
+//
+// One tier per call (not all 3 tiers in a single response): a combined
+// call was truncating mid-generation even at max_tokens 8000 shared across
+// all three papers, since each full tiered paper can itself need more than
+// that. The frontend fires one request per tier in parallel and renders
+// each as it completes.
 // ------------------------------------------------------------------
-function buildQuestionPaperSystemPrompt(subject) {
+const QP_TIERS = {
+  logical: 'questions that test conceptual/logical reasoning and application of the ideas in the lesson content, not rote recall',
+  methodology: 'questions that test correct step-by-step procedure/method for solving problems from the lesson content',
+  tough: 'higher cognitive demand — multi-step, less scaffolding, application-heavy questions that stretch a strong student'
+};
+
+function buildQuestionPaperSystemPrompt(subject, tier) {
   return `You are an experienced Indian school exam-paper setter. You will be given two attachments: an OLD QUESTION PAPER (a style reference) and NEW LESSON CONTENT.
 
 Step 1 — analyze the old question paper's structure: its sections, any section instructions, how many questions are in each section, each question's type (MCQ, short answer, long answer, fill-in-the-blank, etc.), and the marks assigned to each question and section.
 
-Step 2 — using that exact structure (same sections, same question counts per section, same question types, same marks distribution), write three NEW question papers based on the NEW LESSON CONTENT (not the old paper's content) at three difficulty tiers:
-- "logical": questions that test conceptual/logical reasoning and application of the ideas in the lesson content, not rote recall.
-- "methodology": questions that test correct step-by-step procedure/method for solving problems from the lesson content.
-- "tough": higher cognitive demand — multi-step, less scaffolding, application-heavy questions that stretch a strong student.
+Step 2 — using that exact structure (same sections, same question counts per section, same question types, same marks distribution), write ONE new question paper based on the NEW LESSON CONTENT (not the old paper's content) at this difficulty tier: "${tier}" — ${QP_TIERS[tier]}.
 
-Every tier must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves and their difficulty differ between tiers.
+The paper must follow the identical structure extracted in Step 1 (same sections, same marks, same question counts per section) — only the questions themselves reflect this tier's difficulty.
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"papers":{"logical":{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]},"methodology":{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]},"tough":{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]}}}${subject ? `\nSubject: ${subject}.` : ''}`;
+{"title":"string","subject":"string","totalMarks":number,"sections":[{"title":"string","instructions":"string or null","questions":[{"text":"string","marks":number}]}]}${subject ? `\nSubject: ${subject}.` : ''}`;
 }
 
 function isValidQpContentBlock(block) {
@@ -2028,16 +2037,19 @@ app.post('/api/question-paper-generate', async (req, res) => {
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
-    const { subject, lessonContent, oldPaper } = req.body || {};
+    const { subject, lessonContent, oldPaper, tier } = req.body || {};
+    if (!Object.prototype.hasOwnProperty.call(QP_TIERS, tier)) {
+      return res.status(400).json({ error: 'Missing or invalid tier' });
+    }
     if (!isValidQpContentBlock(lessonContent) || !isValidQpContentBlock(oldPaper)) {
       return res.status(400).json({ error: 'Missing or invalid lessonContent/oldPaper attachment' });
     }
 
-    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null);
+    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, tier);
     const userContent = [
       { type: 'text', text: 'OLD QUESTION PAPER (style reference):' },
       oldPaper,
-      { type: 'text', text: 'NEW LESSON CONTENT (generate the new papers from this):' },
+      { type: 'text', text: 'NEW LESSON CONTENT (generate the new paper from this):' },
       lessonContent
     ];
 
@@ -2050,7 +2062,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 8000,
+        max_tokens: 16000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
       })
@@ -2058,22 +2070,22 @@ app.post('/api/question-paper-generate', async (req, res) => {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Anthropic API error (question-paper-generate):', response.status, errText);
+      console.error('Anthropic API error (question-paper-generate):', tier, response.status, errText);
       return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
     }
 
     const data = await response.json();
     const raw = data.content?.[0]?.text || '';
-    let papers;
+    let paper;
     try {
-      papers = JSON.parse(raw).papers;
-      if (!papers) throw new Error('Response JSON had no "papers" key');
+      paper = JSON.parse(raw);
+      if (!paper || !paper.sections) throw new Error('Response JSON had no "sections" key');
     } catch (parseErr) {
-      console.error('Could not parse question-paper JSON:', parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
+      console.error('Could not parse question-paper JSON:', tier, parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
       return res.status(502).json({ error: 'Claude returned an unexpected response — please try again.' });
     }
 
-    res.json({ ok: true, papers });
+    res.json({ ok: true, tier, paper });
   } catch (err) {
     console.error('Question paper generate error:', err);
     res.status(500).json({ error: 'Server error generating question papers' });
