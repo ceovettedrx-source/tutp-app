@@ -2170,7 +2170,13 @@ app.post('/api/question-paper-generate', async (req, res) => {
     }
 
     const data = await response.json();
-    const raw = data.content?.[0]?.text || '';
+    let raw = data.content?.[0]?.text || '';
+    console.log('[QP-DEBUG] stop_reason:', data.stop_reason, 'raw.length:', raw.length);
+    // Defensive: strip markdown code fences even though the prompt says not
+    // to include them — under long/complex generations the model sometimes
+    // wraps the JSON in ```json ... ``` anyway, which JSON.parse chokes on.
+    const fenceMatch = raw.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (fenceMatch) raw = fenceMatch[1];
     let paper;
     try {
       paper = JSON.parse(raw);
