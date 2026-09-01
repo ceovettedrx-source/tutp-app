@@ -2050,7 +2050,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 4000,
+        max_tokens: 8000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
       })
@@ -2069,7 +2069,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
       papers = JSON.parse(raw).papers;
       if (!papers) throw new Error('Response JSON had no "papers" key');
     } catch (parseErr) {
-      console.error('Could not parse question-paper JSON:', parseErr.message, raw.slice(0, 500));
+      console.error('Could not parse question-paper JSON:', parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
       return res.status(502).json({ error: 'Claude returned an unexpected response — please try again.' });
     }
 
