@@ -1,0 +1,27 @@
+{
+  "_note": "SOURCED — fetched directly from the actual Telangana SCERT 'Diploma in Elementary Education (D.El.Ed.) Two-Year Programme, Curriculum & Syllabus 2015' (based on NCTE norms). This resolves the mismatch flagged in pedagogy-of-mathematics.json (bed-2yr): D.El.Ed, not B.Ed, is the program that actually trains teachers for grades 1-5 mathematics, and its 1st-Year Paper 5 ('Understanding Mathematics and Early Mathematics Education at Primary Level') Unit 3 ('Counting, Numbers and its Operations') explicitly lists 'Concept of fractions and its presentation' as a bullet point — a direct, confirmed match for the fraction LearningComponents, not an inferred one. Note this is the Telangana-specific D.El.Ed syllabus (other states run their own D.El.Ed variants under the same NCTE norms), and it is dated 2015 — pre-dates NCF-SE 2023, so re-verify against any post-2023 syllabus revision before treating as current.",
+  "records": [
+    {
+      "id": "in-ncte-deled-pedagogy-math-unit-003",
+      "type": "TeacherTrainingUnit",
+      "program": "del-ed",
+      "state": "telangana",
+      "course_area": "stage-specific-pedagogy",
+      "course_name_en": "D.El.Ed 1st Year, Paper 5: Understanding Mathematics and Early Mathematics Education at Primary Level — Unit 3: Counting, Numbers and its Operations (includes 'Concept of fractions and its presentation')",
+      "pedagogy_subject": "mathematics",
+      "qualifies_teacher_for_grades": [1, 2, 3, 4, 5],
+      "prepares_for_learning_outcome_ids": [
+        "in-ncf2023-math-preparatory-lo-001-lc-01",
+        "in-ncf2023-math-preparatory-lo-001-lc-02",
+        "in-ncf2023-math-preparatory-lo-001-lc-03"
+      ],
+      "verification_status": "sourced",
+      "source": {
+        "document": "Diploma in Elementary Education (D.El.Ed.) Two-Year Programme, Curriculum & Syllabus 2015, SCERT Telangana — 1st Year Paper 5, Unit 3",
+        "url": "https://slrpratibhacollegeofeducation.com/images/D.El.%20Ed.%20Syllabi%20Telangana%20FINAL_Based%20on%20NCTE%20-JUNE-2015%20Syllabi%2019-08-2015.pdf",
+        "page_or_section": "1st Year D.El.Ed. Paper 5, Unit 3 (Paper begins p.53 of the PDF)",
+        "license_tier": "tier-3-restricted"
+      }
+    }
+  ]
+}

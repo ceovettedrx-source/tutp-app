@@ -1,0 +1,45 @@
+{
+  "_note": "SOURCED — chapter number/name confirmed against the actual AP Class 5 Maths textbook chapter 13 (accessed via a third-party mirror of the AP-Government-distributed edition; official cse.ap.gov.in blocks automated fetches, so the primary-source URL is recorded here for someone to re-verify by hand). No sentence, word problem, or example from the textbook was copied — statement_en/statement_te below are Tut-P's own composition describing the generic skill, per copyright policy. scf_code is 'unstructured' because AP SCF documents were not found to use a stable per-outcome code system the way this schema's example code implied — that example code was an invented placeholder and has been removed. alignment_type downgraded to 'partial': the textbook teaches fraction-equivalence via paper-folding/area-shading and comparison via number-line placement, not via Singapore-Math-style bar models specifically — both are 'pictorial' CPA stage and cover the same underlying skill, but the representation Tut-P would generate (bar model) is not literally what's printed in the state textbook. Edition year is uncertain — the mirror found is dated 2019; needs re-check for the current-year edition before shipping.",
+  "records": [
+    {
+      "id": "in-map-andhra-pradesh-00001",
+      "type": "StateMapping",
+      "state": "andhra-pradesh",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 13: Fractions",
+      "medium": [
+        "telugu",
+        "english"
+      ],
+      "alignment_type": "partial",
+      "verification_status": "sourced",
+      "source": {
+        "document": "AP (undivided-AP-legacy) Class 5 Maths Textbook, Chapter 13 'Fractions' — 'Free Distribution by A.P. Government' edition",
+        "url": "https://cse.ap.gov.in/textBooksDownloadingPageTEBilingual",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "target_node_type": "LearningComponent"
+    },
+    {
+      "id": "in-map-andhra-pradesh-00002",
+      "type": "StateMapping",
+      "state": "andhra-pradesh",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 13: Fractions",
+      "medium": [
+        "telugu",
+        "english"
+      ],
+      "alignment_type": "partial",
+      "verification_status": "sourced",
+      "source": {
+        "document": "AP (undivided-AP-legacy) Class 5 Maths Textbook, Chapter 13 'Fractions' — comparison-of-fractions section (number-line + 'which is greater' exercises)",
+        "url": "https://cse.ap.gov.in/textBooksDownloadingPageTEBilingual",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-math-preparatory-lo-001-lc-03",
+      "target_node_type": "LearningComponent"
+    }
+  ]
+}

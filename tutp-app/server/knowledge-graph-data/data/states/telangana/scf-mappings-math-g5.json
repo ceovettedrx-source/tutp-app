@@ -1,0 +1,47 @@
+{
+  "_note": "SOURCED — chapter number/name confirmed (Chapter 13: Fractions), same 17-chapter book structure as the AP mapping — Telangana bifurcated from undivided AP in 2014 and largely retained the same primary-grade textbook structure with its own SCERT revisions since. No textbook sentence/example was copied; statement text lives on the LearningOutcome/LearningComponent records and is Tut-P's own composition. scf_code is 'unstructured' — no stable per-outcome SCF code system was found. alignment_type is 'partial' for the same CPA-pictorial-but-not-literally-bar-model reason noted in the AP mapping file. Medium list includes Urdu because Telangana publishes an Urdu-medium stream that AP's is less prominent for; verify against the current scert.telangana.gov.in listing before shipping.",
+  "records": [
+    {
+      "id": "in-map-telangana-00001",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 13: Fractions",
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "partial",
+      "verification_status": "sourced",
+      "source": {
+        "document": "Telangana (TS SCERT) Class 5 Maths Textbook, Chapter 13 'Fractions'",
+        "url": "https://www.scert.telangana.gov.in/Home.aspx/Pdf/Displaycontent.aspx",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "target_node_type": "LearningComponent"
+    },
+    {
+      "id": "in-map-telangana-00002",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 13: Fractions",
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "partial",
+      "verification_status": "sourced",
+      "source": {
+        "document": "Telangana (TS SCERT) Class 5 Maths Textbook, Chapter 13 'Fractions' — comparison-of-fractions section",
+        "url": "https://www.scert.telangana.gov.in/Home.aspx/Pdf/Displaycontent.aspx",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-math-preparatory-lo-001-lc-03",
+      "target_node_type": "LearningComponent"
+    }
+  ]
+}

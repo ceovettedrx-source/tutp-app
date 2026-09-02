@@ -1,0 +1,56 @@
+{
+  "_note": "The Preparatory-stage record is SOURCED against the actual NCF-SE 2023 document (official PDF: ncert.nic.in/pdf/NCFSE-2023-August_2023.pdf, Part C p.268-293, Mathematics Learning Standards). ncf_curricular_goal_id/ncf_competency_code carry NCF's own real codes (CG-1 / C-1.2 for Preparatory, CG-1 / C-1.4 for Middle Stage — different competency numbers under the same-named CG-1 because each Stage restates its own CG-1). statement_en/statement_te are Tut-P's own paraphrase of each competency's meaning, not a verbatim quote of the document — per copyright policy. Note the Middle Stage statement was corrected from an earlier placeholder ('converts fractions to decimals') to what C-1.4 actually says (understanding number sets generally and placing them on a number line) — decimal notation specifically isn't named in this competency; the earlier text was an assumption, not a finding.",
+  "records": [
+    {
+      "id": "in-ncf2023-math-preparatory-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": "CG-1",
+      "ncf_competency_code": "C-1.2",
+      "subject": "mathematics",
+      "grade_band": "preparatory",
+      "statement_en": "Represents and compares everyday fractions (such as half, quarter) as parts of a whole, as points on a number line, and as the result of dividing a whole number by another",
+      "statement_te": "రోజువారీ జీవితంలో వాడే భిన్నాలను (సగం, పావు వంతు వంటివి) — ఒక పూర్తి వస్తువులో భాగంగా, సంఖ్యారేఖపై బిందువుగా, మరియు ఒక సంఖ్యను మరో సంఖ్యతో భాగించిన ఫలితంగా — సూచించడం మరియు పోల్చడం",
+      "cpa_stage": "pictorial",
+      "prerequisite_ids": [],
+      "leads_to_ids": [
+        "in-ncf2023-math-middle-lo-001"
+      ],
+      "teacher_training_refs": [
+        "in-ncte-bed2yr-pedagogy-math-unit-004"
+      ],
+      "verification_status": "sourced",
+      "source": {
+        "document": "National Curriculum Framework for School Education 2023 (NCF-SE 2023), Part C: Mathematics Learning Standards, Preparatory Stage, Curricular Goal CG-1, Competency C-1.2",
+        "url": "https://ncert.nic.in/pdf/NCFSE-2023-August_2023.pdf",
+        "page_or_section": "Part C, approx. p.268-270 (Mathematics Learning Standards table)",
+        "license_tier": "tier-2-noncommercial"
+      }
+    },
+    {
+      "id": "in-ncf2023-math-middle-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": "CG-1",
+      "ncf_competency_code": "C-1.4",
+      "subject": "mathematics",
+      "grade_band": "middle",
+      "statement_en": "Explores number sets — whole numbers, fractions, integers, rational and real numbers — understands their properties, and places them on a number line",
+      "statement_te": "సంఖ్యా సమూహాలను (సహజ సంఖ్యలు, భిన్నాలు, పూర్ణ సంఖ్యలు, పరిమేయ సంఖ్యలు, వాస్తవ సంఖ్యలు) పరిశోధించడం, వాటి లక్షణాలను అర్థం చేసుకోవడం, మరియు వాటిని సంఖ్యారేఖపై గుర్తించడం",
+      "cpa_stage": "abstract",
+      "prerequisite_ids": [
+        "in-ncf2023-math-preparatory-lo-001",
+        "in-ncf2023-math-preparatory-lo-001-lc-03"
+      ],
+      "leads_to_ids": [],
+      "teacher_training_refs": [],
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCF-SE 2023, Part C: Mathematics Learning Standards, Middle Stage, Curricular Goal CG-1 ('Understands numbers and patterns'), Competency C-1.4",
+        "url": "https://ncert.nic.in/pdf/NCFSE-2023-August_2023.pdf",
+        "page_or_section": "Part C, approx. p.279 (Mathematics Learning Standards table, Middle Stage)",
+        "license_tier": "tier-2-noncommercial"
+      }
+    }
+  ]
+}

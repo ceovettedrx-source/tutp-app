@@ -1,0 +1,32 @@
+{
+  "_note": "Built from the SCERT website registry already researched. license_tier is copied where the earlier research explicitly classified it (AP, Telangana, Tamil Nadu, Karnataka, Kerala, NCERT); every other state is left as tier-4-unknown until it is actually checked against its SCERT/textbook-board site, per the project's own risk-matrix rule of never assuming a tier.",
+  "states": [
+    { "id": "andhra-pradesh", "name_te": "ఆంధ్రప్రదేశ్", "name_en": "Andhra Pradesh", "region": "south", "scert_url": "https://scert.ap.gov.in", "textbooks_url": "https://cse.ap.gov.in/textBooksDownloadingPageTEBilingual", "license_tier": "tier-3-restricted" },
+    { "id": "telangana", "name_te": "తెలంగాణ", "name_en": "Telangana", "region": "south", "scert_url": "https://scert.telangana.gov.in", "textbooks_url": "https://www.scert.telangana.gov.in/Home.aspx/Pdf/Displaycontent.aspx", "license_tier": "tier-3-restricted" },
+    { "id": "karnataka", "name_te": "కర్ణాటక", "name_en": "Karnataka", "region": "south", "scert_url": "https://dsert.karnataka.gov.in", "textbooks_url": "https://textbooks.karnataka.gov.in", "license_tier": "tier-3-restricted" },
+    { "id": "tamil-nadu", "name_te": "తమిళనాడు", "name_en": "Tamil Nadu", "region": "south", "scert_url": "https://dge.tn.gov.in", "textbooks_url": "https://www.textbooksonline.tn.nic.in", "license_tier": "tier-3-restricted" },
+    { "id": "kerala", "name_te": "కేరళ", "name_en": "Kerala", "region": "south", "scert_url": "https://scert.kerala.gov.in", "textbooks_url": "https://www.kite.kerala.gov.in", "license_tier": "tier-2-noncommercial" },
+
+    { "id": "uttar-pradesh", "name_te": "ఉత్తరప్రదేశ్", "name_en": "Uttar Pradesh", "region": "north", "scert_url": "https://basiceducation.up.gov.in", "textbooks_url": "https://upbasiceduboard.gov.in", "license_tier": "tier-4-unknown" },
+    { "id": "punjab", "name_te": "పంజాబ్", "name_en": "Punjab", "region": "north", "scert_url": "https://ssapunjab.org", "textbooks_url": "https://ssapunjab.org", "license_tier": "tier-4-unknown" },
+    { "id": "haryana", "name_te": "హర్యానా", "name_en": "Haryana", "region": "north", "scert_url": "https://bsehexam.com", "textbooks_url": "https://bseh.org.in", "license_tier": "tier-4-unknown" },
+    { "id": "himachal-pradesh", "name_te": "హిమాచల్ ప్రదేశ్", "name_en": "Himachal Pradesh", "region": "north", "scert_url": "https://himachalservices.nic.in/scert", "textbooks_url": "https://himachalservices.nic.in", "license_tier": "tier-4-unknown" },
+    { "id": "uttarakhand", "name_te": "ఉత్తరాఖండ్", "name_en": "Uttarakhand", "region": "north", "scert_url": "https://scert.uk.gov.in", "textbooks_url": "https://ubse.uk.gov.in", "license_tier": "tier-4-unknown" },
+    { "id": "delhi", "name_te": "ఢిల్లీ", "name_en": "Delhi", "region": "north", "scert_url": "https://scert.delhi.gov.in", "textbooks_url": "https://edudel.nic.in", "license_tier": "tier-4-unknown" },
+
+    { "id": "west-bengal", "name_te": "పశ్చిమ బెంగాల్", "name_en": "West Bengal", "region": "east", "scert_url": "https://wbsed.gov.in", "textbooks_url": "https://exams.wbsed.gov.in", "license_tier": "tier-4-unknown" },
+    { "id": "bihar", "name_te": "బీహార్", "name_en": "Bihar", "region": "east", "scert_url": "https://scert.bihar.gov.in", "textbooks_url": "https://scert.bihar.gov.in/eresources", "license_tier": "tier-4-unknown" },
+    { "id": "jharkhand", "name_te": "ఝార్ఖండ్", "name_en": "Jharkhand", "region": "east", "scert_url": "https://jac.nic.in", "textbooks_url": "https://jac.nic.in", "license_tier": "tier-4-unknown" },
+    { "id": "odisha", "name_te": "ఒడిశా", "name_en": "Odisha", "region": "east", "scert_url": "https://scert.odisha.gov.in", "textbooks_url": "https://scertodisha.nic.in", "license_tier": "tier-4-unknown" },
+    { "id": "assam", "name_te": "అస్సాం", "name_en": "Assam", "region": "east", "scert_url": "https://scert.assam.gov.in", "textbooks_url": "https://scert.assam.gov.in/portlets/textbooks-0", "license_tier": "tier-4-unknown" },
+
+    { "id": "maharashtra", "name_te": "మహారాష్ట్ర", "name_en": "Maharashtra", "region": "west-central", "scert_url": "https://mscepune.in", "textbooks_url": "https://balbharati.in", "license_tier": "tier-4-unknown" },
+    { "id": "gujarat", "name_te": "గుజరాత్", "name_en": "Gujarat", "region": "west-central", "scert_url": "https://gsebeservice.in", "textbooks_url": "https://gsebeservice.in", "license_tier": "tier-4-unknown" },
+    { "id": "rajasthan", "name_te": "రాజస్థాన్", "name_en": "Rajasthan", "region": "west-central", "scert_url": "https://rajeduboard.rajasthan.gov.in", "textbooks_url": "https://rajshaladarpan.rajasthan.gov.in", "license_tier": "tier-4-unknown" },
+    { "id": "goa", "name_te": "గోవా", "name_en": "Goa", "region": "west-central", "scert_url": "https://scert.goa.gov.in", "textbooks_url": "https://scert.goa.gov.in", "license_tier": "tier-4-unknown" },
+    { "id": "madhya-pradesh", "name_te": "మధ్యప్రదేశ్", "name_en": "Madhya Pradesh", "region": "west-central", "scert_url": "https://educationportal.mp.gov.in", "textbooks_url": "https://mpbse.nic.in", "license_tier": "tier-4-unknown" },
+    { "id": "chhattisgarh", "name_te": "ఛత్తీస్‌గఢ్", "name_en": "Chhattisgarh", "region": "west-central", "scert_url": "https://scert.cg.gov.in", "textbooks_url": "https://cgbse.nic.in", "license_tier": "tier-4-unknown" },
+
+    { "id": "ncert", "name_te": "NCERT (జాతీయ)", "name_en": "NCERT (National)", "region": "national", "scert_url": "https://ncert.nic.in", "textbooks_url": "https://epathshala.ncert.gov.in", "license_tier": "tier-2-noncommercial" }
+  ]
+}

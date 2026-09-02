@@ -1,0 +1,60 @@
+{
+  "_note": "These three components are Tut-P's OWN grade-specific operationalization of the stage-level competency C-1.2 (see fractions-g4-g6.json) into a CPA/bar-model teaching sequence — this decomposition itself is not something NCF-SE specifies (NCF competencies are intentionally stage-level, leaving grade-by-grade sequencing to boards/textbooks), so verification_status stays 'placeholder' here even though the parent LO is 'sourced'. What would move these to 'sourced' is cross-checking the grade placement (should equivalence be grade 4 or grade 5?) against actual NCERT/state syllabus documents, not against NCF-SE itself.",
+  "records": [
+    {
+      "id": "in-ncf2023-math-preparatory-lo-001-lc-01",
+      "type": "LearningComponent",
+      "parent_learning_outcome_id": "in-ncf2023-math-preparatory-lo-001",
+      "grade": 4,
+      "statement_en": "Represent simple fractions (half, third, quarter) using pictorial models such as shaded regions and bar models",
+      "statement_te": "సాధారణ భిన్నాలను (సగం, మూడోవంతు, పావు వంతు) షేడెడ్ ప్రాంతాలు, బార్ మోడల్స్ వంటి పిక్టోరియల్ నమూనాలతో సూచించడం",
+      "skill_verb": "represent",
+      "cpa_stage": "pictorial",
+      "bar_model_applicable": true,
+      "difficulty": "at-grade",
+      "verification_status": "placeholder",
+      "prerequisite_ids": [],
+      "leads_to_ids": [
+        "in-ncf2023-math-preparatory-lo-001-lc-02"
+      ]
+    },
+    {
+      "id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "type": "LearningComponent",
+      "parent_learning_outcome_id": "in-ncf2023-math-preparatory-lo-001",
+      "grade": 5,
+      "statement_en": "Identify whether two given bar models represent equivalent fractions by comparing shaded area, and generate an equivalent fraction for a given target denominator",
+      "statement_te": "రెండు బార్ మోడల్స్ లో షేడ్ చేసిన ప్రాంతాన్ని పోల్చి, అవి సమాన భిన్నాలను సూచిస్తున్నాయో లేదో గుర్తించడం, మరియు ఇచ్చిన హారానికి సమానమైన భిన్నాన్ని రూపొందించడం",
+      "skill_verb": "identify",
+      "cpa_stage": "pictorial",
+      "bar_model_applicable": true,
+      "difficulty": "at-grade",
+      "verification_status": "placeholder",
+      "prerequisite_ids": [
+        "in-ncf2023-math-preparatory-lo-001-lc-01"
+      ],
+      "leads_to_ids": [
+        "in-ncf2023-math-preparatory-lo-001-lc-03"
+      ]
+    },
+    {
+      "id": "in-ncf2023-math-preparatory-lo-001-lc-03",
+      "type": "LearningComponent",
+      "parent_learning_outcome_id": "in-ncf2023-math-preparatory-lo-001",
+      "grade": 5,
+      "statement_en": "Compare and order fractions with unlike denominators using bar models",
+      "statement_te": "వేర్వేరు హారాలు గల భిన్నాలను బార్ మోడల్ ఉపయోగించి పోల్చడం మరియు క్రమపరచడం",
+      "skill_verb": "compare",
+      "cpa_stage": "pictorial",
+      "bar_model_applicable": true,
+      "difficulty": "at-grade",
+      "verification_status": "placeholder",
+      "prerequisite_ids": [
+        "in-ncf2023-math-preparatory-lo-001-lc-02"
+      ],
+      "leads_to_ids": [
+        "in-ncf2023-math-middle-lo-001"
+      ]
+    }
+  ]
+}

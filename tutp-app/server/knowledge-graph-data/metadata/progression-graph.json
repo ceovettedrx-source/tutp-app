@@ -1,0 +1,37 @@
+{
+  "_note": "Updated to match the re-sourced NCF competency structure (see data/national/ncf-2023/math/). This file is the single source of truth for the progression graph; prerequisite_ids/leads_to_ids embedded in learning-outcome/learning-component records are a denormalized cache that must be regenerated from this file (see scripts/build_progression_graph.py, to be written). in-prog-00004 (Preparatory LO -> Middle LO) is marked confidence='curriculum-stated' because NCF-SE's own stage design explicitly builds Preparatory Stage number/fraction competencies toward Middle Stage ones, even though the specific Middle Stage competency code for decimals hasn't been located/sourced yet.",
+  "records": [
+    {
+      "id": "in-prog-00001",
+      "type": "ProgressionEdge",
+      "from_id": "in-ncf2023-math-preparatory-lo-001-lc-01",
+      "to_id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "relation": "prerequisite_of",
+      "confidence": "inferred"
+    },
+    {
+      "id": "in-prog-00002",
+      "type": "ProgressionEdge",
+      "from_id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "to_id": "in-ncf2023-math-preparatory-lo-001-lc-03",
+      "relation": "prerequisite_of",
+      "confidence": "inferred"
+    },
+    {
+      "id": "in-prog-00003",
+      "type": "ProgressionEdge",
+      "from_id": "in-ncf2023-math-preparatory-lo-001-lc-03",
+      "to_id": "in-ncf2023-math-middle-lo-001",
+      "relation": "prerequisite_of",
+      "confidence": "inferred"
+    },
+    {
+      "id": "in-prog-00004",
+      "type": "ProgressionEdge",
+      "from_id": "in-ncf2023-math-preparatory-lo-001",
+      "to_id": "in-ncf2023-math-middle-lo-001",
+      "relation": "prerequisite_of",
+      "confidence": "curriculum-stated"
+    }
+  ]
+}

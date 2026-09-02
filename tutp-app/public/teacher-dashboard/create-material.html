@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tut-P - Create Material</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script src="/shared/tailwind-tokens.js"></script>
+<style>
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+  .soft-input { border: 1px solid #c2c6d4; transition: all 0.2s ease; }
+  .soft-input:focus-within { border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
+</style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen">
+<header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full bg-surface-container-low shadow-sm">
+  <a href="/" class="flex items-center gap-sm hover:opacity-80 transition-opacity">
+    <span class="material-symbols-outlined text-primary filled">school</span>
+    <h1 class="font-headline-md text-headline-md text-primary font-bold">Tut-P</h1>
+  </a>
+  <a href="/app/teacher/" class="font-label-md text-label-md text-primary hover:underline">Back to Dashboard</a>
+</header>
+
+<main class="max-w-2xl mx-auto px-margin-mobile md:px-margin-desktop py-lg">
+  <h2 class="font-headline-lg text-headline-lg mb-md">Create Material</h2>
+
+  <form id="createMaterialForm" class="flex flex-col gap-md">
+    <div class="soft-input rounded-lg p-sm">
+      <label for="grade" class="font-label-md text-label-md text-on-surface-variant block mb-1">Grade</label>
+      <select id="grade" name="grade" class="w-full bg-transparent outline-none" required>
+        <option value="" disabled selected>Select grade</option>
+        <option value="1">Grade 1</option>
+        <option value="2">Grade 2</option>
+        <option value="3">Grade 3</option>
+        <option value="4">Grade 4</option>
+        <option value="5">Grade 5</option>
+        <option value="6">Grade 6</option>
+        <option value="7">Grade 7</option>
+        <option value="8">Grade 8</option>
+        <option value="9">Grade 9</option>
+        <option value="10">Grade 10</option>
+      </select>
+    </div>
+
+    <div class="soft-input rounded-lg p-sm">
+      <label for="subject" class="font-label-md text-label-md text-on-surface-variant block mb-1">Subject</label>
+      <select id="subject" name="subject" class="w-full bg-transparent outline-none" required>
+        <option value="" disabled selected>Select subject</option>
+        <option value="mathematics">Maths</option>
+        <option value="science">Science</option>
+        <option value="english">English</option>
+        <option value="social_studies">Social Studies</option>
+      </select>
+    </div>
+
+    <div class="soft-input rounded-lg p-sm">
+      <label for="chapter_or_topic" class="font-label-md text-label-md text-on-surface-variant block mb-1">Chapter / Topic</label>
+      <input type="text" id="chapter_or_topic" name="chapter_or_topic" class="w-full bg-transparent outline-none" placeholder="e.g. Triangles" required/>
+    </div>
+
+    <div class="soft-input rounded-lg p-sm">
+      <label for="state" class="font-label-md text-label-md text-on-surface-variant block mb-1">State</label>
+      <select id="state" name="state" class="w-full bg-transparent outline-none" required>
+        <option value="" disabled selected>Select state</option>
+        <option value="andhra-pradesh">Andhra Pradesh</option>
+        <option value="telangana">Telangana</option>
+        <!-- Karnataka and Tamil Nadu removed for now — no knowledge-graph
+             data sourced for those states yet; add back once sourced. -->
+      </select>
+    </div>
+
+    <div>
+      <span class="font-label-md text-label-md text-on-surface-variant block mb-1">Material Type</span>
+      <div class="flex gap-md">
+        <label class="flex items-center gap-1">
+          <input type="radio" name="material_type" value="worksheet" required/> Worksheet
+        </label>
+        <label class="flex items-center gap-1">
+          <input type="radio" name="material_type" value="question_paper"/> Question Paper
+        </label>
+        <label class="flex items-center gap-1">
+          <input type="radio" name="material_type" value="notes"/> Notes
+        </label>
+      </div>
+    </div>
+
+    <button type="submit" id="submitBtn" class="bg-primary text-on-primary font-label-lg text-label-lg rounded-lg py-sm px-md hover:opacity-90 transition-opacity">
+      Generate Material
+    </button>
+  </form>
+
+  <div id="statusMessage" class="mt-md font-label-md text-label-md text-on-surface-variant"></div>
+
+  <div id="ambiguousChoice" class="mt-md hidden">
+    <p class="font-label-lg text-label-lg mb-sm">Which topic did you mean?</p>
+    <div id="candidateList" class="flex flex-col gap-sm mb-sm"></div>
+    <button type="button" id="confirmCandidateBtn" class="bg-primary text-on-primary font-label-lg text-label-lg rounded-lg py-sm px-md hover:opacity-90 transition-opacity">
+      Use this topic
+    </button>
+  </div>
+
+  <div id="materialResult" class="mt-lg hidden">
+    <div class="flex items-center justify-between mb-sm">
+      <h3 class="font-headline-md text-headline-md">Generated Material</h3>
+      <div class="flex items-center gap-sm">
+        <button type="button" id="printBtn" class="font-label-md text-label-md text-primary border border-primary rounded-lg py-1 px-sm hover:bg-primary hover:text-on-primary transition-colors">Print / Save as PDF</button>
+        <button type="button" id="regenerateBtn" class="font-label-md text-label-md text-primary hover:underline">Regenerate</button>
+      </div>
+    </div>
+    <iframe id="materialFrame" class="w-full border border-outline-variant rounded-lg" style="height: 800px;"></iframe>
+  </div>
+</main>
+
+<script>
+  // Matches the same inline pattern used in public/app/teacher/index.html —
+  // if a third page ends up needing this, factor it into a shared module then.
+  const teacherId = sessionStorage.getItem('tutp_teacher_id');
+  if (!teacherId) window.location.href = '/app/login/';
+
+  const form = document.getElementById('createMaterialForm');
+  const submitBtn = document.getElementById('submitBtn');
+  const statusEl = document.getElementById('statusMessage');
+  const ambiguousEl = document.getElementById('ambiguousChoice');
+  const candidateListEl = document.getElementById('candidateList');
+  const confirmCandidateBtn = document.getElementById('confirmCandidateBtn');
+  const resultEl = document.getElementById('materialResult');
+  const frameEl = document.getElementById('materialFrame');
+  const regenerateBtn = document.getElementById('regenerateBtn');
+  const printBtn = document.getElementById('printBtn');
+
+  let selectedCandidateTopic = null;
+
+  function currentPayload(topicOverride) {
+    return {
+      grade: form.grade.value,
+      subject: form.subject.value,
+      chapter_or_topic: topicOverride !== undefined ? topicOverride : form.chapter_or_topic.value,
+      state: form.state.value,
+      material_type: form.material_type.value,
+      teacher_id: teacherId
+    };
+  }
+
+  async function createMaterial(payload) {
+    submitBtn.disabled = true;
+    confirmCandidateBtn.disabled = true;
+    submitBtn.textContent = 'Preparing your material…';
+    statusEl.textContent = 'Preparing your material…';
+    ambiguousEl.classList.add('hidden');
+    resultEl.classList.add('hidden');
+
+    try {
+      const res = await fetch('/api/teacher/create-material', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await res.json();
+
+      if (res.status === 200) {
+        statusEl.textContent = '';
+        frameEl.srcdoc = data.html || '';
+        form.classList.add('hidden');
+        resultEl.classList.remove('hidden');
+        return;
+      }
+
+      if (res.status === 300) {
+        statusEl.textContent = '';
+        renderCandidates(data.candidates || []);
+        return;
+      }
+
+      // 400 / 500 — show the message plainly near the form, keep it editable.
+      statusEl.textContent = data.error || "We couldn't create this material. Please check the details and try again.";
+    } catch (err) {
+      statusEl.textContent = "We couldn't reach the server. Please check your connection and try again.";
+    } finally {
+      submitBtn.disabled = false;
+      confirmCandidateBtn.disabled = false;
+      submitBtn.textContent = 'Generate Material';
+    }
+  }
+
+  function renderCandidates(candidates) {
+    candidateListEl.innerHTML = '';
+    selectedCandidateTopic = null;
+
+    candidates.forEach((candidate, index) => {
+      const label = document.createElement('label');
+      label.className = 'flex items-center gap-2 soft-input rounded-lg p-sm cursor-pointer';
+
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = 'candidateTopic';
+      // The backend narrows an ambiguous match with a case-insensitive
+      // substring check against statement_en (see
+      // server/services/knowledgeGraph.js). Resubmitting the candidate's
+      // full statement_en as chapter_or_topic always self-matches that one
+      // record, so the resubmission reliably resolves to a single result.
+      radio.value = candidate.statement_en;
+      if (index === 0) radio.checked = true;
+
+      radio.addEventListener('change', () => {
+        selectedCandidateTopic = radio.value;
+      });
+
+      const span = document.createElement('span');
+      span.className = 'font-body-md text-body-md';
+      span.textContent = candidate.statement_en;
+
+      label.appendChild(radio);
+      label.appendChild(span);
+      candidateListEl.appendChild(label);
+    });
+
+    if (candidates.length > 0) {
+      selectedCandidateTopic = candidates[0].statement_en;
+    }
+
+    ambiguousEl.classList.remove('hidden');
+  }
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    createMaterial(currentPayload());
+  });
+
+  confirmCandidateBtn.addEventListener('click', () => {
+    if (!selectedCandidateTopic) return;
+    createMaterial(currentPayload(selectedCandidateTopic));
+  });
+
+  regenerateBtn.addEventListener('click', () => {
+    resultEl.classList.add('hidden');
+    form.classList.remove('hidden');
+    statusEl.textContent = '';
+  });
+
+  printBtn.addEventListener('click', () => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      statusEl.textContent = 'Please allow pop-ups for this site to print, then try again.';
+      return;
+    }
+    printWindow.document.open();
+    printWindow.document.write(frameEl.srcdoc || '');
+    printWindow.document.close();
+    printWindow.onload = () => {
+      if (printWindow.document.fonts && printWindow.document.fonts.ready) {
+        printWindow.document.fonts.ready.then(() => {
+          printWindow.focus();
+          printWindow.print();
+        });
+      } else {
+        printWindow.focus();
+        printWindow.print();
+      }
+    };
+  });
+</script>
+</body>
+</html>

@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
 import 'dotenv/config';
+import createMaterialRouter from './server/routes/teacher/create-material.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -996,6 +997,8 @@ app.get('/api/teacher/:id/referral-code', async (req, res) => {
 // means "became a paying subscriber" (>=1 'paid' row), not just
 // "registered via my link" like it did before payments existed — the
 // dashboard caption next to this tile spells that out for returning users.
+app.use('/api/teacher/create-material', createMaterialRouter);
+
 app.get('/api/teacher/:id/referrals', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });

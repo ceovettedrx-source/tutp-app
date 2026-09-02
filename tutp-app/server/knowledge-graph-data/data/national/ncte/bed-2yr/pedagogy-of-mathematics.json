@@ -1,0 +1,22 @@
+{
+  "_note": "PARTIALLY SOURCED. Confirmed against the actual NCERT 'Syllabus for Bachelor of Education (B.Ed.) Programme' (2016, per NCTE Regulations 2014) fetched from ncert.nic.in: the course exists as 'CPS 2/3: Pedagogy of School Subject' with Mathematics as one of the 8 subject options (others: Social Science, Biological Science, Physical Science, Hindi, English, Urdu, Sanskrit), spans pages 61-67 of the document, is split into Part I (semester 1, disciplinary-knowledge-to-pedagogy) and Part II (semester 2, teaching-learning-situations study), each worth 100 marks (30 internal + 70 external) at 6 contact hours/week. What is NOT yet sourced: the actual Unit 1-5 breakdown and whether fractions/rational-numbers appears as a named unit — the fetch tool could not reach pages 61-67 of this large PDF in this pass (it kept truncating around p.53, in the Biological Science section). The previous version of this record invented a specific 'Unit 4: Fractions and Rational Numbers, CPA approach' title that was NOT sourced from the document — that fabricated specificity has been removed. verification_status stays 'placeholder' because the fractions-linkage claim (prepares_for_learning_outcome_ids) is still unconfirmed, even though the course's basic identity is now confirmed. CAUGHT WHILE WRITING THIS DOWN: qualifies_teacher_for_grades for B.Ed Pedagogy of Mathematics is realistically grades 6-10 (upper-primary/secondary — B.Ed vs D.El.Ed split in India), but prepares_for_learning_outcome_ids used to point at grade 4-5 (Preparatory Stage) LearningComponents, which in practice fall under D.El.Ed (elementary teacher training), not B.Ed. RESOLVED: those links have been removed and correctly re-homed on a new D.El.Ed record (data/states/telangana/deled-pedagogy-of-mathematics.json), which was directly sourced with a real 'Concept of fractions and its presentation' unit line. This B.Ed unit's own links remain empty until its real Unit 1-5 content (pp.61-67, not yet retrieved in this pass) is sourced and a genuine grade-6+ fractions/rational-numbers link is found.",
+  "records": [
+    {
+      "id": "in-ncte-bed2yr-pedagogy-math-unit-004",
+      "type": "TeacherTrainingUnit",
+      "program": "bed-2yr",
+      "course_area": "curriculum-and-pedagogic-studies",
+      "course_name_en": "CPS 2/3: Pedagogy of School Subject — Mathematics (Part I & Part II)",
+      "pedagogy_subject": "mathematics",
+      "qualifies_teacher_for_grades": [6, 7, 8, 9, 10],
+      "prepares_for_learning_outcome_ids": [],
+      "verification_status": "placeholder",
+      "source": {
+        "document": "Syllabus for Bachelor of Education (B.Ed.) Programme, NCERT Department of Teacher Education, 2016 (per NCTE Regulations 2014) — CPS 2/3: Pedagogy of School Subject, Mathematics",
+        "url": "https://ncert.nic.in/pdf/syllabus/Syllabus_BEd.pdf",
+        "page_or_section": "pp. 61-67 (unit-level content not yet retrieved)",
+        "license_tier": "tier-2-noncommercial"
+      }
+    }
+  ]
+}

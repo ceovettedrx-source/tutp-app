@@ -1,0 +1,53 @@
+{
+  "_note": "SOURCED (2026-09-02) — replaced general-pattern placeholders with citations to published math-education research, found via a MalruleLib arxiv paper (arxiv.org/pdf/2601.03217) that catalogs named, researcher-attributed misconception types with executable step-trace definitions. None of these are India-specific studies — they're international fraction-misconception research, which is reasonable given fraction cognition patterns are not culture-specific (same argument as design-notes point 7's refined understanding: universal math content, India-specific only in sequencing/context). verification_status is 'sourced' not 'verified' — sourced to a real citation, but not yet cross-checked against India-specific classroom data. Descriptions below remain Tut-P's own paraphrase, not quotes, per copyright policy.",
+  "records": [
+    {
+      "id": "in-misc-frac-preparatory-lc02-01",
+      "type": "Misconception",
+      "learning_component_id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "error_pattern_en": "Operates only on the numerator when generating an equivalent fraction, ignoring the denominator entirely — treats it as whole-number arithmetic on just the 'top number'. E.g. tries to make 1/2 equivalent by changing it to 2/2 rather than 2/4.",
+      "error_pattern_te": "సమాన భిన్నం తయారు చేసేటప్పుడు న్యూమరేటర్ మీద మాత్రమే పని చేసి, డినామినేటర్‌ని పూర్తిగా వదిలేయడం — దాన్ని కేవలం 'పై సంఖ్య' మీద whole-number arithmetic లా చూడటం. ఉదా. 1/2 ని 2/4 కి కాదు, 2/2 కి సమానం చేయడానికి ప్రయత్నించడం.",
+      "gap_type": "on-grade-confusion",
+      "produces_choice_pattern": "picks a fraction where only the numerator has been scaled, keeping the original denominator",
+      "teacher_move": "Show the bar model split into more equal parts and ask the student to count how many parts the whole is now divided into, before asking how many are shaded — separates the 'more parts' question from the 'more shaded' question.",
+      "verification_status": "sourced",
+      "source": {
+        "document": "MalruleLib catalog, misconception type 'ignore_denominators', attributed to Van Hoof et al. (2021) — 'students operate only on numerators, completely ignoring denominators, treating fraction operations as whole-number arithmetic on the top numbers only'",
+        "url": "https://arxiv.org/pdf/2601.03217",
+        "license_tier": "tier-2-noncommercial"
+      }
+    },
+    {
+      "id": "in-misc-frac-preparatory-lc02-02",
+      "type": "Misconception",
+      "learning_component_id": "in-ncf2023-math-preparatory-lo-001-lc-02",
+      "error_pattern_en": "Does not yet treat a fraction as one fixed-size whole, so cannot judge whether two differently-drawn bar models (different overall bar lengths) represent the same amount — a documented failure to see fraction equivalence at all, prior to any procedural error.",
+      "error_pattern_te": "భిన్నాన్ని ఇంకా ఒకే స్థిర-పరిమాణ 'మొత్తం' లో భాగంగా చూడలేకపోవడం వల్ల, వేర్వేరు పొడవుల్లో గీసిన రెండు బార్ మోడల్స్ ఒకే మొత్తాన్ని సూచిస్తున్నాయో లేదో నిర్ణయించలేకపోవడం — ఇది ఏ procedural పొరపాటుకంటే ముందు, equivalence భావననే గుర్తించలేకపోవడం.",
+      "gap_type": "prerequisite-gap",
+      "teacher_move": "Go back to same-size whole comparisons only (in-ncf2023-math-preparatory-lo-001-lc-01 level) before reintroducing equivalence — always draw both bar models the same physical length first.",
+      "verification_status": "sourced",
+      "source": {
+        "document": "Cited as 'failing to see equivalence (Ratnasari, 2020)' within: 'Misconceptions of primary school students about the subject of fractions' — this is a secondary citation (a citation found inside another paper, not Ratnasari 2020 itself directly consulted); worth tracing to the primary source before calling this 'verified'",
+        "url": "https://www.researchgate.net/publication/332545998_Misconceptions_of_primary_school_students_about_the_subject_of_fractions_views_of_primary_teachers_and_primary_pre-service_teachers",
+        "license_tier": "tier-4-unknown"
+      }
+    },
+    {
+      "id": "in-misc-frac-preparatory-lc03-01",
+      "type": "Misconception",
+      "learning_component_id": "in-ncf2023-math-preparatory-lo-001-lc-03",
+      "error_pattern_en": "Compares only the denominators and judges the fraction with the larger denominator to be the larger fraction, treating the numerator as irrelevant — a named, researcher-documented pattern, not a one-off guess.",
+      "error_pattern_te": "డినామినేటర్లను మాత్రమే పోల్చి, ఎక్కువ డినామినేటర్ ఉన్న భిన్నమే పెద్దది అని నిర్ణయించడం, న్యూమరేటర్‌ని పట్టించుకోకపోవడం — ఇది ఒకసారి ఊహించింది కాదు, పరిశోధకులు పేరుపెట్టి డాక్యుమెంట్ చేసిన pattern.",
+      "gap_type": "on-grade-confusion",
+      "produces_choice_pattern": "for a comparison like 1/8 vs 1/2, picks 1/8 as larger because 8 > 2",
+      "teacher_move": "Use same-numerator bar models side by side (e.g. 1/2 vs 1/8) so the student sees the pieces getting smaller as the denominator grows, before moving to different-numerator comparisons.",
+      "verification_status": "sourced",
+      "source": {
+        "document": "MalruleLib catalog, misconception type 'denominator_comparison_error', attributed to Stafylidou and Vosniadou (2004) — 'students incorrectly compare fractions by focusing on the denominator value, believing that a larger denominator means a larger fraction'",
+        "url": "https://arxiv.org/pdf/2601.03217",
+        "license_tier": "tier-2-noncommercial"
+      }
+    }
+  ]
+}
+
