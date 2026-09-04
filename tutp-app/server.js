@@ -1978,12 +1978,29 @@ app.post('/api/cron/parent-engagement-score', async (req, res) => {
   }
 });
 
+// Shape validation for the freeform userContent array this route forwards to
+// Claude — same attachment-block check as isValidQpContentBlock below, plus a
+// text-block variant, since /api/homework's content mixes a text block with
+// an optional image/document attachment (unlike the QP route's two required
+// attachments).
+function isValidHomeworkContentBlock(block) {
+  if (!block || typeof block !== 'object') return false;
+  if (block.type === 'text') return typeof block.text === 'string' && block.text.length > 0;
+  if (block.type === 'image' || block.type === 'document') {
+    return !!(block.source && block.source.type === 'base64' && block.source.media_type && block.source.data);
+  }
+  return false;
+}
+
 // The browser never sees the API key — it only ever talks to this route.
 app.post('/api/homework', async (req, res) => {
   try {
     const { systemPrompt, userContent } = req.body;
     if (!systemPrompt || !userContent) {
       return res.status(400).json({ error: 'Missing systemPrompt or userContent' });
+    }
+    if (!Array.isArray(userContent) || !userContent.length || !userContent.every(isValidHomeworkContentBlock)) {
+      return res.status(400).json({ error: 'Invalid userContent' });
     }
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
