@@ -386,6 +386,40 @@
 </div>
 </div>
 </div>
+<!-- Search-bar attach chooser — the generic "+" attach icon used to jump
+     straight into Homework Help with no confirmation, silently running that
+     one specific mode regardless of which method pill looked selected. A
+     parent with limited digital confidence has no way to notice that
+     mismatch, so this now always asks explicitly which mode to use before
+     opening anything or touching the file picker. -->
+<div id="searchAttachChooser" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeSearchAttachChooser()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Which one do you want?</h3>
+<button onclick="closeSearchAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Choose what to do with this file before you attach it.</p>
+<div class="space-y-2">
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('homework')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Homework Help</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Explain the homework and quiz your child on it</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('story')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Storytelling Method</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a story your child will remember</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('play')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Play-Based Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a family quiz game</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('experiential')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Experiential Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
+</button>
+</div>
+</div>
+</div>
 <!-- Ask Tut-P AI Tutor — inline attach + explain, real Claude call against
      /api/homework using this session's real child context. Replaces the old
      redirect to /demo/ (a generic, session-agnostic marketing page whose
@@ -592,18 +626,50 @@
 </div>
 </div>
 <script>
-        // Search bar's attach menu — Photos/Documents (PDF) open the inline
-        // Ask Tut-P AI Tutor modal below; Videos isn't supported yet.
+        // Search bar's attach menu — Photos/Documents (PDF) used to jump
+        // straight into the Ask Tut-P AI Tutor (Homework Help) modal below
+        // with no confirmation; Videos isn't supported yet. It now always
+        // shows an explicit mode chooser first (see searchAttachChooser)
+        // instead of silently picking a mode for the parent.
         function toggleSearchAttachMenu(){ document.getElementById('searchAttachMenu').classList.toggle('hidden'); }
+        let pendingSearchAttachKind = null;
         function handleSearchAttach(kind){
             document.getElementById('searchAttachMenu').classList.add('hidden');
             if (kind === 'Videos') {
                 alert('Video attachments aren\'t supported yet — please attach a photo or a PDF document instead.');
                 return;
             }
-            openHomeworkModal();
-            hwModalAttachInput.accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
-            hwModalAttachInput.click();
+            pendingSearchAttachKind = kind;
+            document.getElementById('searchAttachChooser').classList.remove('hidden');
+        }
+        function closeSearchAttachChooser(){
+            document.getElementById('searchAttachChooser').classList.add('hidden');
+            pendingSearchAttachKind = null;
+        }
+        function routeSearchAttachTo(mode){
+            const kind = pendingSearchAttachKind;
+            document.getElementById('searchAttachChooser').classList.add('hidden');
+            pendingSearchAttachKind = null;
+            const accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
+            if (mode === 'homework') {
+                openHomeworkModal();
+                hwModalAttachInput.accept = accept;
+                hwModalAttachInput.click();
+            } else if (mode === 'story') {
+                openStorytellingModal();
+                storyModalAttachInput.accept = accept;
+                storyModalAttachInput.click();
+            } else if (mode === 'play') {
+                openPlayModal();
+                const input = document.getElementById('playModalAttachInput');
+                input.accept = accept;
+                input.click();
+            } else if (mode === 'experiential') {
+                openExperientialModal();
+                const input = document.getElementById('experientialModalAttachInput');
+                input.accept = accept;
+                input.click();
+            }
         }
 
         // ---------------- Ask Tut-P AI Tutor modal (inline homework-explain) ----------------
