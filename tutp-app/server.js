@@ -1883,7 +1883,8 @@ app.post('/api/homework', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
@@ -1972,7 +1973,8 @@ app.post('/api/homework-explain', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
@@ -2156,7 +2158,8 @@ app.post('/api/question-paper-generate', async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01'
+        'anthropic-version': '2023-06-01',
+        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
