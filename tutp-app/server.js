@@ -183,12 +183,29 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 // handler runs after this middleware the raw stream is already consumed,
 // so this is the one place that can still capture it.
 app.use(express.json({
-  limit: '12mb', // photo uploads travel as base64
+  // Client-recompressed photo uploads stay well under 12mb, but PDF
+  // attachments (Storytelling/Play-Based/Experiential Learning, homework
+  // AI Tutor) travel raw/uncompressed as base64 — a real scanned multi-page
+  // homework PDF routinely lands in the 5-15mb range, so 12mb was too tight
+  // and silently 413'd those requests.
+  limit: '20mb',
   verify: (req, res, buf) => {
     if (req.originalUrl === '/api/webhooks/razorpay') req.rawBody = buf;
   }
 }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  // express.static's default Cache-Control is "public, max-age=0" — "public"
+  // still permits an intermediate cache (e.g. a mobile carrier's compressing/
+  // accelerating proxy) to store the response and, if it misbehaves, serve it
+  // without revalidating, which is how one device can end up on a stale app
+  // shell while another sees the current deploy. "no-cache" removes that
+  // ambiguity: any compliant cache must revalidate (via ETag) before reuse.
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // ------------------------------------------------------------------
 // Razorpay — subscriptions (recurring billing) for the paid tiers.

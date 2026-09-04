@@ -1011,8 +1011,15 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 body: JSON.stringify({ systemPrompt, userContent })
             });
             if (!res.ok) {
+                // A 413 (oversized attachment) comes back as an HTML error page,
+                // not JSON — res.json() below would throw and get swallowed by
+                // the .catch(), losing the real cause. Handle it explicitly so
+                // the user gets an actionable message instead of a generic one.
+                if (res.status === 413) {
+                    throw new Error('That file is too large for Tut-P to process — try a smaller PDF or a clearer, smaller photo.');
+                }
                 const errData = await res.json().catch(() => ({}));
-                throw new Error(errData.error || `Server returned ${res.status}`);
+                throw new Error(errData.error || `Something went wrong reaching the AI (server returned ${res.status}). Please try again in a moment.`);
             }
             const data = await res.json();
             const textBlock = (data.content || []).find(b => b.type === 'text');
@@ -1153,7 +1160,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                     console.error('[storyModal] Raw AI response that failed to parse:', err.rawText);
                     errBox.textContent = "Couldn't write a story from this — try attaching the actual lesson page or typing what it's about.";
                 } else {
-                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                    errBox.textContent = err.message;
                 }
                 errBox.classList.remove('hidden');
             } finally {
@@ -1292,7 +1299,7 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
                     console.error('[playModal] Raw AI response that failed to parse:', err.rawText);
                     errBox.textContent = "Couldn't build a quiz from this — try attaching the actual lesson page or typing what it's about.";
                 } else {
-                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                    errBox.textContent = err.message;
                 }
                 errBox.classList.remove('hidden');
             } finally {
@@ -1378,7 +1385,7 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                     console.error('[experientialModal] Raw AI response that failed to parse:', err.rawText);
                     errBox.textContent = "Couldn't build notes from this — try attaching the actual lesson page or typing what it's about.";
                 } else {
-                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                    errBox.textContent = err.message;
                 }
                 errBox.classList.remove('hidden');
             } finally {
