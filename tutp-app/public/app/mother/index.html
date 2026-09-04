@@ -84,7 +84,7 @@
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/app/mother/"><span class="material-symbols-outlined">home</span><span class="font-label-lg text-label-lg">Home</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#exploreSubjectsSection"><span class="material-symbols-outlined">school</span><span class="font-label-lg text-label-lg">Learning Courses</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#bondingReportSection"><span class="material-symbols-outlined">favorite</span><span class="font-label-lg text-label-lg">Bonding Report</span></a></li>
-<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/demo/"><span class="material-symbols-outlined">smart_toy</span><span class="font-label-lg text-label-lg">Ask Tut-P AI Tutor</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#" onclick="openHomeworkModal(); return false;"><span class="material-symbols-outlined">smart_toy</span><span class="font-label-lg text-label-lg">Ask Tut-P AI Tutor</span></a></li>
 </ul>
 <div class="mt-auto px-md">
 <div class="rounded-2xl p-4 bg-gradient-to-br from-primary to-primary-container text-on-primary space-y-2">
@@ -131,21 +131,12 @@
 </div>
 <div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full md:w-80 shrink-0" id="bondingReportSection">
 <h3 class="font-label font-semibold text-on-surface flex items-center gap-2 mb-1"><span class="material-symbols-outlined text-primary text-lg">favorite</span>Bonding Report</h3>
-<p class="font-label text-[11px] text-on-surface-variant uppercase tracking-wide mb-3">7-Day Weekly Trend</p>
+<p class="font-label text-[11px] text-on-surface-variant uppercase tracking-wide mb-3">Parent Engagement Score</p>
 <div class="flex items-end justify-between gap-3 mb-4">
 <span class="font-headline text-3xl text-on-surface shrink-0" id="bondingScoreValue"><span class="inline-block w-16 h-9 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
 <p class="font-body text-xs text-on-surface-variant text-right" id="bondingGapText">Loading your bonding score…</p>
 </div>
-<div class="flex justify-between gap-1 mb-4">
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-primary text-on-primary">62</div><span class="text-[9px] text-on-surface-variant">Mon</span></div>
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-tertiary text-on-tertiary">68</div><span class="text-[9px] text-on-surface-variant">Tue</span></div>
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-secondary text-on-secondary">74</div><span class="text-[9px] text-on-surface-variant">Wed</span></div>
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-error text-on-error">70</div><span class="text-[9px] text-on-surface-variant">Thu</span></div>
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-primary text-on-primary">78</div><span class="text-[9px] text-on-surface-variant">Fri</span></div>
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-tertiary text-on-tertiary">82</div><span class="text-[9px] text-on-surface-variant">Sat</span></div>
-<div class="flex flex-col items-center gap-1"><div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold bg-secondary text-on-secondary">85</div><span class="text-[9px] text-on-surface-variant">Sun</span></div>
-</div>
-<button class="text-primary font-label text-sm font-medium hover:underline inline-flex items-center gap-1" onclick="alert('Opens the full Bonding Report in the live app.')">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
+<button class="text-primary font-label text-sm font-medium hover:underline inline-flex items-center gap-1" onclick="openFullReportModal()">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
 </div>
 </div>
 </section>
@@ -170,7 +161,7 @@
 <div class="hidden absolute left-0 top-12 z-20 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/30 py-2 w-44" id="searchAttachMenu">
 <button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Documents')" type="button"><span class="material-symbols-outlined text-lg text-primary">description</span> Documents</button>
 <button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Photos')" type="button"><span class="material-symbols-outlined text-lg text-primary">photo_camera</span> Photos</button>
-<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Videos')" type="button"><span class="material-symbols-outlined text-lg text-primary">videocam</span> Videos</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface-variant/60 hover:bg-surface-container-low cursor-not-allowed" onclick="handleSearchAttach('Videos')" type="button"><span class="material-symbols-outlined text-lg text-on-surface-variant/60">videocam</span> Videos <span class="ml-auto text-[10px] uppercase tracking-wide">Soon</span></button>
 <button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Files')" type="button"><span class="material-symbols-outlined text-lg text-primary">attach_file</span> Files</button>
 </div>
 </div>
@@ -301,22 +292,12 @@
 </div>
 <p class="font-body-md text-sm text-on-surface-variant">Almost there, <span id="childGoalNamePreview">your child</span>!</p>
 </div>
-<div class="grid grid-cols-3 gap-4 flex-1 w-full">
-<div class="flex flex-col items-center text-center gap-1 p-3 rounded-xl bg-error/5">
-<span class="material-symbols-outlined text-error text-2xl">local_fire_department</span>
-<span class="font-headline text-xl text-on-surface">5</span>
-<span class="font-body text-xs text-on-surface-variant">Day Streak</span>
+<div class="flex-1 w-full flex items-center justify-between gap-4 p-4 rounded-xl bg-primary/5">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-2xl">fact_check</span>
+<span class="font-body-md text-sm text-on-surface-variant">Homework completion<br><span class="text-xs">(last 14 days)</span></span>
 </div>
-<div class="flex flex-col items-center text-center gap-1 p-3 rounded-xl bg-primary/5">
-<span class="material-symbols-outlined text-primary text-2xl">schedule</span>
-<span class="font-headline text-xl text-on-surface">120</span>
-<span class="font-body text-xs text-on-surface-variant">Minutes</span>
-</div>
-<div class="flex flex-col items-center text-center gap-1 p-3 rounded-xl bg-secondary/5">
-<span class="material-symbols-outlined text-secondary text-2xl">military_tech</span>
-<span class="font-headline text-xl text-on-surface">3</span>
-<span class="font-body text-xs text-on-surface-variant">Badges</span>
-</div>
+<span class="font-headline text-2xl text-on-surface text-right shrink-0" id="completionTileValue"><span class="inline-block w-16 h-8 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
 </div>
 </div>
 </section>
@@ -348,13 +329,13 @@
 <p class="font-body text-on-surface-variant mt-2"><span class="childNameText">Your child</span> is waiting for addition practice. Start the guided session.</p>
 </div>
 <div class="relative z-10 mt-6">
-<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="window.location.href='/demo/'">Start Session</button>
+<button class="bg-gradient-to-r from-primary to-primary-container text-on-primary px-6 py-3 rounded-xl font-label font-medium hover:shadow-lg transition-shadow duration-300 w-full sm:w-auto" onclick="openHomeworkModal()">Start Session</button>
 </div>
 </div>
 </section>
 
 <section class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="/demo/">
+<a class="group block bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="#" onclick="openHomeworkModal(); return false;">
 <div class="flex items-start justify-between">
 <div>
 <span class="material-symbols-outlined text-primary text-3xl mb-4 block group-hover:scale-110 transition-transform">school</span>
@@ -395,14 +376,363 @@
 <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="/app/login/"><span class="material-symbols-outlined">group</span><span class="font-label text-xs uppercase tracking-widest mt-1">PROFILES</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span><span class="font-label text-xs uppercase tracking-widest mt-1">FAMILY</span></a>
 </nav>
+<div id="fullReportModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeFullReportModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-md max-h-[85vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-4">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Homework Completion — Last 14 Days</h3>
+<button onclick="closeFullReportModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div id="fullReportBody" class="space-y-4">
+<p class="font-body text-sm text-on-surface-variant">Loading…</p>
+</div>
+</div>
+</div>
+<!-- Ask Tut-P AI Tutor — inline attach + explain, real Claude call against
+     /api/homework using this session's real child context. Replaces the old
+     redirect to /demo/ (a generic, session-agnostic marketing page whose
+     post-quiz "Bonding dashboard" is fabricated sample data — unsafe to show
+     a real parent right after a real AI explanation). -->
+<div id="homeworkExplainModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeworkModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Ask Tut-P AI Tutor</h3>
+<button onclick="closeHomeworkModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4" id="hwModalChildContext">Helping your child</p>
+
+<div id="hwModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Explain in</label>
+<select id="hwModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Homework question / topic (optional if attaching a file)</label>
+<textarea id="hwModalText" placeholder="Type the question as written on the worksheet, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="hwModalAttachInput.accept='image/*,application/pdf'; hwModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="hwModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="hwModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach">remove</button>
+</div>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="hwModalSubmitBtn">Explain &amp; build my quiz</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="hwModalErrBox"></div>
+</div>
+
+<div id="hwModalResults" class="hidden">
+<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-6 mt-2">
+<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
+<span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalLangTag">your language</span>
+</div>
+<p id="hwModalExplanationText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+</div>
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary">Check understanding</div>
+<div class="font-label-md text-xs bg-on-surface text-surface px-3 py-1.5 rounded-full" id="hwModalScorePill">0 / 5 answered</div>
+</div>
+<div id="hwModalQuizArea"></div>
+<div class="text-center mt-2">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()">↺ Try another homework</button>
+</div>
+</div>
+
+</div>
+</div>
 <script>
-        // Search bar's attach menu — decorative (no real upload wiring here,
-        // unlike the homepage's homework-attach widget this pattern is
-        // borrowed from).
+        // Search bar's attach menu — Photos/Documents (PDF) open the inline
+        // Ask Tut-P AI Tutor modal below; Videos isn't supported yet.
         function toggleSearchAttachMenu(){ document.getElementById('searchAttachMenu').classList.toggle('hidden'); }
         function handleSearchAttach(kind){
             document.getElementById('searchAttachMenu').classList.add('hidden');
-            alert('Attach ' + kind + ' — coming soon in the live app.');
+            if (kind === 'Videos') {
+                alert('Video attachments aren\'t supported yet — please attach a photo or a PDF document instead.');
+                return;
+            }
+            openHomeworkModal();
+            hwModalAttachInput.accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
+            hwModalAttachInput.click();
+        }
+
+        // ---------------- Ask Tut-P AI Tutor modal (inline homework-explain) ----------------
+        // Reuses /api/upload's sibling /api/homework exactly as the homepage
+        // and Teacher Module do — real Claude call, real attached file. Unlike
+        // /demo/, child context comes from this session's real family/student
+        // records, and there's no post-quiz dashboard reveal (this page's own
+        // bonding-score/homework-completion sections already show real data).
+        let hwUploadedBase64 = null;
+        let hwUploadedMediaType = null;
+        const hwModalAttachInput = document.getElementById('hwModalAttachInput');
+        const hwModalThumb = document.getElementById('hwModalThumb');
+        const hwModalPdfLabel = document.getElementById('hwModalPdfLabel');
+        const hwModalClearAttach = document.getElementById('hwModalClearAttach');
+
+        // Bumped on every open — an in-flight /api/homework request from a
+        // prior session compares its captured value against this before
+        // touching the DOM, so a late response after close+reopen (found in
+        // manual testing: submit -> close early -> reopen -> attach a
+        // different file) gets discarded instead of overwriting fresh state.
+        let hwSessionToken = 0;
+
+        function openHomeworkModal(){
+            hwSessionToken++;
+            resetHomeworkModal();
+            document.getElementById('homeworkExplainModal').classList.remove('hidden');
+            loadHomeworkModalChildContext();
+        }
+        function closeHomeworkModal(){
+            document.getElementById('homeworkExplainModal').classList.add('hidden');
+        }
+
+        async function loadHomeworkModalChildContext(){
+            const el = document.getElementById('hwModalChildContext');
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            el.textContent = 'Helping your child';
+            try {
+                if (studentId) {
+                    const res = await fetch('/api/student/' + encodeURIComponent(studentId));
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.name) { el.textContent = 'Helping ' + data.name + (data.class ? ' · ' + data.class : ''); return; }
+                    }
+                }
+                if (familyId) {
+                    const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+                    if (res.ok) {
+                        const data = await res.json();
+                        const first = (data.students || [])[0];
+                        if (first && first.name) { el.textContent = 'Helping ' + first.name + (first.class ? ' · ' + first.class : ''); return; }
+                    }
+                }
+            } catch (err) {
+                console.error('[hwModal] Could not load child context:', err);
+            }
+        }
+
+        function showHwModalAttachPreview(dataUrl, mediaType, filename){
+            if (mediaType === 'application/pdf') {
+                hwModalThumb.classList.add('hidden');
+                hwModalPdfLabel.textContent = '📄 ' + (filename || 'document.pdf');
+                hwModalPdfLabel.classList.remove('hidden');
+            } else {
+                hwModalPdfLabel.classList.add('hidden');
+                hwModalThumb.src = dataUrl;
+                hwModalThumb.classList.remove('hidden');
+            }
+            hwModalClearAttach.classList.remove('hidden');
+        }
+
+        // Claude's vision API only accepts these 4 image types — a phone
+        // camera photo (esp. iPhone) is very commonly HEIC, which isn't in
+        // this list, passes our own accept="image/*" filter and file-type
+        // check unchanged, and previously reached Claude's API only to be
+        // rejected there with an opaque 502 the parent couldn't act on.
+        const HW_SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+        // Re-encodes an unsupported image (or one with no/blank reported
+        // type) to JPEG via canvas before it ever reaches Claude. Relies on
+        // the browser's own <img> decoder — notably, Safari/iOS (the
+        // platform most likely to hand us HEIC in the first place) decodes
+        // HEIC natively, so this fixes the common case with no backend
+        // change. Rejects if the browser can't decode the file as an image.
+        function reencodeImageToJpeg(file){
+            return new Promise((resolve, reject) => {
+                const objectUrl = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/jpeg', 0.92));
+                    } catch (err) {
+                        reject(err);
+                    } finally {
+                        URL.revokeObjectURL(objectUrl);
+                    }
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error('Could not decode file as an image'));
+                };
+                img.src = objectUrl;
+            });
+        }
+
+        hwModalAttachInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const errBox = document.getElementById('hwModalErrBox');
+            errBox.classList.add('hidden');
+
+            if (file.type === 'application/pdf' || HW_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+                hwUploadedMediaType = file.type;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    hwUploadedBase64 = reader.result.split(',')[1];
+                    showHwModalAttachPreview(reader.result, file.type, file.name);
+                };
+                reader.readAsDataURL(file);
+                return;
+            }
+
+            try {
+                const jpegDataUrl = await reencodeImageToJpeg(file);
+                hwUploadedMediaType = 'image/jpeg';
+                hwUploadedBase64 = jpegDataUrl.split(',')[1];
+                showHwModalAttachPreview(jpegDataUrl, 'image/jpeg', file.name);
+            } catch (err) {
+                console.error('[hwModal] Could not convert unsupported file format:', err);
+                hwModalAttachInput.value = '';
+                errBox.textContent = "This file isn't in a format Tut-P can read yet — please attach a photo (JPG/PNG) or a PDF instead.";
+                errBox.classList.remove('hidden');
+            }
+        });
+        hwModalClearAttach.addEventListener('click', () => {
+            hwUploadedBase64 = null;
+            hwUploadedMediaType = null;
+            hwModalAttachInput.value = '';
+            hwModalThumb.classList.add('hidden');
+            hwModalPdfLabel.classList.add('hidden');
+            hwModalClearAttach.classList.add('hidden');
+        });
+
+        document.getElementById('hwModalSubmitBtn').addEventListener('click', async () => {
+            const hwText = document.getElementById('hwModalText').value.trim();
+            const lang = document.getElementById('hwModalLang').value;
+            const errBox = document.getElementById('hwModalErrBox');
+            const submitBtn = document.getElementById('hwModalSubmitBtn');
+            if (!hwText && !hwUploadedBase64) {
+                errBox.textContent = 'Please type the question or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Reading the homework…';
+            // Captured now so the response handlers below can tell whether
+            // this is still the current modal session by the time the
+            // request resolves — see hwSessionToken above.
+            const requestToken = hwSessionToken;
+
+            const childContext = document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
+            const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right"}]}
+Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+
+            const userContent = [];
+            if (hwUploadedBase64) {
+                userContent.push({
+                    type: hwUploadedMediaType === 'application/pdf' ? 'document' : 'image',
+                    source: { type: 'base64', media_type: hwUploadedMediaType, data: hwUploadedBase64 }
+                });
+            }
+            userContent.push({
+                type: 'text',
+                text: hwText ? `Homework: ${hwText}` : 'Read the homework in the attached photo or PDF and respond to it.'
+            });
+
+            try {
+                const res = await fetch('/api/homework', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ systemPrompt, userContent })
+                });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error || `Server returned ${res.status}`);
+                }
+                const data = await res.json();
+                const textBlock = (data.content || []).find(b => b.type === 'text');
+                if (!textBlock) throw new Error('No response content');
+                const cleaned = textBlock.text.replace(/```json|```/g, '').trim();
+                const parsed = JSON.parse(cleaned);
+
+                // A newer session (modal closed and reopened) has started
+                // since this request went out — its own fresh state must
+                // not be clobbered by this now-stale response.
+                if (requestToken !== hwSessionToken) return;
+
+                document.getElementById('hwModalForm').classList.add('hidden');
+                document.getElementById('hwModalResults').classList.remove('hidden');
+                document.getElementById('hwModalLangTag').textContent = lang;
+                document.getElementById('hwModalExplanationText').textContent = parsed.explanation;
+                renderHwModalQuiz(parsed.quiz || []);
+            } catch (err) {
+                if (requestToken !== hwSessionToken) return;
+                console.error('[hwModal] Explain request failed:', err);
+                errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                errBox.classList.remove('hidden');
+            } finally {
+                if (requestToken === hwSessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Explain & build my quiz';
+                }
+            }
+        });
+
+        const HW_OPT_BASE = 'text-left font-body-md text-sm rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors border-2';
+        const HW_OPT_DEFAULT = HW_OPT_BASE + ' text-on-surface bg-surface-container-lowest border-outline-variant cursor-pointer hover:border-on-surface-variant disabled:cursor-default disabled:pointer-events-none';
+        const HW_OPT_CORRECT = HW_OPT_BASE + ' bg-tertiary-container/40 border-tertiary text-on-tertiary-container';
+        const HW_OPT_WRONG = HW_OPT_BASE + ' bg-error-container/40 border-error text-error';
+        function hwEscapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+        function renderHwModalQuiz(quiz){
+            const area = document.getElementById('hwModalQuizArea');
+            area.innerHTML = '';
+            let answered = 0;
+            document.getElementById('hwModalScorePill').textContent = `0 / ${quiz.length} answered`;
+            quiz.forEach((q, qi) => {
+                const card = document.createElement('div');
+                card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5 mb-3.5';
+                card.innerHTML = `
+                    <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1} of ${quiz.length}</div>
+                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.question)}</div>
+                    <div class="grid gap-2" data-role="opts"></div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
+                `;
+                const optsWrap = card.querySelector('[data-role="opts"]');
+                q.options.forEach((opt, oi) => {
+                    const btn = document.createElement('button');
+                    btn.className = HW_OPT_DEFAULT;
+                    btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
+                    btn.addEventListener('click', () => {
+                        const allBtns = optsWrap.querySelectorAll('button');
+                        allBtns.forEach(b => b.disabled = true);
+                        if (oi === q.correct) {
+                            btn.className = HW_OPT_CORRECT;
+                            btn.querySelector('[data-role="mark"]').textContent = '✓';
+                        } else {
+                            btn.className = HW_OPT_WRONG;
+                            btn.querySelector('[data-role="mark"]').textContent = '✗';
+                            const correctBtn = allBtns[q.correct];
+                            correctBtn.className = HW_OPT_CORRECT;
+                            correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
+                        }
+                        const explainBox = card.querySelector('[data-role="explain"]');
+                        explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(q.explain)}`;
+                        explainBox.classList.remove('hidden');
+                        answered++;
+                        document.getElementById('hwModalScorePill').textContent = `${answered} / ${quiz.length} answered`;
+                    });
+                    optsWrap.appendChild(btn);
+                });
+                area.appendChild(card);
+            });
+        }
+        function resetHomeworkModal(){
+            document.getElementById('hwModalForm').classList.remove('hidden');
+            document.getElementById('hwModalResults').classList.add('hidden');
+            document.getElementById('hwModalText').value = '';
+            hwModalClearAttach.click();
+            document.getElementById('hwModalErrBox').classList.add('hidden');
+            const submitBtn = document.getElementById('hwModalSubmitBtn');
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Explain & build my quiz';
         }
         document.addEventListener('click', (e) => {
             const menu = document.getElementById('searchAttachMenu');
@@ -562,6 +892,11 @@
                 const res = await fetch('/api/bonding-score/' + encodeURIComponent(familyId) + '/mother');
                 if (!res.ok) throw new Error('Request failed');
                 const data = await res.json();
+                if (!data.hasData) {
+                    valueEl.textContent = 'N/A';
+                    gapEl.textContent = 'Not enough data yet — check back after some homework activity.';
+                    return;
+                }
                 valueEl.textContent = data.score + '%';
                 gapEl.textContent = data.isLeader
                     ? "You're the top bonder in your family right now!"
@@ -572,6 +907,49 @@
                 gapEl.textContent = 'Could not load your bonding score right now.';
             }
         })();
+
+        // Homework-completion tile + "View Full Report" modal — live-computed
+        // (same 14-day window/formula the daily bonding-score cron uses), so
+        // it can be fresher than the once-daily bonding_scores value above.
+        let lastCompletionStats = null;
+        (async function loadHomeworkCompletion(){
+            const tileValueEl = document.getElementById('completionTileValue');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) { tileValueEl.textContent = '—'; return; }
+            try {
+                const res = await fetch('/api/homework-completion/' + encodeURIComponent(familyId));
+                if (!res.ok) throw new Error('Request failed');
+                lastCompletionStats = await res.json();
+                tileValueEl.textContent = lastCompletionStats.hasData ? lastCompletionStats.percentage + '%' : 'Not enough data yet';
+            } catch (err) {
+                console.error('[mother] Could not load homework completion:', err);
+                tileValueEl.textContent = 'Could not load';
+            }
+        })();
+
+        function openFullReportModal(){
+            const bodyEl = document.getElementById('fullReportBody');
+            const stats = lastCompletionStats;
+            if (!stats || !stats.hasData) {
+                bodyEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Not enough homework activity in the last 14 days to show a report yet.</p>';
+            } else {
+                const perChild = stats.children.length > 1 ? stats.children.map(c => `
+                    <div class="bg-surface-container-highest rounded-xl p-4">
+                        <p class="font-label text-sm text-primary font-semibold mb-1">${c.name}</p>
+                        <p class="font-body text-sm text-on-surface-variant">${c.done} of ${c.assigned} homework items done — <span class="font-semibold text-on-surface">${c.percentage}%</span></p>
+                    </div>`).join('') : '';
+                bodyEl.innerHTML = `
+                    <div class="bg-primary/5 rounded-xl p-4">
+                        <p class="font-body text-sm text-on-surface-variant">Across the family: <span class="font-semibold text-on-surface">${stats.totalDone} of ${stats.totalAssigned}</span> homework items done.</p>
+                        <p class="font-headline text-2xl text-on-surface mt-1">${stats.percentage}%</p>
+                    </div>
+                    ${perChild}`;
+            }
+            document.getElementById('fullReportModal').classList.remove('hidden');
+        }
+        function closeFullReportModal(){
+            document.getElementById('fullReportModal').classList.add('hidden');
+        }
 
         function formatHwDate(iso){
             try { return new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }); }

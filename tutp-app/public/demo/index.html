@@ -111,9 +111,10 @@
     <textarea id="hwText" placeholder="e.g. Explain why plants are called producers, and give two examples of producers found in your area." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[96px] leading-relaxed">A train travels 60 km in the first hour and 90 km in the second hour. What is the average speed of the train for the entire journey?</textarea>
 
     <div class="flex items-center gap-3 mt-3.5 flex-wrap">
-      <label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" for="hwImage">📷 Attach a photo of the homework (optional)</label>
-      <input type="file" id="hwImage" accept="image/*" class="hidden">
+      <label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" for="hwImage">📷 Attach a photo or PDF of the homework (optional)</label>
+      <input type="file" id="hwImage" accept="image/*,application/pdf" class="hidden">
       <img id="hwThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+      <span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwPdfLabel">📄</span>
       <button class="font-label-md text-xs text-error underline hidden" id="clearImg">remove</button>
     </div>
 
@@ -187,7 +188,29 @@ let uploadedImageMediaType = null;
 
 const hwImageInput = document.getElementById('hwImage');
 const hwThumb = document.getElementById('hwThumb');
+const hwPdfLabel = document.getElementById('hwPdfLabel');
 const clearImgBtn = document.getElementById('clearImg');
+
+// PDFs can't render in an <img>, so they get a filename badge instead of
+// the thumbnail — same "which preview widget" branch as teacher-side
+// fileToContentBlock's image-vs-document check.
+function showAttachedFilePreview(dataUrl, mediaType, filename){
+  if (mediaType === 'application/pdf') {
+    hwThumb.classList.add('hidden');
+    hwPdfLabel.textContent = '📄 ' + (filename || 'document.pdf');
+    hwPdfLabel.classList.remove('hidden');
+  } else {
+    hwPdfLabel.classList.add('hidden');
+    hwThumb.src = dataUrl;
+    hwThumb.classList.remove('hidden');
+  }
+  clearImgBtn.classList.remove('hidden');
+}
+function clearAttachedFilePreview(){
+  hwThumb.classList.add('hidden');
+  hwPdfLabel.classList.add('hidden');
+  clearImgBtn.classList.add('hidden');
+}
 
 hwImageInput.addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -196,9 +219,7 @@ hwImageInput.addEventListener('change', (e) => {
   const reader = new FileReader();
   reader.onload = () => {
     uploadedImageBase64 = reader.result.split(',')[1];
-    hwThumb.src = reader.result;
-    hwThumb.classList.remove('hidden');
-    clearImgBtn.classList.remove('hidden');
+    showAttachedFilePreview(reader.result, file.type, file.name);
   };
   reader.readAsDataURL(file);
 });
@@ -207,12 +228,11 @@ clearImgBtn.addEventListener('click', () => {
   uploadedImageBase64 = null;
   uploadedImageMediaType = null;
   hwImageInput.value = '';
-  hwThumb.classList.add('hidden');
-  clearImgBtn.classList.add('hidden');
+  clearAttachedFilePreview();
 });
 
 // Picks up a file attached on the homepage before the login redirect —
-// only images can feed the vision call below; other types are just noted.
+// images and PDFs can feed the Claude call below; other types are just noted.
 (async function loadPendingHomeworkAttachment(){
   const url = sessionStorage.getItem('tutp_pending_homework_url');
   sessionStorage.removeItem('tutp_pending_homework_url');
@@ -221,8 +241,8 @@ clearImgBtn.addEventListener('click', () => {
   try {
     const resp = await fetch(url);
     const blob = await resp.blob();
-    if (!blob.type.startsWith('image/')) {
-      errBox.textContent = 'Your attached file was saved, but only photos can be read automatically here — please attach a photo of the homework below.';
+    if (!blob.type.startsWith('image/') && blob.type !== 'application/pdf') {
+      errBox.textContent = 'Your attached file was saved, but only photos and PDFs can be read automatically here — please attach one of those below.';
       errBox.classList.remove('hidden');
       return;
     }
@@ -230,9 +250,7 @@ clearImgBtn.addEventListener('click', () => {
     const reader = new FileReader();
     reader.onload = () => {
       uploadedImageBase64 = reader.result.split(',')[1];
-      hwThumb.src = reader.result;
-      hwThumb.classList.remove('hidden');
-      clearImgBtn.classList.remove('hidden');
+      showAttachedFilePreview(reader.result, blob.type, null);
     };
     reader.readAsDataURL(blob);
   } catch (err) {
@@ -285,13 +303,13 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
       const userContent = [];
       if (uploadedImageBase64) {
         userContent.push({
-          type: "image",
+          type: uploadedImageMediaType === "application/pdf" ? "document" : "image",
           source: { type: "base64", media_type: uploadedImageMediaType, data: uploadedImageBase64 }
         });
       }
       userContent.push({
         type: "text",
-        text: hwText ? `Homework: ${hwText}` : "Read the homework in the attached photo and respond to it."
+        text: hwText ? `Homework: ${hwText}` : "Read the homework in the attached photo or PDF and respond to it."
       });
 
       response = await fetch("/api/homework", {
