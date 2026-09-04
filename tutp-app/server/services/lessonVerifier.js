@@ -101,8 +101,8 @@ export async function verifyMcqSections(lesson_json) {
   const mcqItems = [];
   for (const section of sections) {
     for (const item of section.items || []) {
-      if (typeof item === 'string' && looksLikeMcq(item)) {
-        mcqItems.push(item);
+      if (item && typeof item.text === 'string' && looksLikeMcq(item.text)) {
+        mcqItems.push(item.text);
       }
     }
   }
@@ -182,7 +182,9 @@ export async function verifyMcqSections(lesson_json) {
     for (const section of sections) {
       if (!Array.isArray(section.items)) continue;
       section.items = section.items.map((item) =>
-        typeof item === 'string' && corrections.has(item) ? corrections.get(item) : item
+        item && typeof item.text === 'string' && corrections.has(item.text)
+          ? { ...item, text: corrections.get(item.text) }
+          : item
       );
     }
   }

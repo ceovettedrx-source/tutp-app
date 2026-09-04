@@ -2,6 +2,9 @@
 // a printable, black-and-white-friendly HTML page: single column, no
 // background colors/images, Plus Jakarta Sans throughout (headings and body).
 
+import { generateBarModelSvg } from './barModelSvgGenerator.js';
+import { generateTriangleSvg } from './triangleSvgGenerator.js';
+
 function escapeHtml(str) {
   return String(str ?? '')
     .replace(/&/g, '&amp;')
@@ -44,6 +47,40 @@ function renderGroundingBadge(grounding) {
 }
 
 /**
+ * Renders an item's diagram (if any) to an SVG wrapped for spacing/styling.
+ *
+ * Failure handling here is deliberately per-item and non-fatal — this is
+ * NOT the same policy as the KG-grounding rule elsewhere in this feature
+ * (which fails loud/whole-response, because an ungrounded claim presented
+ * as grounded is worse than no material at all). A single bad diagram
+ * (e.g. Claude produced an invalid parts/shaded combination) doesn't make
+ * the rest of an otherwise-good worksheet worthless, so we catch it, warn
+ * in the console for debugging, and leave a small visible note in the
+ * output so the failure is still surfaced to the teacher reviewing the
+ * material rather than silently vanishing.
+ */
+function renderItemDiagram(diagram, itemText) {
+  if (!diagram) return '';
+
+  try {
+    let svg;
+    if (diagram.type === 'bar_model') {
+      svg = generateBarModelSvg({ parts: diagram.parts, shaded: diagram.shaded, label: diagram.label });
+    } else if (diagram.type === 'triangle') {
+      svg = diagram.sides
+        ? generateTriangleSvg({ sides: diagram.sides })
+        : generateTriangleSvg({ angles: diagram.angles });
+    } else {
+      throw new Error(`Unknown diagram type: ${diagram.type}`);
+    }
+    return `<div class="item-diagram">${svg}</div>`;
+  } catch (err) {
+    console.warn(`Diagram generation failed for item "${itemText}": ${err.message}`);
+    return `<div class="item-diagram item-diagram-error">(diagram could not be generated)</div>`;
+  }
+}
+
+/**
  * @param {object} lesson_json - see lessonMaterialGenerator.js for the shape:
  *   { teacher_notes: { objective, key_points, timing_minutes },
  *     student_sections: [{ title, instructions, items }],
@@ -67,7 +104,7 @@ export function renderLessonHtml(lesson_json) {
 
   const sectionsHtml = student_sections.map(section => {
     const itemsHtml = (section.items || [])
-      .map(item => `<li>${escapeHtml(item)}</li>`)
+      .map(item => `<li>${escapeHtml(item.text)}${renderItemDiagram(item.diagram, item.text)}</li>`)
       .join('\n');
     return `
       <section class="student-section">
@@ -114,6 +151,8 @@ export function renderLessonHtml(lesson_json) {
   li { margin-bottom: 4px; }
   .student-section { break-inside: avoid; page-break-inside: avoid; }
   svg { width: 100%; height: auto; display: block; }
+  .item-diagram { max-width: 260px; margin: 8px 0; }
+  .item-diagram-error { font-style: italic; color: #8a5a00; }
   .grounding-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; }
   .chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
   .chip-sourced { background: #eaf2ff; color: #005bbf; border: 1px solid #b3d1ff; }

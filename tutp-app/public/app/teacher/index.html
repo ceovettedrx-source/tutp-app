@@ -448,8 +448,18 @@
   const QP_BOARD_LABELS = { cbse: 'CBSE', state_board: 'State Board', icse: 'ICSE' };
   const QP_PATTERN_LABELS = { weekly: 'Weekly Test', monthly: 'Monthly Test', quarterly: '3-Month Exam', half_yearly: '6-Month Exam', pre_final: 'Pre-Final', final: 'Final' };
 
+  // Claude's vision API only accepts these 4 image types (plus PDF as a
+  // document) — a phone camera photo is often HEIC, which isn't in this
+  // list, passes accept="image/*,application/pdf" unchanged, and previously
+  // reached Claude's API only to be rejected there with an opaque 502.
+  const QP_SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
   function fileToContentBlock(file){
     return new Promise((resolve, reject) => {
+      if (file.type !== 'application/pdf' && !QP_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+        reject(new Error("This file isn't in a format Tut-P can read — please attach a JPG/PNG photo or a PDF instead."));
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => {
         const base64 = reader.result.split(',')[1];
@@ -471,7 +481,7 @@
       if (which === 'lesson') qpLessonContent = block; else qpOldPaperContent = block;
       statusEl.textContent = '✓ ' + file.name;
     } catch (err) {
-      statusEl.textContent = 'Could not read that file — please try again.';
+      statusEl.textContent = err.message || 'Could not read that file — please try again.';
       console.error(err);
     }
     updateQpGenerateState();
