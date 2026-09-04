@@ -1425,9 +1425,9 @@ app.get('/api/bonding-score/:familyId/:viewerKey', async (req, res) => {
     if (error) throw error;
 
     const own = (rows || []).find(r => r.viewer_key === viewerKey);
-    const score = own ? own.score : 0;
-    const leaderScore = (rows || []).reduce((max, r) => Math.max(max, r.score), score);
-    res.json({ score, leaderScore, isLeader: score >= leaderScore });
+    if (!own) return res.json({ hasData: false, score: null, leaderScore: null, isLeader: false });
+    const leaderScore = (rows || []).reduce((max, r) => Math.max(max, r.score), own.score);
+    res.json({ hasData: true, score: own.score, leaderScore, isLeader: own.score >= leaderScore });
   } catch (err) {
     console.error('Get bonding score error:', err);
     res.status(500).json({ error: 'Could not fetch bonding score' });
@@ -1777,6 +1777,67 @@ app.get('/api/homework-assignments/for-family/:familyId', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// Parent Engagement Score (PES) v1 — homework completion in the last
+// 14 days, family-wide. Shared by the live completion tile/modal
+// (GET /api/homework-completion/:familyId below) and the once-daily
+// scoring cron (POST /api/cron/parent-engagement-score, further down)
+// so both always agree on the same numbers.
+//
+// homework_status only ever gets a row when a child marks an item
+// done (see /api/homework-assignments/:id/mark-done above) — nothing
+// writes a "pending" row up front. So "total homework" has to come
+// from homeworkForStudent()'s full matched set (grade/section/school/
+// geo), not from counting homework_status rows directly, or every
+// family with any activity would score 100%.
+// ------------------------------------------------------------------
+const PES_WINDOW_DAYS = 14;
+
+async function computeFamilyHomeworkCompletion(familyId) {
+  const since = new Date();
+  since.setDate(since.getDate() - PES_WINDOW_DAYS);
+
+  const { data: students, error: studentsErr } = await supabase.from('students')
+    .select('id, name, class, section, school_name, area, state, district, mandal').eq('family_id', familyId);
+  if (studentsErr) throw studentsErr;
+
+  const children = [];
+  const childScores = [];
+  let totalAssigned = 0, totalDone = 0;
+
+  for (const s of (students || [])) {
+    const homework = (await homeworkForStudent(s)).filter(h => new Date(h.created_at) >= since);
+    const assigned = homework.length;
+    if (assigned === 0) continue; // no homework in the window — excluded from the average, not scored as 0
+    const done = homework.filter(h => h.is_done).length;
+    const percentage = Math.round((done / assigned) * 100);
+    children.push({ student_id: s.id, name: s.name, assigned, done, percentage });
+    childScores.push(percentage);
+    totalAssigned += assigned;
+    totalDone += done;
+  }
+
+  if (!childScores.length) return { hasData: false, percentage: null, totalAssigned: 0, totalDone: 0, children: [] };
+
+  const percentage = Math.round(childScores.reduce((a, b) => a + b, 0) / childScores.length);
+  return { hasData: true, percentage, totalAssigned, totalDone, children };
+}
+
+// Live-computed completion stats for the dashboard's completion tile
+// and "View Full Report" expansion — always fresh, unlike the
+// once-daily bonding_scores value written by the cron below.
+app.get('/api/homework-completion/:familyId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    res.json(await computeFamilyHomeworkCompletion(familyId));
+  } catch (err) {
+    console.error('Get homework completion error:', err);
+    res.status(500).json({ error: 'Could not fetch homework completion' });
+  }
+});
+
+// ------------------------------------------------------------------
 // Evening homework alert — called once daily by a Cloud Scheduler job,
 // protected by the same shared-secret-token pattern as ADMIN_TOKEN.
 // Sends one digest email per family covering every child with homework
@@ -1864,6 +1925,56 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
   } catch (err) {
     console.error('Evening homework alert error:', err);
     res.status(500).json({ error: 'Could not run evening homework alerts' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Parent Engagement Score cron — called once daily by a Cloud
+// Scheduler job, same shared-secret-token pattern as the evening
+// homework alert above. Computes each family's 14-day homework
+// completion (computeFamilyHomeworkCompletion, defined above) and
+// writes it into bonding_scores for every viewer in that family —
+// 'mother', 'father', and each family_members row — since PES v1 is
+// family-wide, not per-viewer (reuses the same upsert POST
+// /api/bonding-score does, in-process rather than over HTTP). A
+// family with no homework activity in the window is skipped
+// entirely, so bonding_scores stays absent for it and the frontend
+// shows "Not enough data yet" instead of a misleading 0.
+// ------------------------------------------------------------------
+app.post('/api/cron/parent-engagement-score', async (req, res) => {
+  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const { data: studentRows, error: studentsErr } = await supabase.from('students').select('family_id');
+    if (studentsErr) throw studentsErr;
+    const familyIds = [...new Set((studentRows || []).map(s => s.family_id))];
+
+    let familiesScored = 0, familiesSkipped = 0;
+    for (const familyId of familyIds) {
+      const stats = await computeFamilyHomeworkCompletion(familyId);
+      if (!stats.hasData) { familiesSkipped++; continue; }
+
+      const { data: members, error: membersErr } = await supabase.from('family_members')
+        .select('id').eq('family_id', familyId);
+      if (membersErr) throw membersErr;
+      const viewerKeys = ['mother', 'father', ...(members || []).map(m => m.id)];
+
+      for (const viewerKey of viewerKeys) {
+        const { error: upsertErr } = await supabase.from('bonding_scores').upsert({
+          family_id: familyId, viewer_key: viewerKey, score: stats.percentage, updated_at: new Date().toISOString()
+        }, { onConflict: 'family_id,viewer_key' });
+        if (upsertErr) throw upsertErr;
+      }
+      familiesScored++;
+    }
+
+    res.json({ ok: true, familiesScored, familiesSkipped });
+  } catch (err) {
+    console.error('Parent engagement score cron error:', err);
+    res.status(500).json({ error: 'Could not compute parent engagement scores' });
   }
 });
 
