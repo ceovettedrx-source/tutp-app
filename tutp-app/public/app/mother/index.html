@@ -601,6 +601,21 @@
             hwModalClearAttach.classList.add('hidden');
         });
 
+        // Claude is instructed to respond with ONLY a JSON object, but isn't
+        // 100% reliable about it — e.g. given a vague question like "make a
+        // quiz" with nothing concrete to quiz on, it sometimes prepends a
+        // clarifying sentence before the JSON instead of omitting it. Thrown
+        // instead of a plain Error so the catch block below can show a
+        // specific, honest message for this failure mode instead of the
+        // generic one, and log the raw text for debugging.
+        class HwParseError extends Error {
+            constructor(message, rawText) {
+                super(message);
+                this.name = 'HwParseError';
+                this.rawText = rawText;
+            }
+        }
+
         document.getElementById('hwModalSubmitBtn').addEventListener('click', async () => {
             const hwText = document.getElementById('hwModalText').value.trim();
             const lang = document.getElementById('hwModalLang').value;
@@ -649,9 +664,22 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
                 }
                 const data = await res.json();
                 const textBlock = (data.content || []).find(b => b.type === 'text');
-                if (!textBlock) throw new Error('No response content');
-                const cleaned = textBlock.text.replace(/```json|```/g, '').trim();
-                const parsed = JSON.parse(cleaned);
+                if (!textBlock) throw new HwParseError('No response content', '');
+
+                // Extract the JSON object itself rather than assuming the
+                // whole string is JSON — Claude occasionally prepends a
+                // clarifying sentence before it (see HwParseError above).
+                const firstBrace = textBlock.text.indexOf('{');
+                const lastBrace = textBlock.text.lastIndexOf('}');
+                if (firstBrace === -1 || lastBrace < firstBrace) {
+                    throw new HwParseError('No JSON object found in response', textBlock.text);
+                }
+                let parsed;
+                try {
+                    parsed = JSON.parse(textBlock.text.slice(firstBrace, lastBrace + 1));
+                } catch (parseErr) {
+                    throw new HwParseError(parseErr.message, textBlock.text);
+                }
 
                 // A newer session (modal closed and reopened) has started
                 // since this request went out — its own fresh state must
@@ -666,7 +694,12 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
             } catch (err) {
                 if (requestToken !== hwSessionToken) return;
                 console.error('[hwModal] Explain request failed:', err);
-                errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                if (err.name === 'HwParseError') {
+                    console.error('[hwModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "The AI couldn't generate a quiz from this — try describing the actual homework question instead of just asking for a quiz.";
+                } else {
+                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                }
                 errBox.classList.remove('hidden');
             } finally {
                 if (requestToken === hwSessionToken) {
