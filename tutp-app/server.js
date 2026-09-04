@@ -2016,7 +2016,14 @@ app.post('/api/homework', async (req, res) => {
       },
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
+        // A broad/unspecific attachment (e.g. a whole textbook chapter page
+        // with no single stated question) combined with a token-inefficient
+        // output language (Telugu and other Indic scripts use far more
+        // tokens per character than English) measured up to ~1220 output
+        // tokens for a full 5-question quiz — comfortably over the previous
+        // 1000 cap, which silently truncated mid-JSON. 2000 leaves ~65%
+        // headroom over that observed worst case.
+        max_tokens: 2000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
       })

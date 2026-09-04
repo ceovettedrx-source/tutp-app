@@ -638,7 +638,7 @@
             const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right"}]}
-Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
 
             const userContent = [];
             if (hwUploadedBase64) {
