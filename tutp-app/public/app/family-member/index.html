@@ -150,11 +150,9 @@
 
 <section class="space-y-sm" data-feature="activities">
 <div class="flex flex-wrap gap-xs justify-center">
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Storytelling Method</button>
-<button class="px-4 py-2 rounded-full border border-primary bg-primary-container/10 text-primary font-label-md text-label-md hover:bg-primary-container/20 transition-all shadow-sm">Experiential Learning</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Play-Based Learning</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Discussion Method</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm">Lecture Method</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openStorytellingModal()">Storytelling Method</button>
+<button class="px-4 py-2 rounded-full border border-primary bg-primary-container/10 text-primary font-label-md text-label-md hover:bg-primary-container/20 transition-all shadow-sm" onclick="openExperientialModal()">Experiential Learning</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openPlayModal()">Play-Based Learning</button>
 </div>
 </section>
 
@@ -436,6 +434,158 @@
 <div id="hwModalQuizArea"></div>
 <div class="text-center mt-2">
 <button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()">↺ Try another homework</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Storytelling Method — attach a lesson, get a short story connecting it to
+     real life, then read aloud via the browser's Web Speech API. Text is
+     always shown regardless of TTS support; "Submit & Tell" auto-plays when
+     a matching voice exists, falling back to text-only silently otherwise. -->
+<div id="storyModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeStoryModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Storytelling Method</h3>
+<button onclick="closeStoryModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Turn today's lesson into a story your child will remember</p>
+
+<div id="storyModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Tell the story in</label>
+<select id="storyModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="storyModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="storyModalAttachInput.accept='image/*,application/pdf'; storyModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="storyModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="storyModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="storyModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="storyModalClearAttach">remove</button>
+</div>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="storyModalSubmitBtn">Submit &amp; Tell</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="storyModalErrBox"></div>
+</div>
+
+<div id="storyModalResults" class="hidden">
+<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-4 mt-2">
+<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">📖 Your child's story</div>
+<p id="storyModalStoryText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+</div>
+<div class="flex items-center gap-3 flex-wrap">
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" id="storyModalPlayBtn" onclick="playStory()">▶ Play story</button>
+<button class="bg-surface-container-high text-on-surface font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hidden hover:bg-surface-container-highest active:scale-[0.98] transition-colors" id="storyModalStopBtn" onclick="stopStory()">⏹ Stop</button>
+</div>
+<div class="hidden text-xs text-on-surface-variant mt-3" id="storyModalTtsNote"></div>
+<div class="text-center mt-5">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetStoryModal()">↺ Try another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Play-Based Learning — attach a lesson, pick how many family members are
+     playing, get 3 questions per player assigned round-robin. No timer;
+     family discusses each question together before the assigned player
+     submits. Running per-player score tracked through the session. -->
+<div id="playModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closePlayModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Play-Based Learning</h3>
+<button onclick="closePlayModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Turn today's lesson into a family quiz game</p>
+
+<div id="playModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Ask in</label>
+<select id="playModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">How many are playing?</label>
+<div class="flex gap-2 mb-3.5" id="playModalPlayerCount" data-value="2">
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-players="2">2 players</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-players="3">3 players</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-players="4">4 players</button>
+</div>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="playModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="playModalAttachInput.accept='image/*,application/pdf'; playModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="playModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="playModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="playModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="playModalClearAttach">remove</button>
+</div>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalSubmitBtn">Start playing</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalErrBox"></div>
+</div>
+
+<div id="playModalResults" class="hidden">
+<div class="flex flex-wrap gap-2 mb-4" id="playModalScoreboard"></div>
+<div id="playModalQuizArea"></div>
+<div class="text-center mt-2">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetPlayModal()">↺ Play another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Experiential Learning — attach a lesson, get an inferred "what came
+     before this" callout plus step-by-step notes the child can follow at
+     home. v1 is text-only: no YouTube search/relevance-check yet (none of
+     that infrastructure exists in this backend today), so notes never claim
+     to be based on a video — see CLAUDE.md backlog note. -->
+<div id="experientialModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeExperientialModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Experiential Learning</h3>
+<button onclick="closeExperientialModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Step-by-step notes so your child can follow along at home</p>
+
+<div id="experientialModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Notes in</label>
+<select id="experientialModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="experientialModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="experientialModalAttachInput.accept='image/*,application/pdf'; experientialModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="experientialModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="experientialModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach">remove</button>
+</div>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="experientialModalSubmitBtn">Get step-by-step notes</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="experientialModalErrBox"></div>
+</div>
+
+<div id="experientialModalResults" class="hidden">
+<div class="bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-5 py-4 mb-4 mt-2">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">Before this lesson, your child likely learned</div>
+<p id="experientialModalPreceding" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Estimated from the lesson content — not a verified curriculum record.</p>
+</div>
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-2">Step-by-step notes</div>
+<ol id="experientialModalNotes" class="list-decimal pl-5 space-y-2 text-[15px] text-on-surface leading-relaxed"></ol>
+<p class="text-xs text-on-surface-variant mt-4 mb-0">Video matching for this lesson isn't available yet — these are text-only notes.</p>
+<div class="text-center mt-5">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetExperientialModal()">↺ Try another lesson</button>
 </div>
 </div>
 
@@ -771,6 +921,472 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             const menu = document.getElementById('searchAttachMenu');
             const btn = e.target.closest('[aria-label="Attach a file"]');
             if (menu && !menu.contains(e.target) && !btn) menu.classList.add('hidden');
+        });
+
+        // ---------------- Shared helpers for the 3 learning-model modals ----------------
+        // Reuses loadHomeworkModalChildContext()/#hwModalChildContext (defined above for
+        // the AI Tutor modal) as a shared child-name cache rather than re-fetching per modal.
+        async function getSharedChildContext(){
+            await loadHomeworkModalChildContext();
+            return document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
+        }
+
+        function attachFilePicker(inputEl, thumbEl, pdfLabelEl, clearBtnEl, state, errBoxEl){
+            inputEl.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                errBoxEl.classList.add('hidden');
+                if (file.type === 'application/pdf' || HW_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+                    state.mediaType = file.type;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        state.base64 = reader.result.split(',')[1];
+                        if (file.type === 'application/pdf') {
+                            thumbEl.classList.add('hidden');
+                            pdfLabelEl.textContent = '📄 ' + (file.name || 'document.pdf');
+                            pdfLabelEl.classList.remove('hidden');
+                        } else {
+                            pdfLabelEl.classList.add('hidden');
+                            thumbEl.src = reader.result;
+                            thumbEl.classList.remove('hidden');
+                        }
+                        clearBtnEl.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                    return;
+                }
+                try {
+                    const jpegDataUrl = await reencodeImageToJpeg(file);
+                    state.mediaType = 'image/jpeg';
+                    state.base64 = jpegDataUrl.split(',')[1];
+                    pdfLabelEl.classList.add('hidden');
+                    thumbEl.src = jpegDataUrl;
+                    thumbEl.classList.remove('hidden');
+                    clearBtnEl.classList.remove('hidden');
+                } catch (err) {
+                    console.error('[attachFilePicker] Could not convert unsupported file format:', err);
+                    inputEl.value = '';
+                    errBoxEl.textContent = "This file isn't in a format Tut-P can read yet — please attach a photo (JPG/PNG) or a PDF instead.";
+                    errBoxEl.classList.remove('hidden');
+                }
+            });
+            clearBtnEl.addEventListener('click', () => {
+                state.base64 = null;
+                state.mediaType = null;
+                inputEl.value = '';
+                thumbEl.classList.add('hidden');
+                pdfLabelEl.classList.add('hidden');
+                clearBtnEl.classList.add('hidden');
+            });
+        }
+
+        class ModalParseError extends Error {
+            constructor(message, rawText) {
+                super(message);
+                this.name = 'ModalParseError';
+                this.rawText = rawText;
+            }
+        }
+
+        // Extracts a JSON object from Claude's response text (see HwParseError above
+        // for why this can't just be JSON.parse(text) — Claude occasionally prepends
+        // a clarifying sentence instead of pure JSON).
+        function extractJsonFromClaudeText(text){
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            if (firstBrace === -1 || lastBrace < firstBrace) {
+                throw new ModalParseError('No JSON object found in response', text);
+            }
+            try {
+                return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+            } catch (parseErr) {
+                throw new ModalParseError(parseErr.message, text);
+            }
+        }
+
+        async function callHomeworkApi(systemPrompt, userContent){
+            const res = await fetch('/api/homework', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ systemPrompt, userContent })
+            });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(errData.error || `Server returned ${res.status}`);
+            }
+            const data = await res.json();
+            const textBlock = (data.content || []).find(b => b.type === 'text');
+            if (!textBlock) throw new ModalParseError('No response content', '');
+            return extractJsonFromClaudeText(textBlock.text);
+        }
+
+        // ---------------- Storytelling Method ----------------
+        let storySessionToken = 0;
+        const storyAttachState = { base64: null, mediaType: null };
+        const storyModalAttachInput = document.getElementById('storyModalAttachInput');
+        attachFilePicker(storyModalAttachInput, document.getElementById('storyModalThumb'), document.getElementById('storyModalPdfLabel'), document.getElementById('storyModalClearAttach'), storyAttachState, document.getElementById('storyModalErrBox'));
+
+        function openStorytellingModal(){
+            storySessionToken++;
+            resetStoryModal();
+            document.getElementById('storyModal').classList.remove('hidden');
+        }
+        function closeStoryModal(){
+            window.speechSynthesis && window.speechSynthesis.cancel();
+            document.getElementById('storyModal').classList.add('hidden');
+        }
+        function resetStoryModal(){
+            window.speechSynthesis && window.speechSynthesis.cancel();
+            document.getElementById('storyModalForm').classList.remove('hidden');
+            document.getElementById('storyModalResults').classList.add('hidden');
+            document.getElementById('storyModalText').value = '';
+            document.getElementById('storyModalClearAttach').click();
+            document.getElementById('storyModalErrBox').classList.add('hidden');
+            const btn = document.getElementById('storyModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Submit & Tell';
+        }
+
+        // Maps this app's language <select> labels to BCP-47 prefixes for
+        // matching Web Speech API voices (speechSynthesis.getVoices()[].lang).
+        const STORY_LANG_TO_BCP47 = { English: 'en', Hindi: 'hi', Telugu: 'te', Tamil: 'ta', Marathi: 'mr', Spanish: 'es', French: 'fr', German: 'de', Arabic: 'ar' };
+        let storyVoicesPromise = null;
+        // Voice lists load asynchronously on many browsers (notably Chrome) — this
+        // resolves once available, or after a short timeout if the browser never
+        // fires onvoiceschanged (which happens when there simply are no voices).
+        function waitForSpeechVoices(){
+            if (storyVoicesPromise) return storyVoicesPromise;
+            storyVoicesPromise = new Promise((resolve) => {
+                if (!('speechSynthesis' in window)) { resolve([]); return; }
+                const existing = window.speechSynthesis.getVoices();
+                if (existing.length) { resolve(existing); return; }
+                window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+                setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
+            });
+            return storyVoicesPromise;
+        }
+        let storyCurrentText = '';
+        let storyCurrentLangPrefix = 'en';
+        async function setupStoryTts(storyText, lang){
+            storyCurrentText = storyText;
+            storyCurrentLangPrefix = STORY_LANG_TO_BCP47[lang] || 'en';
+            const note = document.getElementById('storyModalTtsNote');
+            const playBtn = document.getElementById('storyModalPlayBtn');
+            if (!('speechSynthesis' in window)) {
+                note.textContent = "This device/browser can't read stories aloud — read the text above to your child instead.";
+                note.classList.remove('hidden');
+                playBtn.classList.add('hidden');
+                return false;
+            }
+            const voices = await waitForSpeechVoices();
+            const match = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(storyCurrentLangPrefix));
+            if (!match) {
+                note.textContent = `No ${lang} voice is available on this device — read the text above to your child instead.`;
+                note.classList.remove('hidden');
+                playBtn.classList.add('hidden');
+                return false;
+            }
+            note.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+            return true;
+        }
+        function playStory(){
+            if (!('speechSynthesis' in window) || !storyCurrentText) return;
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(storyCurrentText);
+            const voices = window.speechSynthesis.getVoices();
+            const match = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(storyCurrentLangPrefix));
+            if (match) utter.voice = match;
+            utter.onend = () => {
+                document.getElementById('storyModalPlayBtn').classList.remove('hidden');
+                document.getElementById('storyModalStopBtn').classList.add('hidden');
+            };
+            window.speechSynthesis.speak(utter);
+            document.getElementById('storyModalPlayBtn').classList.add('hidden');
+            document.getElementById('storyModalStopBtn').classList.remove('hidden');
+        }
+        function stopStory(){
+            window.speechSynthesis && window.speechSynthesis.cancel();
+            document.getElementById('storyModalPlayBtn').classList.remove('hidden');
+            document.getElementById('storyModalStopBtn').classList.add('hidden');
+        }
+
+        document.getElementById('storyModalSubmitBtn').addEventListener('click', async () => {
+            const storyTopic = document.getElementById('storyModalText').value.trim();
+            const lang = document.getElementById('storyModalLang').value;
+            const errBox = document.getElementById('storyModalErrBox');
+            const submitBtn = document.getElementById('storyModalSubmitBtn');
+            if (!storyTopic && !storyAttachState.base64) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Writing the story…';
+            const requestToken = storySessionToken;
+            try {
+                const childContext = await getSharedChildContext();
+                const systemPrompt = `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read or play it before homework time.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label","story":"a short story in ${lang}, 5-9 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it"}
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep it concise — this must fit a small token budget. The child is: ${childContext}.`;
+                const userContent = [];
+                if (storyAttachState.base64) {
+                    userContent.push({ type: storyAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: storyAttachState.mediaType, data: storyAttachState.base64 } });
+                }
+                userContent.push({ type: 'text', text: storyTopic ? `Lesson: ${storyTopic}` : 'Read the lesson in the attached photo or PDF and turn it into a story.' });
+
+                const parsed = await callHomeworkApi(systemPrompt, userContent);
+                if (requestToken !== storySessionToken) return;
+
+                document.getElementById('storyModalForm').classList.add('hidden');
+                document.getElementById('storyModalResults').classList.remove('hidden');
+                document.getElementById('storyModalStoryText').textContent = parsed.story;
+                const canSpeak = await setupStoryTts(parsed.story, lang);
+                if (requestToken !== storySessionToken) return;
+                if (canSpeak) playStory();
+            } catch (err) {
+                if (requestToken !== storySessionToken) return;
+                console.error('[storyModal] Story request failed:', err);
+                if (err.name === 'ModalParseError') {
+                    console.error('[storyModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "Couldn't write a story from this — try attaching the actual lesson page or typing what it's about.";
+                } else {
+                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                }
+                errBox.classList.remove('hidden');
+            } finally {
+                if (requestToken === storySessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit & Tell';
+                }
+            }
+        });
+
+        // ---------------- Play-Based Learning ----------------
+        let playSessionToken = 0;
+        const playAttachState = { base64: null, mediaType: null };
+        document.getElementById('playModalAttachInput') && attachFilePicker(document.getElementById('playModalAttachInput'), document.getElementById('playModalThumb'), document.getElementById('playModalPdfLabel'), document.getElementById('playModalClearAttach'), playAttachState, document.getElementById('playModalErrBox'));
+
+        let playSelectedPlayers = 2;
+        document.querySelectorAll('#playModalPlayerCount button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                playSelectedPlayers = parseInt(btn.dataset.players, 10);
+                document.querySelectorAll('#playModalPlayerCount button').forEach(b => {
+                    b.classList.toggle('border-primary', b === btn);
+                    b.classList.toggle('bg-primary-container/10', b === btn);
+                    b.classList.toggle('text-primary', b === btn);
+                    b.classList.toggle('border-outline-variant', b !== btn);
+                    b.classList.toggle('text-on-surface', b !== btn);
+                });
+            });
+        });
+        document.querySelector('#playModalPlayerCount button[data-players="2"]').click();
+
+        let playScores = [];
+        function openPlayModal(){
+            playSessionToken++;
+            resetPlayModal();
+            document.getElementById('playModal').classList.remove('hidden');
+        }
+        function closePlayModal(){
+            document.getElementById('playModal').classList.add('hidden');
+        }
+        function resetPlayModal(){
+            document.getElementById('playModalForm').classList.remove('hidden');
+            document.getElementById('playModalResults').classList.add('hidden');
+            document.getElementById('playModalText').value = '';
+            document.getElementById('playModalClearAttach').click();
+            document.getElementById('playModalErrBox').classList.add('hidden');
+            const btn = document.getElementById('playModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Start playing';
+        }
+        function renderPlayScoreboard(){
+            const el = document.getElementById('playModalScoreboard');
+            el.innerHTML = playScores.map((s, i) => `<span class="font-label-md text-xs bg-surface-container-high text-on-surface px-3 py-1.5 rounded-full">Player ${i + 1}: ${s} pts</span>`).join('');
+        }
+        function renderPlayQuiz(questions){
+            const area = document.getElementById('playModalQuizArea');
+            area.innerHTML = '';
+            questions.forEach((q, qi) => {
+                const playerNum = (qi % playSelectedPlayers) + 1;
+                const card = document.createElement('div');
+                card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5 mb-3.5';
+                card.innerHTML = `
+                    <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1} of ${questions.length} — Player ${playerNum}'s turn · ${q.points || 10} pts</div>
+                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.question)}</div>
+                    <div class="grid gap-2" data-role="opts"></div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
+                `;
+                const optsWrap = card.querySelector('[data-role="opts"]');
+                q.options.forEach((opt, oi) => {
+                    const btn = document.createElement('button');
+                    btn.className = HW_OPT_DEFAULT;
+                    btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
+                    btn.addEventListener('click', () => {
+                        const allBtns = optsWrap.querySelectorAll('button');
+                        allBtns.forEach(b => b.disabled = true);
+                        if (oi === q.correct) {
+                            btn.className = HW_OPT_CORRECT;
+                            btn.querySelector('[data-role="mark"]').textContent = '✓';
+                            playScores[playerNum - 1] += (q.points || 10);
+                        } else {
+                            btn.className = HW_OPT_WRONG;
+                            btn.querySelector('[data-role="mark"]').textContent = '✗';
+                            const correctBtn = allBtns[q.correct];
+                            correctBtn.className = HW_OPT_CORRECT;
+                            correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
+                        }
+                        const explainBox = card.querySelector('[data-role="explain"]');
+                        explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(q.explain)}`;
+                        explainBox.classList.remove('hidden');
+                        renderPlayScoreboard();
+                    });
+                    optsWrap.appendChild(btn);
+                });
+                area.appendChild(card);
+            });
+        }
+
+        document.getElementById('playModalSubmitBtn').addEventListener('click', async () => {
+            const playTopic = document.getElementById('playModalText').value.trim();
+            const lang = document.getElementById('playModalLang').value;
+            const errBox = document.getElementById('playModalErrBox');
+            const submitBtn = document.getElementById('playModalSubmitBtn');
+            if (!playTopic && !playAttachState.base64) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Preparing questions…';
+            const requestToken = playSessionToken;
+            const totalQuestions = playSelectedPlayers * 3;
+            try {
+                const childContext = await getSharedChildContext();
+                const systemPrompt = `You are Tut-P, an assistant that turns a school lesson into a family quiz game for a parent and child (and other family members) to play together, with no timer — they discuss each question as long as they like before answering.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label","questions":[{"question":"short question in ${lang} testing understanding of the lesson","options":["A","B","C","D"],"correct":0,"explain":"one clear sentence in ${lang}, written for the child, explaining why the correct answer is right and, if relevant, why a wrong choice would be wrong","points":10}]}
+Generate exactly ${totalQuestions} questions, varying difficulty a little and varying "points" between 5 and 15 accordingly. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+                const userContent = [];
+                if (playAttachState.base64) {
+                    userContent.push({ type: playAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: playAttachState.mediaType, data: playAttachState.base64 } });
+                }
+                userContent.push({ type: 'text', text: playTopic ? `Lesson: ${playTopic}` : 'Read the lesson in the attached photo or PDF and build the quiz from it.' });
+
+                const parsed = await callHomeworkApi(systemPrompt, userContent);
+                if (requestToken !== playSessionToken) return;
+
+                playScores = new Array(playSelectedPlayers).fill(0);
+                document.getElementById('playModalForm').classList.add('hidden');
+                document.getElementById('playModalResults').classList.remove('hidden');
+                renderPlayScoreboard();
+                renderPlayQuiz(parsed.questions || []);
+            } catch (err) {
+                if (requestToken !== playSessionToken) return;
+                console.error('[playModal] Question request failed:', err);
+                if (err.name === 'ModalParseError') {
+                    console.error('[playModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "Couldn't build a quiz from this — try attaching the actual lesson page or typing what it's about.";
+                } else {
+                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                }
+                errBox.classList.remove('hidden');
+            } finally {
+                if (requestToken === playSessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Start playing';
+                }
+            }
+        });
+
+        // ---------------- Experiential Learning ----------------
+        // v1 is text-only: no YouTube search/relevance-check (no such
+        // infrastructure exists in this backend yet) — see CLAUDE.md backlog.
+        let experientialSessionToken = 0;
+        const experientialAttachState = { base64: null, mediaType: null };
+        attachFilePicker(document.getElementById('experientialModalAttachInput'), document.getElementById('experientialModalThumb'), document.getElementById('experientialModalPdfLabel'), document.getElementById('experientialModalClearAttach'), experientialAttachState, document.getElementById('experientialModalErrBox'));
+
+        function openExperientialModal(){
+            experientialSessionToken++;
+            resetExperientialModal();
+            document.getElementById('experientialModal').classList.remove('hidden');
+        }
+        function closeExperientialModal(){
+            document.getElementById('experientialModal').classList.add('hidden');
+        }
+        function resetExperientialModal(){
+            document.getElementById('experientialModalForm').classList.remove('hidden');
+            document.getElementById('experientialModalResults').classList.add('hidden');
+            document.getElementById('experientialModalText').value = '';
+            document.getElementById('experientialModalClearAttach').click();
+            document.getElementById('experientialModalErrBox').classList.add('hidden');
+            const btn = document.getElementById('experientialModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Get step-by-step notes';
+        }
+
+        document.getElementById('experientialModalSubmitBtn').addEventListener('click', async () => {
+            const topic = document.getElementById('experientialModalText').value.trim();
+            const lang = document.getElementById('experientialModalLang').value;
+            const errBox = document.getElementById('experientialModalErrBox');
+            const submitBtn = document.getElementById('experientialModalSubmitBtn');
+            if (!topic && !experientialAttachState.base64) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Preparing notes…';
+            const requestToken = experientialSessionToken;
+            try {
+                const childContext = await getSharedChildContext();
+                const systemPrompt = `You are Tut-P, an assistant that helps a child understand a school lesson at home by breaking it into clear step-by-step notes.
+Given the lesson, do two things:
+1. Infer what the immediately preceding topic in a typical curriculum sequence would most likely have been — this is your best estimate from the lesson content, not a verified curriculum record, and must be phrased as an estimate (e.g. "likely" / "probably").
+2. Write clear, short step-by-step notes based on the lesson's actual content, so a child can follow along step by step at home.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label","precedingTopic":"one short sentence in ${lang}, phrased as an estimate, describing the likely prior topic","notes":["step 1 in ${lang}","step 2 in ${lang}"]}
+Generate 4-8 note steps. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+                const userContent = [];
+                if (experientialAttachState.base64) {
+                    userContent.push({ type: experientialAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: experientialAttachState.mediaType, data: experientialAttachState.base64 } });
+                }
+                userContent.push({ type: 'text', text: topic ? `Lesson: ${topic}` : 'Read the lesson in the attached photo or PDF and prepare notes from it.' });
+
+                const parsed = await callHomeworkApi(systemPrompt, userContent);
+                if (requestToken !== experientialSessionToken) return;
+
+                document.getElementById('experientialModalForm').classList.add('hidden');
+                document.getElementById('experientialModalResults').classList.remove('hidden');
+                document.getElementById('experientialModalPreceding').textContent = parsed.precedingTopic || 'Not enough information in this lesson to estimate.';
+                const notesEl = document.getElementById('experientialModalNotes');
+                notesEl.innerHTML = '';
+                (parsed.notes || []).forEach(step => {
+                    const li = document.createElement('li');
+                    li.textContent = step;
+                    notesEl.appendChild(li);
+                });
+            } catch (err) {
+                if (requestToken !== experientialSessionToken) return;
+                console.error('[experientialModal] Notes request failed:', err);
+                if (err.name === 'ModalParseError') {
+                    console.error('[experientialModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "Couldn't build notes from this — try attaching the actual lesson page or typing what it's about.";
+                } else {
+                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                }
+                errBox.classList.remove('hidden');
+            } finally {
+                if (requestToken === experientialSessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Get step-by-step notes';
+                }
+            }
         });
 
         (function setGreetingDate(){
