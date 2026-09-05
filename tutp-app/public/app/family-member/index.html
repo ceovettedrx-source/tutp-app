@@ -35,6 +35,11 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
+<script>
+    // Lets /app/login/ bounce straight back here on a session it recognizes
+    // (back button, PROFILES icon) instead of forcing a fresh OTP.
+    try { sessionStorage.setItem('tutp_last_dashboard', location.pathname); } catch (e) {}
+</script>
 <div class="js-hidden fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-6" id="viewerGate">
 <div class="bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/15 p-8 max-w-sm w-full space-y-4">
 <h2 class="font-headline text-xl font-bold text-on-background">Which family member are you?</h2>

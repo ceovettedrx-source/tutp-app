@@ -38,6 +38,11 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
+<script>
+    // Lets /app/login/ bounce straight back here on a session it recognizes
+    // (back button, PROFILES icon) instead of forcing a fresh OTP.
+    try { sessionStorage.setItem('tutp_last_dashboard', location.pathname); } catch (e) {}
+</script>
 <header class="fixed top-0 left-0 w-full z-50 flex items-center gap-4 px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
 <div class="flex items-center gap-2 shrink-0">
 <a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">

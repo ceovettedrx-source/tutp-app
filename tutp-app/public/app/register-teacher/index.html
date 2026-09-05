@@ -363,7 +363,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+    import { getAuth, setPersistence, browserLocalPersistence, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
@@ -376,11 +376,15 @@
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    // Explicit, not relying on the SDK's undocumented-in-this-code default —
+    // keeps the Firebase session alive across browser restarts, not just tabs.
+    const persistenceReady = setPersistence(auth, browserLocalPersistence);
 
     let confirmationResult = null;
     let recaptchaVerifier = null;
 
     window.tutpSendOTP = async function(fullPhoneNumber){
+        await persistenceReady;
         if (!recaptchaVerifier){
             recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-register-teacher', { size: 'invisible' });
         }

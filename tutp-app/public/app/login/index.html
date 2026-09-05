@@ -59,6 +59,22 @@
 </style>
 </head>
 <body class="bg-background text-on-background min-h-screen relative overflow-hidden font-body-md selection:bg-primary-container selection:text-on-primary-container">
+<script>
+    // Landing here (back button, the bottom-nav "PROFILES" icon, or Home ->
+    // Login) doesn't mean the session ended - sessionStorage from an earlier
+    // OTP verification survives all of those. Only show the phone/OTP form
+    // when there's genuinely no session to resume; otherwise bounce straight
+    // back to whichever dashboard was last open, no fresh OTP required.
+    (function(){
+        try {
+            var hasSession = sessionStorage.getItem('tutp_family_id') || sessionStorage.getItem('tutp_student_id');
+            var lastDashboard = sessionStorage.getItem('tutp_last_dashboard');
+            if (hasSession && lastDashboard) {
+                window.location.replace(lastDashboard);
+            }
+        } catch (e) { /* sessionStorage unavailable - fall through to normal login */ }
+    })();
+</script>
 <main class="relative z-10 w-full min-h-screen flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
 <a href="/" class="font-headline-md text-headline-md text-primary font-bold mb-md hover:opacity-80 transition-opacity">Tut-P</a>
 
@@ -460,7 +476,7 @@
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+    import { getAuth, setPersistence, browserLocalPersistence, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
@@ -473,11 +489,15 @@
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    // Explicit, not relying on the SDK's undocumented-in-this-code default —
+    // keeps the Firebase session alive across browser restarts, not just tabs.
+    const persistenceReady = setPersistence(auth, browserLocalPersistence);
 
     let confirmationResult = null;
     let recaptchaVerifier = null;
 
     window.tutpSendOTP = async function(fullPhoneNumber){
+        await persistenceReady;
         if (!recaptchaVerifier){
             recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-login', { size: 'invisible' });
         }
