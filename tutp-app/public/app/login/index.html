@@ -69,7 +69,14 @@
         try {
             var hasSession = sessionStorage.getItem('tutp_family_id') || sessionStorage.getItem('tutp_student_id');
             var lastDashboard = sessionStorage.getItem('tutp_last_dashboard');
-            if (hasSession && lastDashboard) {
+            // /app/child/ excluded (2026-09-06): it isn't ready for launch,
+            // and anyone who got auto-redirected there by the since-fixed
+            // OTP bug already has this recorded as their last dashboard -
+            // skipping straight back to it here would silently re-trap them
+            // in the same broken page, never seeing the fix below. Falling
+            // through to the normal login form is harmless; a fresh OTP now
+            // lands on the corrected profile grid.
+            if (hasSession && lastDashboard && lastDashboard !== '/app/child/') {
                 window.location.replace(lastDashboard);
             }
         } catch (e) { /* sessionStorage unavailable - fall through to normal login */ }
