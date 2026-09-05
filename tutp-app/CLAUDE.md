@@ -9,7 +9,9 @@
 
 - Discussion Method and Lecture Method are backlogged for the Teacher Module, post-launch — removed from the parent-page search-bar row (which now shows only Storytelling Method, Experiential Learning, Play-Based Learning).
 - TODO (founder): test real-device Web Speech API Telugu voice coverage (Android Chrome + iOS Safari at minimum) once Storytelling Method ships — browser TTS support for Telugu is inconsistent and the code falls back to text-only display when no matching voice is found, but that fallback path needs a real-device check.
-- Test/Exam mode — a formal, single-child assessment format distinct from Play-Based Learning's multiplayer quiz, for parents who want to conduct a proper exam rather than a quick quiz. Not scoped or designed yet — needs a full spec from the founder before building.
+- Test/Exam mode — a formal, single-child assessment format distinct from Play-Based Learning's multiplayer quiz, for parents who want to conduct a proper exam rather than a quick quiz. Not scoped or designed yet — needs a full spec from the founder before building. The "Online Exam / Test" chip added to `searchAttachChooser` (2026-09-05) is an icon + "Coming soon" placeholder only.
+- Unify the two parent-page mode selectors: the top-of-page pill row (`childChipsRow` area — currently 3 chips: Storytelling, Experiential Learning, Play-Based Learning) and the separate `searchAttachChooser` popup (reached via the search-bar "+" attach icon — now 6 chips: Homework Help, Storytelling, Play-Based, Experiential, Quiz, Online Exam placeholder) show different sets of options for the same underlying capabilities. Not scoped yet — needs its own plan (which surface wins, whether the popup step gets removed) before building.
+- Play-Based Learning refinements — timer correction, random question order, Player of the Day badge — logged by the founder 2026-09-05, explicitly deferred to the next session after tonight's chip additions. Not started.
 
 # Deploying
 

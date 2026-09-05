@@ -417,7 +417,34 @@
 <div class="font-label-md text-sm font-semibold text-on-surface">Experiential Learning</div>
 <div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
 </button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('quiz')">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-lg">quiz</span>
+<div class="font-label-md text-sm font-semibold text-on-surface">Quiz</div>
 </div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Ask your child 5-10 questions one-on-one and see how they do</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('examPlaceholder')">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-on-surface-variant text-lg">fact_check</span>
+<div class="font-label-md text-sm font-semibold text-on-surface">Online Exam / Test</div>
+</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Coming soon</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Online Exam / Test placeholder — icon-only 6th chooser option, no real
+     functionality yet. Full spec (single-child formal exam, distinct from
+     Play-Based Learning's multiplayer quiz) is pending founder sign-off —
+     see CLAUDE.md backlog note. -->
+<div id="examComingSoonModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeExamComingSoonModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6 text-center">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 block">fact_check</span>
+<h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Online Exam / Test</h3>
+<p class="font-body-md text-sm text-on-surface-variant mb-5">A formal, single-child exam mode is coming soon.</p>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" onclick="closeExamComingSoonModal()">Got it</button>
 </div>
 </div>
 <!-- Ask Tut-P AI Tutor — inline attach + explain, real Claude call against
@@ -651,10 +678,12 @@
             document.getElementById('searchAttachChooser').classList.add('hidden');
             pendingSearchAttachKind = null;
             const accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
-            if (mode === 'homework') {
+            if (mode === 'homework' || mode === 'quiz') {
                 openHomeworkModal();
                 hwModalAttachInput.accept = accept;
                 hwModalAttachInput.click();
+            } else if (mode === 'examPlaceholder') {
+                document.getElementById('examComingSoonModal').classList.remove('hidden');
             } else if (mode === 'story') {
                 openStorytellingModal();
                 storyModalAttachInput.accept = accept;
@@ -1390,6 +1419,9 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
         }
         function closeExperientialModal(){
             document.getElementById('experientialModal').classList.add('hidden');
+        }
+        function closeExamComingSoonModal(){
+            document.getElementById('examComingSoonModal').classList.add('hidden');
         }
         function resetExperientialModal(){
             document.getElementById('experientialModalForm').classList.remove('hidden');
