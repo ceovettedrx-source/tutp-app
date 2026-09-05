@@ -90,7 +90,7 @@
 <span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary">Tut-P</span>
 </a>
 <div class="flex gap-4">
-<a class="font-label-lg text-label-lg text-white bg-primary-container px-6 py-3 rounded-full hover:opacity-80 transition-opacity flex items-center" href="/app/login/">Login</a>
+<a class="font-label-lg text-label-lg text-white bg-primary-container px-6 py-3 rounded-full hover:opacity-80 transition-opacity flex items-center" href="/app/login/" id="headerLoginLink">Login</a>
 </div>
 </header>
 
@@ -375,6 +375,31 @@
 
 <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    // Header "Login" -> parent's name when a session already exists (same
+    // sessionStorage keys /app/login/'s own skip-if-authenticated check
+    // uses). Still links to /app/login/, which now bounces straight through
+    // to the right dashboard — this only fixes the mislabeled button, not
+    // the click-through, which already worked.
+    (function(){
+        try {
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId && !sessionStorage.getItem('tutp_student_id')) return;
+            const linkEl = document.getElementById('headerLoginLink');
+            if (!linkEl || !familyId) return;
+            fetch('/api/family/' + encodeURIComponent(familyId))
+                .then(res => res.ok ? res.json() : null)
+                .then(data => {
+                    if (!data) return;
+                    const lastDashboard = sessionStorage.getItem('tutp_last_dashboard') || '';
+                    const name = lastDashboard.includes('/father/')
+                        ? (data.fatherName || data.motherName)
+                        : (data.motherName || data.fatherName);
+                    if (name) linkEl.textContent = name;
+                })
+                .catch(() => {});
+        } catch (e) { /* sessionStorage unavailable - leave "Login" as-is */ }
+    })();
 
     // Hero image carousel
     let currentHeroSlide = 0;
