@@ -635,10 +635,10 @@
 </div>
 
 <div id="experientialModalResults" class="hidden">
-<div class="bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-5 py-4 mb-4 mt-2">
-<div class="font-label-md text-label-md text-on-tertiary-container mb-1">Before this lesson, your child likely learned</div>
-<p id="experientialModalPreceding" class="text-sm text-on-surface leading-relaxed m-0"></p>
-<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Estimated from the lesson content — not a verified curriculum record.</p>
+<div id="experientialModalHookBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-5 py-4 mb-4 mt-2">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">A connection to build on</div>
+<p id="experientialModalHookText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Grounded in NCF-SE 2023's Panchpadi method — not a verified curriculum record.</p>
 </div>
 <div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-2">Step-by-step notes</div>
 <ol id="experientialModalNotes" class="list-decimal pl-5 space-y-2 text-[15px] text-on-surface leading-relaxed"></ol>
@@ -932,9 +932,23 @@
             const requestToken = hwSessionToken;
 
             const childContext = document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
+            // Pedagogy grounding, per feature — light-touch, no new required
+            // fields for Homework Help (its quiz section is never shown, see
+            // applyHwResultLayout), Bloom's-categorized for Quiz (reuses the
+            // same 4 cognitive-demand categories as the Teacher Module's
+            // question-paper generator). Category values are fixed English
+            // enums regardless of ${lang} to avoid Telugu/Indic token cost
+            // on a field the parent never needs translated.
+            const hwGroundingNote = hwCurrentMode === 'quiz'
+                ? `Ground the quiz in Bloom's Taxonomy, using the same four cognitive-demand categories Tut-P's Teacher Module uses for question papers: "logical_reasoning" (deduction/pattern/sequencing), "understanding" (explaining what/why), "application" (using the idea in a new/real-life context), "skill_based" (direct procedure/recall, lower cognitive load). Vary the categories across the 5 questions to genuinely span different cognitive levels rather than making them all the same category or a fixed rigid pattern — pick whichever mix genuinely fits this specific lesson's content, don't force an even split.`
+                : `Ground the explanation in NEP-2020's teacher-as-facilitator principle: where this homework genuinely allows for guided discovery, phrase the explanation so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit.`;
+            const hwQuizItemShape = hwCurrentMode === 'quiz'
+                ? `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right","category":"logical_reasoning|understanding|application|skill_based, always in English regardless of ${lang}"}`
+                : `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right"}`;
             const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+${hwGroundingNote}
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right"}]}
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[${hwQuizItemShape}]}
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
 
             const userContent = [];
@@ -1281,9 +1295,15 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             const requestToken = storySessionToken;
             try {
                 const childContext = await getSharedChildContext();
+                // Light-touch pedagogy grounding (NEP-2020 experiential/
+                // activity-based learning) — the story ending doubles as a
+                // small engagement hook rather than pure passive narrative,
+                // only when the content genuinely supports one. Rest of the
+                // prompt is unchanged since this feature already works well.
                 const systemPrompt = `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read or play it before homework time.
+Ground this in NEP-2020's experiential/activity-based learning principle: end the story with one short embedded invitation for the child to actively engage with the idea just told — e.g. a one-line question to answer together, a tiny action to try, or something to spot in real life — rather than a purely passive narrative. Only include this if it fits naturally with this specific story; do not force an artificial activity onto content that doesn't lend itself to one.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label","story":"a short story in ${lang}, 5-9 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it"}
+{"subject":"one short English subject label","story":"a short story in ${lang}, 5-10 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it"}
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep it concise — this must fit a small token budget. The child is: ${childContext}.`;
                 const userContent = [];
                 if (storyAttachState.base64) {
@@ -1502,12 +1522,19 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
             const requestToken = experientialSessionToken;
             try {
                 const childContext = await getSharedChildContext();
-                const systemPrompt = `You are Tut-P, an assistant that helps a child understand a school lesson at home by breaking it into clear step-by-step notes.
-Given the lesson, do two things:
-1. Infer what the immediately preceding topic in a typical curriculum sequence would most likely have been — this is your best estimate from the lesson content, not a verified curriculum record, and must be phrased as an estimate (e.g. "likely" / "probably").
-2. Write clear, short step-by-step notes based on the lesson's actual content, so a child can follow along step by step at home.
+                // Genuine Panchpadi grounding (NCF-SE 2023) — Aditi (hook)
+                // + Bodha (explanation) only, per the "not every stage every
+                // time" rule: Abhyasa/Prayoga/Prasara don't fit a two-minute
+                // homework-notes feature. Replaces the old precedingTopic
+                // disclaimer-style callout (an estimate of *past* curriculum,
+                // not an actual engagement hook) with aditiApplicable/
+                // aditiHook, which can be honestly null when no natural
+                // connection exists rather than forcing one.
+                const systemPrompt = `You are Tut-P, an assistant that helps a child understand a school lesson at home, grounded in NCF-SE 2023's Panchpadi five-stage teaching sequence. For a short at-home moment like this, apply only the first two stages — Aditi and Bodha — do not force Abhyasa/Prayoga/Prasara into a two-minute homework-notes feature where they don't fit.
+1. Aditi (introduction/hook): connect the lesson to something the child likely already knows or has experienced, phrased as a genuine engaging hook — a short relatable example, a familiar situation, or a mini question — never a dry curriculum-history statement. Only produce this if the lesson content genuinely supports a natural connection to something a child would already know; if it doesn't fit, say so honestly (aditiApplicable: false) rather than forcing one.
+2. Bodha (conceptual understanding): clear, short step-by-step notes explaining the new idea, based on the lesson's actual content, so a child can follow along at home.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label","precedingTopic":"one short sentence in ${lang}, phrased as an estimate, describing the likely prior topic","notes":["step 1 in ${lang}","step 2 in ${lang}"]}
+{"subject":"one short English subject label","aditiApplicable":boolean,"aditiHook":"a short engaging hook in ${lang} connecting to something the child likely already knows — a familiar example or a short question — only present when aditiApplicable is true, otherwise null","notes":["step 1 in ${lang}","step 2 in ${lang}"]}
 Generate 4-8 note steps. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
                 const userContent = [];
                 if (experientialAttachState.base64) {
@@ -1520,7 +1547,13 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
 
                 document.getElementById('experientialModalForm').classList.add('hidden');
                 document.getElementById('experientialModalResults').classList.remove('hidden');
-                document.getElementById('experientialModalPreceding').textContent = parsed.precedingTopic || 'Not enough information in this lesson to estimate.';
+                const hookBlock = document.getElementById('experientialModalHookBlock');
+                if (parsed.aditiApplicable && parsed.aditiHook) {
+                    document.getElementById('experientialModalHookText').textContent = parsed.aditiHook;
+                    hookBlock.classList.remove('hidden');
+                } else {
+                    hookBlock.classList.add('hidden');
+                }
                 const notesEl = document.getElementById('experientialModalNotes');
                 notesEl.innerHTML = '';
                 (parsed.notes || []).forEach(step => {
