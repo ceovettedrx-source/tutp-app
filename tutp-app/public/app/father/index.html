@@ -144,7 +144,7 @@
 <section class="space-y-sm">
 <div class="flex flex-wrap gap-xs justify-center">
 <button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openStorytellingModal()">Storytelling Method</button>
-<button class="px-4 py-2 rounded-full border border-primary bg-primary-container/10 text-primary font-label-md text-label-md hover:bg-primary-container/20 transition-all shadow-sm" onclick="openExperientialModal()">Experiential Learning</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openExperientialModal()">Experiential Learning</button>
 <button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openPlayModal()">Play-Based Learning</button>
 </div>
 </section>
@@ -338,7 +338,7 @@
 <div>
 <span class="material-symbols-outlined text-primary text-3xl mb-4 block group-hover:scale-110 transition-transform">school</span>
 <h3 class="font-headline text-xl text-on-surface mb-2">Homework Help</h3>
-<p class="font-body text-sm text-on-surface-variant">Access subject-wise guides and tips.</p>
+<p class="font-body text-sm text-on-surface-variant">Get a simple explanation of tonight's homework, in your language.</p>
 </div>
 <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
 </div>
@@ -403,7 +403,7 @@
 <div class="space-y-2">
 <button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('homework')">
 <div class="font-label-md text-sm font-semibold text-on-surface">Homework Help</div>
-<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Explain the homework and quiz your child on it</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Get a simple explanation of tonight's homework</div>
 </button>
 <button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('story')">
 <div class="font-label-md text-sm font-semibold text-on-surface">Storytelling Method</div>
@@ -418,17 +418,11 @@
 <div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
 </button>
 <button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('quiz')">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-primary text-lg">quiz</span>
 <div class="font-label-md text-sm font-semibold text-on-surface">Quiz</div>
-</div>
 <div class="font-body-md text-xs text-on-surface-variant mt-0.5">Ask your child 5-10 questions one-on-one and see how they do</div>
 </button>
 <button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('examPlaceholder')">
-<div class="flex items-center gap-1.5">
-<span class="material-symbols-outlined text-on-surface-variant text-lg">fact_check</span>
 <div class="font-label-md text-sm font-semibold text-on-surface">Online Exam / Test</div>
-</div>
 <div class="font-body-md text-xs text-on-surface-variant mt-0.5">Coming soon</div>
 </button>
 </div>
@@ -456,7 +450,7 @@
 <div class="absolute inset-0 bg-black/50" onclick="closeHomeworkModal()"></div>
 <div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
 <div class="flex items-center justify-between mb-1">
-<h3 class="font-headline-lg text-xl font-bold text-on-surface">Ask Tut-P AI Tutor</h3>
+<h3 class="font-headline-lg text-xl font-bold text-on-surface" id="hwModalTitle">Homework Help</h3>
 <button onclick="closeHomeworkModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
 </div>
 <p class="font-body-md text-sm text-on-surface-variant mb-4" id="hwModalChildContext">Helping your child</p>
@@ -466,8 +460,8 @@
 <select id="hwModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
 <option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
 </select>
-<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Homework question / topic (optional if attaching a file)</label>
-<textarea id="hwModalText" placeholder="Type the question as written on the worksheet, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5" id="hwModalTextLabel">Homework question / topic (optional if attaching a file)</label>
+<textarea id="hwModalText" placeholder="Describe the homework you need explained, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
 
 <div class="flex items-center gap-3 mt-3.5 flex-wrap">
 <label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="hwModalAttachInput.accept='image/*,application/pdf'; hwModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
@@ -477,24 +471,28 @@
 <button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach">remove</button>
 </div>
 
-<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="hwModalSubmitBtn">Explain &amp; build my quiz</button>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="hwModalSubmitBtn">Explain My Homework</button>
 <div class="mt-3.5 text-sm text-error font-label-md hidden" id="hwModalErrBox"></div>
 </div>
 
 <div id="hwModalResults" class="hidden">
-<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-6 mt-2">
-<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
+<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-6 mt-2" id="hwModalExplanationBlock">
+<details id="hwModalExplanationDetails" open>
+<summary class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5 cursor-pointer">
 <span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalLangTag">your language</span>
+</summary>
+<p id="hwModalExplanationText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0 mt-2"></p>
+</details>
 </div>
-<p id="hwModalExplanationText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
-</div>
+<div id="hwModalQuizBlock">
 <div class="flex items-center justify-between mb-4">
 <div class="flex items-center gap-2 font-label-md text-label-md text-primary">Check understanding</div>
 <div class="font-label-md text-xs bg-on-surface text-surface px-3 py-1.5 rounded-full" id="hwModalScorePill">0 / 5 answered</div>
 </div>
 <div id="hwModalQuizArea"></div>
+</div>
 <div class="text-center mt-2">
-<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()">↺ Try another homework</button>
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()" id="hwModalRetryBtn">↺ Try another homework</button>
 </div>
 </div>
 
@@ -679,7 +677,7 @@
             pendingSearchAttachKind = null;
             const accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
             if (mode === 'homework' || mode === 'quiz') {
-                openHomeworkModal();
+                openHomeworkModal(mode);
                 hwModalAttachInput.accept = accept;
                 hwModalAttachInput.click();
             } else if (mode === 'examPlaceholder') {
@@ -721,7 +719,61 @@
         // different file) gets discarded instead of overwriting fresh state.
         let hwSessionToken = 0;
 
-        function openHomeworkModal(){
+        // Homework Help and Quiz are the same underlying explain+quiz modal
+        // (see CLAUDE.md backlog — splitting them for real is a separate
+        // task), but each chip's promise is different, so this drives the
+        // title/label/placeholder/button/result-layout differences between
+        // the two without duplicating the modal.
+        let hwCurrentMode = 'homework';
+        const HW_MODE_COPY = {
+            homework: {
+                title: 'Homework Help',
+                label: 'Homework question / topic (optional if attaching a file)',
+                placeholder: 'Describe the homework you need explained, or just attach a photo/PDF below.',
+                idleBtn: 'Explain My Homework',
+                loadingBtn: 'Reading the homework…',
+                retryBtn: '↺ Try another homework'
+            },
+            quiz: {
+                title: 'Quiz',
+                label: 'What should the quiz cover? (optional if attaching a file)',
+                placeholder: 'Describe what to quiz your child on, or just attach a photo/PDF below.',
+                idleBtn: 'Start My Quiz',
+                loadingBtn: 'Preparing your quiz…',
+                retryBtn: '↺ Try another quiz'
+            }
+        };
+        function applyHwModeChrome(mode){
+            const copy = HW_MODE_COPY[mode];
+            document.getElementById('hwModalTitle').textContent = copy.title;
+            document.getElementById('hwModalTextLabel').textContent = copy.label;
+            document.getElementById('hwModalText').placeholder = copy.placeholder;
+            document.getElementById('hwModalSubmitBtn').textContent = copy.idleBtn;
+            document.getElementById('hwModalRetryBtn').textContent = copy.retryBtn;
+        }
+        // Homework Help's result shows only the explanation (quiz section
+        // hidden) since that chip never promised a quiz; Quiz's result leads
+        // with the quiz it promised, with the explanation still generated
+        // by the same API call but demoted to a collapsed, secondary <details>
+        // rather than removed outright.
+        function applyHwResultLayout(mode){
+            const resultsEl = document.getElementById('hwModalResults');
+            const explBlock = document.getElementById('hwModalExplanationBlock');
+            const quizBlock = document.getElementById('hwModalQuizBlock');
+            const explDetails = document.getElementById('hwModalExplanationDetails');
+            if (mode === 'quiz') {
+                quizBlock.classList.remove('hidden');
+                explDetails.open = false;
+                resultsEl.insertBefore(quizBlock, explBlock);
+            } else {
+                quizBlock.classList.add('hidden');
+                explDetails.open = true;
+                resultsEl.insertBefore(explBlock, quizBlock);
+            }
+        }
+
+        function openHomeworkModal(mode){
+            hwCurrentMode = (mode === 'quiz') ? 'quiz' : 'homework';
             hwSessionToken++;
             resetHomeworkModal();
             document.getElementById('homeworkExplainModal').classList.remove('hidden');
@@ -873,7 +925,7 @@
             }
             errBox.classList.add('hidden');
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Reading the homework…';
+            submitBtn.textContent = HW_MODE_COPY[hwCurrentMode].loadingBtn;
             // Captured now so the response handlers below can tell whether
             // this is still the current modal session by the time the
             // request resolves — see hwSessionToken above.
@@ -936,6 +988,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 document.getElementById('hwModalLangTag').textContent = lang;
                 document.getElementById('hwModalExplanationText').textContent = parsed.explanation;
                 renderHwModalQuiz(parsed.quiz || []);
+                applyHwResultLayout(hwCurrentMode);
             } catch (err) {
                 if (requestToken !== hwSessionToken) return;
                 console.error('[hwModal] Explain request failed:', err);
@@ -949,7 +1002,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             } finally {
                 if (requestToken === hwSessionToken) {
                     submitBtn.disabled = false;
-                    submitBtn.textContent = 'Explain & build my quiz';
+                    submitBtn.textContent = HW_MODE_COPY[hwCurrentMode].idleBtn;
                 }
             }
         });
@@ -1008,9 +1061,8 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             document.getElementById('hwModalText').value = '';
             hwModalClearAttach.click();
             document.getElementById('hwModalErrBox').classList.add('hidden');
-            const submitBtn = document.getElementById('hwModalSubmitBtn');
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Explain & build my quiz';
+            document.getElementById('hwModalSubmitBtn').disabled = false;
+            applyHwModeChrome(hwCurrentMode);
         }
         document.addEventListener('click', (e) => {
             const menu = document.getElementById('searchAttachMenu');
