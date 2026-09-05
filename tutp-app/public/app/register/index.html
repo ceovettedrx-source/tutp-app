@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <script src="/shared/tailwind-tokens.js"></script>
+<script src="/shared/india-geo.js"></script>
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -373,22 +374,24 @@
   })();
 
   // ---------------- Location cascade ----------------
-  const statesByCountry = {
-    IN: { "Telangana":["Hyderabad","Rangareddy","Warangal","Khammam","Nalgonda"], "Andhra Pradesh":["Visakhapatnam","Vijayawada","Guntur","Tirupati"], "Karnataka":["Bengaluru Urban","Mysuru","Belagavi"], "Tamil Nadu":["Chennai","Coimbatore","Madurai"], "Maharashtra":["Mumbai","Pune","Nagpur"] },
-    OTHER: { "Type your state below": [] }
-  };
+  // State+District now come from the shared india-geo.js data (same
+  // INDIA_STATE_DISTRICTS source register-teacher/index.html uses) instead
+  // of a hand-typed stub — the old inline list only had a handful of
+  // districts per state (e.g. 5 for Telangana, 4 for Andhra Pradesh)
+  // because it was never kept in sync with the full district data.
   function onCountryChange(){
     const c = document.getElementById('country').value;
     const stateSel = document.getElementById('state');
     stateSel.innerHTML = '';
-    Object.keys(statesByCountry[c] || {}).forEach(s=>{ const o=document.createElement('option'); o.textContent=s; stateSel.appendChild(o); });
+    const states = c === 'IN' ? Object.keys(INDIA_STATE_DISTRICTS) : ['Type your state below'];
+    states.forEach(s=>{ const o=document.createElement('option'); o.textContent=s; stateSel.appendChild(o); });
     onStateChange();
   }
   function onStateChange(){
     const c = document.getElementById('country').value, s = document.getElementById('state').value;
     const distSel = document.getElementById('district');
     distSel.innerHTML = '';
-    ((statesByCountry[c]||{})[s]||[]).forEach(d=>{ const o=document.createElement('option'); o.textContent=d; distSel.appendChild(o); });
+    (c === 'IN' ? (INDIA_STATE_DISTRICTS[s]||[]) : []).forEach(d=>{ const o=document.createElement('option'); o.textContent=d; distSel.appendChild(o); });
   }
   (function initCountry(){
     document.getElementById('country').innerHTML = '<option value="IN">India</option><option value="OTHER">Other</option>';
