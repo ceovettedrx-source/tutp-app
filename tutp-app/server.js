@@ -2038,9 +2038,13 @@ app.post('/api/homework', async (req, res) => {
         // output language (Telugu and other Indic scripts use far more
         // tokens per character than English) measured up to ~1220 output
         // tokens for a full 5-question quiz — comfortably over the previous
-        // 1000 cap, which silently truncated mid-JSON. 2000 leaves ~65%
-        // headroom over that observed worst case.
-        max_tokens: 2000,
+        // 1000 cap, which silently truncated mid-JSON. Raised again to 3000
+        // after Homework Help's extracted_questions mode (unlike Quiz's
+        // fixed 5 questions) hit this cap mid-JSON on a real multi-question
+        // exam paper — the prompt now also caps extraction at 8 questions,
+        // but 3000 keeps a safety margin on top of that cap rather than
+        // relying on the prompt limit alone.
+        max_tokens: 3000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
       })

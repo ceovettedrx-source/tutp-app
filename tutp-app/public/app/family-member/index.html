@@ -491,6 +491,15 @@
 </div>
 <div id="hwModalQuizArea"></div>
 </div>
+<div id="hwModalHomeworkResultBlock" class="hidden">
+<div id="hwModalConceptBlock" class="hidden bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mt-2">
+<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
+<span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalConceptLangTag">your language</span>
+</div>
+<p id="hwModalConceptText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+</div>
+<div id="hwModalQuestionsArea" class="hidden space-y-3 mt-2"></div>
+</div>
 <div class="text-center mt-2">
 <button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()" id="hwModalRetryBtn">↺ Try another homework</button>
 </div>
@@ -932,24 +941,58 @@
             const requestToken = hwSessionToken;
 
             const childContext = document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
-            // Pedagogy grounding, per feature — light-touch, no new required
-            // fields for Homework Help (its quiz section is never shown, see
-            // applyHwResultLayout), Bloom's-categorized for Quiz (reuses the
-            // same 4 cognitive-demand categories as the Teacher Module's
-            // question-paper generator). Category values are fixed English
-            // enums regardless of ${lang} to avoid Telugu/Indic token cost
-            // on a field the parent never needs translated.
-            const hwGroundingNote = hwCurrentMode === 'quiz'
-                ? `Ground the quiz in Bloom's Taxonomy, using the same four cognitive-demand categories Tut-P's Teacher Module uses for question papers: "logical_reasoning" (deduction/pattern/sequencing), "understanding" (explaining what/why), "application" (using the idea in a new/real-life context), "skill_based" (direct procedure/recall, lower cognitive load). Vary the categories across the 5 questions to genuinely span different cognitive levels rather than making them all the same category or a fixed rigid pattern — pick whichever mix genuinely fits this specific lesson's content, don't force an even split.`
-                : `Ground the explanation in NEP-2020's teacher-as-facilitator principle: where this homework genuinely allows for guided discovery, phrase the explanation so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit.`;
-            const hwQuizItemShape = hwCurrentMode === 'quiz'
-                ? `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right","category":"logical_reasoning|understanding|application|skill_based, always in English regardless of ${lang}"}`
-                : `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right"}`;
-            const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+            let systemPrompt;
+            if (hwCurrentMode === 'quiz') {
+                // Unchanged from the pedagogy-grounding batch — Bloom's
+                // Taxonomy via the Teacher Module's own 4 cognitive-demand
+                // categories, kept in English regardless of ${lang} to
+                // avoid Telugu/Indic token cost on a field the parent
+                // never needs translated. Do not touch: Homework Help's
+                // extract-and-answer prompt below is entirely separate.
+                const hwGroundingNote = `Ground the quiz in Bloom's Taxonomy, using the same four cognitive-demand categories Tut-P's Teacher Module uses for question papers: "logical_reasoning" (deduction/pattern/sequencing), "understanding" (explaining what/why), "application" (using the idea in a new/real-life context), "skill_based" (direct procedure/recall, lower cognitive load). Vary the categories across the 5 questions to genuinely span different cognitive levels rather than making them all the same category or a fixed rigid pattern — pick whichever mix genuinely fits this specific lesson's content, don't force an even split.`;
+                const hwQuizItemShape = `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right","category":"logical_reasoning|understanding|application|skill_based, always in English regardless of ${lang}"}`;
+                systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
 ${hwGroundingNote}
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[${hwQuizItemShape}]}
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+            } else {
+                // Homework Help — extracts and directly answers specific
+                // homework questions when present (original language/
+                // wording preserved, never translated), or explains the
+                // underlying concept when the content is a broad topic
+                // with no specific questions. The reasoning line is always
+                // generated regardless of how the parent phrases their
+                // request, so NEP-2020's facilitator framing survives even
+                // a parent asking for "just the answers" — the UI (not the
+                // model) decides whether to show it upfront or behind a
+                // toggle. See CLAUDE.md backlog: this branch replaced the
+                // old always-5-quiz-questions shape for Homework Help.
+                const hwGroundingNote = `Ground the explanation in NEP-2020's teacher-as-facilitator principle: where this homework genuinely allows for guided discovery, phrase the explanation so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit.`;
+                systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+${hwGroundingNote}
+
+CRITICAL RULES — follow in order:
+
+1. If the parent's typed note (given below as "Parent's instruction") requests a specific structure — a question count, a format — follow that structural request.
+
+2. If the homework (from the photo/PDF or typed text) contains specific numbered/lettered questions the child must answer:
+   - Extract each question, preserving its original language and wording exactly as written — never translate it.
+   - Give a direct, correct answer or a strong sample answer for each one, in the same language/medium the child is expected to write in — never translate the answer either, unless the parent's instruction explicitly asks for a translated answer.
+   - Always include one short reasoning line in ${lang} for every answer, in a guided-discovery style — briefly showing the thinking path, not just restating the answer. Include this regardless of how the parent phrased their request (e.g. even if they asked for "just the answers") — the app's own UI decides whether to show this line upfront or behind a toggle, so it must always be present in your output.
+   - Extract at most 8 questions. If the homework contains more than 8 questions, extract only the first 8 and append a short note to the 8th question's reasoning field mentioning that there are more questions in the homework than shown here.
+
+3. If the homework is a broad topic or concept with no specific questions attached, explain the underlying concept in ${lang} instead — 2-4 short sentences, simple enough for a busy parent, focused on how to guide the child rather than just stating facts.
+
+4. Never let the ${lang} explanation language cause you to translate or rewrite the original homework content. ${lang} applies ONLY to your explanatory/reasoning commentary to the parent.
+
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","mode":"questions" or "concept","extracted_questions":[{"question":"original-language question text, or null if mode is concept","answer":"original-language answer, or null if mode is concept","reasoning":"one short guided-discovery-style sentence in ${lang}"}],"concept_explanation":"2-4 short sentences in ${lang}, or null if mode is questions"}
+
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit the token budget. The child is: ${childContext}.
+
+Parent's instruction: ${hwText || 'none given'}`;
+            }
 
             const userContent = [];
             if (hwUploadedBase64) {
@@ -999,10 +1042,24 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
 
                 document.getElementById('hwModalForm').classList.add('hidden');
                 document.getElementById('hwModalResults').classList.remove('hidden');
-                document.getElementById('hwModalLangTag').textContent = lang;
-                document.getElementById('hwModalExplanationText').textContent = parsed.explanation;
-                renderHwModalQuiz(parsed.quiz || []);
-                applyHwResultLayout(hwCurrentMode);
+                if (hwCurrentMode === 'quiz') {
+                    // Explicitly restored here (not by applyHwResultLayout,
+                    // which is untouched) — the Homework Help branch below
+                    // now hides this element, so a parent switching from
+                    // Homework Help to Quiz within the same page session
+                    // needs it un-hidden again; applyHwResultLayout was
+                    // never written to do this since nothing hid it before.
+                    document.getElementById('hwModalExplanationBlock').classList.remove('hidden');
+                    document.getElementById('hwModalHomeworkResultBlock').classList.add('hidden');
+                    document.getElementById('hwModalLangTag').textContent = lang;
+                    document.getElementById('hwModalExplanationText').textContent = parsed.explanation;
+                    renderHwModalQuiz(parsed.quiz || []);
+                    applyHwResultLayout(hwCurrentMode);
+                } else {
+                    document.getElementById('hwModalExplanationBlock').classList.add('hidden');
+                    document.getElementById('hwModalQuizBlock').classList.add('hidden');
+                    renderHwModalHomeworkResult(parsed);
+                }
             } catch (err) {
                 if (requestToken !== hwSessionToken) return;
                 console.error('[hwModal] Explain request failed:', err);
@@ -1068,6 +1125,44 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 });
                 area.appendChild(card);
             });
+        }
+        // Homework Help's result view — genuinely different shape from
+        // Quiz's, so it gets its own render function rather than reusing
+        // renderHwModalQuiz. "questions" mode: one card per extracted
+        // question with the direct answer inline and the guided-discovery
+        // reasoning line collapsed behind a <details> toggle (matching
+        // Experiential Learning's hook pattern) so the parent isn't forced
+        // to read it, but can always get to it. "concept" mode: a single
+        // paragraph, no toggle needed.
+        function renderHwModalHomeworkResult(parsed){
+            const conceptBlock = document.getElementById('hwModalConceptBlock');
+            const questionsArea = document.getElementById('hwModalQuestionsArea');
+            if (parsed.mode === 'questions') {
+                conceptBlock.classList.add('hidden');
+                questionsArea.classList.remove('hidden');
+                questionsArea.innerHTML = '';
+                (parsed.extracted_questions || []).forEach((q, qi) => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5';
+                    card.innerHTML = `
+                        <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1}</div>
+                        <div class="text-[15.5px] font-semibold text-on-surface mb-2 leading-snug">${hwEscapeHtml(q.question || '')}</div>
+                        <div class="text-[15px] text-on-surface mb-2 leading-relaxed"><b>Answer:</b> ${hwEscapeHtml(q.answer || '')}</div>
+                        <details>
+                            <summary class="font-label-md text-xs text-primary cursor-pointer">Why? (a hint to guide your child)</summary>
+                            <p class="text-[13.5px] text-on-surface-variant mt-1.5 leading-relaxed">${hwEscapeHtml(q.reasoning || '')}</p>
+                        </details>
+                    `;
+                    questionsArea.appendChild(card);
+                });
+            } else {
+                questionsArea.classList.add('hidden');
+                questionsArea.innerHTML = '';
+                conceptBlock.classList.remove('hidden');
+                document.getElementById('hwModalConceptLangTag').textContent = document.getElementById('hwModalLang').value;
+                document.getElementById('hwModalConceptText').textContent = parsed.concept_explanation || '';
+            }
+            document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
         }
         function resetHomeworkModal(){
             document.getElementById('hwModalForm').classList.remove('hidden');
