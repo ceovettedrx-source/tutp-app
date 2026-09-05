@@ -323,7 +323,7 @@
     verifyInFlight = true;
     btn.disabled = true; btn.textContent = 'Verifying…';
     try {
-      await window.tutpVerifyOTP(code);
+      const idToken = await window.tutpVerifyOTP(code);
       btn.textContent = 'Saving…';
       const res = await fetch('/api/register-teacher', {
         method: 'POST',
@@ -332,6 +332,7 @@
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
+      await window.tutpEstablishSession(idToken);
       teacherRegistered = true;
       errEl.textContent = '';
       errEl.classList.add('hidden');
@@ -393,7 +394,25 @@
 
     window.tutpVerifyOTP = async function(code){
         if (!confirmationResult) throw new Error('Please request a code first.');
-        await confirmationResult.confirm(code);
+        const result = await confirmationResult.confirm(code);
+        return result.user.getIdToken();
+    };
+
+    // Exchanges the Firebase ID token for this app's own session cookie —
+    // called only after /api/register-teacher succeeds (the teacher row
+    // doesn't exist yet at OTP-verify time, so the server can't resolve a
+    // teacher_id from the phone number until then). Best-effort: a failure
+    // here shouldn't block registration itself.
+    window.tutpEstablishSession = async function(idToken){
+        try {
+            await fetch('/api/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+            });
+        } catch (err) {
+            console.error('[register-teacher] Could not establish session:', err);
+        }
     };
 </script>
 </body></html>

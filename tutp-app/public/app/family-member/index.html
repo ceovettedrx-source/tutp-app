@@ -39,6 +39,33 @@
     // Lets /app/login/ bounce straight back here on a session it recognizes
     // (back button, PROFILES icon) instead of forcing a fresh OTP.
     try { sessionStorage.setItem('tutp_last_dashboard', location.pathname); } catch (e) {}
+
+    // A 403 from any /api/ call means the session cookie is missing or
+    // doesn't match sessionStorage's ids — most likely sessionStorage
+    // survived from a login that predates the session-cookie system, or a
+    // genuinely expired 30-day-inactive session. Either way, sessionStorage
+    // alone can no longer get this page its data, and /app/login/'s own
+    // skip-if-authenticated check only looks at sessionStorage too, so
+    // without this it would just bounce the user right back to this same
+    // broken page. Clear the stale markers and force a real login instead.
+    (function(){
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init){
+            return originalFetch(input, init).then(res => {
+                const url = typeof input === 'string' ? input : (input && input.url) || '';
+                if (res.status === 403 && url.startsWith('/api/')) {
+                    try {
+                        sessionStorage.removeItem('tutp_family_id');
+                        sessionStorage.removeItem('tutp_student_id');
+                        sessionStorage.removeItem('tutp_teacher_id');
+                        sessionStorage.removeItem('tutp_last_dashboard');
+                    } catch (e) {}
+                    window.location.href = '/app/login/';
+                }
+                return res;
+            });
+        };
+    })();
 </script>
 <div class="js-hidden fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-6" id="viewerGate">
 <div class="bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/15 p-8 max-w-sm w-full space-y-4">

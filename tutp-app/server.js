@@ -7,8 +7,20 @@ import { Resend } from 'resend';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import Razorpay from 'razorpay';
+import { initializeApp as initializeFirebaseApp, getApps as getFirebaseApps } from 'firebase-admin/app';
+import { getAuth as getFirebaseAuth } from 'firebase-admin/auth';
+import jwt from 'jsonwebtoken';
+import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
+
+// Only needed to verify ID tokens (JWT signature + claims against Google's
+// public certs) — no service-account credential required for that specific
+// operation, so this works even though this Cloud Run service lives in a
+// different GCP project than the Firebase project itself.
+if (!getFirebaseApps().length) {
+  initializeFirebaseApp({ projectId: 'tut-p-98978' });
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -206,6 +218,94 @@ app.use(express.static(path.join(__dirname, 'public'), {
     }
   }
 }));
+app.use(cookieParser());
+
+// ------------------------------------------------------------------
+// Session cookie — established once at login/registration (see
+// POST /api/session below) after verifying a real Firebase ID token, then
+// used on every family/student/teacher-scoped route to check the requested
+// id actually belongs to the caller. Firebase Auth itself is otherwise only
+// a one-shot OTP step in this app (nothing else calls verifyIdToken or
+// checks Firebase auth state), so this cookie — not Firebase's own session —
+// is what "logged in" actually means for API access.
+//
+// Sliding 30-day expiration: the refresh middleware below reissues a
+// fresh-dated cookie on every request that carries a still-valid one, so
+// active use never re-prompts OTP — only genuine 30-day inactivity (or a
+// cleared cookie) lets the token actually expire.
+// ------------------------------------------------------------------
+const SESSION_COOKIE_NAME = 'tutp_session';
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+if (!process.env.SESSION_SECRET) {
+  console.warn('SESSION_SECRET not set — session cookies cannot be issued or verified; all family/student/teacher-scoped routes will reject every request.');
+}
+
+function issueSessionCookie(res, payload) {
+  const token = jwt.sign(payload, process.env.SESSION_SECRET, { expiresIn: '30d' });
+  res.cookie(SESSION_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: SESSION_MAX_AGE_MS
+  });
+}
+
+// Returns { phone, familyId, teacherId } for a valid, unexpired cookie, or
+// null otherwise (missing, tampered, or expired) — callers treat null as
+// "not logged in" and reject, never as "logged in with no ids."
+function getSession(req) {
+  const token = req.cookies?.[SESSION_COOKIE_NAME];
+  if (!token || !process.env.SESSION_SECRET) return null;
+  try {
+    const { phone, familyId, teacherId } = jwt.verify(token, process.env.SESSION_SECRET);
+    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null };
+  } catch (err) {
+    return null;
+  }
+}
+
+app.use((req, res, next) => {
+  const session = getSession(req);
+  if (session) issueSessionCookie(res, session);
+  next();
+});
+
+function requireOwnFamily(req, res, familyId) {
+  const session = getSession(req);
+  if (!session || !Number.isFinite(familyId) || session.familyId !== familyId) {
+    res.status(403).json({ error: 'Forbidden' });
+    return null;
+  }
+  return session;
+}
+
+function requireOwnTeacher(req, res, teacherId) {
+  const session = getSession(req);
+  if (!session || !teacherId || String(session.teacherId) !== String(teacherId)) {
+    res.status(403).json({ error: 'Forbidden' });
+    return null;
+  }
+  return session;
+}
+
+// The one join every student-scoped route needs: does this session's family
+// actually own this student_id? Built once here, reused everywhere a route
+// takes a bare student_id with no family_id alongside it to check directly.
+async function studentBelongsToSession(session, studentId) {
+  if (!session || !session.familyId || !studentId || !supabase) return false;
+  const { data, error } = await supabase.from('students').select('family_id').eq('id', studentId).maybeSingle();
+  if (error) throw error;
+  return !!data && Number(data.family_id) === Number(session.familyId);
+}
+
+async function requireOwnStudent(req, res, studentId) {
+  const session = getSession(req);
+  if (!session || !(await studentBelongsToSession(session, studentId))) {
+    res.status(403).json({ error: 'Forbidden' });
+    return null;
+  }
+  return session;
+}
 
 // ------------------------------------------------------------------
 // Razorpay — subscriptions (recurring billing) for the paid tiers.
@@ -501,6 +601,7 @@ app.post('/api/family/add-member', async (req, res) => {
     if (!Number.isFinite(familyId) || !member || !member.name) {
       return res.status(400).json({ error: 'Missing family_id or member name' });
     }
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { error } = await supabase.from('family_members').insert({
       family_id: familyId,
       name: member.name,
@@ -777,6 +878,7 @@ app.get('/api/teacher-status', async (req, res) => {
 app.get('/api/teacher/:id', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { data, error } = await supabase.from('teachers')
       .select('id, name, subjects, school_name, area, is_approved')
       .eq('id', req.params.id).maybeSingle();
@@ -792,6 +894,7 @@ app.get('/api/teacher/:id', async (req, res) => {
 app.get('/api/teacher/:id/class-sections', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { data, error } = await supabase.from('teacher_class_sections')
       .select('id, grade, section')
       .eq('teacher_id', req.params.id)
@@ -830,6 +933,7 @@ async function studentsForTeacherClassSection(teacher, grade, section) {
 app.get('/api/teacher/:id/class-sections/:classSectionId/roster', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { data: teacher, error: teacherErr } = await supabase.from('teachers')
       .select('id, name, school_name, area, state, district, mandal').eq('id', req.params.id).maybeSingle();
     if (teacherErr) throw teacherErr;
@@ -922,6 +1026,7 @@ app.get('/api/teacher/:id/class-sections/:classSectionId/roster', async (req, re
 app.post('/api/teacher/:id/send-reminder', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { student_id } = req.body || {};
     if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
 
@@ -990,6 +1095,7 @@ app.post('/api/teacher/:id/send-reminder', async (req, res) => {
 app.get('/api/teacher/:id/referral-code', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { data: teacher, error: teacherErr } = await supabase.from('teachers')
       .select('id, is_approved').eq('id', req.params.id).maybeSingle();
     if (teacherErr) throw teacherErr;
@@ -1019,6 +1125,7 @@ app.use('/api/teacher/create-material', createMaterialRouter);
 app.get('/api/teacher/:id/referrals', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { data, error } = await supabase.from('referral_conversions')
       .select('id, family_id, conversion_type, created_at')
       .eq('teacher_id', req.params.id)
@@ -1296,6 +1403,55 @@ async function findFamilyIdByPhone(phone) {
   };
 }
 
+// Same last-10-digit match as findFamilyIdByPhone, against teachers.phone.
+async function findTeacherIdByPhone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '').slice(-10);
+  if (digits.length !== 10) return null;
+  const { data, error } = await supabase.from('teachers').select('id, phone');
+  if (error) throw error;
+  const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+  const match = (data || []).find(row => norm(row.phone) === digits);
+  return match ? match.id : null;
+}
+
+// ------------------------------------------------------------------
+// Establishes the session cookie every family/student/teacher-scoped route
+// below now requires. Called once, right after a real OTP verification
+// succeeds (login), or right after registration completes (register/
+// register-teacher, where the family/teacher row didn't exist yet at OTP
+// time) — see the matching client-side calls in login/register/
+// register-teacher's index.html.
+// ------------------------------------------------------------------
+app.post('/api/session', async (req, res) => {
+  try {
+    const { idToken } = req.body || {};
+    if (!idToken) return res.status(400).json({ error: 'Missing idToken' });
+    if (!process.env.SESSION_SECRET) return res.status(500).json({ error: 'Server is missing SESSION_SECRET configuration' });
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    let decoded;
+    try {
+      decoded = await getFirebaseAuth().verifyIdToken(idToken);
+    } catch (err) {
+      console.error('verifyIdToken failed:', err.message);
+      return res.status(401).json({ error: 'Invalid or expired sign-in — please log in again' });
+    }
+    const phone = decoded.phone_number;
+    if (!phone) return res.status(401).json({ error: 'This sign-in method is not supported' });
+
+    const [family, teacherId] = await Promise.all([
+      findFamilyIdByPhone(phone),
+      findTeacherIdByPhone(phone)
+    ]);
+    const session = { phone, familyId: family ? family.id : null, teacherId: teacherId || null };
+    issueSessionCookie(res, session);
+    res.json({ ok: true, familyId: session.familyId, teacherId: session.teacherId });
+  } catch (err) {
+    console.error('Create session error:', err);
+    res.status(500).json({ error: 'Could not create session' });
+  }
+});
+
 app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -1343,13 +1499,13 @@ app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
 // Fetch a single student/family by id, so app/child, app/mother and app/father
 // can personalize their static "Leo"/"Alexandria" placeholders once a
 // real student_id/family_id is known (set in sessionStorage at login).
-// No auth check — matches this app's existing security posture (e.g.
-// /api/upload, /api/homework are unauthenticated too); ids are opaque
-// uuids/bigints, not sequential guessable identifiers where it matters.
+// Requires the requesting session's family to actually own this student —
+// see requireOwnStudent above.
 // ------------------------------------------------------------------
 app.get('/api/student/:id', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!(await requireOwnStudent(req, res, req.params.id))) return;
     const { data, error } = await supabase
       .from('students')
       .select('name, class, section, school_name, roll_number')
@@ -1369,6 +1525,7 @@ app.get('/api/family/:id', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.id, 10);
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('family_registrations')
       .select('data')
@@ -1388,6 +1545,7 @@ app.get('/api/family/:id/members', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.id, 10);
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('family_members')
       .select('id, name, relationship, phone')
@@ -1409,6 +1567,7 @@ app.get('/api/family/:id/students', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.id, 10);
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('students')
       .select('id, name, class')
@@ -1434,6 +1593,7 @@ app.get('/api/bonding-score/:familyId/:viewerKey', async (req, res) => {
     const familyId = parseInt(req.params.familyId, 10);
     const viewerKey = req.params.viewerKey;
     if (!Number.isFinite(familyId) || !viewerKey) return res.status(400).json({ error: 'Invalid family id or viewer key' });
+    if (!requireOwnFamily(req, res, familyId)) return;
 
     const { data: rows, error } = await supabase
       .from('bonding_scores')
@@ -1460,6 +1620,7 @@ app.post('/api/bonding-score', async (req, res) => {
     if (!Number.isFinite(familyId) || !viewer_key || !Number.isFinite(scoreNum)) {
       return res.status(400).json({ error: 'Missing family_id, viewer_key, or score' });
     }
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { error } = await supabase
       .from('bonding_scores')
       .upsert({ family_id: familyId, viewer_key, score: Math.max(0, Math.min(100, scoreNum)), updated_at: new Date().toISOString() }, { onConflict: 'family_id,viewer_key' });
@@ -1482,6 +1643,7 @@ app.get('/api/visibility-rules/:familyId', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.familyId, 10);
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('member_visibility_rules')
       .select('family_member_id, feature_name, is_visible')
@@ -1500,6 +1662,7 @@ app.get('/api/visibility-rules/:familyId/:memberId', async (req, res) => {
     const familyId = parseInt(req.params.familyId, 10);
     const memberId = req.params.memberId;
     if (!Number.isFinite(familyId) || !memberId) return res.status(400).json({ error: 'Invalid family id or member id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('member_visibility_rules')
       .select('feature_name, is_visible')
@@ -1523,6 +1686,7 @@ app.post('/api/visibility-rules', async (req, res) => {
     if (!Number.isFinite(familyId) || !family_member_id || !VISIBILITY_FEATURES.includes(feature_name)) {
       return res.status(400).json({ error: 'Missing or invalid family_id, family_member_id, or feature_name' });
     }
+    if (!requireOwnFamily(req, res, familyId)) return;
     const { error } = await supabase
       .from('member_visibility_rules')
       .upsert({
@@ -1590,6 +1754,7 @@ app.post('/api/homework-assignments', async (req, res) => {
     if (!teacher_id || !grade || !title) {
       return res.status(400).json({ error: 'Missing teacher_id, grade, or title' });
     }
+    if (!requireOwnTeacher(req, res, teacher_id)) return;
 
     const { data: teacher, error: teacherErr } = await supabase.from('teachers')
       .select('id, is_approved').eq('id', teacher_id).maybeSingle();
@@ -1624,6 +1789,7 @@ app.post('/api/homework-assignments', async (req, res) => {
 app.get('/api/teacher/:id/homework-assignments', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!requireOwnTeacher(req, res, req.params.id)) return;
     const { data, error } = await supabase.from('homework')
       .select('*').eq('teacher_id', req.params.id).order('created_at', { ascending: false });
     if (error) throw error;
@@ -1642,6 +1808,7 @@ app.get('/api/homework-assignments/:id/status', async (req, res) => {
       .select('id, teacher_id, grade, section').eq('id', req.params.id).maybeSingle();
     if (hwErr) throw hwErr;
     if (!hw) return res.status(404).json({ error: 'Homework not found' });
+    if (!requireOwnTeacher(req, res, hw.teacher_id)) return;
 
     const { data: teacher, error: teacherErr } = await supabase.from('teachers')
       .select('school_name, area, state, district, mandal').eq('id', hw.teacher_id).maybeSingle();
@@ -1688,6 +1855,7 @@ app.post('/api/homework-assignments/:id/mark-done', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const { student_id } = req.body || {};
     if (!student_id) return res.status(400).json({ error: 'Missing student_id' });
+    if (!(await requireOwnStudent(req, res, student_id))) return;
     const { error } = await supabase.from('homework_status').upsert({
       homework_id: req.params.id,
       student_id,
@@ -1748,6 +1916,7 @@ async function homeworkForStudent(student) {
 app.get('/api/homework-assignments/for-student/:studentId', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!(await requireOwnStudent(req, res, req.params.studentId))) return;
     const { data: student, error: studentErr } = await supabase.from('students')
       .select('id, class, section, school_name, area, state, district, mandal').eq('id', req.params.studentId).maybeSingle();
     if (studentErr) throw studentErr;
@@ -1768,6 +1937,7 @@ app.get('/api/homework-assignments/for-family/:familyId', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.familyId, 10);
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     const viewerMemberId = req.query.viewer_member_id || null;
 
     if (viewerMemberId) {
@@ -1847,6 +2017,7 @@ app.get('/api/homework-completion/:familyId', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.familyId, 10);
     if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
     res.json(await computeFamilyHomeworkCompletion(familyId));
   } catch (err) {
     console.error('Get homework completion error:', err);
@@ -2109,6 +2280,7 @@ app.post('/api/homework-explain', async (req, res) => {
     if (!student_id || !subject || !question) {
       return res.status(400).json({ error: 'Missing student_id, subject or question' });
     }
+    if (!(await requireOwnStudent(req, res, student_id))) return;
 
     let progress = DEFAULT_PROGRESS;
     if (supabase) {
