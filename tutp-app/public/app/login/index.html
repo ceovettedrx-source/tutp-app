@@ -432,9 +432,19 @@
                 }
 
                 if (pendingStudentId) {
+                    // Was an unconditional redirect straight to /app/child/ —
+                    // launch-blocking bug (2026-09-06): a parent who typed
+                    // their child's name (which the subtitle above literally
+                    // instructs them to do) got silently routed past
+                    // Mother/Father with no way back, since /app/child/ isn't
+                    // ready for launch. Show the same profile grid as the
+                    // "couldn't confidently match" case instead — Mother/
+                    // Father are always reachable now, and the resolved
+                    // student_id/family_id are still recorded, so tapping
+                    // "Leo" from the grid still works correctly.
                     sessionStorage.setItem('tutp_student_id', pendingStudentId);
                     if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    window.location.href = '/app/child/';
+                    showProfiles(false);
                     return;
                 }
                 if (resolveFailed) {
