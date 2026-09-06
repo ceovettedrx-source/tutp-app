@@ -160,23 +160,8 @@
 <p class="font-body-lg text-body-lg text-on-surface-variant">Select your profile to continue learning</p>
 <p class="hidden font-label-md text-label-md text-error mt-sm" id="profileNotFoundNote">We couldn't confidently match the name you entered to one of your children — please pick your profile below.</p>
 </header>
-<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-md">
-<a href="/app/child/" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
-<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#005bbf;">L</div>
-<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Leo</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Student</span></div>
-</a>
-<a href="/app/mother/" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
-<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#805600;">A</div>
-<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Amma</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Parent</span></div>
-</a>
-<a href="/app/father/" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
-<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#008939;">A</div>
-<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Appa</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Parent</span></div>
-</a>
-<a href="#" onclick="alert('Grandparent view — not built yet in this prototype.'); return false;" class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
-<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:#414754;">T</div>
-<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">Thatha</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">Grandparent</span></div>
-</a>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-md" id="profileGrid">
+<p class="col-span-full text-center font-body-md text-body-md text-on-surface-variant" id="profileGridStatus">Loading your family…</p>
 </div>
 <div class="flex justify-center mt-md">
 <a href="/app/register/" class="flex items-center gap-sm px-lg py-sm rounded-full border-2 border-outline-variant hover:border-primary hover:bg-surface-container text-on-surface-variant hover:text-primary font-label-lg text-label-lg transition-all">
@@ -233,6 +218,69 @@
             const otp = document.getElementById('otp-view');
             const from = otp.classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
             transitionTo(from, 'profile-view');
+            loadProfileGrid();
+        }
+
+        // Attribute-safe escaping (quotes included) since names are interpolated
+        // into both text content and data-* attribute values below.
+        function escapeAttr(str) {
+            return String(str == null ? '' : str)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+        function profileTile(name, role, href, color, memberId) {
+            const initial = escapeAttr((name || '?').trim().charAt(0).toUpperCase() || '?');
+            const memberAttrs = memberId ? ` data-member-id="${escapeAttr(memberId)}" data-member-name="${escapeAttr(name)}"` : '';
+            return `<a href="${href}"${memberAttrs} class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
+<div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:${color};">${initial}</div>
+<div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">${escapeAttr(name)}</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">${escapeAttr(role)}</span></div>
+</a>`;
+        }
+
+        // Pulls the real family — same /api/family/:id (+/members, +/students)
+        // data mother/father/family-member pages already use — instead of the
+        // hardcoded Leo/Amma/Appa/Thatha placeholders this grid used to show.
+        async function loadProfileGrid() {
+            const gridEl = document.getElementById('profileGrid');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) {
+                gridEl.innerHTML = '<p class="col-span-full text-center font-body-md text-body-md text-error">Could not load your family — please try logging in again.</p>';
+                return;
+            }
+            try {
+                const [famRes, membersRes, studentsRes] = await Promise.all([
+                    fetch('/api/family/' + encodeURIComponent(familyId)),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/members'),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/students')
+                ]);
+                const fam = famRes.ok ? await famRes.json() : {};
+                const membersData = membersRes.ok ? await membersRes.json() : { members: [] };
+                const studentsData = studentsRes.ok ? await studentsRes.json() : { students: [] };
+                const memberColors = ['#414754', '#8c2f8c', '#b5541a', '#0f6f6f'];
+
+                let tiles = '';
+                (studentsData.students || []).forEach(s => {
+                    tiles += profileTile(s.name, 'Student', '/app/child/', '#005bbf');
+                });
+                if (fam.motherName) tiles += profileTile(fam.motherName, 'Mother', '/app/mother/', '#805600');
+                if (fam.fatherName) tiles += profileTile(fam.fatherName, 'Father', '/app/father/', '#008939');
+                (membersData.members || []).forEach((m, i) => {
+                    tiles += profileTile(m.name, m.relationship || 'Family', '/app/family-member/', memberColors[i % memberColors.length], m.id);
+                });
+
+                gridEl.innerHTML = tiles || '<p class="col-span-full text-center font-body-md text-body-md text-on-surface-variant">No family members yet — use "Add Profile" below.</p>';
+                // Record which family_members row was tapped so /app/family-member/
+                // can personalize immediately instead of showing its own picker gate.
+                gridEl.querySelectorAll('[data-member-id]').forEach(a => {
+                    a.addEventListener('click', () => {
+                        sessionStorage.setItem('tutp_family_member_id', a.dataset.memberId);
+                        sessionStorage.setItem('tutp_family_member_name', a.dataset.memberName);
+                    });
+                });
+            } catch (err) {
+                console.error('[login] Could not load family profiles:', err);
+                gridEl.innerHTML = '<p class="col-span-full text-center font-body-md text-body-md text-error">Could not load your family right now.</p>';
+            }
         }
         function showRegisterPrompt() {
             transitionTo('login-view', 'register-prompt-view');
@@ -448,7 +496,7 @@
                     // "couldn't confidently match" case instead — Mother/
                     // Father are always reachable now, and the resolved
                     // student_id/family_id are still recorded, so tapping
-                    // "Leo" from the grid still works correctly.
+                    // the child's tile in the grid still works correctly.
                     sessionStorage.setItem('tutp_student_id', pendingStudentId);
                     if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
                     showProfiles(false);
