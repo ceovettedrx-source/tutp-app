@@ -1384,12 +1384,29 @@ function isCloseNameMatch(input, candidate) {
 async function findFamilyIdByPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '').slice(-10);
   if (digits.length !== 10) return null;
+  // Phone numbers inside family_registrations.data aren't normalized (free-
+  // typed at registration), so an exact JSONB match on the raw string isn't
+  // reliable — but pulling every family's full data blob into Node and
+  // matching in JS (the old approach here) is an unindexed full-table scan
+  // that gets slower, and ships more data over the network, as the family
+  // count grows. digits is always exactly 10 numeric characters at this
+  // point, so it's safe to interpolate into the ilike pattern directly.
+  // This narrows candidates server-side first via a substring match on the
+  // last 10 digits (any formatting variation still contains its own last-10-
+  // digit run), then keeps the exact same normalized-match/most-recent-wins
+  // logic below over just that small candidate set instead of the whole
+  // table.
+  //
   // Ordered by id desc — without this, a phone number that was registered
   // more than once (e.g. someone re-submitting the registration form while
   // testing) resolves non-deterministically, since Postgres doesn't
   // guarantee row order without an explicit ORDER BY. Preferring the most
   // recent registration is the sane default.
-  const { data, error } = await supabase.from('family_registrations').select('id, data').order('id', { ascending: false });
+  const { data, error } = await supabase
+    .from('family_registrations')
+    .select('id, data')
+    .or(`data->mother->>phone.ilike.%${digits}%,data->father->>phone.ilike.%${digits}%`)
+    .order('id', { ascending: false });
   if (error) throw error;
   const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
   const match = (data || []).find(row =>
