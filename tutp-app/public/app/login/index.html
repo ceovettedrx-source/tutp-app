@@ -321,8 +321,11 @@
                 : 'New here? <a class="text-primary hover:underline" href="/app/register/">Register</a>';
         }
 
-        async function sendCodeAndShowOTP(){
-            await window.tutpSendOTP('+91' + lastPhoneDigits);
+        // otpPromise lets a caller start the actual Firebase send earlier
+        // (in parallel with other work, e.g. /api/resolve-student below)
+        // instead of only ever starting it here — see handleNamePhoneSubmit.
+        async function sendCodeAndShowOTP(otpPromise){
+            await (otpPromise || window.tutpSendOTP('+91' + lastPhoneDigits));
             document.getElementById('otpSentTo').textContent = 'Sent to +91 ' + lastPhoneDigits.slice(0,5) + ' ' + lastPhoneDigits.slice(5);
             const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'login-view' : 'disambiguate-view';
             transitionTo(fromId, 'otp-view', 'input');
@@ -373,6 +376,18 @@
                     return;
                 }
                 if (lastChildName) {
+                    // Firebase's OTP send doesn't depend on resolve-student's
+                    // result (it only needs the phone number, known
+                    // already), so start it now instead of waiting for
+                    // resolve-student first — measured at ~1-3s of real,
+                    // otherwise-sequential wait saved on every login where a
+                    // child name is given. Trade-off: in the familyFound
+                    // === false / needsDisambiguation branches below, this
+                    // OTP may already be in flight even though it's never
+                    // shown/used here — accepted since the "found" branch is
+                    // the common case, and a resend is always available.
+                    const otpPromise = window.tutpSendOTP('+91' + digits);
+                    otpPromise.catch(() => {}); // avoid a spurious unhandled-rejection warning; the real error still surfaces via the await below
                     const resolveRes = await fetch('/api/resolve-student', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -394,6 +409,9 @@
                     } else {
                         resolveFailed = true; // family real, but no confident match and no disambiguation offered
                     }
+                    btn.textContent = 'Sending…';
+                    await sendCodeAndShowOTP(otpPromise);
+                    return;
                 }
                 btn.textContent = 'Sending…';
                 await sendCodeAndShowOTP();
