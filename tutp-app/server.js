@@ -202,7 +202,7 @@ app.use(express.json({
   // and silently 413'd those requests.
   limit: '20mb',
   verify: (req, res, buf) => {
-    if (req.originalUrl === '/api/webhooks/razorpay') req.rawBody = buf;
+    if (req.originalUrl === '/api/webhooks/razorpay' || req.originalUrl === '/api/razorpay-webhook') req.rawBody = buf;
   }
 }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -327,6 +327,11 @@ const RAZORPAY_PLAN_ID_BY_TIER = {
   ultrapro: process.env.RAZORPAY_PLAN_ID_ULTRAPRO,
   max: process.env.RAZORPAY_PLAN_ID_MAX
 };
+
+// One-time payment (Razorpay Orders API) pricing for the paid tiers —
+// matches the ₹500/₹1,500/₹2,500 shown on the register page. Paise, since
+// that's the unit Razorpay's API takes and returns.
+const TIER_PRICE_PAISE = { pro: 50000, ultrapro: 150000, max: 250000 };
 
 // ------------------------------------------------------------------
 // Waitlist capture — powers the "Join waitlist" form on the homepage.
@@ -549,30 +554,41 @@ app.post('/api/register', async (req, res) => {
     }
 
     // Registration itself is always free — this only determines whether a
-    // Razorpay subscription gets created alongside it. Best-effort like
-    // everything else above: if Razorpay is unreachable or misconfigured,
-    // the family is left in 'pending_payment' rather than failing the
-    // whole registration — functionally identical to an abandoned
-    // checkout (behaves like Free until/unless payment completes; no
-    // cleanup job needed, see migration 010's comment).
+    // Razorpay order gets created alongside it. Best-effort like everything
+    // else above: if Razorpay is unreachable or misconfigured, the family
+    // is left in 'pending_payment' rather than failing the whole
+    // registration — functionally identical to an abandoned checkout
+    // (behaves like Free until/unless payment completes; no cleanup job
+    // needed, see migration 010's comment).
+    //
+    // One-time payment (Orders API), not the recurring subscription
+    // 010_subscriptions.sql was originally built for — family_subscriptions
+    // still gets its row below for bookkeeping/future use, but the actual
+    // charge here is a single order tracked in the payments table
+    // (012_payments.sql); the webhook (/api/razorpay-webhook) is what
+    // marks it captured/failed.
     const tier = ['pro', 'ultrapro', 'max'].includes(payload.tier) ? payload.tier : 'free';
     const subRow = { family_id: data.id, tier, status: tier === 'free' ? 'active' : 'pending_payment' };
-    let subscriptionInfo = null;
+    let paymentInfo = null;
 
     if (tier !== 'free') {
-      const planId = RAZORPAY_PLAN_ID_BY_TIER[tier];
-      if (razorpay && planId) {
+      const amount = TIER_PRICE_PAISE[tier];
+      if (razorpay) {
         try {
-          const subscription = await razorpay.subscriptions.create({
-            plan_id: planId,
-            total_count: 120, // ~10 years of monthly cycles; cancellation is handled via support for now, not a self-serve UI in this phase
-            customer_notify: 1,
-            notes: { family_id: String(data.id) }
+          const order = await razorpay.orders.create({
+            amount,
+            currency: 'INR',
+            receipt: `family_${data.id}_${Date.now()}`,
+            notes: { family_id: String(data.id), tier }
           });
-          subRow.razorpay_subscription_id = subscription.id;
-          subscriptionInfo = { subscriptionId: subscription.id, razorpayKeyId: process.env.RAZORPAY_KEY_ID };
+          const { error: paymentErr } = await supabase.from('payments').insert({
+            family_id: data.id, tier, amount, currency: 'INR',
+            razorpay_order_id: order.id, status: 'created'
+          });
+          if (paymentErr) console.error('Could not save payments row (registration itself still succeeded):', paymentErr.message);
+          paymentInfo = { orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tier };
         } catch (rzpErr) {
-          console.error('Could not create Razorpay subscription (registration itself still succeeded, family left pending_payment):', rzpErr.message);
+          console.error('Could not create Razorpay order (registration itself still succeeded, family left pending_payment):', rzpErr.message);
         }
       } else {
         console.error('Razorpay not configured for tier', tier, '— family left pending_payment.');
@@ -583,7 +599,7 @@ app.post('/api/register', async (req, res) => {
     if (subErr) console.error('Could not save family_subscriptions row (registration itself still succeeded):', subErr.message);
 
     console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length, 'tier:', tier);
-    res.json({ ok: true, id: data.id, subscription: subscriptionInfo });
+    res.json({ ok: true, id: data.id, payment: paymentInfo });
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });
@@ -1309,6 +1325,62 @@ app.post('/api/webhooks/razorpay', async (req, res) => {
     res.json({ ok: true });
   } catch (err) {
     console.error('Razorpay webhook error:', err);
+    // 500 (not 200) so Razorpay's own retry schedule kicks in — a failure
+    // here is assumed transient (e.g. a momentary Supabase hiccup), not a
+    // reason to silently drop the event.
+    res.status(500).json({ error: 'Webhook processing error' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Razorpay webhook — one-time payments (Orders API), separate endpoint
+// from /api/webhooks/razorpay above (which is the older, unused recurring-
+// subscription path — no RAZORPAY_PLAN_ID_* is configured, so it never
+// fires in practice). This is the one the dashboard is actually configured
+// to call, for payment.captured / payment.failed. Same raw-body + HMAC
+// verification pattern as above; matches by razorpay_order_id, which
+// /api/register creates and stores in the payments table up front.
+// ------------------------------------------------------------------
+async function handlePaymentCaptured(event) {
+  const payment = event.payload?.payment?.entity;
+  if (!payment || !payment.order_id) return;
+  const { error } = await supabase.from('payments')
+    .update({ razorpay_payment_id: payment.id, status: 'captured', updated_at: new Date().toISOString() })
+    .eq('razorpay_order_id', payment.order_id);
+  if (error) console.error('Could not mark payment captured:', error.message);
+}
+
+async function handlePaymentFailed(event) {
+  const payment = event.payload?.payment?.entity;
+  if (!payment || !payment.order_id) return;
+  const { error } = await supabase.from('payments')
+    .update({ status: 'failed', updated_at: new Date().toISOString() })
+    .eq('razorpay_order_id', payment.order_id);
+  if (error) console.error('Could not mark payment failed:', error.message);
+}
+
+app.post('/api/razorpay-webhook', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const signature = req.headers['x-razorpay-signature'];
+    if (!process.env.RAZORPAY_WEBHOOK_SECRET || !signature || !req.rawBody) {
+      return res.status(400).json({ error: 'Missing webhook signature or secret' });
+    }
+    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(req.rawBody).digest('hex');
+    if (expected !== signature) {
+      console.error('Razorpay webhook (payments) signature mismatch');
+      return res.status(400).json({ error: 'Invalid signature' });
+    }
+
+    const event = req.body || {};
+    switch (event.event) {
+      case 'payment.captured': await handlePaymentCaptured(event); break;
+      case 'payment.failed': await handlePaymentFailed(event); break;
+      default: break; // unhandled event types are fine to ignore — ack so Razorpay stops retrying
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Razorpay webhook (payments) error:', err);
     // 500 (not 200) so Razorpay's own retry schedule kicks in — a failure
     // here is assumed transient (e.g. a momentary Supabase hiccup), not a
     // reason to silently drop the event.

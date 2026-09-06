@@ -599,20 +599,22 @@
     goToStep(8);
   }
 
-  function openRazorpayCheckout(subscription){
+  function openRazorpayCheckout(payment){
     const statusEl = document.getElementById('formStatus');
     const rzp = new Razorpay({
-      key: subscription.razorpayKeyId,
-      subscription_id: subscription.subscriptionId,
+      key: payment.razorpayKeyId,
+      order_id: payment.orderId,
+      amount: payment.amount,
+      currency: payment.currency,
       name: 'Tut-P',
-      description: 'Tut-P subscription',
+      description: 'Tut-P ' + payment.tier + ' plan',
       prefill: {
         name: document.getElementById('motherName').value || document.getElementById('fatherName').value || '',
         email: document.getElementById('motherEmail').value || document.getElementById('fatherEmail').value || '',
         contact: document.getElementById('motherPhone').value || document.getElementById('fatherPhone').value || ''
       },
       handler: function(){
-        statusEl.textContent = 'Payment received — finalizing your subscription. Redirecting to login…';
+        statusEl.textContent = 'Payment received — finalizing your plan. Redirecting to login…';
         statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
         setTimeout(() => { window.location.href = '/app/login/'; }, 1800);
       },
@@ -713,10 +715,10 @@
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
       if (regIdToken) await window.tutpEstablishSession(regIdToken);
       localStorage.removeItem('tutp_ref');
-      if (data.subscription && data.subscription.subscriptionId) {
+      if (data.payment && data.payment.orderId) {
         statusEl.textContent = 'Almost done — complete your payment to activate your plan.';
         statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
-        openRazorpayCheckout(data.subscription);
+        openRazorpayCheckout(data.payment);
       } else {
         statusEl.textContent = "Your family is registered! Redirecting to login…";
         statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
