@@ -2207,6 +2207,12 @@ app.post('/api/homework', async (req, res) => {
     if (!Array.isArray(userContent) || !userContent.length || !userContent.every(isValidHomeworkContentBlock)) {
       return res.status(400).json({ error: 'Invalid userContent' });
     }
+    // Client UI caps this at 2 (multi-page homework); enforced here too so
+    // the cap can't be bypassed by calling this route directly.
+    const attachmentCount = userContent.filter(b => b.type === 'image' || b.type === 'document').length;
+    if (attachmentCount > 2) {
+      return res.status(400).json({ error: 'At most 2 photo/PDF attachments are allowed per request.' });
+    }
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }

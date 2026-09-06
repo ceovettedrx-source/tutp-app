@@ -513,12 +513,16 @@
 <textarea id="hwModalText" placeholder="Describe the homework you need explained, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
 
 <div class="flex items-center gap-3 mt-3.5 flex-wrap">
-<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="hwModalAttachInput.accept='image/*,application/pdf'; hwModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="hwModalAttachTrigger" onclick="hwModalAttachInput.accept='image/*,application/pdf'; hwModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
 <input type="file" id="hwModalAttachInput" accept="image/*,application/pdf" class="hidden">
 <img id="hwModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
 <span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel">📄</span>
 <button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach">remove</button>
+<img id="hwModalThumb2" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach2">remove</button>
 </div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
 
 <button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="hwModalSubmitBtn">Explain My Homework</button>
 <div class="mt-3.5 text-sm text-error font-label-md hidden" id="hwModalErrBox"></div>
@@ -582,12 +586,16 @@
 <textarea id="storyModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
 
 <div class="flex items-center gap-3 mt-3.5 flex-wrap">
-<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="storyModalAttachInput.accept='image/*,application/pdf'; storyModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="storyModalAttachTrigger" onclick="storyModalAttachInput.accept='image/*,application/pdf'; storyModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
 <input type="file" id="storyModalAttachInput" accept="image/*,application/pdf" class="hidden">
 <img id="storyModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
 <span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="storyModalPdfLabel">📄</span>
 <button class="font-label-md text-xs text-error underline hidden" id="storyModalClearAttach">remove</button>
+<img id="storyModalThumb2" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="storyModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="storyModalClearAttach2">remove</button>
 </div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
 
 <button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="storyModalSubmitBtn">Submit &amp; Tell</button>
 <div class="mt-3.5 text-sm text-error font-label-md hidden" id="storyModalErrBox"></div>
@@ -687,12 +695,16 @@
 <textarea id="experientialModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
 
 <div class="flex items-center gap-3 mt-3.5 flex-wrap">
-<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="experientialModalAttachInput.accept='image/*,application/pdf'; experientialModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="experientialModalAttachTrigger" onclick="experientialModalAttachInput.accept='image/*,application/pdf'; experientialModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
 <input type="file" id="experientialModalAttachInput" accept="image/*,application/pdf" class="hidden">
 <img id="experientialModalThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
 <span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel">📄</span>
 <button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach">remove</button>
+<img id="experientialModalThumb2" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach2">remove</button>
 </div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
 
 <button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="experientialModalSubmitBtn">Get step-by-step notes</button>
 <div class="mt-3.5 text-sm text-error font-label-md hidden" id="experientialModalErrBox"></div>
@@ -807,12 +819,8 @@
         // /demo/, child context comes from this session's real family/student
         // records, and there's no post-quiz dashboard reveal (this page's own
         // bonding-score/homework-completion sections already show real data).
-        let hwUploadedBase64 = null;
-        let hwUploadedMediaType = null;
+        const hwAttachState = { items: [] };
         const hwModalAttachInput = document.getElementById('hwModalAttachInput');
-        const hwModalThumb = document.getElementById('hwModalThumb');
-        const hwModalPdfLabel = document.getElementById('hwModalPdfLabel');
-        const hwModalClearAttach = document.getElementById('hwModalClearAttach');
 
         // Bumped on every open — an in-flight /api/homework request from a
         // prior session compares its captured value against this before
@@ -911,19 +919,6 @@
             }
         }
 
-        function showHwModalAttachPreview(dataUrl, mediaType, filename){
-            if (mediaType === 'application/pdf') {
-                hwModalThumb.classList.add('hidden');
-                hwModalPdfLabel.textContent = '📄 ' + (filename || 'document.pdf');
-                hwModalPdfLabel.classList.remove('hidden');
-            } else {
-                hwModalPdfLabel.classList.add('hidden');
-                hwModalThumb.src = dataUrl;
-                hwModalThumb.classList.remove('hidden');
-            }
-            hwModalClearAttach.classList.remove('hidden');
-        }
-
         // Claude's vision API only accepts these 4 image types — a phone
         // camera photo (esp. iPhone) is very commonly HEIC, which isn't in
         // this list, passes our own accept="image/*" filter and file-type
@@ -962,43 +957,18 @@
             });
         }
 
-        hwModalAttachInput.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const errBox = document.getElementById('hwModalErrBox');
-            errBox.classList.add('hidden');
-
-            if (file.type === 'application/pdf' || HW_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
-                hwUploadedMediaType = file.type;
-                const reader = new FileReader();
-                reader.onload = () => {
-                    hwUploadedBase64 = reader.result.split(',')[1];
-                    showHwModalAttachPreview(reader.result, file.type, file.name);
-                };
-                reader.readAsDataURL(file);
-                return;
-            }
-
-            try {
-                const jpegDataUrl = await reencodeImageToJpeg(file);
-                hwUploadedMediaType = 'image/jpeg';
-                hwUploadedBase64 = jpegDataUrl.split(',')[1];
-                showHwModalAttachPreview(jpegDataUrl, 'image/jpeg', file.name);
-            } catch (err) {
-                console.error('[hwModal] Could not convert unsupported file format:', err);
-                hwModalAttachInput.value = '';
-                errBox.textContent = "This file isn't in a format Tut-P can read yet — please attach a photo (JPG/PNG) or a PDF instead.";
-                errBox.classList.remove('hidden');
-            }
-        });
-        hwModalClearAttach.addEventListener('click', () => {
-            hwUploadedBase64 = null;
-            hwUploadedMediaType = null;
-            hwModalAttachInput.value = '';
-            hwModalThumb.classList.add('hidden');
-            hwModalPdfLabel.classList.add('hidden');
-            hwModalClearAttach.classList.add('hidden');
-        });
+        const resetHwAttach = attachFilePickerMulti(
+            hwModalAttachInput,
+            [
+                { thumbEl: document.getElementById('hwModalThumb'), pdfLabelEl: document.getElementById('hwModalPdfLabel'), clearBtnEl: document.getElementById('hwModalClearAttach') },
+                { thumbEl: document.getElementById('hwModalThumb2'), pdfLabelEl: document.getElementById('hwModalPdfLabel2'), clearBtnEl: document.getElementById('hwModalClearAttach2') }
+            ],
+            document.getElementById('hwModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            hwAttachState,
+            document.getElementById('hwModalErrBox'),
+            2
+        );
 
         // Claude is instructed to respond with ONLY a JSON object, but isn't
         // 100% reliable about it — e.g. given a vague question like "make a
@@ -1020,7 +990,7 @@
             const lang = document.getElementById('hwModalLang').value;
             const errBox = document.getElementById('hwModalErrBox');
             const submitBtn = document.getElementById('hwModalSubmitBtn');
-            if (!hwText && !hwUploadedBase64) {
+            if (!hwText && !hwAttachState.items.length) {
                 errBox.textContent = 'Please type the question or attach a photo/PDF first.';
                 errBox.classList.remove('hidden');
                 return;
@@ -1088,15 +1058,15 @@ Parent's instruction: ${hwText || 'none given'}`;
             }
 
             const userContent = [];
-            if (hwUploadedBase64) {
+            hwAttachState.items.forEach(item => {
                 userContent.push({
-                    type: hwUploadedMediaType === 'application/pdf' ? 'document' : 'image',
-                    source: { type: 'base64', media_type: hwUploadedMediaType, data: hwUploadedBase64 }
+                    type: item.mediaType === 'application/pdf' ? 'document' : 'image',
+                    source: { type: 'base64', media_type: item.mediaType, data: item.base64 }
                 });
-            }
+            });
             userContent.push({
                 type: 'text',
-                text: hwText ? `Homework: ${hwText}` : 'Read the homework in the attached photo or PDF and respond to it.'
+                text: hwText ? `Homework: ${hwText}` : (hwAttachState.items.length > 1 ? 'Read the homework in the attached photos/PDFs and respond to it.' : 'Read the homework in the attached photo or PDF and respond to it.')
             });
 
             try {
@@ -1262,7 +1232,7 @@ Parent's instruction: ${hwText || 'none given'}`;
             document.getElementById('hwModalForm').classList.remove('hidden');
             document.getElementById('hwModalResults').classList.add('hidden');
             document.getElementById('hwModalText').value = '';
-            hwModalClearAttach.click();
+            resetHwAttach();
             document.getElementById('hwModalErrBox').classList.add('hidden');
             document.getElementById('hwModalSubmitBtn').disabled = false;
             applyHwModeChrome(hwCurrentMode);
@@ -1330,6 +1300,76 @@ Parent's instruction: ${hwText || 'none given'}`;
             });
         }
 
+        // Same idea as attachFilePicker but supports up to `max` attachments
+        // (2, for multi-page homework) instead of exactly one — used by
+        // Homework Help/Quiz, Storytelling and Experiential Learning. Not
+        // used by Play-Based Learning, which stays on the single-attachment
+        // attachFilePicker above — not asked to change and no reason to.
+        // Returns a reset() function callers use to clear both slots (e.g.
+        // from each modal's own resetXModal()).
+        function attachFilePickerMulti(inputEl, slots, triggerEl, triggerText, state, errBoxEl, max){
+            function render(){
+                slots.forEach((slot, i) => {
+                    const item = state.items[i];
+                    if (item) {
+                        if (item.mediaType === 'application/pdf') {
+                            slot.thumbEl.classList.add('hidden');
+                            slot.pdfLabelEl.textContent = '📄 ' + (item.name || 'document.pdf');
+                            slot.pdfLabelEl.classList.remove('hidden');
+                        } else {
+                            slot.pdfLabelEl.classList.add('hidden');
+                            slot.thumbEl.src = 'data:' + item.mediaType + ';base64,' + item.base64;
+                            slot.thumbEl.classList.remove('hidden');
+                        }
+                        slot.clearBtnEl.classList.remove('hidden');
+                    } else {
+                        slot.thumbEl.classList.add('hidden');
+                        slot.pdfLabelEl.classList.add('hidden');
+                        slot.clearBtnEl.classList.add('hidden');
+                    }
+                });
+                triggerEl.textContent = state.items.length === 0 ? triggerText.first : triggerText.more;
+                triggerEl.classList.toggle('hidden', state.items.length >= max);
+            }
+            inputEl.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                inputEl.value = '';
+                if (!file) return;
+                errBoxEl.classList.add('hidden');
+                try {
+                    let base64, mediaType;
+                    if (file.type === 'application/pdf' || HW_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = () => reject(new Error('Could not read file'));
+                            reader.readAsDataURL(file);
+                        });
+                        base64 = dataUrl.split(',')[1];
+                        mediaType = file.type;
+                    } else {
+                        const jpegDataUrl = await reencodeImageToJpeg(file);
+                        base64 = jpegDataUrl.split(',')[1];
+                        mediaType = 'image/jpeg';
+                    }
+                    state.items.push({ base64, mediaType, name: file.name });
+                } catch (err) {
+                    console.error('[attachFilePickerMulti] Could not read file:', err);
+                    errBoxEl.textContent = "This file isn't in a format Tut-P can read yet — please attach a photo (JPG/PNG) or a PDF instead.";
+                    errBoxEl.classList.remove('hidden');
+                }
+                render();
+            });
+            slots.forEach((slot, i) => {
+                slot.clearBtnEl.addEventListener('click', () => {
+                    state.items.splice(i, 1);
+                    render();
+                });
+            });
+            render();
+            return function resetAttach(){ state.items = []; render(); };
+        }
+
         class ModalParseError extends Error {
             constructor(message, rawText) {
                 super(message);
@@ -1366,7 +1406,7 @@ Parent's instruction: ${hwText || 'none given'}`;
                 // the .catch(), losing the real cause. Handle it explicitly so
                 // the user gets an actionable message instead of a generic one.
                 if (res.status === 413) {
-                    throw new Error('That file is too large for Tut-P to process — try a smaller PDF or a clearer, smaller photo.');
+                    throw new Error('These files are too large for Tut-P to process together — try a smaller PDF, a clearer/smaller photo, or just one attachment.');
                 }
                 const errData = await res.json().catch(() => ({}));
                 throw new Error(errData.error || `Something went wrong reaching the AI (server returned ${res.status}). Please try again in a moment.`);
@@ -1379,9 +1419,20 @@ Parent's instruction: ${hwText || 'none given'}`;
 
         // ---------------- Storytelling Method ----------------
         let storySessionToken = 0;
-        const storyAttachState = { base64: null, mediaType: null };
+        const storyAttachState = { items: [] };
         const storyModalAttachInput = document.getElementById('storyModalAttachInput');
-        attachFilePicker(storyModalAttachInput, document.getElementById('storyModalThumb'), document.getElementById('storyModalPdfLabel'), document.getElementById('storyModalClearAttach'), storyAttachState, document.getElementById('storyModalErrBox'));
+        const resetStoryAttach = attachFilePickerMulti(
+            storyModalAttachInput,
+            [
+                { thumbEl: document.getElementById('storyModalThumb'), pdfLabelEl: document.getElementById('storyModalPdfLabel'), clearBtnEl: document.getElementById('storyModalClearAttach') },
+                { thumbEl: document.getElementById('storyModalThumb2'), pdfLabelEl: document.getElementById('storyModalPdfLabel2'), clearBtnEl: document.getElementById('storyModalClearAttach2') }
+            ],
+            document.getElementById('storyModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            storyAttachState,
+            document.getElementById('storyModalErrBox'),
+            2
+        );
 
         function openStorytellingModal(){
             storySessionToken++;
@@ -1397,7 +1448,7 @@ Parent's instruction: ${hwText || 'none given'}`;
             document.getElementById('storyModalForm').classList.remove('hidden');
             document.getElementById('storyModalResults').classList.add('hidden');
             document.getElementById('storyModalText').value = '';
-            document.getElementById('storyModalClearAttach').click();
+            resetStoryAttach();
             document.getElementById('storyModalErrBox').classList.add('hidden');
             const btn = document.getElementById('storyModalSubmitBtn');
             btn.disabled = false;
@@ -1473,7 +1524,7 @@ Parent's instruction: ${hwText || 'none given'}`;
             const lang = document.getElementById('storyModalLang').value;
             const errBox = document.getElementById('storyModalErrBox');
             const submitBtn = document.getElementById('storyModalSubmitBtn');
-            if (!storyTopic && !storyAttachState.base64) {
+            if (!storyTopic && !storyAttachState.items.length) {
                 errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
                 errBox.classList.remove('hidden');
                 return;
@@ -1495,10 +1546,10 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this s
 {"subject":"one short English subject label","story":"a short story in ${lang}, 5-10 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it"}
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep it concise — this must fit a small token budget. The child is: ${childContext}.`;
                 const userContent = [];
-                if (storyAttachState.base64) {
-                    userContent.push({ type: storyAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: storyAttachState.mediaType, data: storyAttachState.base64 } });
-                }
-                userContent.push({ type: 'text', text: storyTopic ? `Lesson: ${storyTopic}` : 'Read the lesson in the attached photo or PDF and turn it into a story.' });
+                storyAttachState.items.forEach(item => {
+                    userContent.push({ type: item.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: item.mediaType, data: item.base64 } });
+                });
+                userContent.push({ type: 'text', text: storyTopic ? `Lesson: ${storyTopic}` : (storyAttachState.items.length > 1 ? 'Read the lesson in the attached photos/PDFs and turn it into a story.' : 'Read the lesson in the attached photo or PDF and turn it into a story.') });
 
                 const parsed = await callHomeworkApi(systemPrompt, userContent);
                 if (requestToken !== storySessionToken) return;
@@ -1671,8 +1722,19 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
         // v1 is text-only: no YouTube search/relevance-check (no such
         // infrastructure exists in this backend yet) — see CLAUDE.md backlog.
         let experientialSessionToken = 0;
-        const experientialAttachState = { base64: null, mediaType: null };
-        attachFilePicker(document.getElementById('experientialModalAttachInput'), document.getElementById('experientialModalThumb'), document.getElementById('experientialModalPdfLabel'), document.getElementById('experientialModalClearAttach'), experientialAttachState, document.getElementById('experientialModalErrBox'));
+        const experientialAttachState = { items: [] };
+        const resetExperientialAttach = attachFilePickerMulti(
+            document.getElementById('experientialModalAttachInput'),
+            [
+                { thumbEl: document.getElementById('experientialModalThumb'), pdfLabelEl: document.getElementById('experientialModalPdfLabel'), clearBtnEl: document.getElementById('experientialModalClearAttach') },
+                { thumbEl: document.getElementById('experientialModalThumb2'), pdfLabelEl: document.getElementById('experientialModalPdfLabel2'), clearBtnEl: document.getElementById('experientialModalClearAttach2') }
+            ],
+            document.getElementById('experientialModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            experientialAttachState,
+            document.getElementById('experientialModalErrBox'),
+            2
+        );
 
         function openExperientialModal(){
             experientialSessionToken++;
@@ -1689,7 +1751,7 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
             document.getElementById('experientialModalForm').classList.remove('hidden');
             document.getElementById('experientialModalResults').classList.add('hidden');
             document.getElementById('experientialModalText').value = '';
-            document.getElementById('experientialModalClearAttach').click();
+            resetExperientialAttach();
             document.getElementById('experientialModalErrBox').classList.add('hidden');
             const btn = document.getElementById('experientialModalSubmitBtn');
             btn.disabled = false;
@@ -1701,7 +1763,7 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
             const lang = document.getElementById('experientialModalLang').value;
             const errBox = document.getElementById('experientialModalErrBox');
             const submitBtn = document.getElementById('experientialModalSubmitBtn');
-            if (!topic && !experientialAttachState.base64) {
+            if (!topic && !experientialAttachState.items.length) {
                 errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
                 errBox.classList.remove('hidden');
                 return;
@@ -1727,10 +1789,10 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this s
 {"subject":"one short English subject label","aditiApplicable":boolean,"aditiHook":"a short engaging hook in ${lang} connecting to something the child likely already knows — a familiar example or a short question — only present when aditiApplicable is true, otherwise null","notes":["step 1 in ${lang}","step 2 in ${lang}"]}
 Generate 4-8 note steps. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
                 const userContent = [];
-                if (experientialAttachState.base64) {
-                    userContent.push({ type: experientialAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: experientialAttachState.mediaType, data: experientialAttachState.base64 } });
-                }
-                userContent.push({ type: 'text', text: topic ? `Lesson: ${topic}` : 'Read the lesson in the attached photo or PDF and prepare notes from it.' });
+                experientialAttachState.items.forEach(item => {
+                    userContent.push({ type: item.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: item.mediaType, data: item.base64 } });
+                });
+                userContent.push({ type: 'text', text: topic ? `Lesson: ${topic}` : (experientialAttachState.items.length > 1 ? 'Read the lesson in the attached photos/PDFs and prepare notes from it.' : 'Read the lesson in the attached photo or PDF and prepare notes from it.') });
 
                 const parsed = await callHomeworkApi(systemPrompt, userContent);
                 if (requestToken !== experientialSessionToken) return;
