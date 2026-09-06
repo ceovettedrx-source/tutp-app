@@ -728,6 +728,26 @@
         // container as the print target (see @media print above) and uses
         // the browser's native print dialog, whose own "Save as PDF"
         // destination needs no PDF-generation library or backend endpoint.
+        // Real measured median for /api/homework (the shared generation call
+        // behind Homework Help, Quiz, Storytelling and Experiential Learning)
+        // is ~15-20s, not a few seconds — a single static button label for
+        // that long reads as frozen. This cycles a spinner + progressively
+        // reassuring messages, advancing once per intervalMs and holding on
+        // the last message rather than looping, until the caller stops it.
+        // Doesn't change actual generation time — that's a separate,
+        // bigger tradeoff (streaming/output size) intentionally out of
+        // scope here.
+        function startStagedLoading(btn, messages, intervalMs){
+            let i = 0;
+            const render = () => {
+                btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 mr-1.5 align-[-2px] border-2 border-current border-t-transparent rounded-full animate-spin"></span>' + messages[i];
+            };
+            render();
+            const timer = setInterval(() => {
+                if (i < messages.length - 1) { i++; render(); }
+            }, intervalMs);
+            return () => clearInterval(timer);
+        }
         function printResult(id){
             document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'));
             const el = document.getElementById(id);
@@ -813,7 +833,7 @@
                 label: 'Homework question / topic (optional if attaching a file)',
                 placeholder: 'Describe the homework you need explained, or just attach a photo/PDF below.',
                 idleBtn: 'Explain My Homework',
-                loadingBtn: 'Reading the homework…',
+                loadingStages: ['Reading the homework…', 'Thinking it through…', 'Almost done…'],
                 retryBtn: '↺ Try another homework'
             },
             quiz: {
@@ -821,7 +841,7 @@
                 label: 'What should the quiz cover? (optional if attaching a file)',
                 placeholder: 'Describe what to quiz your child on, or just attach a photo/PDF below.',
                 idleBtn: 'Start My Quiz',
-                loadingBtn: 'Preparing your quiz…',
+                loadingStages: ['Preparing your quiz…', 'Thinking it through…', 'Almost done…'],
                 retryBtn: '↺ Try another quiz'
             }
         };
@@ -1007,7 +1027,7 @@
             }
             errBox.classList.add('hidden');
             submitBtn.disabled = true;
-            submitBtn.textContent = HW_MODE_COPY[hwCurrentMode].loadingBtn;
+            const stopLoading = startStagedLoading(submitBtn, HW_MODE_COPY[hwCurrentMode].loadingStages, 7000);
             // Captured now so the response handlers below can tell whether
             // this is still the current modal session by the time the
             // request resolves — see hwSessionToken above.
@@ -1144,6 +1164,7 @@ Parent's instruction: ${hwText || 'none given'}`;
                 }
                 errBox.classList.remove('hidden');
             } finally {
+                stopLoading();
                 if (requestToken === hwSessionToken) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = HW_MODE_COPY[hwCurrentMode].idleBtn;
@@ -1459,7 +1480,7 @@ Parent's instruction: ${hwText || 'none given'}`;
             }
             errBox.classList.add('hidden');
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Writing the story…';
+            const stopLoading = startStagedLoading(submitBtn, ['Writing the story…', 'Thinking it through…', 'Almost done…'], 7000);
             const requestToken = storySessionToken;
             try {
                 const childContext = await getSharedChildContext();
@@ -1499,6 +1520,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 }
                 errBox.classList.remove('hidden');
             } finally {
+                stopLoading();
                 if (requestToken === storySessionToken) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Submit & Tell';
@@ -1686,7 +1708,7 @@ Generate exactly ${totalQuestions} questions, varying difficulty a little and va
             }
             errBox.classList.add('hidden');
             submitBtn.disabled = true;
-            submitBtn.textContent = 'Preparing notes…';
+            const stopLoading = startStagedLoading(submitBtn, ['Preparing notes…', 'Thinking it through…', 'Almost done…'], 7000);
             const requestToken = experientialSessionToken;
             try {
                 const childContext = await getSharedChildContext();
@@ -1740,6 +1762,7 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                 }
                 errBox.classList.remove('hidden');
             } finally {
+                stopLoading();
                 if (requestToken === experientialSessionToken) {
                     submitBtn.disabled = false;
                     submitBtn.textContent = 'Get step-by-step notes';
