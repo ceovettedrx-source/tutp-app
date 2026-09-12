@@ -868,6 +868,71 @@ app.post('/api/register-teacher', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// Teacher Dashboard Phase 1 — govt/school class-teacher verification
+// registration. Separate from /api/register-teacher above (private tutors,
+// migration 004): this writes to teacher_registrations (migration 016) and
+// starts every row at overall_status='submitted' with a pending id_card
+// verification_event. Verification-signal logic (govt-data matching, peer
+// vouching, auto-approval) is a later phase — this endpoint only records
+// the submission.
+// ------------------------------------------------------------------
+app.post('/api/teacher-registrations', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const {
+      fullName, phone, schoolType, employmentType, schoolName, schoolUdiseCode,
+      schoolAddress, principalName, classGrade, section, subject, employeeIdOptional,
+      idCardPhotoUrl
+    } = req.body || {};
+
+    if (!fullName || !phone || !schoolType || !schoolName || !classGrade || !section || !subject) {
+      return res.status(400).json({ error: 'Missing full name, phone, school type, school name, class/grade, section, or subject' });
+    }
+    if (!['government', 'private'].includes(schoolType)) {
+      return res.status(400).json({ error: 'Invalid school type' });
+    }
+    if (schoolType === 'government' && !['permanent', 'aided', 'contract', 'outsourcing', 'daily_basis'].includes(employmentType)) {
+      return res.status(400).json({ error: 'Employment type is required for government school teachers' });
+    }
+
+    const registrationId = crypto.randomUUID();
+    const nowEpoch = Math.floor(Date.now() / 1000);
+    const { error: insertErr } = await supabase.from('teacher_registrations').insert({
+      registration_id: registrationId,
+      full_name: String(fullName).trim().slice(0, 120),
+      phone: String(phone).slice(0, 20),
+      school_type: schoolType,
+      employment_type: schoolType === 'government' ? employmentType : null,
+      school_name: String(schoolName).trim().slice(0, 200),
+      school_udise_code: schoolUdiseCode ? String(schoolUdiseCode).trim().slice(0, 40) : null,
+      school_address: schoolAddress ? String(schoolAddress).trim().slice(0, 300) : null,
+      principal_name: principalName ? String(principalName).trim().slice(0, 120) : null,
+      class_grade: String(classGrade).trim().slice(0, 40),
+      section: String(section).trim().slice(0, 40),
+      subject: String(subject).trim().slice(0, 60),
+      employee_id_optional: employeeIdOptional ? String(employeeIdOptional).trim().slice(0, 60) : null,
+      id_card_photo_url: idCardPhotoUrl || null,
+      overall_status: 'submitted',
+      updated_at: nowEpoch
+    });
+    if (insertErr) throw insertErr;
+
+    const { error: eventErr } = await supabase.from('verification_events').insert({
+      event_id: crypto.randomUUID(),
+      registration_id: registrationId,
+      signal_type: 'id_card',
+      result: 'pending_review'
+    });
+    if (eventErr) console.error('Could not log id_card verification_event (registration itself still succeeded):', eventErr.message);
+
+    console.log('New teacher_registrations submission:', fullName, 'id:', registrationId);
+    res.json({ ok: true, registrationId });
+  } catch (err) {
+    console.error('Teacher registration (verification) error:', err);
+    res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });
+  }
+});
 // Looked up by phone from the login page's Teacher/Tutor flow, after OTP
 // verification, to decide between "register", "pending approval", or
 // "approved" (approved routes to the real teacher dashboard).
