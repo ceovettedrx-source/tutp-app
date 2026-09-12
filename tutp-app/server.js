@@ -2259,7 +2259,10 @@ app.get('/api/family/:id/members', async (req, res) => {
 
 // Lists every child in a family — the greeting card's per-child chip row
 // (mother/father/family-member dashboards) needs all siblings, not just
-// the one student_id in sessionStorage from login.
+// the one student_id in sessionStorage from login. Also backs the "Class
+// Teacher & Sharing" card on the Manage Family page, which is why
+// class_teacher_name/share_homework_status_with_teacher are included here
+// rather than behind a separate fetch per selected student.
 app.get('/api/family/:id/students', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -2268,7 +2271,7 @@ app.get('/api/family/:id/students', async (req, res) => {
     if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('students')
-      .select('id, name, class')
+      .select('id, name, class, class_teacher_name, share_homework_status_with_teacher')
       .eq('family_id', familyId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -2276,6 +2279,30 @@ app.get('/api/family/:id/students', async (req, res) => {
   } catch (err) {
     console.error('Get family students error:', err);
     res.status(500).json({ error: 'Could not fetch family students' });
+  }
+});
+
+// Saves the parent-side class-teacher name + homework-sharing consent
+// (Teacher Dashboard Phase 1) — the toggle defaults OFF client-side and
+// stays OFF here too unless explicitly sent true.
+app.patch('/api/students/:id/teacher-settings', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const studentId = req.params.id;
+    if (!(await requireOwnStudent(req, res, studentId))) return;
+    const { classTeacherName, shareHomeworkStatusWithTeacher } = req.body || {};
+    const { error } = await supabase
+      .from('students')
+      .update({
+        class_teacher_name: classTeacherName ? String(classTeacherName).trim().slice(0, 120) : null,
+        share_homework_status_with_teacher: !!shareHomeworkStatusWithTeacher
+      })
+      .eq('id', studentId);
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Save student teacher-settings error:', err);
+    res.status(500).json({ error: 'Could not save teacher settings' });
   }
 });
 

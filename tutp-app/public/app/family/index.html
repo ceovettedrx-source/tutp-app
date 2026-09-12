@@ -17,7 +17,7 @@
 </head>
 <body class="bg-background text-on-surface font-body min-h-screen">
 <header class="flex items-center justify-between px-6 py-4 bg-white shadow-sm">
-<a href="/app/mother/" class="flex items-center gap-2 text-primary font-bold"><span class="material-symbols-outlined">arrow_back</span>Back to Dashboard</a>
+<a href="/app/mother/" id="backToDashboardLink" class="flex items-center gap-2 text-primary font-bold"><span class="material-symbols-outlined">arrow_back</span>Back to Dashboard</a>
 <h1 class="font-headline text-xl font-bold text-primary">Manage Family</h1>
 <a href="/" class="font-headline-md text-label-lg text-primary font-bold hover:opacity-80 transition-opacity">Tut-P</a>
 </header>
@@ -71,12 +71,70 @@
 </button>
 <p id="permStatus" class="text-center text-sm mt-3"></p>
 </div>
+
+<div class="glass-card rounded-xl p-6 mb-6">
+<h2 class="font-headline text-2xl font-semibold mb-2">Class Teacher &amp; Sharing</h2>
+<p class="text-on-surface-variant mb-4">Tell us your child's class teacher, and choose whether to share their homework completion status with them.</p>
+<div class="space-y-4">
+<div><label class="block text-sm font-semibold mb-1">Child</label>
+<select id="tcsStudent" class="w-full h-11 px-3 rounded-lg soft-input" onchange="loadTeacherSettings()">
+<option value="">Select a child…</option>
+</select>
+</div>
+<div id="tcsFields" class="space-y-4 hidden">
+<div><label class="block text-sm font-semibold mb-1">Class Teacher పేరు</label><input id="tcsTeacherName" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="Class teacher's name" type="text"/></div>
+<label class="flex items-center justify-between gap-4 p-3 rounded-lg border border-outline-variant/30">
+<span class="font-body text-sm">మీ పిల్లవాడి homework completion status ని school teacher తో పంచుకోవడానికి అనుమతిస్తారా?</span>
+<input type="checkbox" id="tcsShareToggle" class="w-5 h-5"/>
+</label>
+</div>
+</div>
+<button id="tcsSaveBtn" class="w-full mt-5 bg-primary text-white h-12 rounded-lg font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 hidden" onclick="saveTeacherSettings()">
+<span class="material-symbols-outlined">save</span>Save
+</button>
+<p id="tcsStatus" class="text-center text-sm mt-3"></p>
+</div>
 </main>
 <script>
   const familyId = sessionStorage.getItem('tutp_family_id');
   if (!familyId) {
     window.location.href = '/app/login/';
   }
+
+  // Was hardcoded to /app/mother/ regardless of who actually got here —
+  // a father or family_member landed back on the wrong dashboard. This page
+  // is only ever reached via a link from one of the 3 role dashboards
+  // (their sidebar's "Add Family Member"), so tutp_last_dashboard reliably
+  // reflects whichever one that was; /app/mother/ stays as a fallback only
+  // for the unlikely case this page is opened directly with no prior one.
+  document.getElementById('backToDashboardLink').href = sessionStorage.getItem('tutp_last_dashboard') || '/app/mother/';
+
+  // A 403 from any /api/ call means the session cookie is missing or
+  // doesn't match sessionStorage's ids — most likely a genuinely expired
+  // 30-day-inactive session. Without this, addMember()/saveMemberVisibility()
+  // just showed a generic "Something went wrong" with no path back to login
+  // (see father/mother/family-member/child/teacher, which all already have
+  // this same handler).
+  (function(){
+    const originalFetch = window.fetch;
+    window.fetch = function(input, init){
+      return originalFetch(input, init).then(res => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (res.status === 403 && url.startsWith('/api/')) {
+          try {
+            sessionStorage.removeItem('tutp_family_id');
+            sessionStorage.removeItem('tutp_student_id');
+            sessionStorage.removeItem('tutp_teacher_id');
+            sessionStorage.removeItem('tutp_family_member_id');
+            sessionStorage.removeItem('tutp_family_member_name');
+            sessionStorage.removeItem('tutp_last_dashboard');
+          } catch (e) {}
+          window.location.href = '/app/login/';
+        }
+        return res;
+      });
+    };
+  })();
 
   async function addMember(){
     const statusEl = document.getElementById('status');
@@ -180,6 +238,78 @@
         if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save permissions');
       }
       statusEl.textContent = 'Permissions saved.';
+      statusEl.className = 'text-center text-sm mt-3 text-success';
+    } catch (err) {
+      statusEl.textContent = 'Something went wrong — please try again.';
+      statusEl.className = 'text-center text-sm mt-3 text-error';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ---------------- Class Teacher & Sharing ----------------
+  // Reuses /api/family/:id/students (already needed elsewhere for the
+  // per-child chip row) rather than a new endpoint — it now also returns
+  // class_teacher_name/share_homework_status_with_teacher.
+  let tcsStudents = [];
+  (async function loadTcsStudents(){
+    const selectEl = document.getElementById('tcsStudent');
+    try {
+      const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+      const data = await res.json();
+      tcsStudents = data.students || [];
+      tcsStudents.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = s.name;
+        selectEl.appendChild(opt);
+      });
+    } catch (err) {
+      console.error('Could not load students for Class Teacher & Sharing:', err);
+    }
+  })();
+
+  function loadTeacherSettings(){
+    const studentId = document.getElementById('tcsStudent').value;
+    const fieldsEl = document.getElementById('tcsFields');
+    const saveBtnEl = document.getElementById('tcsSaveBtn');
+    document.getElementById('tcsStatus').textContent = '';
+    if (!studentId) {
+      fieldsEl.classList.add('hidden');
+      saveBtnEl.classList.add('hidden');
+      return;
+    }
+    const student = tcsStudents.find(s => s.id === studentId);
+    document.getElementById('tcsTeacherName').value = (student && student.class_teacher_name) || '';
+    // Default OFF — only ever checked when the saved value is explicitly true.
+    document.getElementById('tcsShareToggle').checked = !!(student && student.share_homework_status_with_teacher);
+    fieldsEl.classList.remove('hidden');
+    saveBtnEl.classList.remove('hidden');
+  }
+
+  async function saveTeacherSettings(){
+    const studentId = document.getElementById('tcsStudent').value;
+    const statusEl = document.getElementById('tcsStatus');
+    const btn = document.getElementById('tcsSaveBtn');
+    if (!studentId) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch('/api/students/' + encodeURIComponent(studentId) + '/teacher-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classTeacherName: document.getElementById('tcsTeacherName').value.trim(),
+          shareHomeworkStatusWithTeacher: document.getElementById('tcsShareToggle').checked
+        })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save');
+      const student = tcsStudents.find(s => s.id === studentId);
+      if (student) {
+        student.class_teacher_name = document.getElementById('tcsTeacherName').value.trim();
+        student.share_homework_status_with_teacher = document.getElementById('tcsShareToggle').checked;
+      }
+      statusEl.textContent = 'Saved.';
       statusEl.className = 'text-center text-sm mt-3 text-success';
     } catch (err) {
       statusEl.textContent = 'Something went wrong — please try again.';

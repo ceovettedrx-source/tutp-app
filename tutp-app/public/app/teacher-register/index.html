@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tut-P - Class Teacher Registration</title>
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="/shared/tailwind-tokens.js"></script>
+<style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.filled { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255,255,255,0.7); backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 8px 32px 0 rgba(0,91,191,0.05); }
+        .soft-input { border: 1px solid #c2c6d4; transition: all 0.2s ease; }
+        .soft-input:focus-within { border-color: #005bbf; box-shadow: 0 0 0 2px #d8e2ff; }
+</style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex flex-col">
+<header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full sticky top-0 z-40 bg-surface-container-low shadow-sm">
+<a href="/" class="flex items-center gap-sm hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined text-primary filled">school</span>
+<h1 class="font-headline-md text-headline-md text-primary font-bold">Tut-P</h1>
+</a>
+<div class="font-label-md text-label-md text-on-surface-variant">Class Teacher Registration</div>
+</header>
+
+<main class="flex-grow w-full max-w-2xl mx-auto px-margin-mobile md:px-0 py-lg pb-32">
+
+<div class="mb-lg">
+<h2 class="font-headline-md text-headline-md mb-xs text-on-surface">Register as a Class Teacher</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Link up with the children in your class so their parents can share homework progress with you. We manually review every registration before it's approved.</p>
+</div>
+
+<!-- DETAILS -->
+<div id="detailsSection" class="glass-card rounded-xl p-md md:p-lg space-y-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Name <span class="text-error">*</span></label><input id="trFullName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter full name" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Phone <span class="text-error">*</span></label>
+<div class="flex items-center gap-xs soft-input rounded-lg bg-surface-container-lowest px-3">
+<span class="font-label-lg text-label-lg text-on-surface-variant">+91</span>
+<input id="trPhone" class="w-full h-11 bg-transparent border-none focus:ring-0 font-body-md" placeholder="10-digit phone number" type="tel"/>
+</div>
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School Type <span class="text-error">*</span></label>
+<select id="trSchoolType" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" onchange="onSchoolTypeChange()">
+<option value="">Select school type</option>
+<option value="government">Government</option>
+<option value="private">Private</option>
+</select>
+</div>
+<div id="trEmploymentTypeWrap" class="hidden"><label class="font-label-md text-label-md text-on-surface mb-xs block">Employment Type <span class="text-error">*</span></label>
+<select id="trEmploymentType" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md">
+<option value="">Select employment type</option>
+<option value="permanent">Permanent</option>
+<option value="aided">Aided</option>
+<option value="contract">Contract</option>
+<option value="outsourcing">Outsourcing</option>
+<option value="daily_basis">Daily-basis</option>
+</select>
+</div>
+</div>
+
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School Name <span class="text-error">*</span></label><input id="trSchoolName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Enter school name" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">UDISE Code <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="trUdiseCode" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="School UDISE code" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">School Address <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="trSchoolAddress" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Street, landmark, etc." type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Principal Name <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label><input id="trPrincipalName" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Principal's name" type="text"/></div>
+
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md">
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Class/Grade <span class="text-error">*</span></label>
+<select id="trClassGrade" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md"></select>
+</div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Section <span class="text-error">*</span></label><input id="trSection" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. A" type="text"/></div>
+<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Subject <span class="text-error">*</span></label><input id="trSubject" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. Mathematics" type="text"/></div>
+</div>
+
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Employee ID <span class="font-caption text-caption text-on-surface-variant">(optional)</span></label>
+<input id="trEmployeeId" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Employee ID" type="text"/>
+<p class="font-caption text-caption text-on-surface-variant mt-xs">ఉంటే ఇవ్వండి, వేగంగా approve అవుతుంది</p>
+</div>
+
+<div>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">ID Card Photo <span class="text-error">*</span></label>
+<input id="trIdCardInput" accept="image/*" class="hidden" type="file"/>
+<button type="button" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md flex items-center justify-center gap-2 text-on-surface-variant hover:bg-surface-variant transition-colors" onclick="document.getElementById('trIdCardInput').click()">
+<span class="material-symbols-outlined text-[20px]">upload</span><span id="trIdCardBtnLabel">Upload ID card photo</span>
+</button>
+<img id="trIdCardThumb" class="hidden mt-sm h-24 rounded-lg object-cover border border-outline-variant/30" src=""/>
+</div>
+
+<p class="text-center font-label-md text-sm" id="detailsError"></p>
+<div class="flex justify-end mt-md"><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="sendCodeBtn" onclick="proceedToPhoneVerification()">Send Verification Code <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+
+<!-- OTP -->
+<div id="otpSection" class="glass-card rounded-xl p-md md:p-lg flex flex-col gap-lg mt-lg hidden">
+<div class="text-center">
+<div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary-container text-on-primary-container mb-sm"><span class="material-symbols-outlined text-4xl filled">smartphone</span></div>
+<h2 class="font-headline-md text-headline-md text-on-surface mb-xs">Verify Your Number</h2>
+<p class="font-body-md text-body-md text-on-surface-variant" id="otpSentTo">Enter the 6-digit code sent to your phone.</p>
+</div>
+<div id="recaptcha-container-teacher-register"></div>
+<div class="flex gap-2 justify-center">
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+<input class="otp-box w-11 h-14 text-center rounded-lg border-2 border-outline-variant focus:border-primary font-headline-md text-headline-md" maxlength="1" type="text"/>
+</div>
+<p id="otpError" class="text-center text-sm text-red-600 hidden"></p>
+<p id="resendOtpBtn" class="text-center font-label-md text-label-md text-primary cursor-pointer hover:underline" onclick="resendTrOtp()">Resend Code</p>
+<div class="flex justify-between max-w-lg mx-auto w-full"><button class="text-primary font-label-md text-label-md h-12 px-6 rounded-lg flex items-center gap-2 hover:bg-surface-variant transition-colors" type="button" onclick="backToDetails()"><span class="material-symbols-outlined">arrow_back</span>Back</button><button class="bg-primary text-on-primary font-label-md text-label-md h-12 px-8 rounded-lg flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-md" id="verifyBtn" onclick="handleVerifyAndSubmit()">Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+
+<!-- SUCCESS -->
+<div id="successSection" class="glass-card rounded-xl p-lg flex flex-col items-center text-center gap-sm mt-lg hidden">
+<span class="material-symbols-outlined text-primary text-5xl">celebration</span>
+<h2 class="font-headline-md text-headline-md text-primary">Thanks for registering!</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Your registration is pending review. We manually verify every class-teacher registration — you'll be notified once it's approved.</p>
+<a href="/app/login/" class="mt-sm bg-primary text-on-primary font-label-lg text-label-lg h-12 px-8 rounded-xl flex items-center justify-center hover:bg-primary/90 transition-colors">Back to Login</a>
+</div>
+
+</main>
+
+<script>
+  // ---------------- School type / employment type ----------------
+  function onSchoolTypeChange(){
+    const wrap = document.getElementById('trEmploymentTypeWrap');
+    wrap.classList.toggle('hidden', document.getElementById('trSchoolType').value !== 'government');
+  }
+
+  // ---------------- Class/grade options ----------------
+  const gradeOptions = ['Class 1','Class 2','Class 3','Class 4','Class 5','Class 6','Class 7','Class 8','Class 9','Class 10','Class 11','Class 12'];
+  (function initClassGrade(){
+    const sel = document.getElementById('trClassGrade');
+    sel.innerHTML = gradeOptions.map(g => `<option>${g}</option>`).join('');
+  })();
+
+  // ---------------- ID card upload (reuses /api/upload, same pattern as
+  // /app/teacher/ material attachments and /app/register/) ----------------
+  let idCardPhotoUrl = null;
+  document.getElementById('trIdCardInput').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const labelEl = document.getElementById('trIdCardBtnLabel');
+    const thumbEl = document.getElementById('trIdCardThumb');
+    labelEl.textContent = 'Uploading…';
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read file'));
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: dataUrl.split(',')[1] })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
+      idCardPhotoUrl = data.url;
+      thumbEl.src = dataUrl;
+      thumbEl.classList.remove('hidden');
+      labelEl.textContent = '✓ ' + file.name;
+    } catch (err) {
+      console.error('[teacher-register] ID card upload failed:', err);
+      idCardPhotoUrl = null;
+      labelEl.textContent = 'Upload ID card photo';
+      document.getElementById('detailsError').textContent = 'Could not upload the ID card photo — please try again.';
+      document.getElementById('detailsError').className = 'text-center font-label-md text-sm text-error';
+    }
+  });
+
+  // ---------------- Phone verification ----------------
+  let lastPhoneDigits = '';
+  async function proceedToPhoneVerification(){
+    const errEl = document.getElementById('detailsError');
+    errEl.textContent = '';
+    errEl.className = 'text-center font-label-md text-sm';
+
+    const fullName = document.getElementById('trFullName').value.trim();
+    const digits = document.getElementById('trPhone').value.replace(/\D/g,'');
+    const schoolType = document.getElementById('trSchoolType').value;
+    const employmentType = document.getElementById('trEmploymentType').value;
+    const schoolName = document.getElementById('trSchoolName').value.trim();
+    const schoolUdiseCode = document.getElementById('trUdiseCode').value.trim();
+    const schoolAddress = document.getElementById('trSchoolAddress').value.trim();
+    const principalName = document.getElementById('trPrincipalName').value.trim();
+    const classGrade = document.getElementById('trClassGrade').value;
+    const section = document.getElementById('trSection').value.trim();
+    const subject = document.getElementById('trSubject').value.trim();
+    const employeeIdOptional = document.getElementById('trEmployeeId').value.trim();
+
+    if (!fullName) { errEl.textContent = 'Please enter your full name.'; errEl.classList.add('text-error'); return; }
+    if (digits.length !== 10) { errEl.textContent = 'Please enter a valid 10-digit phone number.'; errEl.classList.add('text-error'); return; }
+    if (!schoolType) { errEl.textContent = 'Please select your school type.'; errEl.classList.add('text-error'); return; }
+    if (schoolType === 'government' && !employmentType) { errEl.textContent = 'Please select your employment type.'; errEl.classList.add('text-error'); return; }
+    if (!schoolName) { errEl.textContent = 'Please enter your school name.'; errEl.classList.add('text-error'); return; }
+    if (!section) { errEl.textContent = 'Please enter the section.'; errEl.classList.add('text-error'); return; }
+    if (!subject) { errEl.textContent = 'Please enter the subject.'; errEl.classList.add('text-error'); return; }
+    if (!idCardPhotoUrl) { errEl.textContent = 'Please upload your ID card photo.'; errEl.classList.add('text-error'); return; }
+
+    lastPhoneDigits = digits;
+    window.tutpTeacherRegPayload = {
+      fullName, phone: '+91' + digits, schoolType,
+      employmentType: schoolType === 'government' ? employmentType : null,
+      schoolName, schoolUdiseCode: schoolUdiseCode || null, schoolAddress: schoolAddress || null,
+      principalName: principalName || null, classGrade, section, subject,
+      employeeIdOptional: employeeIdOptional || null, idCardPhotoUrl
+    };
+
+    const btn = document.getElementById('sendCodeBtn');
+    btn.disabled = true; btn.textContent = 'Sending code…';
+    try {
+      await window.tutpSendOTP('+91' + digits);
+      document.getElementById('otpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
+      document.getElementById('detailsSection').classList.add('hidden');
+      document.getElementById('otpSection').classList.remove('hidden');
+      window.scrollTo({top:0, behavior:'smooth'});
+    } catch(err){
+      errEl.textContent = 'Could not send the verification code: ' + (err.message || 'please check the number and try again.');
+      errEl.classList.add('text-error');
+    } finally {
+      btn.disabled = false; btn.innerHTML = 'Send Verification Code <span class="material-symbols-outlined">arrow_forward</span>';
+    }
+  }
+
+  let trResendInFlight = false;
+  async function resendTrOtp(){
+    if (trResendInFlight) return;
+    const errEl = document.getElementById('otpError');
+    const resendEl = document.getElementById('resendOtpBtn');
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+    trResendInFlight = true;
+    resendEl.textContent = 'Sending…';
+    try {
+      await window.tutpSendOTP('+91' + lastPhoneDigits);
+      document.getElementById('otpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + lastPhoneDigits.slice(0,5) + ' ' + lastPhoneDigits.slice(5);
+      resendEl.textContent = 'Code sent';
+      setTimeout(() => { resendEl.textContent = 'Resend Code'; }, 3000);
+    } catch(err){
+      errEl.textContent = 'Could not resend the code: ' + (err.message || 'please try again.');
+      errEl.classList.remove('hidden');
+      resendEl.textContent = 'Resend Code';
+    } finally {
+      trResendInFlight = false;
+    }
+  }
+
+  function backToDetails(){
+    document.getElementById('otpSection').classList.add('hidden');
+    document.getElementById('detailsSection').classList.remove('hidden');
+  }
+
+  // Guards against a second overlapping tap re-entering this function while
+  // a first call is still in flight or already succeeded — same guard as
+  // /app/register-teacher/'s handleVerifyAndSubmit.
+  let verifyInFlight = false;
+  let trRegistered = false;
+
+  async function handleVerifyAndSubmit(){
+    if (verifyInFlight || trRegistered) return;
+    const errEl = document.getElementById('otpError');
+    const btn = document.getElementById('verifyBtn');
+    errEl.textContent = '';
+    errEl.classList.add('hidden');
+    const code = Array.from(document.querySelectorAll('#otpSection .otp-box')).map(i => i.value).join('');
+    if (code.length !== 6){
+      errEl.textContent = 'Please enter all 6 digits.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    verifyInFlight = true;
+    btn.disabled = true; btn.textContent = 'Verifying…';
+    try {
+      const idToken = await window.tutpVerifyOTP(code);
+      btn.textContent = 'Saving…';
+      const res = await fetch('/api/teacher-registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(window.tutpTeacherRegPayload)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
+      await window.tutpEstablishSession(idToken);
+      trRegistered = true;
+      errEl.textContent = '';
+      errEl.classList.add('hidden');
+      document.getElementById('detailsSection').classList.add('hidden');
+      document.getElementById('otpSection').classList.add('hidden');
+      document.getElementById('successSection').classList.remove('hidden');
+      window.scrollTo({top:0, behavior:'smooth'});
+    } catch(err){
+      errEl.textContent = err.message && err.message.includes('save registration') ? err.message : 'Incorrect code — please try again.';
+      errEl.classList.remove('hidden');
+    } finally {
+      verifyInFlight = false;
+      if (!trRegistered) {
+        btn.disabled = false; btn.innerHTML = 'Verify &amp; Complete <span class="material-symbols-outlined">arrow_forward</span>';
+      }
+    }
+  }
+
+  // OTP box auto-advance
+  document.querySelectorAll('#otpSection .otp-box').forEach((input, index, all) => {
+    input.addEventListener('input', (e) => {
+      if (e.target.value.length === 1 && index < all.length - 1) all[index + 1].focus();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !e.target.value && index > 0) all[index - 1].focus();
+    });
+  });
+</script>
+
+<script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+    import { getAuth, setPersistence, browserLocalPersistence, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
+      authDomain: "tut-p-98978.firebaseapp.com",
+      projectId: "tut-p-98978",
+      storageBucket: "tut-p-98978.firebasestorage.app",
+      messagingSenderId: "706069048441",
+      appId: "1:706069048441:web:da5dd699fe431e48fe78a8",
+      measurementId: "G-02PZ2EFZVY"
+    };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    // Explicit, not relying on the SDK's undocumented-in-this-code default —
+    // keeps the Firebase session alive across browser restarts, not just tabs.
+    const persistenceReady = setPersistence(auth, browserLocalPersistence);
+
+    let confirmationResult = null;
+    let recaptchaVerifier = null;
+
+    window.tutpSendOTP = async function(fullPhoneNumber){
+        await persistenceReady;
+        if (!recaptchaVerifier){
+            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-teacher-register', { size: 'invisible' });
+        }
+        confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
+    };
+
+    window.tutpVerifyOTP = async function(code){
+        if (!confirmationResult) throw new Error('Please request a code first.');
+        const result = await confirmationResult.confirm(code);
+        return result.user.getIdToken();
+    };
+
+    // Exchanges the Firebase ID token for this app's own session cookie —
+    // best-effort, same as /app/register-teacher/: session.teacherId only
+    // resolves against the `teachers` table (private tutors), not
+    // teacher_registrations, so this mainly just keeps `phone`/familyId
+    // session state consistent if the same person is also a parent.
+    window.tutpEstablishSession = async function(idToken){
+        try {
+            await fetch('/api/session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ idToken })
+            });
+        } catch (err) {
+            console.error('[teacher-register] Could not establish session:', err);
+        }
+    };
+</script>
+</body></html>
