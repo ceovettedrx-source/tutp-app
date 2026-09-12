@@ -927,12 +927,556 @@ app.post('/api/teacher-registrations', async (req, res) => {
     if (eventErr) console.error('Could not log id_card verification_event (registration itself still succeeded):', eventErr.message);
 
     console.log('New teacher_registrations submission:', fullName, 'id:', registrationId);
+    // Score the automatic verification signals (Phase 2) without holding up
+    // the response — runVerificationSignals swallows its own errors, so a
+    // signal failure can never fail a registration.
+    runVerificationSignals(registrationId); // fire-and-forget
     res.json({ ok: true, registrationId });
   } catch (err) {
     console.error('Teacher registration (verification) error:', err);
     res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });
   }
 });
+
+// ==================================================================
+// Teacher Dashboard Phase 2 — verification signal logic.
+//
+// Three independent signals score a teacher_registrations row; none of
+// them ever approves anybody. The most a fully-scored registration can do
+// is move overall_status 'submitted' -> 'under_manual_review', which is a
+// queue for a human (Phase 3), not an outcome.
+//
+// Everything below matches fuzzily rather than on exact strings, because
+// every field involved is free-typed by a different person: the teacher
+// types their own name, a parent types the same teacher's name into
+// students.class_teacher_name, and a government spreadsheet spells it a
+// third way. Telugu names and school names have no single canonical
+// English transliteration, so "Srinivas"/"Sreenivas"/"Shrinivas" and
+// "Lakshmi"/"Laxmi" are the same person and must score as such.
+// ==================================================================
+
+// Thresholds are deliberately lenient on the "matched" side: a signal only
+// ever feeds a human review queue, so an over-eager match costs a reviewer
+// a glance, while a missed match costs a real teacher their registration.
+const TOKEN_MATCH_THRESHOLD = 0.80;    // two single words are "the same word"
+const NAME_MATCH_THRESHOLD = 0.85;
+const NAME_PARTIAL_THRESHOLD = 0.68;
+const SCHOOL_PARTIAL_THRESHOLD = 0.60; // "plausibly the same school"
+
+// Titles and honorifics are noise — the same teacher is "Sri Ramesh",
+// "Mr. Ramesh" and "Ramesh" depending on who typed the field.
+const NAME_HONORIFICS = new Set([
+  'mr', 'mrs', 'ms', 'miss', 'sri', 'shri', 'smt', 'srimathi', 'kumari',
+  'kum', 'dr', 'prof', 'sir', 'madam', 'teacher', 'master'
+]);
+
+// Generic words shared by most Telangana/AP school names. They still count,
+// but they can't be allowed to carry a match on their own: "ZP High School,
+// Kondapur" and "ZP High School, Miryalaguda" are different schools whose
+// names overlap almost entirely.
+const SCHOOL_GENERIC_WORDS = new Set([
+  'school', 'schools', 'high', 'primary', 'upper', 'secondary', 'higher',
+  'government', 'govt', 'zilla', 'parishad', 'mandal', 'public', 'english',
+  'telugu', 'medium', 'residential', 'model', 'vidyalaya', 'vidyalayam',
+  'college', 'institute', 'academy', 'the', 'and', 'of', 'for', 'society'
+]);
+
+// Common abbreviations expanded before tokenising, so a teacher typing
+// "ZPHS Kondapur" and a dataset row reading "Zilla Parishad High School,
+// Kondapur" reduce to the same tokens. Longest and dotted forms first —
+// the shorter rules below would otherwise eat their prefixes.
+const SCHOOL_ABBREVIATIONS = [
+  [/\bm\.?\s?p\.?\s?u\.?\s?p\.?\s?s\.?\b/g, 'mandal parishad upper primary school'],
+  [/\bz\.?\s?p\.?\s?h\.?\s?s\.?\b/g, 'zilla parishad high school'],
+  [/\bz\.?\s?p\.?\s?p\.?\s?s\.?\b/g, 'zilla parishad primary school'],
+  [/\bm\.?\s?p\.?\s?p\.?\s?s\.?\b/g, 'mandal parishad primary school'],
+  [/\bk\.?\s?g\.?\s?b\.?\s?v\.?\b/g, 'kasturba gandhi balika vidyalaya'],
+  [/\bg\.?\s?h\.?\s?s\.?\b/g, 'government high school'],
+  [/\bg\.?\s?p\.?\s?s\.?\b/g, 'government primary school'],
+  [/\bu\.?\s?p\.?\s?s\.?\b/g, 'upper primary school'],
+  [/\bh\.?\s?s\.?\b/g, 'high school'],
+  [/\bhr\.?\s?sec\b/g, 'higher secondary'],
+  [/\bgovt\b/g, 'government'],
+  [/\bsch\b/g, 'school'],
+  [/\beng\b/g, 'english'],
+  [/\bmed\b/g, 'medium']
+];
+
+// Reduces one transliterated word to a rough Telugu-phonetic skeleton, so
+// spelling variants of the same sound collapse together before any edit
+// distance is measured. Intentionally lossy — this is a comparison key,
+// never something to store or show a user.
+function translitKey(token) {
+  const plain = String(token || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (!plain) return '';
+  const t = plain
+    .replace(/ksh/g, 'x')          // Lakshmi / Laxmi
+    .replace(/sh/g, 's')           // Shiva / Siva, Shrinivas / Srinivas
+    .replace(/ch/g, 'c')
+    .replace(/th/g, 't')           // Thirupathi / Tirupati
+    .replace(/dh/g, 'd')           // Madhu / Madu
+    .replace(/bh/g, 'b')
+    .replace(/gh/g, 'g')
+    .replace(/jh/g, 'j')
+    .replace(/kh/g, 'k')
+    .replace(/ph/g, 'f')
+    .replace(/w/g, 'v')            // Viswanath / Vishwanath
+    .replace(/ee|ea|ie/g, 'i')     // Sreenivas / Srinivas
+    .replace(/oo|ou/g, 'u')        // Anoop / Anup
+    .replace(/aa/g, 'a')           // Raamu / Ramu
+    .replace(/y/g, 'i')            // Reddy / Reddi
+    .replace(/([a-z])\1+/g, '$1')  // Redy / Reddy, Anna / Ana
+    .replace(/[aeiou]+$/, '');     // Ramesha / Ramesh, Nagaraju / Nagaraj
+  return t || plain;
+}
+
+// 0..1 similarity between two single words, on their phonetic skeletons.
+function tokenSimilarity(a, b) {
+  const ka = translitKey(a), kb = translitKey(b);
+  if (!ka || !kb) return 0;
+  if (ka === kb) return 1;
+  const maxLen = Math.max(ka.length, kb.length);
+  return Math.max(0, 1 - levenshtein(ka, kb) / maxLen);
+}
+
+// Order-independent greedy pairing, scored over the SHORTER token list.
+// Indian names are routinely written with parts omitted — "Srinivas Rao
+// Kandukuri" registers and the parent types "Srinivas Rao" — so extra
+// tokens on one side must not be penalised. matchedTokens is reported
+// alongside the score so callers can refuse to treat a single common
+// first name as a whole-name match.
+function tokenSetScore(tokensA, tokensB) {
+  if (!tokensA.length || !tokensB.length) return { score: 0, matchedTokens: 0, compared: 0 };
+  const [shorter, longer] = tokensA.length <= tokensB.length ? [tokensA, tokensB] : [tokensB, tokensA];
+  const used = new Set();
+  let total = 0, matched = 0;
+  for (const t of shorter) {
+    let best = 0, bestIdx = -1;
+    for (let i = 0; i < longer.length; i++) {
+      if (used.has(i)) continue;
+      const s = tokenSimilarity(t, longer[i]);
+      if (s > best) { best = s; bestIdx = i; }
+    }
+    if (bestIdx >= 0) used.add(bestIdx);
+    total += best;
+    if (best >= TOKEN_MATCH_THRESHOLD) matched++;
+  }
+  return { score: total / shorter.length, matchedTokens: matched, compared: shorter.length };
+}
+
+// Single-letter initials are dropped: "K. Srinivas", "Srinivas K" and
+// "Srinivas" are one person, and keeping the initial would only add noise
+// to an order-independent comparison.
+//
+// Honorifics are only stripped from the FRONT of the name. Several of them
+// are also real Telugu name parts in trailing position — "Padma Sri" and
+// "Ramesh Kumari" are names, "Sri Ramesh" is a title plus a name.
+function nameParts(full) {
+  const parts = String(full || '')
+    .toLowerCase()
+    .replace(/[^a-z\s]/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+  let i = 0;
+  while (i < parts.length && NAME_HONORIFICS.has(parts[i])) i++;
+  return parts.slice(i);
+}
+
+function nameTokens(full) {
+  return nameParts(full).filter(t => t.length > 1);
+}
+
+function expandSchoolAbbreviations(name) {
+  let s = String(name || '').toLowerCase();
+  for (const [pattern, full] of SCHOOL_ABBREVIATIONS) s = s.replace(pattern, full);
+  return s;
+}
+
+function schoolTokens(name) {
+  return expandSchoolAbbreviations(name)
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter(t => t.length > 1);
+}
+
+// 0..1 similarity between two people's names, plus how many whole words
+// actually lined up.
+//
+// When the two sides carry a different number of words, the difference is
+// usually spacing rather than a different name — Telugu compounds get
+// written both ways ("Madhu Sudhan"/"Madusudan", "Padma Sri"/"Padmasri").
+// In that case the whole name joined into one skeleton is compared too, and
+// the better of the two scores wins. This is deliberately NOT done when the
+// word counts already agree: long joined strings tolerate more edits before
+// the score drops, which would quietly pull unrelated pairs like "Anitha
+// Kumari"/"Sunitha Kumari" over the line.
+function fuzzyNameScore(a, b) {
+  const ta = nameTokens(a), tb = nameTokens(b);
+  const byToken = tokenSetScore(ta, tb);
+  if (!ta.length || !tb.length || ta.length === tb.length) return byToken;
+  const joined = tokenSimilarity(ta.join(''), tb.join(''));
+  if (joined <= byToken.score) return byToken;
+  const compared = Math.min(ta.length, tb.length);
+  return { score: joined, matchedTokens: compared, compared };
+}
+
+// A name "matches" when it scores high AND at least two words line up — or,
+// where one side genuinely is a single name part, when that one word does.
+//
+// The floor counts name PARTS (initials included), not the tokens that
+// survive scoring. "K. Ramesh" and "S. Ramesh" both reduce to the single
+// token "ramesh" and would otherwise score a perfect 1.0 against each
+// other — but they are two parts each, so two words have to line up, and
+// only one can.
+function isFuzzyNameMatch(a, b, threshold = NAME_MATCH_THRESHOLD) {
+  const { score, matchedTokens } = fuzzyNameScore(a, b);
+  if (score < threshold) return false;
+  const required = Math.min(2, Math.max(1, Math.min(nameParts(a).length, nameParts(b).length)));
+  return matchedTokens >= required;
+}
+
+// School similarity, weighted towards the distinctive words (the village or
+// locality) over the generic ones ("government high school") that most
+// school names in the state share.
+function fuzzySchoolScore(a, b) {
+  const ta = schoolTokens(a), tb = schoolTokens(b);
+  if (!ta.length || !tb.length) return 0;
+  const overall = tokenSetScore(ta, tb).score;
+  const da = ta.filter(t => !SCHOOL_GENERIC_WORDS.has(t));
+  const db = tb.filter(t => !SCHOOL_GENERIC_WORDS.has(t));
+  if (!da.length || !db.length) return overall;
+  return 0.7 * tokenSetScore(da, db).score + 0.3 * overall;
+}
+
+// Same school if either the UDISE codes agree exactly (authoritative) or
+// the names are close enough to be plausibly the same place.
+function isSameSchool(a, b) {
+  const codeA = String(a.school_udise_code || '').replace(/\s/g, '');
+  const codeB = String(b.school_udise_code || '').replace(/\s/g, '');
+  if (codeA && codeB) return codeA === codeB;
+  return fuzzySchoolScore(a.school_name, b.school_name) >= SCHOOL_PARTIAL_THRESHOLD;
+}
+
+const GRADE_ROMAN = {
+  i: '1', ii: '2', iii: '3', iv: '4', v: '5', vi: '6',
+  vii: '7', viii: '8', ix: '9', x: '10', xi: '11', xii: '12'
+};
+
+// "7", "7th", "Class 7", "VII" and "class vii" are the same grade. Non-
+// numeric grades (lkg, ukg, nursery) fall through as their own words.
+function normGrade(s) {
+  const t = normText(s).replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(class|std|standard|grade)\b/g, ' ')
+    .trim();
+  const digits = t.match(/\d+/);
+  if (digits) return digits[0];
+  const word = t.replace(/\s+/g, '');
+  return GRADE_ROMAN[word] || word;
+}
+
+// "A", "a", "Section A" and "Sec-A" are the same section.
+function normSection(s) {
+  return normText(s).replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(section|sec)\b/g, ' ')
+    .replace(/\s+/g, '');
+}
+
+// ------------------------------------------------------------------
+// Signal 1 — govt_data_match.
+//
+// govt_teacher_reference is empty today (migration 016 ships it with no
+// seed data, since nothing official is verified yet), and it will stay
+// partially populated long after that: districts get imported one at a
+// time. Both of those are 'cold_start', NOT 'no_match'. A 'no_match' is a
+// real negative signal against a teacher, so it is only returned when the
+// dataset actually covers their school and their name is not in it.
+// ------------------------------------------------------------------
+async function evaluateGovtDataMatch(reg) {
+  const { count, error: countErr } = await supabase
+    .from('govt_teacher_reference')
+    .select('reference_id', { count: 'exact', head: true });
+  if (countErr) throw countErr;
+  if (!count) {
+    return { status: 'cold_start', notes: 'govt_teacher_reference is empty — no reference data imported yet' };
+  }
+
+  // Narrow server-side before comparing, so this doesn't become a full-table
+  // scan once real district imports land. UDISE code is exact when both
+  // sides have one; otherwise match on a prefix of the school name's most
+  // distinctive word, which survives the transliteration variants that an
+  // ilike on the whole name would not.
+  let query = supabase.from('govt_teacher_reference')
+    .select('reference_id, teacher_name, school_name, school_udise_code, school_type, employee_id, mandal_name');
+  const udise = String(reg.school_udise_code || '').replace(/\s/g, '');
+  if (udise) {
+    query = query.eq('school_udise_code', udise);
+  } else {
+    const distinctive = schoolTokens(reg.school_name)
+      .filter(t => !SCHOOL_GENERIC_WORDS.has(t))
+      .sort((a, b) => b.length - a.length)[0];
+    query = query.eq('school_type', reg.school_type).limit(500);
+    if (distinctive) query = query.ilike('school_name', `%${distinctive.slice(0, 4)}%`);
+  }
+  const { data: refRows, error } = await query;
+  if (error) throw error;
+
+  const sameSchool = (refRows || []).filter(row => isSameSchool(reg, row));
+  if (!sameSchool.length) {
+    // The dataset has rows, but none for this school — it can neither
+    // confirm nor deny this teacher, which is still a cold start for them.
+    return { status: 'cold_start', notes: `no reference rows for "${reg.school_name}" — school not covered by imported data yet` };
+  }
+
+  let best = { score: 0, matchedTokens: 0, name: '' };
+  for (const row of sameSchool) {
+    const { score, matchedTokens } = fuzzyNameScore(reg.full_name, row.teacher_name);
+    if (score > best.score) best = { score, matchedTokens, name: row.teacher_name };
+  }
+
+  const employeeIdHit = reg.employee_id_optional && sameSchool.some(row =>
+    row.employee_id && normText(row.employee_id) === normText(reg.employee_id_optional));
+
+  const detail = `best "${best.name}" score ${best.score.toFixed(2)} across ${sameSchool.length} same-school row(s)`;
+  if (employeeIdHit && best.score >= NAME_PARTIAL_THRESHOLD) {
+    return { status: 'matched', notes: `employee id + name — ${detail}` };
+  }
+  if (isFuzzyNameMatch(reg.full_name, best.name)) {
+    return { status: 'matched', notes: detail };
+  }
+  if (best.score >= NAME_PARTIAL_THRESHOLD) {
+    return { status: 'partial', notes: detail };
+  }
+  return { status: 'no_match', notes: detail };
+}
+
+// ------------------------------------------------------------------
+// Signal 2 — parent_name_match.
+//
+// Parents type their child's class teacher into students.class_teacher_name
+// (Manage Family -> "Class Teacher & Sharing"). If the parents of the very
+// section this registration claims are already naming this person, that is
+// corroboration no single document can give.
+//
+// 'no_data_yet' is the honest answer whenever that section has no students
+// on the platform, or none of them have filled the field in — it is not a
+// negative signal, and it is the expected result at launch.
+// ------------------------------------------------------------------
+async function evaluateParentNameMatch(reg) {
+  // The only filter pushed server-side is "has a class teacher name at all",
+  // which is a small slice of the table. class/section/school can't be
+  // filtered in the query because all three are free-typed in three
+  // different formats ("7" / "7th" / "Class 7") — normalising them is the
+  // entire point of the predicate below. This runs once per registration,
+  // not per request.
+  const { data: students, error } = await supabase
+    .from('students')
+    .select('id, name, class, section, school_name, class_teacher_name')
+    .not('class_teacher_name', 'is', null);
+  if (error) throw error;
+
+  const grade = normGrade(reg.class_grade);
+  const section = normSection(reg.section);
+  const inSection = (students || []).filter(s =>
+    String(s.class_teacher_name || '').trim() &&
+    normGrade(s.class) === grade &&
+    normSection(s.section) === section &&
+    fuzzySchoolScore(reg.school_name, s.school_name) >= SCHOOL_PARTIAL_THRESHOLD
+  );
+
+  if (!inSection.length) {
+    return { status: 'no_data_yet', notes: `no student in ${reg.class_grade}-${reg.section} at "${reg.school_name}" has a class teacher name on file` };
+  }
+
+  let best = { score: 0, matchedTokens: 0, name: '' };
+  let agreeing = 0;
+  for (const s of inSection) {
+    const { score, matchedTokens } = fuzzyNameScore(reg.full_name, s.class_teacher_name);
+    if (score >= NAME_PARTIAL_THRESHOLD) agreeing++;
+    if (score > best.score) best = { score, matchedTokens, name: s.class_teacher_name };
+  }
+
+  const detail = `${agreeing}/${inSection.length} parent-entered name(s) agree; best "${best.name}" score ${best.score.toFixed(2)}`;
+  // Deliberately lenient: the parent is free-typing a name they may only
+  // ever have heard spoken, and the result routes to a human either way.
+  if (isFuzzyNameMatch(reg.full_name, best.name, NAME_PARTIAL_THRESHOLD)) {
+    return { status: 'matched', notes: detail };
+  }
+  return { status: 'mismatch', notes: detail };
+}
+
+async function logVerificationEvent(registrationId, signalType, result, notes) {
+  const { error } = await supabase.from('verification_events').insert({
+    event_id: crypto.randomUUID(),
+    registration_id: registrationId,
+    signal_type: signalType,
+    result,
+    notes: notes ? String(notes).slice(0, 500) : null
+  });
+  if (error) console.error(`Could not log ${signalType} verification_event for ${registrationId}:`, error.message);
+}
+
+// ------------------------------------------------------------------
+// Signal 3 — status aggregation.
+//
+// Moves 'submitted' -> 'under_manual_review' once every signal is resolved,
+// and does nothing else, ever. There is no path from here to 'approved':
+// approving a teacher is a human action in Phase 3. Nor does this touch a
+// row a human has already moved.
+//
+// "Resolved" per signal:
+//  - govt_data_match_status: anything other than 'pending'. 'pending' is
+//    the column default and only evaluateGovtDataMatch overwrites it, so a
+//    non-pending value always means it ran.
+//  - peer_vouch_status: anything other than 'pending'. The default
+//    'not_applicable' counts — most teachers will never be vouched for.
+//  - parent_name_match_status: the column default is 'no_data_yet', which
+//    is ALSO a legitimate post-evaluation result, so the column alone
+//    cannot say whether it ran. verification_events is the record of that.
+// ------------------------------------------------------------------
+async function refreshOverallStatus(registrationId) {
+  const { data: reg, error } = await supabase.from('teacher_registrations')
+    .select('registration_id, overall_status, govt_data_match_status, peer_vouch_status, parent_name_match_status')
+    .eq('registration_id', registrationId).maybeSingle();
+  if (error) throw error;
+  if (!reg) return null;
+  if (reg.overall_status !== 'submitted') return reg.overall_status;
+
+  const { data: events, error: eventsErr } = await supabase.from('verification_events')
+    .select('signal_type').eq('registration_id', registrationId);
+  if (eventsErr) throw eventsErr;
+  const parentEvaluated = (events || []).some(e => e.signal_type === 'parent_name_match');
+
+  const allResolved =
+    reg.govt_data_match_status !== 'pending' &&
+    reg.peer_vouch_status !== 'pending' &&
+    parentEvaluated;
+  if (!allResolved) return reg.overall_status;
+
+  const { error: updErr } = await supabase.from('teacher_registrations')
+    .update({ overall_status: 'under_manual_review', updated_at: Math.floor(Date.now() / 1000) })
+    .eq('registration_id', registrationId)
+    .eq('overall_status', 'submitted'); // no-op if a human moved it meanwhile
+  if (updErr) throw updErr;
+
+  await logVerificationEvent(registrationId, 'manual_review', 'queued',
+    `govt=${reg.govt_data_match_status}, peer=${reg.peer_vouch_status}, parent=${reg.parent_name_match_status}`);
+  return 'under_manual_review';
+}
+
+// Runs both automatic signals, then re-aggregates. Never throws at the
+// caller: registering and vouching must not fail because a signal did.
+async function runVerificationSignals(registrationId) {
+  try {
+    const { data: reg, error } = await supabase.from('teacher_registrations')
+      .select('registration_id, full_name, school_type, school_name, school_udise_code, class_grade, section, employee_id_optional')
+      .eq('registration_id', registrationId).maybeSingle();
+    if (error) throw error;
+    if (!reg) return null;
+
+    const govt = await evaluateGovtDataMatch(reg);
+    const parent = await evaluateParentNameMatch(reg);
+
+    const { error: updErr } = await supabase.from('teacher_registrations').update({
+      govt_data_match_status: govt.status,
+      parent_name_match_status: parent.status,
+      updated_at: Math.floor(Date.now() / 1000)
+    }).eq('registration_id', registrationId);
+    if (updErr) throw updErr;
+
+    await logVerificationEvent(registrationId, 'govt_data', govt.status, govt.notes);
+    await logVerificationEvent(registrationId, 'parent_name_match', parent.status, parent.notes);
+    const overallStatus = await refreshOverallStatus(registrationId);
+    return { govtDataMatch: govt, parentNameMatch: parent, overallStatus };
+  } catch (err) {
+    console.error('Verification signals failed for', registrationId, '-', err.message);
+    return null;
+  }
+}
+
+const peerVouchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many vouch attempts — please wait a minute and try again.' }
+});
+
+// ------------------------------------------------------------------
+// An already-approved teacher vouches for a pending one at their school.
+//
+// AUTH GAP, deliberate, to be closed in Phase 3: teacher_registrations has
+// no session of its own yet (Phase 1's registration POST is itself
+// unauthenticated), so the only thing between a stranger and a vouch is
+// knowing an approved registration_id. The approved-status check below is
+// the validation this phase asked for, not a substitute for authenticating
+// the voucher — which is part of why a vouch still only ever routes to
+// manual review. Existing auth/session code is untouched on purpose.
+// ------------------------------------------------------------------
+app.post('/api/teacher-registrations/:id/peer-vouch', peerVouchLimiter, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const targetId = req.params.id;
+    const { voucherRegistrationId, notes } = req.body || {};
+    if (!voucherRegistrationId) return res.status(400).json({ error: 'Missing voucherRegistrationId' });
+    if (voucherRegistrationId === targetId) return res.status(400).json({ error: 'A registration cannot vouch for itself' });
+
+    const { data: rows, error } = await supabase.from('teacher_registrations')
+      .select('registration_id, full_name, school_name, school_udise_code, overall_status, peer_vouch_status, peer_vouch_teacher_id')
+      .in('registration_id', [targetId, voucherRegistrationId]);
+    if (error) throw error;
+    const target = (rows || []).find(r => r.registration_id === targetId);
+    const voucher = (rows || []).find(r => r.registration_id === voucherRegistrationId);
+    if (!target) return res.status(404).json({ error: 'Registration not found' });
+    if (!voucher) return res.status(404).json({ error: 'Vouching teacher not found' });
+
+    if (voucher.overall_status !== 'approved') {
+      return res.status(403).json({ error: 'Only an approved teacher can vouch for another teacher' });
+    }
+    if (target.overall_status === 'approved' || target.overall_status === 'rejected') {
+      return res.status(409).json({ error: `This registration is already ${target.overall_status}` });
+    }
+    if (target.peer_vouch_status === 'approved') {
+      return res.status(409).json({ error: 'This registration already has a peer vouch' });
+    }
+    if (!isSameSchool(voucher, target)) {
+      return res.status(403).json({ error: 'A vouch is only accepted from a teacher at the same school' });
+    }
+
+    const { error: updErr } = await supabase.from('teacher_registrations').update({
+      peer_vouch_teacher_id: voucher.registration_id,
+      peer_vouch_status: 'approved',
+      updated_at: Math.floor(Date.now() / 1000)
+    }).eq('registration_id', targetId);
+    if (updErr) throw updErr;
+
+    await logVerificationEvent(targetId, 'peer_vouch', 'approved',
+      `vouched by ${voucher.full_name} (${voucher.registration_id})${notes ? ' — ' + String(notes).slice(0, 200) : ''}`);
+    const overallStatus = await refreshOverallStatus(targetId);
+
+    console.log('Peer vouch recorded for', targetId, 'by', voucher.registration_id);
+    res.json({ ok: true, peerVouchStatus: 'approved', overallStatus });
+  } catch (err) {
+    console.error('Peer vouch error:', err);
+    res.status(500).json({ error: 'Could not record vouch: ' + (err.message || '') });
+  }
+});
+
+// Re-runs the automatic signals for one registration. Needed because both
+// are time-dependent: govt_data_match turns from 'cold_start' into a real
+// answer when a district import lands, and parent_name_match turns from
+// 'no_data_yet' into one when that section's parents fill the field in.
+// Admin-token protected, same shared-secret pattern as /api/waitlist.
+app.post('/api/teacher-registrations/:id/evaluate', async (req, res) => {
+  if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+  const result = await runVerificationSignals(req.params.id);
+  if (!result) return res.status(404).json({ error: 'Registration not found, or signal evaluation failed — see server logs' });
+  res.json({ ok: true, ...result });
+});
+
+
 // Looked up by phone from the login page's Teacher/Tutor flow, after OTP
 // verification, to decide between "register", "pending approval", or
 // "approved" (approved routes to the real teacher dashboard).
