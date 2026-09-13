@@ -2103,6 +2103,9 @@ app.post('/api/check-family', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const family = await findFamilyIdByPhone((req.body || {}).phone);
+    if (family && family.ambiguous) {
+      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
+    }
     res.json({ registered: !!family, family_id: family ? family.id : null, roleMatches: family ? family.roleMatches : [] });
   } catch (err) {
     console.error('Check-family error:', err);
@@ -2157,8 +2160,14 @@ function isCloseNameMatch(input, candidate) {
 }
 
 // Returns { id, motherName, fatherName, roleMatches } for the family owning
-// this phone (last-10-digit match against mother/father), or null if none
-// found. roleMatches lists every role — 'mother', 'father', and/or one entry
+// this phone (last-10-digit match against mother/father), null if none
+// found, or { ambiguous: true, count } if this phone's normalized digits
+// match more than one distinct family_registrations row — two real
+// families (confirmed 2026-09-13: ids 9/10 and 11/12, both duplicate
+// registrations sharing a phone) previously collapsed silently to
+// "most-recent wins" here, permanently stranding the older family. Callers
+// must check for `ambiguous` before trusting `id`/`roleMatches`.
+// roleMatches lists every role — 'mother', 'father', and/or one entry
 // per family_members row — that actually has this exact phone on file today
 // (phone is 3 independently free-typed fields with no uniqueness constraint
 // between them, so more than one role sharing a number is rare now that
@@ -2178,15 +2187,13 @@ async function findFamilyIdByPhone(phone) {
   // point, so it's safe to interpolate into the ilike pattern directly.
   // This narrows candidates server-side first via a substring match on the
   // last 10 digits (any formatting variation still contains its own last-10-
-  // digit run), then keeps the exact same normalized-match/most-recent-wins
-  // logic below over just that small candidate set instead of the whole
-  // table.
+  // digit run), then applies the exact normalized-match check below over
+  // just that small candidate set instead of the whole table.
   //
-  // Ordered by id desc — without this, a phone number that was registered
-  // more than once (e.g. someone re-submitting the registration form while
-  // testing) resolves non-deterministically, since Postgres doesn't
-  // guarantee row order without an explicit ORDER BY. Preferring the most
-  // recent registration is the sane default.
+  // Ordered by id desc purely so the ambiguous-count log line below reads
+  // most-recent-first; it no longer determines which row "wins", since more
+  // than one match is now surfaced as ambiguous rather than silently
+  // resolved to the newest row (see comment above the function).
   const { data, error } = await supabase
     .from('family_registrations')
     .select('id, data')
@@ -2194,10 +2201,15 @@ async function findFamilyIdByPhone(phone) {
     .order('id', { ascending: false });
   if (error) throw error;
   const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
-  const match = (data || []).find(row =>
+  const matches = (data || []).filter(row =>
     norm(row.data?.mother?.phone) === digits || norm(row.data?.father?.phone) === digits
   );
-  if (!match) return null;
+  if (!matches.length) return null;
+  if (matches.length > 1) {
+    console.error('findFamilyIdByPhone: ambiguous phone match across', matches.length, 'family_registrations rows:', matches.map(m => m.id));
+    return { ambiguous: true, count: matches.length };
+  }
+  const match = matches[0];
 
   const roleMatches = [];
   if (norm(match.data?.mother?.phone) === digits) {
@@ -2263,6 +2275,9 @@ app.post('/api/session', async (req, res) => {
       findFamilyIdByPhone(phone),
       findTeacherIdByPhone(phone)
     ]);
+    if (family && family.ambiguous) {
+      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
+    }
     const session = { phone, familyId: family ? family.id : null, teacherId: teacherId || null };
     issueSessionCookie(res, session);
     res.json({ ok: true, familyId: session.familyId, teacherId: session.teacherId });
@@ -2279,6 +2294,9 @@ app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
     if (!phone || !name) return res.status(400).json({ error: 'Missing phone or name' });
 
     const family = await findFamilyIdByPhone(phone);
+    if (family && family.ambiguous) {
+      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
+    }
     if (!family) return res.json({ familyFound: false, found: false });
 
     const { data: siblings, error } = await supabase.from('students').select('*').eq('family_id', family.id);
@@ -2444,6 +2462,7 @@ app.patch('/api/students/:id/teacher-settings', async (req, res) => {
 // reads and writes alike.
 async function sessionOwnsViewerKey(session, viewerKey) {
   const family = await findFamilyIdByPhone(session.phone);
+  if (family && family.ambiguous) return false;
   const ownRoleKeys = family ? family.roleMatches.map(m => m.role === 'family_member' ? String(m.memberId) : m.role) : [];
   return ownRoleKeys.includes(String(viewerKey));
 }
