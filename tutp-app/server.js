@@ -1,3 +1,6 @@
+// A trivial, deliberate no-functional-effect line, added 2026-09-09 to force
+// a genuinely new Cloud Run revision while proving out deploy.sh's traffic-
+// pinning fix (see deploy.sh's own header comment for the full story).
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -114,6 +117,43 @@ async function sendTeacherRegistrationEmail(teacher) {
       console.error('Gmail teacher notice failed (registration still saved):', err.message);
     }
   }
+}
+
+// ------------------------------------------------------------------
+// Play-Based Learning remote invite — best-effort, same non-blocking
+// pattern as the two email senders above. Returns whether it actually
+// sent, since the invite endpoint that calls this always mints a working
+// join link regardless (family_member has no email on file at all, and
+// mother/father's email is optional) and reports per-invitee delivery
+// status rather than silently failing for anyone without an address.
+// ------------------------------------------------------------------
+async function sendGameInviteEmail(recipientName, recipientEmail, joinLink) {
+  const subject = "You're invited to play on Tut-P!";
+  const text = `Hi ${recipientName},\n\nYou've been invited to join a live Play-Based Learning game on Tut-P. Tap the link below, verify with a code sent to your phone, and you'll be dropped straight into the game:\n\n${joinLink}\n\nThis link expires in 2 hours.\n\n- The Tut-P team`;
+  const html = `<p>Hi ${recipientName},</p><p>You've been invited to join a live Play-Based Learning game on Tut-P. Tap the link below, verify with a code sent to your phone, and you'll be dropped straight into the game:</p><p><a href="${joinLink}">${joinLink}</a></p><p>This link expires in 2 hours.</p><p>— The Tut-P team</p>`;
+
+  if (resend) {
+    try {
+      const { error } = await resend.emails.send({ from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>', to: recipientEmail, subject, text, html });
+      if (error) throw new Error(JSON.stringify(error));
+      console.log('Game invite email sent via Resend to', recipientEmail);
+      return true;
+    } catch (err) {
+      console.error('Resend game invite failed:', err.message);
+      return false;
+    }
+  }
+  if (mailer) {
+    try {
+      await mailer.sendMail({ from: `"Tut-P" <${process.env.GMAIL_USER}>`, to: recipientEmail, subject, text, html });
+      console.log('Game invite email sent via Gmail to', recipientEmail);
+      return true;
+    } catch (err) {
+      console.error('Gmail game invite failed:', err.message);
+      return false;
+    }
+  }
+  return false;
 }
 
 // ------------------------------------------------------------------
@@ -268,6 +308,17 @@ app.use((req, res, next) => {
   const session = getSession(req);
   if (session) issueSessionCookie(res, session);
   next();
+});
+
+// The session cookie is httpOnly (client JS can't clear it directly), so a
+// real logout needs a server round-trip — clearing sessionStorage alone
+// leaves this cookie valid until its 30-day sliding expiry, silently
+// re-authenticating whoever's browser it is. No session check here: logging
+// out an already-logged-out browser is harmless, and requiring a valid
+// session first would just fail the exact request meant to end one.
+app.post('/api/logout', (req, res) => {
+  res.clearCookie(SESSION_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+  res.json({ ok: true });
 });
 
 function requireOwnFamily(req, res, familyId) {
@@ -491,7 +542,8 @@ app.post('/api/register', async (req, res) => {
     const location = payload.location || {};
     const locState = location.state ? String(location.state).trim() : null;
     const locDistrict = location.district ? String(location.district).trim() : null;
-    const studentRows = children.filter(c => c && c.name).map(c => ({
+    const childrenWithNames = children.filter(c => c && c.name);
+    const studentRows = childrenWithNames.map(c => ({
       family_id: data.id,
       name: String(c.name).trim(),
       school_name: c.schoolName ? String(c.schoolName).trim() : null,
@@ -504,9 +556,15 @@ app.post('/api/register', async (req, res) => {
       village: c.village ? String(c.village).trim() : null,
       address: c.address ? String(c.address).trim() : null
     }));
+    // .select('id') so each inserted row's id is available below to attach
+    // to that child's payments row (student_id) — insertedStudents[i]
+    // corresponds to childrenWithNames[i], since a single-array Supabase
+    // insert preserves input order in its returned rows.
+    let insertedStudents = [];
     if (studentRows.length) {
-      const { error: studentsErr } = await supabase.from('students').insert(studentRows);
+      const { data: studentsData, error: studentsErr } = await supabase.from('students').insert(studentRows).select('id');
       if (studentsErr) console.error('Could not save students rows (registration itself still succeeded):', studentsErr.message);
+      else insertedStudents = studentsData || [];
       // Feeds the Mandal/Village <datalist>s and the school-name <datalist>
       // on both registration forms.
       for (const row of studentRows) {
@@ -553,53 +611,53 @@ app.post('/api/register', async (req, res) => {
       }
     }
 
-    // Registration itself is always free — this only determines whether a
-    // Razorpay order gets created alongside it. Best-effort like everything
-    // else above: if Razorpay is unreachable or misconfigured, the family
-    // is left in 'pending_payment' rather than failing the whole
-    // registration — functionally identical to an abandoned checkout
-    // (behaves like Free until/unless payment completes; no cleanup job
-    // needed, see migration 010's comment).
-    //
-    // One-time payment (Orders API), not the recurring subscription
-    // 010_subscriptions.sql was originally built for — family_subscriptions
-    // still gets its row below for bookkeeping/future use, but the actual
-    // charge here is a single order tracked in the payments table
-    // (012_payments.sql); the webhook (/api/razorpay-webhook) is what
-    // marks it captured/failed.
-    const tier = ['pro', 'ultrapro', 'max'].includes(payload.tier) ? payload.tier : 'free';
-    const subRow = { family_id: data.id, tier, status: tier === 'free' ? 'active' : 'pending_payment' };
-    let paymentInfo = null;
-
-    if (tier !== 'free') {
+    // Registration itself is always free — a paid tier only determines
+    // whether a Razorpay order gets created for that specific child.
+    // Best-effort like everything else above: if Razorpay is unreachable
+    // or misconfigured, that child is simply left unpaid rather than
+    // failing the whole registration (behaves like Free until/unless
+    // payment completes; no cleanup job needed, see migration 010's
+    // comment). Each paid child gets its own order and its own payments
+    // row (017_payments_student_id.sql) — a family with several children
+    // on different tiers pays for each independently; the webhook
+    // (/api/razorpay-webhook) is what marks each one captured/failed.
+    const paymentInfos = [];
+    for (let i = 0; i < childrenWithNames.length; i++) {
+      const child = childrenWithNames[i];
+      const student = insertedStudents[i];
+      const tier = ['pro', 'ultrapro', 'max'].includes(child.tier) ? child.tier : 'free';
+      if (tier === 'free') continue;
+      if (!student) { console.error('No students row for', child.name, '— skipping Razorpay order.'); continue; }
+      if (!razorpay) { console.error('Razorpay not configured for tier', tier, '— child left unpaid:', child.name); continue; }
       const amount = TIER_PRICE_PAISE[tier];
-      if (razorpay) {
-        try {
-          const order = await razorpay.orders.create({
-            amount,
-            currency: 'INR',
-            receipt: `family_${data.id}_${Date.now()}`,
-            notes: { family_id: String(data.id), tier }
-          });
-          const { error: paymentErr } = await supabase.from('payments').insert({
-            family_id: data.id, tier, amount, currency: 'INR',
-            razorpay_order_id: order.id, status: 'created'
-          });
-          if (paymentErr) console.error('Could not save payments row (registration itself still succeeded):', paymentErr.message);
-          paymentInfo = { orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tier };
-        } catch (rzpErr) {
-          console.error('Could not create Razorpay order (registration itself still succeeded, family left pending_payment):', rzpErr.message);
-        }
-      } else {
-        console.error('Razorpay not configured for tier', tier, '— family left pending_payment.');
+      try {
+        const order = await razorpay.orders.create({
+          amount,
+          currency: 'INR',
+          receipt: `family_${data.id}_student_${student.id}_${Date.now()}`,
+          notes: { family_id: String(data.id), student_id: student.id, tier }
+        });
+        const { error: paymentErr } = await supabase.from('payments').insert({
+          family_id: data.id, student_id: student.id, tier, amount, currency: 'INR',
+          razorpay_order_id: order.id, status: 'created'
+        });
+        if (paymentErr) console.error('Could not save payments row for', child.name, '(registration itself still succeeded):', paymentErr.message);
+        paymentInfos.push({ studentId: student.id, studentName: child.name, orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tier });
+      } catch (rzpErr) {
+        console.error('Could not create Razorpay order for', child.name, '(registration itself still succeeded, left unpaid):', rzpErr.message);
       }
     }
 
-    const { error: subErr } = await supabase.from('family_subscriptions').insert(subRow);
+    // family_subscriptions predates per-child tiers (010_subscriptions.sql)
+    // and isn't restructured in this pass — one placeholder row per family
+    // is still inserted for whatever future use the table has, but it no
+    // longer tries to summarize per-child tiers into a single value, and
+    // nothing in this codebase gates on its status.
+    const { error: subErr } = await supabase.from('family_subscriptions').insert({ family_id: data.id, tier: 'free', status: 'active' });
     if (subErr) console.error('Could not save family_subscriptions row (registration itself still succeeded):', subErr.message);
 
-    console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length, 'tier:', tier);
-    res.json({ ok: true, id: data.id, payment: paymentInfo });
+    console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length, 'paid:', paymentInfos.length);
+    res.json({ ok: true, id: data.id, payments: paymentInfos });
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });
@@ -2007,7 +2065,7 @@ app.post('/api/check-family', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const family = await findFamilyIdByPhone((req.body || {}).phone);
-    res.json({ registered: !!family, family_id: family ? family.id : null });
+    res.json({ registered: !!family, family_id: family ? family.id : null, roleMatches: family ? family.roleMatches : [] });
   } catch (err) {
     console.error('Check-family error:', err);
     res.status(500).json({ error: 'Could not check family status' });
@@ -2060,8 +2118,16 @@ function isCloseNameMatch(input, candidate) {
   return levenshtein(a, b) <= threshold;
 }
 
-// Returns { id, motherName, fatherName } for the family owning this phone
-// (last-10-digit match against mother/father), or null if none found.
+// Returns { id, motherName, fatherName, roleMatches } for the family owning
+// this phone (last-10-digit match against mother/father), or null if none
+// found. roleMatches lists every role — 'mother', 'father', and/or one entry
+// per family_members row — that actually has this exact phone on file today
+// (phone is 3 independently free-typed fields with no uniqueness constraint
+// between them, so more than one role sharing a number is rare now that
+// everyone has their own phone, but the schema doesn't rule it out). The
+// login page uses this to skip the profile-tile grid when exactly one role
+// matches, falling back to the grid otherwise so it never silently guesses
+// wrong in that edge case.
 async function findFamilyIdByPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '').slice(-10);
   if (digits.length !== 10) return null;
@@ -2094,10 +2160,28 @@ async function findFamilyIdByPhone(phone) {
     norm(row.data?.mother?.phone) === digits || norm(row.data?.father?.phone) === digits
   );
   if (!match) return null;
+
+  const roleMatches = [];
+  if (norm(match.data?.mother?.phone) === digits) {
+    roleMatches.push({ role: 'mother', name: match.data?.mother?.name || null });
+  }
+  if (norm(match.data?.father?.phone) === digits) {
+    roleMatches.push({ role: 'father', name: match.data?.father?.name || null });
+  }
+  const { data: members, error: membersErr } = await supabase
+    .from('family_members')
+    .select('id, name, phone')
+    .eq('family_id', match.id);
+  if (membersErr) throw membersErr;
+  (members || []).forEach(m => {
+    if (norm(m.phone) === digits) roleMatches.push({ role: 'family_member', memberId: m.id, name: m.name || null });
+  });
+
   return {
     id: match.id,
     motherName: match.data?.mother?.name || null,
-    fatherName: match.data?.father?.name || null
+    fatherName: match.data?.father?.name || null,
+    roleMatches
   };
 }
 
@@ -2162,6 +2246,7 @@ app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
     const { data: siblings, error } = await supabase.from('students').select('*').eq('family_id', family.id);
     if (error) throw error;
     const students = siblings || [];
+    const roleMatches = family.roleMatches;
 
     if (roll_number || section) {
       // Pass 2: roll_number/section decides it — the user is here precisely
@@ -2176,17 +2261,17 @@ app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
         const nameNarrowed = candidates.filter(s => isCloseNameMatch(name, s.name));
         if (nameNarrowed.length >= 1) candidates = nameNarrowed;
       }
-      if (candidates.length === 1) return res.json({ familyFound: true, found: true, student_id: candidates[0].id, family_id: family.id });
-      return res.json({ familyFound: true, found: false, family_id: family.id });
+      if (candidates.length === 1) return res.json({ familyFound: true, found: true, student_id: candidates[0].id, family_id: family.id, roleMatches });
+      return res.json({ familyFound: true, found: false, family_id: family.id, roleMatches });
     }
 
     // Pass 1: name + phone only.
     const matches = students.filter(s => isCloseNameMatch(name, s.name));
     if (matches.length === 1) {
-      return res.json({ familyFound: true, found: true, student_id: matches[0].id, family_id: family.id });
+      return res.json({ familyFound: true, found: true, student_id: matches[0].id, family_id: family.id, roleMatches });
     }
     // Zero matches, or more than one equally-plausible match — both need disambiguation.
-    return res.json({ familyFound: true, found: false, needsDisambiguation: true, family_id: family.id });
+    return res.json({ familyFound: true, found: false, needsDisambiguation: true, family_id: family.id, roleMatches });
   } catch (err) {
     console.error('Resolve-student error:', err);
     res.status(500).json({ error: 'Could not resolve student' });
@@ -2312,13 +2397,30 @@ app.patch('/api/students/:id/teacher-settings', async (req, res) => {
 // The response only ever carries the requested viewer's own score plus
 // the family's max, so one viewer can never read another's raw score.
 // ------------------------------------------------------------------
+
+// Confirms a session's own phone actually holds the given viewer_key's role
+// (mother/father/a specific family_members.id) within the family right now —
+// requireOwnFamily alone only proves "this session belongs to this family,"
+// which isn't enough for a value meant to be private per person. Shared by
+// both bonding-score endpoints below so "private to the viewer" holds for
+// reads and writes alike.
+async function sessionOwnsViewerKey(session, viewerKey) {
+  const family = await findFamilyIdByPhone(session.phone);
+  const ownRoleKeys = family ? family.roleMatches.map(m => m.role === 'family_member' ? String(m.memberId) : m.role) : [];
+  return ownRoleKeys.includes(String(viewerKey));
+}
+
 app.get('/api/bonding-score/:familyId/:viewerKey', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const familyId = parseInt(req.params.familyId, 10);
     const viewerKey = req.params.viewerKey;
     if (!Number.isFinite(familyId) || !viewerKey) return res.status(400).json({ error: 'Invalid family id or viewer key' });
-    if (!requireOwnFamily(req, res, familyId)) return;
+    const session = requireOwnFamily(req, res, familyId);
+    if (!session) return;
+    if (!(await sessionOwnsViewerKey(session, viewerKey))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
 
     const { data: rows, error } = await supabase
       .from('bonding_scores')
@@ -2345,10 +2447,16 @@ app.post('/api/bonding-score', async (req, res) => {
     if (!Number.isFinite(familyId) || !viewer_key || !Number.isFinite(scoreNum)) {
       return res.status(400).json({ error: 'Missing family_id, viewer_key, or score' });
     }
-    if (!requireOwnFamily(req, res, familyId)) return;
+    const session = requireOwnFamily(req, res, familyId);
+    if (!session) return;
+    if (!(await sessionOwnsViewerKey(session, viewer_key))) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const viewerKeyStr = String(viewer_key);
+
     const { error } = await supabase
       .from('bonding_scores')
-      .upsert({ family_id: familyId, viewer_key, score: Math.max(0, Math.min(100, scoreNum)), updated_at: new Date().toISOString() }, { onConflict: 'family_id,viewer_key' });
+      .upsert({ family_id: familyId, viewer_key: viewerKeyStr, score: Math.max(0, Math.min(100, scoreNum)), updated_at: new Date().toISOString() }, { onConflict: 'family_id,viewer_key' });
     if (error) throw error;
     res.json({ ok: true });
   } catch (err) {
@@ -3066,17 +3174,27 @@ app.post('/api/homework-explain', async (req, res) => {
 // client like /api/homework) so the extraction/generation instructions stay
 // centralized and can't be tampered with by the caller.
 //
-// One tier per call, teacher-selected (not all 3 tiers auto-generated):
+// One mode per call, teacher-selected (not all modes auto-generated):
 // a combined call was truncating mid-generation even at max_tokens 8000
-// shared across all three papers, since each full tiered paper can itself
-// need more than that. The teacher picks exactly one tier and one exam
-// pattern up front, and the frontend fires a single request for that
-// combination.
+// shared across multiple papers, since each full paper can itself need
+// more than that. The teacher picks exactly one mode and one exam pattern
+// up front, and the frontend fires a single request for that combination.
 // ------------------------------------------------------------------
-const QP_TIERS = {
-  logical: 'questions that test conceptual/logical reasoning and application of the ideas in the lesson content, not rote recall',
-  methodology: 'questions that test correct step-by-step procedure/method for solving problems from the lesson content',
-  tough: 'higher cognitive demand — multi-step, less scaffolding, application-heavy questions that stretch a strong student'
+// Cognitive-demand modes for the Question Paper Generator, replacing the old
+// 3-value difficulty tier (logical/methodology/tough — "tough" is retired,
+// not merged into this). mixed's guidance text is composed from the other
+// three rather than hand-duplicated, so a wording change to any one mode
+// automatically flows into Mixed too.
+const QP_MODE_TEXT = {
+  logical_reasoning: 'questions that test conceptual/logical reasoning, deduction, pattern recognition, and sequencing — not rote recall',
+  understanding_application: 'a natural mix of questions that test understanding (explaining what/why a concept works) and questions that test application (using the concept in a new or real-life context)',
+  skill_based: 'questions that test direct procedure, method, and recall — step-by-step problem-solving technique, lower cognitive load than open-ended reasoning'
+};
+const QP_MODES = {
+  logical_reasoning: QP_MODE_TEXT.logical_reasoning,
+  understanding_application: QP_MODE_TEXT.understanding_application,
+  skill_based: QP_MODE_TEXT.skill_based,
+  mixed: `a genuine mix of all three: ${QP_MODE_TEXT.logical_reasoning}; ${QP_MODE_TEXT.understanding_application}; and ${QP_MODE_TEXT.skill_based}. Let the lesson content and the old paper's structure decide the natural balance across sections/groups — do not force an even split or a fixed quota per group.`
 };
 
 // Exam pattern is tone/scope guidance only — it does NOT define the paper's
@@ -3100,7 +3218,7 @@ const QP_BOARDS = {
   icse: 'ICSE (Indian Certificate of Secondary Education)'
 };
 
-function buildQuestionPaperSystemPrompt(subject, tier, examPattern, boardLabel) {
+function buildQuestionPaperSystemPrompt(subject, mode, examPattern, boardLabel) {
   return `You are an experienced Indian school exam-paper setter. You will be given two attachments: an OLD QUESTION PAPER (a style reference) and NEW LESSON CONTENT.
 
 Step 1 — analyze the old question paper's structure:
@@ -3109,9 +3227,9 @@ Step 1 — analyze the old question paper's structure:
 - For each section, how its questions are grouped. Many exam papers use a CHOICE pattern per group — e.g. "Answer any 4 out of the given 6 questions, each carrying 3 marks" — where more candidate questions are printed than the student is required to answer. For every group in every section, extract exactly: (1) oldPaperHadChoice — true if the old paper's group offered more candidates than required (a real choice, however it was phrased: "answer any X of Y", "OR" between alternatives, etc.), false only if every question in that group was compulsory with no alternative offered; (2) chooseCount — how many the student must answer; (3) totalCount — how many candidate questions are printed (equal to chooseCount only when oldPaperHadChoice is false); (4) marksPerQuestion — the marks each one carries. Report oldPaperHadChoice as your own independent judgment call, not simply computed from the other two numbers — it is a deliberate second check on your own extraction. Do not flatten a choice group into a plain compulsory list — the choice is part of the structure and must be preserved.
 - The time allowed for the whole exam, only if it is printed on the old paper (e.g. "Time: 2 Hours"). If it is not stated, report null — never guess a time.
 
-Step 2 — using that exact structure (same sections, same groups, same chooseCount/totalCount/marksPerQuestion per group), write ONE new question paper based on the NEW LESSON CONTENT (not the old paper's content) at this difficulty tier: "${tier}" — ${QP_TIERS[tier]}. For every group, write exactly totalCount NEW candidate questions, not just chooseCount — if the old paper offered 6 candidates for 4 required answers, your new paper must also offer 6 new candidates for 4 required answers.
+Step 2 — using that exact structure (same sections, same groups, same chooseCount/totalCount/marksPerQuestion per group), write ONE new question paper based on the NEW LESSON CONTENT (not the old paper's content), for this cognitive-demand mode: ${QP_MODES[mode]}. For every group, write exactly totalCount NEW candidate questions, not just chooseCount — if the old paper offered 6 candidates for 4 required answers, your new paper must also offer 6 new candidates for 4 required answers.
 
-This paper is for a: ${QP_EXAM_PATTERNS[examPattern]}. Let this shape the scope and tone of the questions you write — a Weekly Test should feel narrower and lower-stakes than a Final Exam, even at the same difficulty tier — but it does NOT change the structure: the OLD QUESTION PAPER's sections and groups from Step 1 are still what you must follow exactly.
+This paper is for a: ${QP_EXAM_PATTERNS[examPattern]}. Let this shape the scope and tone of the questions you write — a Weekly Test should feel narrower and lower-stakes than a Final Exam, even in the same mode — but it does NOT change the structure: the OLD QUESTION PAPER's sections and groups from Step 1 are still what you must follow exactly.
 
 This paper is being written for: ${boardLabel}. Let this shape terminology and question phrasing typical of that board's exams, but it does NOT change the structure either — the OLD QUESTION PAPER's structure from Step 1 remains authoritative.
 
@@ -3184,9 +3302,9 @@ app.post('/api/question-paper-generate', async (req, res) => {
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
-    const { subject, lessonContent, oldPaper, tier, examPattern, board, boardOther } = req.body || {};
-    if (!Object.prototype.hasOwnProperty.call(QP_TIERS, tier)) {
-      return res.status(400).json({ error: 'Missing or invalid tier' });
+    const { subject, lessonContent, oldPaper, mode, examPattern, board, boardOther } = req.body || {};
+    if (!Object.prototype.hasOwnProperty.call(QP_MODES, mode)) {
+      return res.status(400).json({ error: 'Missing or invalid mode' });
     }
     if (!Object.prototype.hasOwnProperty.call(QP_EXAM_PATTERNS, examPattern)) {
       return res.status(400).json({ error: 'Missing or invalid examPattern' });
@@ -3204,7 +3322,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
       return res.status(400).json({ error: 'Missing or invalid lessonContent/oldPaper attachment' });
     }
 
-    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, tier, examPattern, boardLabel);
+    const systemPrompt = buildQuestionPaperSystemPrompt(subject ? String(subject).trim().slice(0, 60) : null, mode, examPattern, boardLabel);
     const userContent = [
       { type: 'text', text: 'OLD QUESTION PAPER (style reference):' },
       oldPaper,
@@ -3230,7 +3348,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
 
     if (!response.ok) {
       const errText = await response.text();
-      console.error('Anthropic API error (question-paper-generate):', tier, response.status, errText);
+      console.error('Anthropic API error (question-paper-generate):', mode, response.status, errText);
       return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
     }
 
@@ -3247,7 +3365,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
       paper = JSON.parse(raw);
       if (!paper || !paper.sections) throw new Error('Response JSON had no "sections" key');
     } catch (parseErr) {
-      console.error('Could not parse question-paper JSON:', tier, parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
+      console.error('Could not parse question-paper JSON:', mode, parseErr.message, 'stop_reason:', data.stop_reason, 'raw:', raw);
       return res.status(502).json({ error: 'Claude returned an unexpected response — please try again.' });
     }
 
@@ -3259,7 +3377,7 @@ app.post('/api/question-paper-generate', async (req, res) => {
     try {
       paper.sections = processQpSections(paper.sections);
     } catch (assertErr) {
-      console.error('[QP-ASSERT] Choice-structure consistency check failed:', tier, assertErr.message);
+      console.error('[QP-ASSERT] Choice-structure consistency check failed:', mode, assertErr.message);
       return res.status(502).json({ error: 'Claude\'s response was internally inconsistent about question choice — please try again.' });
     }
     paper.totalMarks = paper.sections.reduce((sum, sec) => sum + (sec.totalMarks || 0), 0);
@@ -3268,10 +3386,716 @@ app.post('/api/question-paper-generate', async (req, res) => {
       : computeDefaultTimeAllowed(paper.totalMarks);
     delete paper.timeAllowedFromOldPaper;
 
-    res.json({ ok: true, tier, paper });
+    res.json({ ok: true, mode, paper });
   } catch (err) {
     console.error('Question paper generate error:', err);
     res.status(500).json({ error: 'Server error generating question papers' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Play-Based Learning — multiplayer game engine. Replaces the old
+// client-only implementation that sent every question's correct answer to
+// the browser in one shot before anyone had played. Here, the server is the
+// only place that ever holds correct_index/explanation/cognitive_category
+// until a player actually answers — the leaderboard and the "Winner of the
+// Day" / "Game Changer of the Day" badges are only trustworthy if scoring
+// is server-authoritative, not client-computed.
+//
+// Same reasoning as buildQuestionPaperSystemPrompt: the prompt is built
+// server-side from structured params, not accepted as raw text from the
+// client, for consistent formatting and to keep it out of caller control.
+// ------------------------------------------------------------------
+const GAME_CATEGORIES = ['logical_reasoning', 'understanding', 'application', 'skill_based'];
+
+// fixedCount is null only on a game's very first generation call (Player
+// 1's block) — that call also judges questionsPerPlayer (3-15) from the
+// lesson's size/importance. Every later call (prefetching players 2-4)
+// passes the count that first call decided, since the spec requires the
+// same count for every player in one game.
+function buildGameQuestionsSystemPrompt(lang, childContext, fixedCount) {
+  const countInstruction = fixedCount
+    ? `Generate exactly ${fixedCount} questions.`
+    : `First, judge this lesson's size/importance and decide how many questions this game should have per player — anywhere from 3 (a small/light lesson) to 15 (a large/important one). Report that as "questionsPerPlayer". Then generate exactly that many questions.`;
+  return `You are Tut-P, an assistant that turns a school lesson into a multiple-choice family quiz game — one player answers each question in turn, with a countdown timer, before the family discusses the answer together (untimed).
+${countInstruction}
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{${fixedCount ? '' : '"questionsPerPlayer":number,'}"subject":"one short English subject label","questions":[{"question":"short question in ${lang} testing understanding of the lesson, answerable within a short countdown","options":["A","B","C","D"],"correct":0,"explain":"one clear sentence in ${lang}, written for the child, explaining why the correct answer is right","category":"logical_reasoning|understanding|application|skill_based, always in English regardless of ${lang}","points":10}]}
+Vary difficulty a little and vary "points" between 5 and 15 accordingly. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+}
+
+// Defensive normalization, same spirit as processQpSections: never trust the
+// model's own arithmetic/formatting blindly. correct is clamped into range
+// rather than trusted as-is since an out-of-range index would otherwise make
+// a question unanswerable-correctly.
+function processGameQuestions(rawQuestions) {
+  return (Array.isArray(rawQuestions) ? rawQuestions : []).map((q, i) => {
+    if (!q || typeof q.question !== 'string' || !Array.isArray(q.options) || q.options.length !== 4) {
+      throw new Error(`question ${i + 1}: missing question text or options`);
+    }
+    const correct = Number(q.correct);
+    if (!Number.isInteger(correct) || correct < 0 || correct > 3) {
+      throw new Error(`question ${i + 1}: correct index out of range`);
+    }
+    const points = Number(q.points);
+    return {
+      question: q.question,
+      options: q.options.map(String),
+      correct,
+      explain: typeof q.explain === 'string' ? q.explain : '',
+      category: GAME_CATEGORIES.includes(q.category) ? q.category : null,
+      points: Number.isFinite(points) && points >= 5 && points <= 15 ? points : 10
+    };
+  });
+}
+
+// Shared by the create route (Player 1, count undecided) and the per-player
+// prefetch route (fixed count). Throws on any failure — callers turn that
+// into a 502, matching the QP/homework routes' convention.
+async function generateGameQuestions(lang, childContext, fixedCount, userContent) {
+  if (!process.env.ANTHROPIC_API_KEY) throw new Error('Server is missing ANTHROPIC_API_KEY.');
+  const systemPrompt = buildGameQuestionsSystemPrompt(lang, childContext, fixedCount);
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      // Up to 15 questions/call (the spec's max per-player count) — scaled
+      // up from /api/homework's 3000-token cap (measured for ~5-8 questions
+      // in a token-heavy Indic script) with a safety margin on top.
+      max_tokens: 6000,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userContent }]
+    })
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    console.error('Anthropic API error (game-questions):', response.status, errText);
+    throw new Error('Claude API returned an error');
+  }
+  const data = await response.json();
+  let raw = data.content?.[0]?.text || '';
+  const fenceMatch = raw.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  if (fenceMatch) raw = fenceMatch[1];
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.questions)) throw new Error('Response JSON had no "questions" array');
+  } catch (parseErr) {
+    console.error('Could not parse game-questions JSON:', parseErr.message, 'raw:', raw);
+    throw new Error('Claude returned an unexpected response');
+  }
+  const questions = processGameQuestions(parsed.questions);
+  const questionsPerPlayer = fixedCount || Number(parsed.questionsPerPlayer);
+  if (!Number.isInteger(questionsPerPlayer) || questionsPerPlayer < 3 || questionsPerPlayer > 15) {
+    throw new Error('questionsPerPlayer out of range');
+  }
+  return { subject: typeof parsed.subject === 'string' ? parsed.subject : null, questionsPerPlayer, questions };
+}
+
+// Player identity validation: mother/father have no row anywhere (playerRefId
+// must be absent), family_member/student must reference a real row belonging
+// to this family — never trust a client-supplied refId blindly, since a
+// tampered request could otherwise reference another family's child.
+async function validateGamePlayers(familyId, players) {
+  if (!Array.isArray(players) || players.length < 2 || players.length > 4) {
+    throw new Error('A game needs 2-4 players');
+  }
+  const { data: members, error: membersErr } = await supabase.from('family_members').select('id, name').eq('family_id', familyId);
+  if (membersErr) throw membersErr;
+  const { data: students, error: studentsErr } = await supabase.from('students').select('id, name').eq('family_id', familyId);
+  if (studentsErr) throw studentsErr;
+  const memberById = new Map((members || []).map(m => [m.id, m.name]));
+  const studentById = new Map((students || []).map(s => [s.id, s.name]));
+
+  return players.map((p, i) => {
+    const turnOrder = i + 1;
+    if (p.type === 'mother' || p.type === 'father') {
+      const name = typeof p.name === 'string' && p.name.trim() ? p.name.trim() : (p.type === 'mother' ? 'Mom' : 'Dad');
+      return { turnOrder, playerType: p.type, playerRefId: null, playerName: name };
+    }
+    if (p.type === 'family_member' && memberById.has(p.refId)) {
+      return { turnOrder, playerType: 'family_member', playerRefId: p.refId, playerName: memberById.get(p.refId) };
+    }
+    if (p.type === 'student' && studentById.has(p.refId)) {
+      return { turnOrder, playerType: 'student', playerRefId: p.refId, playerName: studentById.get(p.refId) };
+    }
+    throw new Error(`Player ${turnOrder}: invalid or unrecognized player`);
+  });
+}
+
+// Resolves a game_players row's contact info for the remote-invite flow.
+// mother/father live in family_registrations' JSONB data blob (phone
+// required to have logged in at all; email optional — often absent, see
+// the existing mother->father email fallback elsewhere in this file).
+// family_member has its own row with phone (nullable) but NO email column
+// at all — the invite endpoint's per-invitee delivered:false handling is
+// what covers that gap, not this function.
+async function resolvePlayerContact(familyId, playerType, playerRefId) {
+  if (playerType === 'mother' || playerType === 'father') {
+    const { data: family, error } = await supabase.from('family_registrations').select('data').eq('id', familyId).maybeSingle();
+    if (error) throw error;
+    const info = family?.data?.[playerType] || {};
+    return { phone: info.phone || null, email: info.email || null };
+  }
+  if (playerType === 'family_member') {
+    const { data: member, error } = await supabase.from('family_members').select('phone').eq('id', playerRefId).maybeSingle();
+    if (error) throw error;
+    return { phone: member?.phone || null, email: null };
+  }
+  return { phone: null, email: null };
+}
+
+// Creates the session + all player slots, then generates Player 1's full
+// question block in the same call (AI-judged questionsPerPlayer + Player
+// 1's questions) — reuses the existing ~20s-wait spinner pattern client-side.
+// Correct answers/explanations/categories are never included in the response.
+app.post('/api/game-sessions', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { familyId: rawFamilyId, language, players, timeLimitSeconds, lessonContent, childContext } = req.body || {};
+    const familyId = parseInt(rawFamilyId, 10);
+    if (!requireOwnFamily(req, res, familyId)) return;
+    if (![30, 45, 60].includes(Number(timeLimitSeconds))) {
+      return res.status(400).json({ error: 'Invalid timeLimitSeconds' });
+    }
+    if (!language || typeof language !== 'string') {
+      return res.status(400).json({ error: 'Missing language' });
+    }
+    if (!Array.isArray(lessonContent) || !lessonContent.length || !lessonContent.every(isValidHomeworkContentBlock)) {
+      return res.status(400).json({ error: 'Missing or invalid lessonContent' });
+    }
+    const attachmentCount = lessonContent.filter(b => b.type === 'image' || b.type === 'document').length;
+    if (attachmentCount > 1) {
+      return res.status(400).json({ error: 'At most 1 photo/PDF attachment is allowed for Play-Based Learning.' });
+    }
+
+    let validatedPlayers;
+    try {
+      validatedPlayers = await validateGamePlayers(familyId, players);
+    } catch (validationErr) {
+      return res.status(400).json({ error: validationErr.message });
+    }
+
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions').insert({
+      family_id: familyId, language, player_count: validatedPlayers.length, time_limit_seconds: Number(timeLimitSeconds)
+    }).select('id').single();
+    if (sessionErr) throw sessionErr;
+
+    const { data: playerRows, error: playersErr } = await supabase.from('game_players')
+      .insert(validatedPlayers.map(p => ({
+        game_session_id: session.id, turn_order: p.turnOrder, player_type: p.playerType, player_ref_id: p.playerRefId, player_name: p.playerName
+      })))
+      .select('id, turn_order, player_name');
+    if (playersErr) throw playersErr;
+
+    let generated;
+    try {
+      generated = await generateGameQuestions(language, childContext || 'your child', null, lessonContent);
+    } catch (genErr) {
+      console.error('Game question generation error (Player 1):', genErr.message);
+      return res.status(502).json({ error: 'Could not build a game from this lesson — try attaching the actual lesson page or typing what it\'s about.' });
+    }
+
+    await supabase.from('game_sessions').update({
+      subject: generated.subject, questions_per_player: generated.questionsPerPlayer
+    }).eq('id', session.id);
+
+    const player1 = playerRows.find(p => p.turn_order === 1);
+    const { data: questionRows, error: qErr } = await supabase.from('game_questions')
+      .insert(generated.questions.map((q, i) => ({
+        game_session_id: session.id, game_player_id: player1.id, question_index: i + 1,
+        question_text: q.question, options: q.options, correct_index: q.correct,
+        explanation: q.explain, cognitive_category: q.category, points_possible: q.points
+      })))
+      .select('id, questionIndex:question_index, questionText:question_text, options');
+    if (qErr) throw qErr;
+
+    res.json({
+      gameSessionId: session.id,
+      questionsPerPlayer: generated.questionsPerPlayer,
+      timeLimitSeconds: Number(timeLimitSeconds),
+      players: playerRows.map(p => ({ id: p.id, turnOrder: p.turn_order, name: p.player_name })),
+      player1Questions: questionRows.sort((a, b) => a.questionIndex - b.questionIndex)
+    });
+  } catch (err) {
+    console.error('Create game session error:', err);
+    res.status(500).json({ error: 'Could not start the game' });
+  }
+});
+
+// Adults-only invite (mother/father/family_member — children join by
+// QR/code, a separate not-yet-built flow, never email). Mints one opaque,
+// hashed game_access_tokens row per invited player and emails a join link
+// when an address is on file. Always returns joinLink even when delivery
+// failed, since family_member has no email column at all and mother/
+// father's email is optional — the response lets a future host-side "copy
+// link" UI fall back cleanly instead of the invite silently going nowhere.
+app.post('/api/game-sessions/:id/invite', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { gamePlayerIds } = req.body || {};
+    if (!Array.isArray(gamePlayerIds) || !gamePlayerIds.length) {
+      return res.status(400).json({ error: 'Missing gamePlayerIds' });
+    }
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions').select('id, family_id').eq('id', req.params.id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+    if (!session) return res.status(404).json({ error: 'Game not found' });
+    if (!requireOwnFamily(req, res, session.family_id)) return;
+
+    const { data: players, error: playersErr } = await supabase.from('game_players')
+      .select('id, player_type, player_ref_id, player_name').eq('game_session_id', session.id).in('id', gamePlayerIds);
+    if (playersErr) throw playersErr;
+    if (!players || players.length !== gamePlayerIds.length) {
+      return res.status(400).json({ error: 'One or more players were not found in this game' });
+    }
+
+    const invited = [];
+    for (const player of players) {
+      // Children join by QR/code (separate, not-yet-built flow), never
+      // email — skipped per-player rather than rejecting the whole batch,
+      // since a real game very often mixes a student player with adults
+      // and a simple "invite everyone in this game" button shouldn't have
+      // to know that in advance.
+      if (player.player_type === 'student') {
+        invited.push({ gamePlayerId: player.id, playerName: player.player_name, delivered: false, joinLink: null, error: 'Children join by QR/code, not email invite' });
+        continue;
+      }
+      const { phone, email } = await resolvePlayerContact(session.family_id, player.player_type, player.player_ref_id);
+      if (!phone) {
+        invited.push({ gamePlayerId: player.id, playerName: player.player_name, delivered: false, joinLink: null, error: 'No phone number on file for this family member' });
+        continue;
+      }
+
+      const rawToken = crypto.randomBytes(32).toString('base64url');
+      const { error: tokenErr } = await supabase.from('game_access_tokens').insert({
+        token_hash: hashGameToken(rawToken), game_session_id: session.id, game_player_id: player.id,
+        holder_type: 'family_login', expires_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()
+      });
+      if (tokenErr) throw tokenErr;
+
+      const joinLink = `https://tutp.online/app/login/?joinGame=${rawToken}`;
+      const delivered = email ? await sendGameInviteEmail(player.player_name, email, joinLink) : false;
+      invited.push({ gamePlayerId: player.id, playerName: player.player_name, delivered, joinLink });
+    }
+
+    res.json({ invited });
+  } catch (err) {
+    console.error('Game invite error:', err);
+    res.status(500).json({ error: 'Could not send invites' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Remote multi-device access for Play-Based Learning (game_access_tokens,
+// migration 014). Two ways to prove you belong to a given game session: the
+// normal tutp_session cookie (host + any adult who has completed real
+// login, including via the OTP-gated magic-link invite) or a
+// game_participant bearer token scoped to exactly one
+// (game_session_id, game_player_id) seat (class-3+ child QR/code join, no
+// account). family_login-holder-type tokens are deliberately NOT accepted
+// here — their only job is resolving a phone number for the login page's
+// OTP step; presented as a bearer token here, one has no power at all.
+// ------------------------------------------------------------------
+function hashGameToken(rawToken) {
+  return crypto.createHash('sha256').update(rawToken).digest('hex');
+}
+
+async function resolveGameAccess(req, res, gameSessionId) {
+  const session = getSession(req);
+  if (session && session.familyId) {
+    const { data: gs, error } = await supabase.from('game_sessions').select('family_id').eq('id', gameSessionId).maybeSingle();
+    if (error) throw error;
+    if (gs && gs.family_id === session.familyId) return { ok: true, gamePlayerId: null };
+  }
+
+  const authHeader = req.headers.authorization || '';
+  const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+  if (bearerToken) {
+    const { data: tokenRow, error } = await supabase.from('game_access_tokens')
+      .select('game_player_id, game_session_id, expires_at, revoked_at, holder_type')
+      .eq('token_hash', hashGameToken(bearerToken)).maybeSingle();
+    if (error) throw error;
+    if (tokenRow && tokenRow.holder_type === 'game_participant' && !tokenRow.revoked_at
+      && new Date(tokenRow.expires_at) > new Date() && tokenRow.game_session_id === gameSessionId) {
+      return { ok: true, gamePlayerId: tokenRow.game_player_id };
+    }
+  }
+
+  res.status(403).json({ error: 'Forbidden' });
+  return null;
+}
+
+// Polled every 3-5s by every connected device once remote play ships —
+// status, scores, and whose turn it is (current_turn_order/current_lap,
+// advanced server-side by POST /answer — see migration 015). Deliberately
+// excludes question text/options/correct answers: those stay scoped to the
+// existing per-player /generate and /answer endpoints so a device that
+// isn't up can't see another player's current question early.
+app.get('/api/game-sessions/:id/state', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const access = await resolveGameAccess(req, res, req.params.id);
+    if (!access) return;
+
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions')
+      .select('id, status, time_limit_seconds, questions_per_player, subject, current_turn_order, current_lap')
+      .eq('id', req.params.id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+    if (!session) return res.status(404).json({ error: 'Game not found' });
+
+    const { data: players, error: playersErr } = await supabase.from('game_players')
+      .select('id, turnOrder:turn_order, name:player_name, score:total_score, correctCount:correct_count')
+      .eq('game_session_id', session.id).order('turn_order');
+    if (playersErr) throw playersErr;
+
+    res.json({
+      gameSessionId: session.id,
+      status: session.status,
+      timeLimitSeconds: session.time_limit_seconds,
+      questionsPerPlayer: session.questions_per_player,
+      currentTurnOrder: session.current_turn_order,
+      currentLap: session.current_lap,
+      players
+    });
+  } catch (err) {
+    console.error('Game state error:', err);
+    res.status(500).json({ error: 'Could not load game state' });
+  }
+});
+
+// A game-join token is unguessable (32 random bytes) so this isn't brute-
+// force-critical the way resolveStudentLimiter's name+phone lookup is, but
+// it's still a public, unauthenticated endpoint worth capping against
+// basic abuse.
+const gameInviteLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts — please wait a minute and try again.' }
+});
+
+// Public (no session cookie exists yet) — lets the login page discover
+// which phone number to send a real Firebase OTP to, and which dashboard/
+// game to land on afterward. Read-only and repeatable (safe on page
+// reload): never grants access by itself. See /consume below for the
+// one-shot step that actually requires a real session and does the work
+// of granting anything.
+app.post('/api/game-invite/resolve', gameInviteLimiter, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { token } = req.body || {};
+    if (!token) return res.status(400).json({ error: 'Missing token' });
+
+    const { data: tokenRow, error: tokenErr } = await supabase.from('game_access_tokens')
+      .select('game_session_id, game_player_id, expires_at, revoked_at, holder_type')
+      .eq('token_hash', hashGameToken(token)).maybeSingle();
+    if (tokenErr) throw tokenErr;
+    if (!tokenRow || tokenRow.holder_type !== 'family_login' || tokenRow.revoked_at || new Date(tokenRow.expires_at) <= new Date()) {
+      return res.status(404).json({ error: 'This invite link is invalid or has expired' });
+    }
+
+    const { data: player, error: playerErr } = await supabase.from('game_players')
+      .select('player_type, player_ref_id').eq('id', tokenRow.game_player_id).maybeSingle();
+    if (playerErr) throw playerErr;
+    if (!player) return res.status(404).json({ error: 'This invite link is invalid or has expired' });
+
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions')
+      .select('family_id, status').eq('id', tokenRow.game_session_id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+    if (!session) return res.status(404).json({ error: 'This invite link is invalid or has expired' });
+
+    const { phone } = await resolvePlayerContact(session.family_id, player.player_type, player.player_ref_id);
+    if (!phone) return res.status(404).json({ error: 'This invite link is invalid or has expired' });
+
+    res.json({
+      phone,
+      maskedPhone: phone.length > 4 ? phone.slice(0, -4).replace(/\d/g, '•') + phone.slice(-4) : phone,
+      playerType: player.player_type,
+      familyId: session.family_id,
+      gameSessionId: tokenRow.game_session_id,
+      gameEnded: session.status !== 'in_progress'
+    });
+  } catch (err) {
+    console.error('Game invite resolve error:', err);
+    res.status(500).json({ error: 'Could not resolve this invite link' });
+  }
+});
+
+// One-shot — called by the dashboard page right after a real tutp_session
+// cookie exists (post-OTP), never by the login page itself. Cross-checks
+// the freshly logged-in family actually matches who this token was minted
+// for (belt-and-suspenders beyond the OTP itself proving phone ownership),
+// then revokes the token so a forwarded/replayed link can't be reused.
+app.post('/api/game-invite/consume', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { token } = req.body || {};
+    if (!token) return res.status(400).json({ error: 'Missing token' });
+    const session = getSession(req);
+    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
+
+    const { data: tokenRow, error: tokenErr } = await supabase.from('game_access_tokens')
+      .select('id, game_session_id, game_player_id, expires_at, revoked_at, holder_type')
+      .eq('token_hash', hashGameToken(token)).maybeSingle();
+    if (tokenErr) throw tokenErr;
+    if (!tokenRow || tokenRow.holder_type !== 'family_login' || tokenRow.revoked_at || new Date(tokenRow.expires_at) <= new Date()) {
+      return res.status(404).json({ error: 'This invite link is invalid, expired, or already used' });
+    }
+
+    const { data: gameSession, error: gsErr } = await supabase.from('game_sessions').select('family_id').eq('id', tokenRow.game_session_id).maybeSingle();
+    if (gsErr) throw gsErr;
+    if (!gameSession || gameSession.family_id !== session.familyId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const { data: player, error: playerErr } = await supabase.from('game_players')
+      .select('turn_order, player_name').eq('id', tokenRow.game_player_id).maybeSingle();
+    if (playerErr) throw playerErr;
+
+    await supabase.from('game_access_tokens').update({ revoked_at: new Date().toISOString() }).eq('id', tokenRow.id);
+
+    res.json({ gameSessionId: tokenRow.game_session_id, gamePlayerId: tokenRow.game_player_id, turnOrder: player?.turn_order ?? null, playerName: player?.player_name ?? null });
+  } catch (err) {
+    console.error('Game invite consume error:', err);
+    res.status(500).json({ error: 'Could not join the game' });
+  }
+});
+
+// Prefetch a later player's question block — fired in the background as
+// soon as the previous player's turn starts, so by the time turn order
+// reaches them their questions are normally already generated. Idempotent:
+// if this player's questions already exist, returns them without
+// regenerating (guards against the client firing this twice).
+app.post('/api/game-sessions/:id/players/:turnOrder/generate', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { lessonContent, childContext } = req.body || {};
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions').select('*').eq('id', req.params.id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+    if (!session) return res.status(404).json({ error: 'Game not found' });
+    if (!requireOwnFamily(req, res, session.family_id)) return;
+    if (session.status !== 'in_progress') return res.status(400).json({ error: 'Game is no longer in progress' });
+    if (!session.questions_per_player) return res.status(400).json({ error: 'Game has not determined a question count yet' });
+
+    const turnOrder = parseInt(req.params.turnOrder, 10);
+    const { data: player, error: playerErr } = await supabase.from('game_players').select('id')
+      .eq('game_session_id', session.id).eq('turn_order', turnOrder).maybeSingle();
+    if (playerErr) throw playerErr;
+    if (!player) return res.status(404).json({ error: 'Player not found' });
+
+    const { data: existing, error: existingErr } = await supabase.from('game_questions')
+      .select('id, questionIndex:question_index, questionText:question_text, options').eq('game_player_id', player.id).order('question_index');
+    if (existingErr) throw existingErr;
+    if (existing && existing.length) return res.json({ questions: existing });
+
+    if (!Array.isArray(lessonContent) || !lessonContent.length || !lessonContent.every(isValidHomeworkContentBlock)) {
+      return res.status(400).json({ error: 'Missing or invalid lessonContent' });
+    }
+
+    let generated;
+    try {
+      generated = await generateGameQuestions(session.language, childContext || 'your child', session.questions_per_player, lessonContent);
+    } catch (genErr) {
+      console.error('Game question generation error (prefetch):', genErr.message);
+      return res.status(502).json({ error: 'Could not prepare the next player\'s questions — please try again.' });
+    }
+
+    const { data: questionRows, error: qErr } = await supabase.from('game_questions')
+      .insert(generated.questions.map((q, i) => ({
+        game_session_id: session.id, game_player_id: player.id, question_index: i + 1,
+        question_text: q.question, options: q.options, correct_index: q.correct,
+        explanation: q.explain, cognitive_category: q.category, points_possible: q.points
+      })))
+      .select('id, questionIndex:question_index, questionText:question_text, options');
+    if (qErr) throw qErr;
+
+    res.json({ questions: questionRows.sort((a, b) => a.questionIndex - b.questionIndex) });
+  } catch (err) {
+    console.error('Prefetch game questions error:', err);
+    res.status(500).json({ error: 'Could not prepare the next player\'s questions' });
+  }
+});
+
+// Grades one answer server-side, updates that player's running score, and
+// advances current_turn_order/current_lap on game_sessions — the single
+// place turn state changes now that remote devices need a server-side
+// source of truth for whose turn it is (see migration 015). Rejects an
+// answer for a player who isn't the currently active turn: with only one
+// shared device this could never happen (the UI only ever showed the
+// active player's question), but a second device changes that from "can't
+// happen" to "must be enforced."
+app.post('/api/game-sessions/:id/answer', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { gameQuestionId, selectedIndex, answerTimeSeconds } = req.body || {};
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions').select('*').eq('id', req.params.id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+    if (!session) return res.status(404).json({ error: 'Game not found' });
+    if (!requireOwnFamily(req, res, session.family_id)) return;
+
+    const { data: question, error: qErr } = await supabase.from('game_questions').select('*')
+      .eq('id', gameQuestionId).eq('game_session_id', session.id).maybeSingle();
+    if (qErr) throw qErr;
+    if (!question) return res.status(404).json({ error: 'Question not found' });
+    if (question.answered_at) return res.status(409).json({ error: 'This question was already answered' });
+
+    const { data: player, error: playerErr } = await supabase.from('game_players').select('turn_order, total_score, correct_count').eq('id', question.game_player_id).single();
+    if (playerErr) throw playerErr;
+    if (player.turn_order !== session.current_turn_order) {
+      return res.status(409).json({ error: "It's not this player's turn yet" });
+    }
+
+    const idx = Number.isInteger(selectedIndex) ? selectedIndex : null;
+    const isCorrect = idx !== null && idx === question.correct_index;
+    const clampedTime = Math.max(0, Math.min(session.time_limit_seconds, Math.round(Number(answerTimeSeconds)) || session.time_limit_seconds));
+
+    const { error: updateQErr } = await supabase.from('game_questions').update({
+      selected_index: idx, is_correct: isCorrect, answer_time_seconds: clampedTime, answered_at: new Date().toISOString()
+    }).eq('id', question.id);
+    if (updateQErr) throw updateQErr;
+
+    if (isCorrect) {
+      const { error: scoreErr } = await supabase.from('game_players').update({
+        total_score: player.total_score + question.points_possible, correct_count: player.correct_count + 1
+      }).eq('id', question.game_player_id);
+      if (scoreErr) throw scoreErr;
+    }
+
+    let nextTurnOrder = player.turn_order + 1;
+    let nextLap = session.current_lap;
+    if (nextTurnOrder > session.player_count) {
+      nextTurnOrder = 1;
+      nextLap = session.current_lap + 1;
+    }
+    const isGameOver = nextLap >= session.questions_per_player;
+    const { error: turnErr } = await supabase.from('game_sessions').update({
+      current_turn_order: nextTurnOrder, current_lap: nextLap
+    }).eq('id', session.id);
+    if (turnErr) throw turnErr;
+
+    res.json({
+      isCorrect, correctIndex: question.correct_index, explanation: question.explanation,
+      pointsAwarded: isCorrect ? question.points_possible : 0,
+      currentTurnOrder: nextTurnOrder, currentLap: nextLap, isGameOver
+    });
+  } catch (err) {
+    console.error('Answer game question error:', err);
+    res.status(500).json({ error: 'Could not record the answer' });
+  }
+});
+
+// Ends the game: computes the winner (score, then the tiebreak below),
+// marks the session completed, and — separately, app-wide — checks whether
+// this game is now the fastest-completing game today (Game Changer of the
+// Day), upserting daily_game_badges if so. Tiebreak, applied in order: (1)
+// fewer incorrect-or-unanswered questions ranks higher, (2) lower summed
+// answer_time_seconds ranks higher, (3) lower turn_order ranks higher — so
+// the ranking is always fully deterministic.
+app.post('/api/game-sessions/:id/complete', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions').select('*').eq('id', req.params.id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+    if (!session) return res.status(404).json({ error: 'Game not found' });
+    if (!requireOwnFamily(req, res, session.family_id)) return;
+    if (session.status === 'completed') return res.status(400).json({ error: 'Game is already completed' });
+
+    const { data: players, error: playersErr } = await supabase.from('game_players').select('*').eq('game_session_id', session.id).order('turn_order');
+    if (playersErr) throw playersErr;
+    const { data: questions, error: questionsErr } = await supabase.from('game_questions').select('*').eq('game_session_id', session.id).order('question_index');
+    if (questionsErr) throw questionsErr;
+
+    const statsByPlayer = new Map(players.map(p => [p.id, { incorrectOrUnanswered: 0, totalAnswerTime: 0 }]));
+    for (const q of questions) {
+      const stats = statsByPlayer.get(q.game_player_id);
+      if (!stats) continue;
+      if (!q.is_correct) stats.incorrectOrUnanswered++;
+      stats.totalAnswerTime += q.answer_time_seconds || 0;
+    }
+    const ranked = [...players].sort((a, b) => {
+      if (b.total_score !== a.total_score) return b.total_score - a.total_score;
+      const sa = statsByPlayer.get(a.id), sb = statsByPlayer.get(b.id);
+      if (sa.incorrectOrUnanswered !== sb.incorrectOrUnanswered) return sa.incorrectOrUnanswered - sb.incorrectOrUnanswered;
+      if (sa.totalAnswerTime !== sb.totalAnswerTime) return sa.totalAnswerTime - sb.totalAnswerTime;
+      return a.turn_order - b.turn_order;
+    });
+    const winner = ranked[0];
+
+    const completedAt = new Date();
+    const totalDurationSeconds = Math.max(0, Math.round((completedAt.getTime() - new Date(session.started_at).getTime()) / 1000));
+
+    const { error: updateErr } = await supabase.from('game_sessions').update({
+      status: 'completed', completed_at: completedAt.toISOString(), total_duration_seconds: totalDurationSeconds, winning_game_player_id: winner.id
+    }).eq('id', session.id);
+    if (updateErr) throw updateErr;
+
+    // Game Changer of the Day: replace today's badge holder only if this
+    // game is now the fastest completed game today. No cron — correct in
+    // real time via this on-write comparison.
+    const badgeDate = completedAt.toISOString().slice(0, 10);
+    let isGameChangerToday = false;
+    const { data: currentBadge, error: badgeReadErr } = await supabase.from('daily_game_badges')
+      .select('game_session_id').eq('badge_date', badgeDate).eq('badge_type', 'game_changer_of_the_day').maybeSingle();
+    if (badgeReadErr) throw badgeReadErr;
+    let currentFastest = Infinity;
+    if (currentBadge) {
+      const { data: currentSession } = await supabase.from('game_sessions').select('total_duration_seconds').eq('id', currentBadge.game_session_id).maybeSingle();
+      currentFastest = currentSession?.total_duration_seconds ?? Infinity;
+    }
+    if (totalDurationSeconds < currentFastest) {
+      const { error: badgeErr } = await supabase.from('daily_game_badges').upsert({
+        badge_date: badgeDate, badge_type: 'game_changer_of_the_day', game_session_id: session.id, winning_game_player_id: winner.id
+      }, { onConflict: 'badge_date,badge_type' });
+      if (badgeErr) throw badgeErr;
+      isGameChangerToday = true;
+    }
+
+    res.json({
+      leaderboard: ranked.map((p, i) => ({ rank: i + 1, playerId: p.id, name: p.player_name, score: p.total_score, correctCount: p.correct_count })),
+      winnerId: winner.id,
+      isGameChangerToday,
+      recap: questions.map(q => ({
+        playerId: q.game_player_id, questionIndex: q.question_index, questionText: q.question_text,
+        isCorrect: q.is_correct, cognitiveCategory: q.cognitive_category
+      }))
+    });
+  } catch (err) {
+    console.error('Complete game session error:', err);
+    res.status(500).json({ error: 'Could not finish the game' });
+  }
+});
+
+// Admin/internal only for now — no public banner yet (2026-09-09 founder
+// call: showing another family's child's name to other logged-in families
+// is a separate opt-in/privacy decision for post-launch).
+app.get('/api/game-changer-of-the-day', async (req, res) => {
+  if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: badge, error: badgeErr } = await supabase.from('daily_game_badges')
+      .select('game_session_id, winning_game_player_id').eq('badge_date', today).eq('badge_type', 'game_changer_of_the_day').maybeSingle();
+    if (badgeErr) throw badgeErr;
+    if (!badge) return res.json({ hasData: false });
+
+    const { data: player, error: playerErr } = await supabase.from('game_players').select('player_name, total_score').eq('id', badge.winning_game_player_id).maybeSingle();
+    if (playerErr) throw playerErr;
+    const { data: session, error: sessionErr } = await supabase.from('game_sessions').select('family_id, total_duration_seconds').eq('id', badge.game_session_id).maybeSingle();
+    if (sessionErr) throw sessionErr;
+
+    res.json({ hasData: true, playerName: player?.player_name, score: player?.total_score, durationSeconds: session?.total_duration_seconds, familyId: session?.family_id });
+  } catch (err) {
+    console.error('Game changer of the day error:', err);
+    res.status(500).json({ error: 'Could not fetch today\'s Game Changer' });
   }
 });
 

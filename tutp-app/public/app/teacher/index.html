@@ -45,6 +45,26 @@
             });
         };
     })();
+
+    // Real logout — clears the httpOnly session cookie server-side (client
+    // JS can't touch it directly) as well as every client-side identity
+    // marker, then lands on login's real phone-entry screen. The header
+    // "Log out" link below used to just navigate to /app/login/ with none
+    // of this — cosmetic only, since the cookie stayed valid until its
+    // 30-day sliding expiry regardless.
+    async function logout(){
+        if (!confirm('Log out of Tut-P?')) return;
+        try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+        try {
+            sessionStorage.removeItem('tutp_family_id');
+            sessionStorage.removeItem('tutp_student_id');
+            sessionStorage.removeItem('tutp_teacher_id');
+            sessionStorage.removeItem('tutp_family_member_id');
+            sessionStorage.removeItem('tutp_family_member_name');
+            sessionStorage.removeItem('tutp_last_dashboard');
+        } catch (e) {}
+        window.location.href = '/app/login/';
+    }
 </script>
 <div class="sticky top-0 z-40">
 <header class="flex items-center justify-between px-margin-mobile md:px-margin-desktop py-base w-full bg-surface-container-low shadow-sm">
@@ -55,7 +75,7 @@
 <div class="flex items-center gap-md">
 <span class="font-label-md text-label-md text-on-surface-variant" id="teacherGreeting">Loading…</span>
 <button type="button" class="flex items-center justify-center w-10 h-10 rounded-full text-primary hover:bg-primary-container/20 transition-colors" id="referEarnBtn" aria-label="Refer &amp; Earn" onclick="switchTab('referrals')"><span class="material-symbols-outlined">card_giftcard</span></button>
-<a href="/app/login/" class="font-label-md text-label-md text-primary hover:underline">Log out</a>
+<a href="#" onclick="logout(); return false;" class="font-label-md text-label-md text-primary hover:underline">Log out</a>
 </div>
 </header>
 <nav class="flex items-center gap-xs px-margin-mobile md:px-margin-desktop py-sm bg-surface-container-low border-t border-outline-variant/30" id="teacherTabBar">
@@ -152,7 +172,7 @@
 <div data-tab-panel="question-papers" hidden>
 <section class="glass-card rounded-xl p-md md:p-lg">
 <h2 class="font-headline-md text-headline-md text-on-surface mb-xs">AI Question Paper Generator</h2>
-<p class="font-body-md text-body-md text-on-surface-variant mb-md">Attach your lesson content and an old question paper as a style reference, pick an exam pattern and a difficulty tier — we'll generate one new paper on the new content, following the old paper's structure.</p>
+<p class="font-body-md text-body-md text-on-surface-variant mb-md">Attach your lesson content and an old question paper as a style reference, pick an exam pattern and a question-paper mode — we'll generate one new paper on the new content, following the old paper's structure.</p>
 
 <div class="space-y-md" id="qpFormSection">
 <div>
@@ -192,7 +212,7 @@
 </select>
 </div>
 <div>
-<label class="font-label-md text-label-md text-on-surface mb-xs block">Difficulty Tier <span class="text-error">*</span></label>
+<label class="font-label-md text-label-md text-on-surface mb-xs block">Question Paper Mode <span class="text-error">*</span></label>
 <div class="flex gap-2" id="qpTierPills"></div>
 </div>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Special Instructions <span class="font-caption text-caption text-on-surface-variant">(optional — printed on the paper as-is, e.g. "Calculators are not allowed")</span></label><textarea id="qpSpecialInstructions" class="w-full px-3 py-2 rounded-lg soft-input bg-surface-container-lowest font-body-md" rows="2" placeholder="e.g. Calculators are not allowed for this test"></textarea></div>
@@ -462,10 +482,27 @@
   let qpOldPaperContent = null;
   let qpResult = null;
   let qpMeta = null; // snapshot taken at generation time: schoolName, subject, boardLabel, examPatternLabel, date, specialInstructions
-  let qpSelectedTier = null;
+  let qpSelectedMode = null;
   let qpSelectedPattern = null;
 
-  const QP_TIER_LIST = [['logical', 'Logical'], ['methodology', 'Methodology'], ['tough', 'Tough']];
+  // "tough" (the old logical/methodology/tough tier) is retired, not merged
+  // into these — replaced by 4 cognitive-demand modes. modeNcfTag is null
+  // for logical_reasoning deliberately: it doesn't map cleanly onto a single
+  // Panchpadi stage, same precedent as the "logical_reasoning" Quiz category
+  // (see HW_QUIZ_CATEGORY_LABELS in the parent pages), so we don't force one.
+  const QP_MODE_LIST = [
+    ['logical_reasoning', 'Logical / Reasoning'],
+    ['understanding_application', 'Understanding / Application'],
+    ['skill_based', 'Skill-based / Easy Method'],
+    ['mixed', 'Mixed']
+  ];
+  const QP_MODE_LABELS = Object.fromEntries(QP_MODE_LIST);
+  const QP_MODE_NCF_TAGS = {
+    logical_reasoning: null,
+    understanding_application: 'Bodha + Prayoga',
+    skill_based: 'Abhyasa',
+    mixed: 'Bodha + Prayoga + Abhyasa'
+  };
   const QP_BOARD_LABELS = { cbse: 'CBSE', state_board: 'State Board', icse: 'ICSE' };
   const QP_PATTERN_LABELS = { weekly: 'Weekly Test', monthly: 'Monthly Test', quarterly: '3-Month Exam', half_yearly: '6-Month Exam', pre_final: 'Pre-Final', final: 'Final' };
 
@@ -508,16 +545,16 @@
     updateQpGenerateState();
   }
 
-  function renderQpTierPills(){
-    document.getElementById('qpTierPills').innerHTML = QP_TIER_LIST.map(([key, label]) => {
-      const active = key === qpSelectedTier;
-      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpTier('${key}')">${label}</button>`;
+  function renderQpModePills(){
+    document.getElementById('qpTierPills').innerHTML = QP_MODE_LIST.map(([key, label]) => {
+      const active = key === qpSelectedMode;
+      return `<button type="button" class="px-4 py-2 rounded-full font-label-md text-sm transition-colors ${active ? 'bg-primary text-white' : 'text-on-surface-variant border border-outline-variant'}" onclick="selectQpMode('${key}')">${label}</button>`;
     }).join('');
   }
 
-  function selectQpTier(tier){
-    qpSelectedTier = tier;
-    renderQpTierPills();
+  function selectQpMode(mode){
+    qpSelectedMode = mode;
+    renderQpModePills();
     updateQpGenerateState();
   }
 
@@ -531,7 +568,7 @@
     const board = document.getElementById('qpBoard').value;
     const boardOther = document.getElementById('qpBoardOther').value.trim();
     const boardReady = !!board && (board !== 'other' || !!boardOther);
-    const ready = !!(qpLessonContent && qpOldPaperContent && qpSelectedTier && qpSelectedPattern && boardReady);
+    const ready = !!(qpLessonContent && qpOldPaperContent && qpSelectedMode && qpSelectedPattern && boardReady);
     document.getElementById('qpGenerateBtn').disabled = !ready;
   }
 
@@ -551,7 +588,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tier: qpSelectedTier,
+          mode: qpSelectedMode,
           examPattern: qpSelectedPattern,
           board,
           boardOther: board === 'other' ? boardOther : undefined,
@@ -570,6 +607,8 @@
         subject,
         boardLabel: board === 'other' ? boardOther : QP_BOARD_LABELS[board],
         examPatternLabel: QP_PATTERN_LABELS[qpSelectedPattern],
+        modeLabel: QP_MODE_LABELS[qpSelectedMode],
+        modeNcfTag: QP_MODE_NCF_TAGS[qpSelectedMode],
         date: new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }),
         specialInstructions: document.getElementById('qpSpecialInstructions').value.trim()
       };
@@ -593,7 +632,7 @@
   }
 
   function resetQpSelection(){
-    qpSelectedTier = null;
+    qpSelectedMode = null;
     qpSelectedPattern = null;
     qpResult = null;
     qpMeta = null;
@@ -602,7 +641,7 @@
     document.getElementById('qpBoardOther').value = '';
     document.getElementById('qpBoardOther').hidden = true;
     document.getElementById('qpResultsSection').hidden = true;
-    renderQpTierPills();
+    renderQpModePills();
     updateQpGenerateState();
     document.getElementById('qpFormSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -647,7 +686,8 @@
     out.innerHTML = `
       <div class="glass-card rounded-xl p-lg">
         ${meta.schoolName ? `<p class="font-label-lg text-label-lg text-on-surface text-center font-semibold mb-1">${meta.schoolName}</p>` : ''}
-        <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-md">${paper.title || 'Question Paper'}</h3>
+        <h3 class="font-headline-md text-headline-md text-on-surface text-center mb-xs">${paper.title || 'Question Paper'}</h3>
+        <p class="text-[11px] text-on-surface-variant text-center mb-md">${meta.modeNcfTag ? `Mode: ${meta.modeLabel} — grounded in NCF-SE 2023's Panchpadi method (${meta.modeNcfTag}). Tut-P's own tagging, not a verified curriculum record.` : `Mode: ${meta.modeLabel}`}</p>
         <div class="rounded-lg border border-outline-variant bg-surface-container-low divide-y divide-outline-variant mb-md">
           ${infoRow(infoField('Name', blankLine), infoField('Roll No.', blankLine))}
           ${infoRow(infoField('Subject', meta.subject || ''), infoField('Board', meta.boardLabel || ''))}
@@ -681,7 +721,7 @@
       </div>`;
   }
 
-  renderQpTierPills();
+  renderQpModePills();
 
   // ---------------- Homework Monitor ----------------
   const HM_STATUS_STYLES = {

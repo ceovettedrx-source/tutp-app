@@ -285,6 +285,32 @@
         function showRegisterPrompt() {
             transitionTo('login-view', 'register-prompt-view');
         }
+
+        // Everyone having their own phone today (not one household phone
+        // shared by mother/father/family members, the old assumption behind
+        // the profile-tile grid) means the verified phone number usually
+        // identifies exactly one role on its own. roleMatches (from
+        // findFamilyIdByPhone on the server) lists every role that actually
+        // has this exact phone on file — skip the grid and go straight to
+        // that dashboard when there's only one, since there's nothing left
+        // to disambiguate; fall back to the grid exactly as before whenever
+        // more than one role still shares a number, so a genuine tie is
+        // never silently guessed.
+        function routeAfterLogin(notConfident) {
+            if (pendingRoleMatches.length === 1) {
+                const m = pendingRoleMatches[0];
+                const dashboardPath = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' }[m.role];
+                if (dashboardPath) {
+                    if (m.role === 'family_member') {
+                        sessionStorage.setItem('tutp_family_member_id', m.memberId);
+                        sessionStorage.setItem('tutp_family_member_name', m.name || '');
+                    }
+                    window.location.href = dashboardPath;
+                    return;
+                }
+            }
+            showProfiles(notConfident);
+        }
         const otpInputs = document.querySelectorAll('.otp-digit');
         otpInputs.forEach((input, index) => {
             input.addEventListener('input', (e) => {
@@ -299,8 +325,10 @@
         let lastChildName = '';
         let pendingStudentId = null;   // set once resolve-student confidently identifies a child
         let pendingFamilyId = null;    // set whenever we know which family this phone belongs to
+        let pendingRoleMatches = [];   // every role (mother/father/family_member) that has this exact phone on file — see routeAfterLogin
         let resolveFailed = false;     // family found, but couldn't identify which child
         let loginRole = 'parent';      // 'parent' or 'teacher' — set by the tabs on login-view
+        let pendingJoinGame = null;    // {token, playerType} — set by initGameJoin() when this login came from a Play-Based Learning invite link; read by handleVerifyCode to redirect straight into the game instead of the usual post-login routing
 
         function setLoginRole(role){
             loginRole = role;
@@ -320,6 +348,45 @@
                 ? 'New here? <a class="text-primary hover:underline" href="/app/register-teacher/">Register as Teacher/Tutor</a>'
                 : 'New here? <a class="text-primary hover:underline" href="/app/register/">Register</a>';
         }
+
+        // Remote multi-device invite entry point (POST /api/game-sessions/:id/invite
+        // mints these join links). Resolves which phone to text and skips
+        // straight to the OTP-entry view, reusing sendCodeAndShowOTP/
+        // window.tutpSendOTP completely unchanged — the only difference from
+        // a normal login is that the phone-entry screen is skipped because
+        // the phone is already known from the invite, not typed. Registered
+        // on DOMContentLoaded (below) rather than called immediately, since
+        // window.tutpSendOTP is assigned by the Firebase module script
+        // further down the page, which — being a module — only finishes
+        // executing after this classic script already has, and
+        // DOMContentLoaded is the first point both are guaranteed ready.
+        async function initGameJoin(){
+            const joinToken = new URLSearchParams(location.search).get('joinGame');
+            if (!joinToken) return;
+            try {
+                const res = await fetch('/api/game-invite/resolve', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: joinToken })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'This invite link is invalid or has expired.');
+
+                // Normalized to the same '+91' + 10-digit shape every other
+                // call site in this file uses — data.phone's stored format
+                // (with/without a country-code prefix, spacing) isn't
+                // trustworthy as-is for signInWithPhoneNumber.
+                lastPhoneDigits = data.phone.replace(/\D/g, '').slice(-10);
+                pendingJoinGame = { token: joinToken, playerType: data.playerType, familyId: data.familyId };
+                // sendCodeAndShowOTP formats otpSentTo from lastPhoneDigits
+                // itself (set above), same as a normal login.
+                await sendCodeAndShowOTP(window.tutpSendOTP('+91' + lastPhoneDigits));
+            } catch (err) {
+                // Leave the normal phone-entry form usable as a fallback
+                // rather than dead-ending someone whose link expired.
+                document.getElementById('loginSubtitle').textContent = err.message || 'This invite link is invalid or has expired — please log in below instead.';
+            }
+        }
+        document.addEventListener('DOMContentLoaded', initGameJoin);
 
         // otpPromise lets a caller start the actual Firebase send earlier
         // (in parallel with other work, e.g. /api/resolve-student below)
@@ -366,6 +433,7 @@
             lastChildName = document.getElementById('loginChildName').value.trim();
             pendingStudentId = null;
             pendingFamilyId = null;
+            pendingRoleMatches = [];
             resolveFailed = false;
 
             btn.disabled = true; btn.textContent = 'Checking…';
@@ -395,6 +463,7 @@
                     });
                     const resolveData = await resolveRes.json();
                     pendingFamilyId = resolveData.family_id || null;
+                    pendingRoleMatches = resolveData.roleMatches || [];
 
                     if (resolveData.familyFound === false) {
                         sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
@@ -443,6 +512,7 @@
                 });
                 const resolveData = await resolveRes.json();
                 pendingFamilyId = resolveData.family_id || pendingFamilyId;
+                pendingRoleMatches = resolveData.roleMatches || pendingRoleMatches;
                 if (resolveData.found) {
                     pendingStudentId = resolveData.student_id;
                 } else {
@@ -473,6 +543,24 @@
                 const idToken = await window.tutpVerifyOTP(code);
                 await window.tutpEstablishSession(idToken);
 
+                // Came here from a Play-Based Learning invite link — skip
+                // every other post-login branch below (teacher status,
+                // pending homework, child-name resolution, profile grid):
+                // this login's only purpose was joining that specific game,
+                // so go straight to the matching dashboard, which detects
+                // ?joinGame= itself and opens the Play modal directly into
+                // it via POST /api/game-invite/consume.
+                if (pendingJoinGame) {
+                    // Same thing every other post-login branch in this file
+                    // does right before landing on a dashboard page — those
+                    // pages read tutp_family_id directly for several calls,
+                    // not just the session cookie.
+                    if (pendingJoinGame.familyId) sessionStorage.setItem('tutp_family_id', pendingJoinGame.familyId);
+                    const dashboardPath = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' }[pendingJoinGame.playerType] || '/app/login/';
+                    window.location.href = dashboardPath + '?joinGame=' + encodeURIComponent(pendingJoinGame.token);
+                    return;
+                }
+
                 if (loginRole === 'teacher') {
                     const statusRes = await fetch('/api/teacher-status?phone=' + encodeURIComponent('+91' + lastPhoneDigits));
                     const statusData = await statusRes.json();
@@ -488,21 +576,15 @@
                     return;
                 }
 
-                // Came here from the homepage "attach homework" flow — skip straight to the
-                // homework helper with the file already attached, regardless of anything else.
-                // Only honor this if it was set moments ago: on mobile, tabs stay alive for
-                // days, so a flag left over from an abandoned attach flow (attach -> submit ->
-                // back out before finishing OTP) must not hijack an unrelated, later login.
-                const pendingHomeworkTs = parseInt(sessionStorage.getItem('tutp_pending_homework_ts'), 10);
-                const pendingHomeworkFresh = Number.isFinite(pendingHomeworkTs) && (Date.now() - pendingHomeworkTs) < 15 * 60 * 1000;
-                if (sessionStorage.getItem('tutp_pending_homework_url')) {
-                    if (pendingHomeworkFresh) {
-                        window.location.href = '/demo/';
-                        return;
-                    }
-                    sessionStorage.removeItem('tutp_pending_homework_url');
-                    sessionStorage.removeItem('tutp_pending_homework_ts');
-                }
+                // A homepage attach flow (index.html) may have set
+                // tutp_pending_attach_url/_mode/_ts just before sending the
+                // parent here — this used to short-circuit straight to
+                // /demo/ instead of a real dashboard, regardless of who the
+                // parent actually was. That's gone: this login now routes
+                // exactly like any other (below), and whichever dashboard
+                // the parent lands on picks the pending attachment up itself
+                // (checking the same 15-minute freshness window) to pre-fill
+                // whichever mode was chosen on the homepage.
 
                 if (pendingStudentId) {
                     // Was an unconditional redirect straight to /app/child/ —
@@ -517,12 +599,12 @@
                     // the child's tile in the grid still works correctly.
                     sessionStorage.setItem('tutp_student_id', pendingStudentId);
                     if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    showProfiles(false);
+                    routeAfterLogin(false);
                     return;
                 }
                 if (resolveFailed) {
                     if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    showProfiles(true);
+                    routeAfterLogin(true);
                     return;
                 }
 
@@ -538,13 +620,14 @@
                     const checkData = await checkRes.json();
                     registered = !!checkData.registered;
                     pendingFamilyId = checkData.family_id || null;
+                    pendingRoleMatches = checkData.roleMatches || [];
                 } catch (checkErr) {
                     registered = false; // fail toward the register prompt, not the fake profile grid
                 }
 
                 if (registered) {
                     if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    showProfiles(false);
+                    routeAfterLogin(false);
                 } else {
                     sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
                     transitionTo('otp-view', 'register-prompt-view');

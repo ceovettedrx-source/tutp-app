@@ -12,6 +12,7 @@
         setTimeout(window.__twReady, 800);
 </script>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
 <script onload="window.__twReady()" src="/shared/tailwind-tokens.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
@@ -23,6 +24,11 @@
         .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Play-Based Learning turn-transition card — CSS-only flip (no
+           library) shown between a player's answer and the next player's
+           question, so the score bump feels revealed, not snapped in. */
+        @keyframes playFlipIn { 0% { transform: perspective(600px) rotateY(90deg) scale(0.85); opacity: 0; } 60% { transform: perspective(600px) rotateY(-8deg) scale(1.04); opacity: 1; } 100% { transform: perspective(600px) rotateY(0deg) scale(1); opacity: 1; } }
+        .play-turn-transition { animation: playFlipIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
         /* Critical layout CSS — plain CSS, not Tailwind utility classes, so it
            applies immediately on parse instead of waiting for Tailwind's
            runtime JIT compiler. Without this, the fixed sidebar/header can
@@ -53,8 +59,21 @@
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
 <script>
+    // A direct/anonymous visit with no session at all used to render this
+    // whole page anyway — every data fetch below just no-ops to a generic
+    // placeholder instead of ever asking for a login, so an anonymous
+    // visitor saw a plausible-looking dashboard instead of being told to log
+    // in. /app/family/ and /app/teacher/ already guard this way; this page
+    // and father/mother's never did. Only checks tutp_family_id, not
+    // tutp_family_member_id — the "Which family member are you?" viewer
+    // gate further down is a separate, legitimate step for an already-
+    // family-scoped session that just hasn't picked a specific member yet.
+    if (!sessionStorage.getItem('tutp_family_id')) {
+        window.location.href = '/app/login/';
+    }
+
     // Lets /app/login/ bounce straight back here on a session it recognizes
-    // (back button, PROFILES icon) instead of forcing a fresh OTP.
+    // (back button) instead of forcing a fresh OTP.
     try { sessionStorage.setItem('tutp_last_dashboard', location.pathname); } catch (e) {}
 
     // A 403 from any /api/ call means the session cookie is missing or
@@ -75,6 +94,8 @@
                         sessionStorage.removeItem('tutp_family_id');
                         sessionStorage.removeItem('tutp_student_id');
                         sessionStorage.removeItem('tutp_teacher_id');
+                        sessionStorage.removeItem('tutp_family_member_id');
+                        sessionStorage.removeItem('tutp_family_member_name');
                         sessionStorage.removeItem('tutp_last_dashboard');
                     } catch (e) {}
                     window.location.href = '/app/login/';
@@ -83,6 +104,27 @@
             });
         };
     })();
+
+    // Real logout — clears the httpOnly session cookie server-side (client
+    // JS can't touch it directly) as well as every client-side identity
+    // marker, then lands on login's real phone-entry screen (sessionStorage
+    // is now empty, so its own skip-if-authenticated check has nothing to
+    // bounce on). Needed on a shared family device: without this, whoever
+    // logged in last is the only person who can ever reach their own
+    // dashboard from the UI again.
+    async function logout(){
+        if (!confirm('Log out of Tut-P?')) return;
+        try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+        try {
+            sessionStorage.removeItem('tutp_family_id');
+            sessionStorage.removeItem('tutp_student_id');
+            sessionStorage.removeItem('tutp_teacher_id');
+            sessionStorage.removeItem('tutp_family_member_id');
+            sessionStorage.removeItem('tutp_family_member_name');
+            sessionStorage.removeItem('tutp_last_dashboard');
+        } catch (e) {}
+        window.location.href = '/app/login/';
+    }
 </script>
 <div class="js-hidden fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-6" id="viewerGate">
 <div class="bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/15 p-8 max-w-sm w-full space-y-4">
@@ -116,9 +158,17 @@
 <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
 <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
 </button>
+<!-- This page has no mobile bottom nav (unlike father/mother, whose
+     PROFILES icon was repurposed into a mobile logout entry point) — so
+     logout needs its own always-visible affordance here instead of hiding
+     behind the sm:-only avatar block below. -->
+<button aria-label="Log out" class="sm:hidden flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors" onclick="logout()">
+<span class="material-symbols-outlined text-on-surface-variant">logout</span>
+</button>
 <div class="hidden sm:flex items-center gap-2 pl-2 border-l border-outline-variant/30">
 <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm" id="headerAvatarInitial">·</div>
 <span class="font-label-md text-label-md text-on-surface" id="headerUserName">Family</span>
+<a href="#" onclick="logout(); return false;" class="font-label-md text-label-md text-primary hover:underline ml-1">Log out</a>
 </div>
 </div>
 </header>
@@ -545,10 +595,16 @@
 <div class="flex items-center gap-2 font-label-md text-label-md text-primary">Check understanding</div>
 <div class="font-label-md text-xs bg-on-surface text-surface px-3 py-1.5 rounded-full" id="hwModalScorePill">0 / 5 answered</div>
 </div>
+<p class="text-[11px] text-on-surface-variant -mt-2.5 mb-4">Each question is tagged by cognitive-demand category, mapped to NCF-SE 2023's Panchpadi stages where it applies — Tut-P's own tagging, not a verified curriculum record.</p>
 <div id="hwModalQuizArea"></div>
 </div>
 <div id="hwModalHomeworkResultBlock" class="hidden">
 <div id="hwModalConceptBlock" class="hidden bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mt-2">
+<div id="hwModalAditiHookBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-4 py-3 mb-3">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">A connection to build on</div>
+<p id="hwModalAditiHookText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Grounded in NCF-SE 2023's Panchpadi method — not a verified curriculum record.</p>
+</div>
 <div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
 <span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalConceptLangTag">your language</span>
 </div>
@@ -608,6 +664,11 @@
 <div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-4 mt-2">
 <div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">📖 Your child's story</div>
 <p id="storyModalStoryText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-2 mb-0">Grounded in NCF-SE 2023's Panchpadi method (Bodha + Prayoga) — not a verified curriculum record.</p>
+</div>
+<div id="storyModalAbhyasaBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-4 py-3 mb-4">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">Try this together</div>
+<p id="storyModalAbhyasaText" class="text-sm text-on-surface leading-relaxed m-0"></p>
 </div>
 <div class="flex items-center gap-3 flex-wrap no-print">
 <button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" id="storyModalPlayBtn" onclick="playStory()">▶ Play story</button>
@@ -622,10 +683,14 @@
 </div>
 </div>
 
-<!-- Play-Based Learning — attach a lesson, pick how many family members are
-     playing, get 3 questions per player assigned round-robin. No timer;
-     family discusses each question together before the assigned player
-     submits. Running per-player score tracked through the session. -->
+<!-- Play-Based Learning — a turn-based multiplayer family game engine. Up
+     to 4 players (mother/father/family members/children) take turns
+     answering AI-generated multiple-choice questions from the lesson,
+     against one per-game locked countdown timer; explaining the answer
+     afterward is untimed. Scoring is server-authoritative — the browser
+     never receives a question's correct answer until after it submits one,
+     so the live leaderboard and the shareable "Winner of the Day" badge can
+     be trusted. See /api/game-sessions* in server.js. -->
 <div id="playModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
 <div class="absolute inset-0 bg-black/50" onclick="closePlayModal()"></div>
 <div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
@@ -635,17 +700,14 @@
 </div>
 <p class="font-body-md text-sm text-on-surface-variant mb-4">Turn today's lesson into a family quiz game</p>
 
+<!-- Step 1: setup -->
 <div id="playModalForm">
 <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Ask in</label>
 <select id="playModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
 <option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
 </select>
-<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">How many are playing?</label>
-<div class="flex gap-2 mb-3.5" id="playModalPlayerCount" data-value="2">
-<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-players="2">2 players</button>
-<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-players="3">3 players</button>
-<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-players="4">4 players</button>
-</div>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Who's playing? (pick 2-4)</label>
+<div class="flex flex-col gap-1.5 mb-3.5" id="playModalPlayerPicker"><p class="text-xs text-on-surface-variant">Loading family members…</p></div>
 <label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
 <textarea id="playModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
 
@@ -657,14 +719,54 @@
 <button class="font-label-md text-xs text-error underline hidden" id="playModalClearAttach">remove</button>
 </div>
 
-<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalSubmitBtn">Start playing</button>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalSubmitBtn">Next: pick a timer</button>
 <div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalErrBox"></div>
 </div>
 
-<div id="playModalResults" class="hidden">
+<!-- Step 2: locked per-game answer timer -->
+<div id="playModalTimerStep" class="hidden">
+<p class="font-body-md text-sm text-on-surface-variant mb-3.5">Pick one time limit for every question, for this whole game — it can't be changed once the game starts.</p>
+<div class="flex gap-2 mb-4" id="playModalTimerPicker">
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="30">30s</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="45">45s</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="60">60s</button>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 border-2 border-outline-variant text-on-surface-variant font-label-md text-sm rounded-lg px-4 py-2.5 hover:border-on-surface-variant transition-colors" onclick="playModalBackToForm()">Back</button>
+<button class="flex-[2] bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalStartGameBtn" disabled>Start game</button>
+</div>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalTimerErrBox"></div>
+</div>
+
+<!-- Step 3: live game -->
+<div id="playModalGame" class="hidden">
 <div class="flex flex-wrap gap-2 mb-4" id="playModalScoreboard"></div>
-<div id="playModalQuizArea"></div>
-<div class="text-center mt-2">
+<!-- Minimal remote-invite entry point — no polish intended, this exists
+     so POST /api/game-sessions/:id/invite can be exercised from a real
+     browser. Hidden for a device that joined remotely (see
+     playModalJoinRemoteGame): only the host device invites others. -->
+<div class="mb-4" id="playModalInvitePanel">
+<button id="playModalInviteBtn" class="font-label-md text-xs text-primary underline" onclick="playModalSendInvites()">Invite players (remote)</button>
+<div class="mt-2 space-y-1.5" id="playModalInviteResults"></div>
+</div>
+<div id="playModalTurnTransition" class="hidden"></div>
+<div id="playModalQuestionArea"></div>
+</div>
+
+<!-- Step 4: results -->
+<div id="playModalResults" class="hidden">
+<div class="font-label-md text-label-md text-primary mb-2 text-center" id="playModalWinnerBanner"></div>
+<div class="flex flex-col gap-1.5 mb-4" id="playModalFinalLeaderboard"></div>
+<canvas id="playModalShareCanvas" width="600" height="600" class="hidden"></canvas>
+<div class="flex gap-2 justify-center mb-5">
+<button class="bg-tertiary text-on-tertiary font-label-md text-xs uppercase tracking-wide rounded-lg px-4 py-2.5 hover:bg-tertiary/90 transition-colors inline-flex items-center gap-1.5" id="playModalShareBtn"><span class="material-symbols-outlined text-base">share</span>Share Winner of the Day</button>
+</div>
+<div class="border-t border-outline-variant pt-4">
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-1">What this game tested</div>
+<p class="text-[11px] text-on-surface-variant mb-3">Each question is tagged by cognitive-demand category, mapped to NCF-SE 2023's Panchpadi stages where it applies — Tut-P's own tagging, not a verified curriculum record.</p>
+<div id="playModalRecap" class="flex flex-col gap-1.5"></div>
+</div>
+<div class="text-center mt-5">
 <button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetPlayModal()">↺ Play another lesson</button>
 </div>
 </div>
@@ -1006,13 +1108,13 @@
             const childContext = document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
             let systemPrompt;
             if (hwCurrentMode === 'quiz') {
-                // Unchanged from the pedagogy-grounding batch — Bloom's
-                // Taxonomy via the Teacher Module's own 4 cognitive-demand
-                // categories, kept in English regardless of ${lang} to
-                // avoid Telugu/Indic token cost on a field the parent
-                // never needs translated. Do not touch: Homework Help's
-                // extract-and-answer prompt below is entirely separate.
-                const hwGroundingNote = `Ground the quiz in Bloom's Taxonomy, using the same four cognitive-demand categories Tut-P's Teacher Module uses for question papers: "logical_reasoning" (deduction/pattern/sequencing), "understanding" (explaining what/why), "application" (using the idea in a new/real-life context), "skill_based" (direct procedure/recall, lower cognitive load). Vary the categories across the 5 questions to genuinely span different cognitive levels rather than making them all the same category or a fixed rigid pattern — pick whichever mix genuinely fits this specific lesson's content, don't force an even split.`;
+                // Bloom's Taxonomy via the Teacher Module's own 4 cognitive-demand
+                // categories, mapped to Panchpadi per pedagogy-nep-ncf.md (see
+                // hwGroundingNote) and now shown to the parent as a per-question
+                // badge (see HW_QUIZ_CATEGORY_LABELS in renderHwModalQuiz). "category"
+                // field kept in English regardless of ${lang} to avoid Telugu/Indic
+                // token cost — the badge label translation happens client-side instead.
+                const hwGroundingNote = `Ground the quiz in NCF-SE 2023's Panchpadi sequence via Bloom's Taxonomy, using the same four cognitive-demand categories Tut-P's Teacher Module uses for question papers: "logical_reasoning" (deduction/pattern/sequencing), "understanding" (explaining what/why — Panchpadi's Bodha), "application" (using the idea in a new/real-life context — Panchpadi's Prayoga), "skill_based" (direct procedure/recall, lower cognitive load — Panchpadi's Abhyasa). For each question, genuinely decide which category it's testing based on that specific question's content, not a fixed rotation or quota — across 5 questions this naturally tends to span multiple categories when the lesson supports it, but a narrow or simple lesson may legitimately concentrate on fewer; never force artificial variety onto thin content.`;
                 const hwQuizItemShape = `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right","category":"logical_reasoning|understanding|application|skill_based, always in English regardless of ${lang}"}`;
                 systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
 ${hwGroundingNote}
@@ -1031,7 +1133,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 // model) decides whether to show it upfront or behind a
                 // toggle. See CLAUDE.md backlog: this branch replaced the
                 // old always-5-quiz-questions shape for Homework Help.
-                const hwGroundingNote = `Ground the explanation in NEP-2020's teacher-as-facilitator principle: where this homework genuinely allows for guided discovery, phrase the explanation so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit.`;
+                const hwGroundingNote = `Ground this in NCF-SE 2023's Panchpadi teaching sequence. The explanation/reasoning you write is always doing Bodha (conceptual understanding) work: where this homework genuinely allows for guided discovery, phrase it so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit. This is a quick homework-help tool, not a full lesson plan, so do not force Abhyasa/Prayoga/Prasara here.`;
                 systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
 ${hwGroundingNote}
 
@@ -1045,12 +1147,12 @@ CRITICAL RULES — follow in order:
    - The reasoning field is the one exception to the "never translate" rules above: unlike the question and answer, which stay in the homework's original source language, reasoning must ALWAYS switch to ${lang} — the parent's selected explanation language — even when that differs from the source language. Always include one short reasoning line in ${lang} for every answer, in a guided-discovery style — briefly showing the thinking path, not just restating the answer. Include this regardless of how the parent phrased their request (e.g. even if they asked for "just the answers") — the app's own UI decides whether to show this line upfront or behind a toggle, so it must always be present in your output.
    - Extract at most 8 questions. If the homework contains more than 8 questions, extract only the first 8 and append a short note to the 8th question's reasoning field (also in ${lang}) mentioning that there are more questions in the homework than shown here.
 
-3. If the homework is a broad topic or concept with no specific questions attached, explain the underlying concept in ${lang} instead — 2-4 short sentences, simple enough for a busy parent, focused on how to guide the child rather than just stating facts.
+3. If the homework is a broad topic or concept with no specific questions attached, explain the underlying concept in ${lang} instead — 2-4 short sentences, simple enough for a busy parent, focused on how to guide the child rather than just stating facts. Before writing it, decide honestly whether a Panchpadi Aditi (introduction/hook) genuinely fits this specific topic: a short, relatable hook connecting it to something the child likely already knows or has experienced, phrased as a genuine engaging hook — not a dry statement. Only set aditiApplicable to true and write aditiHook when one naturally fits; otherwise aditiApplicable is false and aditiHook is null. Aditi never applies in "questions" mode (mode "questions" always has aditiApplicable: false, aditiHook: null) — the child already has specific assigned questions in front of them, so there is no fresh-topic hook moment.
 
-4. Never let ${lang} cause you to translate or rewrite the original homework content — the question and answer fields always stay in the source language. ${lang} applies ONLY to your own commentary to the parent: the reasoning field (mode "questions") and the concept_explanation field (mode "concept") must ALWAYS be written in ${lang}, regardless of what language the source homework is in.
+4. Never let ${lang} cause you to translate or rewrite the original homework content — the question and answer fields always stay in the source language. ${lang} applies ONLY to your own commentary to the parent: the reasoning field (mode "questions"), the concept_explanation field, and the aditiHook field (mode "concept") must ALWAYS be written in ${lang}, regardless of what language the source homework is in.
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","mode":"questions" or "concept","extracted_questions":[{"question":"original-language question text, or null if mode is concept","answer":"original-language answer, or null if mode is concept","reasoning":"one short guided-discovery-style sentence, ALWAYS in ${lang} even though the question/answer above are in the source language"}],"concept_explanation":"2-4 short sentences in ${lang}, or null if mode is questions"}
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","mode":"questions" or "concept","extracted_questions":[{"question":"original-language question text, or null if mode is concept","answer":"original-language answer, or null if mode is concept","reasoning":"one short guided-discovery-style sentence, ALWAYS in ${lang} even though the question/answer above are in the source language"}],"concept_explanation":"2-4 short sentences in ${lang}, or null if mode is questions","aditiApplicable":boolean,"aditiHook":"short hook in ${lang} connecting to something the child already knows, only present when aditiApplicable is true and mode is concept — otherwise null"}
 
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit the token budget. The child is: ${childContext}.
 
@@ -1147,6 +1249,12 @@ Parent's instruction: ${hwText || 'none given'}`;
         const HW_OPT_CORRECT = HW_OPT_BASE + ' bg-tertiary-container/40 border-tertiary text-on-tertiary-container';
         const HW_OPT_WRONG = HW_OPT_BASE + ' bg-error-container/40 border-error text-error';
         function hwEscapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+        const HW_QUIZ_CATEGORY_LABELS = {
+            logical_reasoning: 'Logical Reasoning',
+            understanding: 'Understanding · Bodha',
+            application: 'Application · Prayoga',
+            skill_based: 'Skill-based · Abhyasa'
+        };
         function renderHwModalQuiz(quiz){
             const area = document.getElementById('hwModalQuizArea');
             area.innerHTML = '';
@@ -1156,7 +1264,10 @@ Parent's instruction: ${hwText || 'none given'}`;
                 const card = document.createElement('div');
                 card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5 mb-3.5';
                 card.innerHTML = `
-                    <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1} of ${quiz.length}</div>
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <div class="font-label-md text-[11px] text-on-surface-variant">Question ${qi + 1} of ${quiz.length}</div>
+                        <span class="font-label-md text-[10px] uppercase tracking-wide bg-tertiary-container/50 text-on-tertiary-container px-2 py-0.5 rounded-full">${hwEscapeHtml(HW_QUIZ_CATEGORY_LABELS[q.category] || q.category || '')}</span>
+                    </div>
                     <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.question)}</div>
                     <div class="grid gap-2" data-role="opts"></div>
                     <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
@@ -1225,6 +1336,13 @@ Parent's instruction: ${hwText || 'none given'}`;
                 conceptBlock.classList.remove('hidden');
                 document.getElementById('hwModalConceptLangTag').textContent = document.getElementById('hwModalLang').value;
                 document.getElementById('hwModalConceptText').textContent = parsed.concept_explanation || '';
+                const aditiBlock = document.getElementById('hwModalAditiHookBlock');
+                if (parsed.aditiApplicable && parsed.aditiHook) {
+                    document.getElementById('hwModalAditiHookText').textContent = parsed.aditiHook;
+                    aditiBlock.classList.remove('hidden');
+                } else {
+                    aditiBlock.classList.add('hidden');
+                }
             }
             document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
         }
@@ -1535,15 +1653,18 @@ Parent's instruction: ${hwText || 'none given'}`;
             const requestToken = storySessionToken;
             try {
                 const childContext = await getSharedChildContext();
-                // Light-touch pedagogy grounding (NEP-2020 experiential/
-                // activity-based learning) — the story ending doubles as a
-                // small engagement hook rather than pure passive narrative,
-                // only when the content genuinely supports one. Rest of the
-                // prompt is unchanged since this feature already works well.
+                // Grounded in NCF-SE 2023's Panchpadi sequence: the story
+                // itself always does Bodha (explaining the concept) framed
+                // through Prayoga (a real-life connection) — inherent to the
+                // feature, no boolean needed. The optional ending engagement
+                // line is a light Abhyasa touch, honest-null per-story like
+                // Homework Help's aditiApplicable — surfaced to the parent
+                // via the panchpadi tag / storyModalAbhyasaBlock below.
                 const systemPrompt = `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read or play it before homework time.
-Ground this in NEP-2020's experiential/activity-based learning principle: end the story with one short embedded invitation for the child to actively engage with the idea just told — e.g. a one-line question to answer together, a tiny action to try, or something to spot in real life — rather than a purely passive narrative. Only include this if it fits naturally with this specific story; do not force an artificial activity onto content that doesn't lend itself to one.
+Ground this in NCF-SE 2023's Panchpadi teaching sequence. The story itself always does two stages at once: Bodha (conceptual understanding) by explaining the lesson's actual content, framed through Prayoga (application) by connecting it to a real-life situation or event a child would recognize — this is inherent to how this feature works, not a per-story choice.
+Separately, decide honestly whether a light Abhyasa (practice/reinforcement) touch genuinely fits this specific story: one short embedded invitation for the child to actively engage with the idea just told — e.g. a one-line question to answer together, a tiny action to try, or something to spot in real life. Only set abhyasaApplicable to true and write abhyasaPrompt when this fits naturally; otherwise abhyasaApplicable is false and abhyasaPrompt is null — never force an artificial activity onto content that doesn't lend itself to one.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label","story":"a short story in ${lang}, 5-10 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it"}
+{"subject":"one short English subject label","story":"a short story in ${lang}, 5-10 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it","abhyasaApplicable":boolean,"abhyasaPrompt":"one short engaging line in ${lang}, only present when abhyasaApplicable is true — otherwise null"}
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep it concise — this must fit a small token budget. The child is: ${childContext}.`;
                 const userContent = [];
                 storyAttachState.items.forEach(item => {
@@ -1557,6 +1678,13 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 document.getElementById('storyModalForm').classList.add('hidden');
                 document.getElementById('storyModalResults').classList.remove('hidden');
                 document.getElementById('storyModalStoryText').textContent = parsed.story;
+                const abhyasaBlock = document.getElementById('storyModalAbhyasaBlock');
+                if (parsed.abhyasaApplicable && parsed.abhyasaPrompt) {
+                    document.getElementById('storyModalAbhyasaText').textContent = parsed.abhyasaPrompt;
+                    abhyasaBlock.classList.remove('hidden');
+                } else {
+                    abhyasaBlock.classList.add('hidden');
+                }
                 const canSpeak = await setupStoryTts(parsed.story, lang);
                 if (requestToken !== storySessionToken) return;
                 if (canSpeak) playStory();
@@ -1579,144 +1707,589 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             }
         });
 
-        // ---------------- Play-Based Learning ----------------
+        // ---------------- Play-Based Learning (multiplayer game engine) ----------------
+        // State machine: form -> timer lock -> live turn-based game (server-
+        // authoritative scoring, correct answers withheld until submitted) ->
+        // results (leaderboard + share card + post-game pedagogy recap).
         let playSessionToken = 0;
         const playAttachState = { base64: null, mediaType: null };
-        document.getElementById('playModalAttachInput') && attachFilePicker(document.getElementById('playModalAttachInput'), document.getElementById('playModalThumb'), document.getElementById('playModalPdfLabel'), document.getElementById('playModalClearAttach'), playAttachState, document.getElementById('playModalErrBox'));
+        attachFilePicker(document.getElementById('playModalAttachInput'), document.getElementById('playModalThumb'), document.getElementById('playModalPdfLabel'), document.getElementById('playModalClearAttach'), playAttachState, document.getElementById('playModalErrBox'));
 
-        let playSelectedPlayers = 2;
-        document.querySelectorAll('#playModalPlayerCount button').forEach(btn => {
-            btn.addEventListener('click', () => {
-                playSelectedPlayers = parseInt(btn.dataset.players, 10);
-                document.querySelectorAll('#playModalPlayerCount button').forEach(b => {
-                    b.classList.toggle('border-primary', b === btn);
-                    b.classList.toggle('bg-primary-container/10', b === btn);
-                    b.classList.toggle('text-primary', b === btn);
-                    b.classList.toggle('border-outline-variant', b !== btn);
-                    b.classList.toggle('text-on-surface', b !== btn);
+        const PLAY_CATEGORY_LABELS = {
+            logical_reasoning: 'Logical Reasoning',
+            understanding: 'Understanding · Bodha',
+            application: 'Application · Prayoga',
+            skill_based: 'Skill-based · Abhyasa'
+        };
+
+        let playRoster = [];          // [{type, refId, name, checked}] built from mother/father/family_members/students
+        let playSelectedTimeLimit = null;
+        let playGameSessionId = null;
+        let playQuestionsPerPlayer = null;
+        let playPlayers = [];         // [{id, turnOrder, name, score, correctCount}]
+        let playQuestionQueue = {};   // turnOrder -> [{id, questionIndex, questionText, options}]
+        let playPrefetchPromises = {};   // turnOrder -> Promise, shared by every caller (background kickoff AND playStartTurn's fallback) so a second call for the same player awaits the same in-flight request instead of silently no-op'ing while it's still pending
+        let playTurnIdx = 0;          // index into playPlayers for whoever's turn it is
+        let playLap = 0;              // 0-based question slot, same for every player per lap
+        let playCurrentQuestion = null;
+        let playPendingPoints = 0;    // points from the answer just submitted, applied during the turn-transition reveal
+        let playPendingCorrect = false;
+        let playNextTurnOrder = 1;    // whose turn is next, decided server-side by POST /answer (see migration 015) — this client only renders it
+        let playNextLap = 0;
+        let playNextIsGameOver = false;
+        let playMyGamePlayerId = null;   // set only when this device joined remotely via a magic-link invite (playModalJoinRemoteGame) — null for the host device, which "is" whoever's turn it currently is rather than one fixed seat
+        let playPollHandle = null;       // setInterval handle for a remote joiner waiting on someone else's turn — see playModalRefreshRemoteState
+        let playTimerHandle = null;
+        let playTimerRemaining = 0;
+        let playAnswerStartedAt = 0;
+
+        async function loadPlayModalPlayerPicker(){
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            const pickerEl = document.getElementById('playModalPlayerPicker');
+            try {
+                const [famRes, membersRes, studentsRes] = await Promise.all([
+                    fetch('/api/family/' + encodeURIComponent(familyId)),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/members'),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/students')
+                ]);
+                const fam = famRes.ok ? await famRes.json() : {};
+                const members = membersRes.ok ? (await membersRes.json()).members || [] : [];
+                const students = studentsRes.ok ? (await studentsRes.json()).students || [] : [];
+                playRoster = [
+                    ...(fam.motherName ? [{ type: 'mother', refId: null, name: fam.motherName }] : []),
+                    ...(fam.fatherName ? [{ type: 'father', refId: null, name: fam.fatherName }] : []),
+                    ...students.map(s => ({ type: 'student', refId: s.id, name: s.name })),
+                    ...members.map(m => ({ type: 'family_member', refId: m.id, name: m.name }))
+                ].map((p, i) => ({ ...p, checked: i < 2 }));
+                renderPlayModalPlayerPicker();
+            } catch (err) {
+                console.error('[playModal] Could not load family roster:', err);
+                pickerEl.innerHTML = '<p class="text-xs text-error">Could not load family members — please close and reopen this.</p>';
+            }
+        }
+        function renderPlayModalPlayerPicker(){
+            const pickerEl = document.getElementById('playModalPlayerPicker');
+            const checkedCount = playRoster.filter(p => p.checked).length;
+            pickerEl.innerHTML = playRoster.map((p, i) => `
+                <label class="flex items-center gap-2.5 border-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${p.checked ? 'border-primary bg-primary-container/10' : 'border-outline-variant'}">
+                    <input type="checkbox" data-idx="${i}" ${p.checked ? 'checked' : ''} ${(!p.checked && checkedCount >= 4) ? 'disabled' : ''} class="w-4 h-4 accent-primary">
+                    <span class="font-body-md text-sm text-on-surface">${hwEscapeHtml(p.name)}</span>
+                </label>
+            `).join('');
+            pickerEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    playRoster[parseInt(cb.dataset.idx, 10)].checked = cb.checked;
+                    renderPlayModalPlayerPicker();
                 });
             });
-        });
-        document.querySelector('#playModalPlayerCount button[data-players="2"]').click();
+        }
 
-        let playScores = [];
         function openPlayModal(){
             playSessionToken++;
             resetPlayModal();
+            loadPlayModalPlayerPicker();
             document.getElementById('playModal').classList.remove('hidden');
         }
         function closePlayModal(){
             document.getElementById('playModal').classList.add('hidden');
+            if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
         }
         function resetPlayModal(){
+            if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+            playMyGamePlayerId = null;
             document.getElementById('playModalForm').classList.remove('hidden');
+            document.getElementById('playModalTimerStep').classList.add('hidden');
+            document.getElementById('playModalGame').classList.add('hidden');
             document.getElementById('playModalResults').classList.add('hidden');
             document.getElementById('playModalText').value = '';
             document.getElementById('playModalClearAttach').click();
             document.getElementById('playModalErrBox').classList.add('hidden');
+            document.getElementById('playModalTimerErrBox').classList.add('hidden');
             const btn = document.getElementById('playModalSubmitBtn');
             btn.disabled = false;
-            btn.textContent = 'Start playing';
-        }
-        function renderPlayScoreboard(){
-            const el = document.getElementById('playModalScoreboard');
-            el.innerHTML = playScores.map((s, i) => `<span class="font-label-md text-xs bg-surface-container-high text-on-surface px-3 py-1.5 rounded-full">Player ${i + 1}: ${s} pts</span>`).join('');
-        }
-        function renderPlayQuiz(questions){
-            const area = document.getElementById('playModalQuizArea');
-            area.innerHTML = '';
-            questions.forEach((q, qi) => {
-                const playerNum = (qi % playSelectedPlayers) + 1;
-                const card = document.createElement('div');
-                card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5 mb-3.5';
-                card.innerHTML = `
-                    <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1} of ${questions.length} — Player ${playerNum}'s turn · ${q.points || 10} pts</div>
-                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.question)}</div>
-                    <div class="grid gap-2" data-role="opts"></div>
-                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
-                `;
-                const optsWrap = card.querySelector('[data-role="opts"]');
-                q.options.forEach((opt, oi) => {
-                    const btn = document.createElement('button');
-                    btn.className = HW_OPT_DEFAULT;
-                    btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
-                    btn.addEventListener('click', () => {
-                        const allBtns = optsWrap.querySelectorAll('button');
-                        allBtns.forEach(b => b.disabled = true);
-                        if (oi === q.correct) {
-                            btn.className = HW_OPT_CORRECT;
-                            btn.querySelector('[data-role="mark"]').textContent = '✓';
-                            playScores[playerNum - 1] += (q.points || 10);
-                        } else {
-                            btn.className = HW_OPT_WRONG;
-                            btn.querySelector('[data-role="mark"]').textContent = '✗';
-                            const correctBtn = allBtns[q.correct];
-                            correctBtn.className = HW_OPT_CORRECT;
-                            correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
-                        }
-                        const explainBox = card.querySelector('[data-role="explain"]');
-                        explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(q.explain)}`;
-                        explainBox.classList.remove('hidden');
-                        renderPlayScoreboard();
-                    });
-                    optsWrap.appendChild(btn);
-                });
-                area.appendChild(card);
-            });
+            btn.textContent = 'Next: pick a timer';
+            document.querySelectorAll('#playModalTimerPicker button').forEach(b => b.classList.remove('border-primary', 'bg-primary-container/10', 'text-primary'));
+            playSelectedTimeLimit = null;
+            document.getElementById('playModalStartGameBtn').disabled = true;
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            playGameSessionId = null; playQuestionsPerPlayer = null; playPlayers = []; playQuestionQueue = {};
+            playPrefetchPromises = {}; playTurnIdx = 0; playLap = 0; playCurrentQuestion = null;
+            playPendingPoints = 0; playPendingCorrect = false;
+            playNextTurnOrder = 1; playNextLap = 0; playNextIsGameOver = false;
+            document.getElementById('playModalTurnTransition').classList.add('hidden');
+            document.getElementById('playModalQuestionArea').classList.remove('hidden');
+            document.getElementById('playModalInvitePanel').classList.remove('hidden');
+            document.getElementById('playModalInviteResults').innerHTML = '';
         }
 
-        document.getElementById('playModalSubmitBtn').addEventListener('click', async () => {
+        // Minimal host-side invite trigger — invites every player in this
+        // game (the server skips student players itself, since remote
+        // children join by QR/code, not email; see /invite's per-player
+        // error entries). No selection UI: this exists to make
+        // POST /api/game-sessions/:id/invite testable from a real browser,
+        // not to be the final invite experience.
+        async function playModalSendInvites(){
+            const btn = document.getElementById('playModalInviteBtn');
+            const resultsEl = document.getElementById('playModalInviteResults');
+            btn.disabled = true; btn.textContent = 'Sending invites…';
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/invite`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gamePlayerIds: playPlayers.map(p => p.id) })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not send invites');
+                resultsEl.innerHTML = data.invited.map(inv => `
+                    <div class="text-xs bg-surface-container-lowest border border-outline-variant rounded-lg px-2.5 py-2">
+                        <div class="font-label-md text-on-surface">${hwEscapeHtml(inv.playerName)} — ${inv.delivered ? '✅ emailed' : (inv.error ? '⚠️ ' + hwEscapeHtml(inv.error) : '📋 copy link below')}</div>
+                        ${inv.joinLink ? `<input readonly class="w-full mt-1 text-[11px] bg-transparent border border-outline-variant/40 rounded px-1.5 py-1" value="${inv.joinLink}" onclick="this.select()">` : ''}
+                    </div>
+                `).join('');
+            } catch (err) {
+                resultsEl.innerHTML = `<p class="text-xs text-error">${hwEscapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false; btn.textContent = 'Invite players (remote)';
+            }
+        }
+
+        // Entry point for a magic-link invite (see the page-load check near
+        // the bottom of this file): skips the create-game form entirely and
+        // drops this device straight into an already-in-progress session,
+        // driven by polling instead of the host device's locally-tracked
+        // turn order.
+        async function playModalJoinRemoteGame(gameSessionId, gamePlayerId){
+            playSessionToken++;
+            resetPlayModal();
+            playGameSessionId = gameSessionId;
+            playMyGamePlayerId = gamePlayerId;
+            document.getElementById('playModalForm').classList.add('hidden');
+            document.getElementById('playModalInvitePanel').classList.add('hidden');
+            document.getElementById('playModal').classList.remove('hidden');
+            await playModalRefreshRemoteState();
+        }
+
+        // Polls GET /state and either shows "waiting for X's turn" or, once
+        // it's this device's own turn, hands off to the same playStartTurn()
+        // the host device uses. From that point this device behaves exactly
+        // like the host for its own turn (playModalSubmitAnswer ->
+        // playModalAdvanceTurn already reads currentTurnOrder from its own
+        // /answer response, no polling needed) — polling only resumes once
+        // this device goes back to waiting on someone else again.
+        async function playModalRefreshRemoteState(){
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/state`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not load this game.');
+
+                if (data.status !== 'in_progress') {
+                    if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+                    document.getElementById('playModalGame').classList.add('hidden');
+                    document.getElementById('playModalForm').classList.remove('hidden');
+                    const errBox = document.getElementById('playModalErrBox');
+                    errBox.textContent = data.status === 'completed' ? 'This game has already finished.' : 'This game is no longer available.';
+                    errBox.classList.remove('hidden');
+                    return;
+                }
+
+                playPlayers = data.players;
+                playSelectedTimeLimit = data.timeLimitSeconds;
+                playQuestionsPerPlayer = data.questionsPerPlayer;
+                playLap = data.currentLap;
+                playTurnIdx = playPlayers.findIndex(p => p.turnOrder === data.currentTurnOrder);
+
+                document.getElementById('playModalGame').classList.remove('hidden');
+                renderPlayScoreboard();
+
+                const me = playPlayers.find(p => p.id === playMyGamePlayerId);
+                if (me && me.turnOrder === data.currentTurnOrder) {
+                    if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+                    playStartTurn();
+                    return;
+                }
+
+                const upNext = playPlayers.find(p => p.turnOrder === data.currentTurnOrder);
+                document.getElementById('playModalQuestionArea').innerHTML =
+                    `<p class="text-sm text-on-surface-variant text-center py-10">Waiting for ${hwEscapeHtml(upNext ? upNext.name : 'the next player')}'s turn…</p>`;
+
+                if (!playPollHandle) playPollHandle = setInterval(playModalRefreshRemoteState, 4000);
+            } catch (err) {
+                console.error('[playModal] Could not load remote game state:', err);
+            }
+        }
+
+        function playModalBackToForm(){
+            document.getElementById('playModalTimerStep').classList.add('hidden');
+            document.getElementById('playModalForm').classList.remove('hidden');
+        }
+
+        document.getElementById('playModalSubmitBtn').addEventListener('click', () => {
             const playTopic = document.getElementById('playModalText').value.trim();
-            const lang = document.getElementById('playModalLang').value;
             const errBox = document.getElementById('playModalErrBox');
-            const submitBtn = document.getElementById('playModalSubmitBtn');
+            const checkedCount = playRoster.filter(p => p.checked).length;
             if (!playTopic && !playAttachState.base64) {
                 errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
                 errBox.classList.remove('hidden');
                 return;
             }
+            if (checkedCount < 2) {
+                errBox.textContent = 'Pick at least 2 players.';
+                errBox.classList.remove('hidden');
+                return;
+            }
             errBox.classList.add('hidden');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'Preparing questions…';
-            const requestToken = playSessionToken;
-            const totalQuestions = playSelectedPlayers * 3;
-            try {
-                const childContext = await getSharedChildContext();
-                const systemPrompt = `You are Tut-P, an assistant that turns a school lesson into a family quiz game for a parent and child (and other family members) to play together, with no timer — they discuss each question as long as they like before answering.
-Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label","questions":[{"question":"short question in ${lang} testing understanding of the lesson","options":["A","B","C","D"],"correct":0,"explain":"one clear sentence in ${lang}, written for the child, explaining why the correct answer is right and, if relevant, why a wrong choice would be wrong","points":10}]}
-Generate exactly ${totalQuestions} questions, varying difficulty a little and varying "points" between 5 and 15 accordingly. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
-                const userContent = [];
-                if (playAttachState.base64) {
-                    userContent.push({ type: playAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: playAttachState.mediaType, data: playAttachState.base64 } });
-                }
-                userContent.push({ type: 'text', text: playTopic ? `Lesson: ${playTopic}` : 'Read the lesson in the attached photo or PDF and build the quiz from it.' });
+            document.getElementById('playModalForm').classList.add('hidden');
+            document.getElementById('playModalTimerStep').classList.remove('hidden');
+        });
 
-                const parsed = await callHomeworkApi(systemPrompt, userContent);
+        document.querySelectorAll('#playModalTimerPicker button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                playSelectedTimeLimit = parseInt(btn.dataset.seconds, 10);
+                document.querySelectorAll('#playModalTimerPicker button').forEach(b => {
+                    b.classList.toggle('border-primary', b === btn);
+                    b.classList.toggle('bg-primary-container/10', b === btn);
+                    b.classList.toggle('text-primary', b === btn);
+                });
+                document.getElementById('playModalStartGameBtn').disabled = false;
+            });
+        });
+
+        function playModalBuildLessonContent(){
+            const playTopic = document.getElementById('playModalText').value.trim();
+            const content = [];
+            if (playAttachState.base64) {
+                content.push({ type: playAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: playAttachState.mediaType, data: playAttachState.base64 } });
+            }
+            content.push({ type: 'text', text: playTopic ? `Lesson: ${playTopic}` : 'Read the lesson in the attached photo or PDF and build the game from it.' });
+            return content;
+        }
+
+        document.getElementById('playModalStartGameBtn').addEventListener('click', async () => {
+            const errBox = document.getElementById('playModalTimerErrBox');
+            const startBtn = document.getElementById('playModalStartGameBtn');
+            errBox.classList.add('hidden');
+            startBtn.disabled = true;
+            const requestToken = playSessionToken;
+            const stopLoading = startStagedLoading(startBtn, ['Preparing your game…', 'Writing questions…', 'Almost ready…'], 7000);
+            try {
+                const familyId = sessionStorage.getItem('tutp_family_id');
+                const childContext = await getSharedChildContext();
+                const lang = document.getElementById('playModalLang').value;
+                const lessonContent = playModalBuildLessonContent();
+                const selected = playRoster.filter(p => p.checked);
+                const res = await fetch('/api/game-sessions', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        familyId, language: lang, timeLimitSeconds: playSelectedTimeLimit, childContext, lessonContent,
+                        players: selected.map(p => ({ type: p.type, refId: p.refId, name: p.name }))
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not start the game.');
                 if (requestToken !== playSessionToken) return;
 
-                playScores = new Array(playSelectedPlayers).fill(0);
-                document.getElementById('playModalForm').classList.add('hidden');
-                document.getElementById('playModalResults').classList.remove('hidden');
+                playGameSessionId = data.gameSessionId;
+                playQuestionsPerPlayer = data.questionsPerPlayer;
+                playPlayers = data.players.map(p => ({ id: p.id, turnOrder: p.turnOrder, name: p.name, score: 0, correctCount: 0 }));
+                playQuestionQueue[1] = data.player1Questions;
+                playPrefetchPromises[1] = Promise.resolve();
+                playTurnIdx = 0; playLap = 0;
+
+                // Fire prefetch for every other player immediately, in the
+                // background — usually finishes well before their turn.
+                for (let t = 2; t <= playPlayers.length; t++) playModalPrefetch(t, lessonContent, childContext);
+
+                document.getElementById('playModalTimerStep').classList.add('hidden');
+                document.getElementById('playModalGame').classList.remove('hidden');
                 renderPlayScoreboard();
-                renderPlayQuiz(parsed.questions || []);
+                playStartTurn();
             } catch (err) {
                 if (requestToken !== playSessionToken) return;
-                console.error('[playModal] Question request failed:', err);
-                if (err.name === 'ModalParseError') {
-                    console.error('[playModal] Raw AI response that failed to parse:', err.rawText);
-                    errBox.textContent = "Couldn't build a quiz from this — try attaching the actual lesson page or typing what it's about.";
-                } else {
-                    errBox.textContent = err.message;
-                }
+                console.error('[playModal] Could not start game:', err);
+                errBox.textContent = err.message || "Couldn't build a game from this — try attaching the actual lesson page or typing what it's about.";
                 errBox.classList.remove('hidden');
             } finally {
-                if (requestToken === playSessionToken) {
-                    submitBtn.disabled = false;
-                    submitBtn.textContent = 'Start playing';
-                }
+                stopLoading();
+                if (requestToken === playSessionToken) startBtn.disabled = false;
             }
         });
+
+        // Returns the SAME promise to every caller for a given turnOrder while
+        // one is in flight, so playStartTurn's fallback (called when a turn
+        // arrives before the background kickoff has finished) correctly waits
+        // for that same request instead of finding "already marked, nothing to
+        // do" and failing instantly — the bug that caused "Could not prepare
+        // the next question" even though the original request went on to
+        // succeed a few seconds later. On failure the entry is cleared so a
+        // later call starts a genuinely fresh attempt rather than being stuck
+        // replaying a dead promise forever.
+        function playModalPrefetch(turnOrder, lessonContent, childContext){
+            if (playPrefetchPromises[turnOrder]) return playPrefetchPromises[turnOrder];
+            const promise = (async () => {
+                try {
+                    const res = await fetch(`/api/game-sessions/${playGameSessionId}/players/${turnOrder}/generate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lessonContent, childContext })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Prefetch failed');
+                    playQuestionQueue[turnOrder] = data.questions;
+                } catch (err) {
+                    console.error('[playModal] Prefetch failed for player', turnOrder, err);
+                    delete playPrefetchPromises[turnOrder]; // allow a fresh retry when their turn actually arrives
+                }
+            })();
+            playPrefetchPromises[turnOrder] = promise;
+            return promise;
+        }
+
+        function renderPlayScoreboard(){
+            const el = document.getElementById('playModalScoreboard');
+            el.innerHTML = playPlayers.map((p, i) => `<span class="font-label-md text-xs px-3 py-1.5 rounded-full ${i === playTurnIdx ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'}">${hwEscapeHtml(p.name)}: ${p.score} pts</span>`).join('');
+        }
+
+        async function playStartTurn(){
+            const player = playPlayers[playTurnIdx];
+            let queue = playQuestionQueue[player.turnOrder];
+            if (!queue) {
+                // Prefetch hadn't finished (or failed) — generate inline now.
+                const area = document.getElementById('playModalQuestionArea');
+                area.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-6">Preparing ' + hwEscapeHtml(player.name) + "'s questions…</p>";
+                await playModalPrefetch(player.turnOrder, playModalBuildLessonContent(), await getSharedChildContext());
+                queue = playQuestionQueue[player.turnOrder];
+                if (!queue) {
+                    area.innerHTML = '<p class="text-sm text-error text-center py-6">Could not prepare the next question — please close and try again.</p>';
+                    return;
+                }
+            }
+            playCurrentQuestion = queue[playLap];
+            renderPlayQuestion(player, playCurrentQuestion);
+            playStartTimer();
+        }
+
+        function renderPlayQuestion(player, q){
+            const area = document.getElementById('playModalQuestionArea');
+            area.innerHTML = `
+                <div class="bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="font-label-md text-[11px] text-on-surface-variant">Question ${q.questionIndex} of ${playQuestionsPerPlayer} — ${hwEscapeHtml(player.name)}'s turn</div>
+                        <div class="font-label-md text-sm font-semibold text-primary" id="playModalTimerDisplay">${playSelectedTimeLimit}s</div>
+                    </div>
+                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.questionText)}</div>
+                    <div class="grid gap-2" data-role="opts"></div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
+                    <button class="hidden w-full bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-2.5 mt-3.5 hover:bg-primary/90 transition-colors" data-role="next">Next</button>
+                </div>
+            `;
+            const optsWrap = area.querySelector('[data-role="opts"]');
+            q.options.forEach((opt, oi) => {
+                const btn = document.createElement('button');
+                btn.className = HW_OPT_DEFAULT;
+                btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
+                btn.addEventListener('click', () => playModalSubmitAnswer(oi));
+                optsWrap.appendChild(btn);
+            });
+        }
+
+        function playStartTimer(){
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            playTimerRemaining = playSelectedTimeLimit;
+            playAnswerStartedAt = Date.now();
+            const display = document.getElementById('playModalTimerDisplay');
+            playTimerHandle = setInterval(() => {
+                playTimerRemaining--;
+                if (display) display.textContent = playTimerRemaining + 's';
+                if (playTimerRemaining <= 0) {
+                    clearInterval(playTimerHandle);
+                    playModalSubmitAnswer(null); // timeout — unanswered
+                }
+            }, 1000);
+        }
+
+        async function playModalSubmitAnswer(selectedIndex){
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            const area = document.getElementById('playModalQuestionArea');
+            const optsWrap = area.querySelector('[data-role="opts"]');
+            optsWrap.querySelectorAll('button').forEach(b => b.disabled = true);
+            const answerTimeSeconds = Math.min(playSelectedTimeLimit, Math.round((Date.now() - playAnswerStartedAt) / 1000));
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/answer`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameQuestionId: playCurrentQuestion.id, selectedIndex, answerTimeSeconds })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not record the answer');
+
+                const allBtns = optsWrap.querySelectorAll('button');
+                if (selectedIndex !== null) {
+                    const chosenBtn = allBtns[selectedIndex];
+                    chosenBtn.className = data.isCorrect ? HW_OPT_CORRECT : HW_OPT_WRONG;
+                    chosenBtn.querySelector('[data-role="mark"]').textContent = data.isCorrect ? '✓' : '✗';
+                }
+                if (!data.isCorrect) {
+                    const correctBtn = allBtns[data.correctIndex];
+                    correctBtn.className = HW_OPT_CORRECT;
+                    correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
+                }
+                const explainBox = area.querySelector('[data-role="explain"]');
+                explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(data.explanation)}`;
+                explainBox.classList.remove('hidden');
+
+                if (data.isCorrect && typeof confetti === 'function') {
+                    confetti({ particleCount: 50, spread: 55, origin: { y: 0.6 }, scalar: 0.8 });
+                }
+                // Not applied to the player/scoreboard yet — that happens in
+                // the turn-transition reveal (playModalAdvanceTurn) so the
+                // score bump feels earned instead of snapping in instantly.
+                playPendingPoints = data.pointsAwarded;
+                playPendingCorrect = data.isCorrect;
+                // Turn order is decided server-side, not computed here — see
+                // playModalAdvanceTurn.
+                playNextTurnOrder = data.currentTurnOrder;
+                playNextLap = data.currentLap;
+                playNextIsGameOver = data.isGameOver;
+
+                const nextBtn = area.querySelector('[data-role="next"]');
+                nextBtn.classList.remove('hidden');
+                nextBtn.addEventListener('click', playModalAdvanceTurn, { once: true });
+            } catch (err) {
+                console.error('[playModal] Answer submission failed:', err);
+                area.insertAdjacentHTML('beforeend', `<p class="text-sm text-error mt-2">${hwEscapeHtml(err.message)}</p>`);
+            }
+        }
+
+        async function playModalAdvanceTurn(){
+            const finishedPlayer = playPlayers[playTurnIdx];
+            const oldScore = finishedPlayer.score;
+            finishedPlayer.score += playPendingPoints;
+            if (playPendingCorrect) finishedPlayer.correctCount++;
+
+            // Whose turn is next was already decided server-side inside
+            // POST /answer (see migration 015) — this just renders it, so a
+            // remote device polling GET /state agrees with what happens
+            // here instead of each device computing its own answer.
+            playLap = playNextLap;
+            const isGameOver = playNextIsGameOver;
+            const nextPlayer = isGameOver ? null : playPlayers.find(p => p.turnOrder === playNextTurnOrder);
+            if (nextPlayer) playTurnIdx = playPlayers.indexOf(nextPlayer);
+
+            await playModalShowTurnTransition(finishedPlayer, oldScore, finishedPlayer.score, nextPlayer);
+            renderPlayScoreboard();
+
+            if (isGameOver) {
+                playModalCompleteGame();
+                return;
+            }
+            playStartTurn();
+        }
+
+        // Brief CSS-flip card shown in place of the question area between
+        // turns: reveals the score just earned with a count-up, then names
+        // whoever's turn is next — replaces the old instant scoreboard bump
+        // with something that feels suspenseful for a couple hundred ms.
+        function playModalShowTurnTransition(player, oldScore, newScore, nextPlayer){
+            return new Promise(resolve => {
+                const questionArea = document.getElementById('playModalQuestionArea');
+                const overlay = document.getElementById('playModalTurnTransition');
+                questionArea.classList.add('hidden');
+                overlay.classList.remove('hidden');
+                overlay.innerHTML = `
+                    <div class="play-turn-transition bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-6 text-center">
+                        <div class="font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1">${hwEscapeHtml(player.name)}</div>
+                        <div class="font-headline-sm text-2xl font-bold text-primary" id="playTransitionScore">${oldScore} pts</div>
+                        <div class="font-body-md text-sm text-on-surface-variant mt-3">${nextPlayer ? `Next: ${hwEscapeHtml(nextPlayer.name)}'s turn` : 'Final scores…'}</div>
+                    </div>`;
+                playAnimateCount(document.getElementById('playTransitionScore'), oldScore, newScore, 600, ' pts');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.innerHTML = '';
+                    questionArea.classList.remove('hidden');
+                    resolve();
+                }, 900);
+            });
+        }
+
+        function playAnimateCount(el, from, to, duration, suffix){
+            if (!el || from === to) { if (el) el.textContent = to + (suffix || ''); return; }
+            const start = performance.now();
+            function step(now){
+                const progress = Math.min((now - start) / duration, 1);
+                el.textContent = Math.round(from + (to - from) * progress) + (suffix || '');
+                if (progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        async function playModalCompleteGame(){
+            document.getElementById('playModalGame').classList.add('hidden');
+            const requestToken = playSessionToken;
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/complete`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not finish the game');
+                if (requestToken !== playSessionToken) return;
+
+                document.getElementById('playModalResults').classList.remove('hidden');
+                const winner = data.leaderboard.find(p => p.playerId === data.winnerId);
+                document.getElementById('playModalWinnerBanner').textContent = `🏆 Winner of the Day: ${winner.name}!` + (data.isGameChangerToday ? ' · Fastest game today!' : '');
+                document.getElementById('playModalFinalLeaderboard').innerHTML = data.leaderboard.map(p => `
+                    <div class="flex items-center justify-between px-3.5 py-2 rounded-lg ${p.rank === 1 ? 'bg-tertiary-container/40 border-2 border-tertiary' : 'bg-surface-container-high'}">
+                        <span class="font-body-md text-sm text-on-surface">${p.rank === 1 ? '🏆 ' : ''}${p.rank}. ${hwEscapeHtml(p.name)}</span>
+                        <span class="font-label-md text-sm font-semibold text-on-surface">${p.score} pts</span>
+                    </div>
+                `).join('');
+
+                const byPlayer = Object.fromEntries(playPlayers.map(p => [p.id, p.name]));
+                document.getElementById('playModalRecap').innerHTML = data.recap.map(q => `
+                    <div class="flex items-center justify-between gap-2 text-[13px] px-3 py-1.5 bg-surface-container-low rounded-lg">
+                        <span class="text-on-surface-variant">${q.isCorrect ? '✓' : '✗'} ${hwEscapeHtml(byPlayer[q.playerId] || '')} · Q${q.questionIndex}</span>
+                        <span class="text-[10px] uppercase tracking-wide text-on-tertiary-container bg-tertiary-container/50 px-2 py-0.5 rounded-full">${hwEscapeHtml(PLAY_CATEGORY_LABELS[q.cognitiveCategory] || 'General')}</span>
+                    </div>
+                `).join('');
+
+                playModalDrawShareCard(winner);
+            } catch (err) {
+                console.error('[playModal] Could not complete game:', err);
+                document.getElementById('playModalResults').classList.remove('hidden');
+                document.getElementById('playModalWinnerBanner').textContent = '';
+                document.getElementById('playModalFinalLeaderboard').innerHTML = `<p class="text-sm text-error">${hwEscapeHtml(err.message)}</p>`;
+            }
+        }
+
+        function playModalDrawShareCard(winner){
+            const canvas = document.getElementById('playModalShareCanvas');
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 600, 600);
+            grad.addColorStop(0, '#5B4FE9'); grad.addColorStop(1, '#8B7FF2');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 600);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 34px sans-serif';
+            ctx.fillText('🏆 Winner of the Day', 300, 220);
+            ctx.font = 'bold 48px sans-serif';
+            ctx.fillText(winner.name, 300, 300);
+            ctx.font = '28px sans-serif';
+            ctx.fillText(`${winner.score} points`, 300, 350);
+            ctx.font = '18px sans-serif';
+            ctx.fillText(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 300, 400);
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText('Tut-P · Play-Based Learning', 300, 550);
+
+            document.getElementById('playModalShareBtn').onclick = async () => {
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], 'winner-of-the-day.png', { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({ files: [file], title: 'Winner of the Day', text: `${winner.name} won today's Tut-P family quiz with ${winner.score} points!` });
+                            return;
+                        } catch (err) { /* user cancelled or share failed — fall through to download */ }
+                    }
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = 'winner-of-the-day.png';
+                    a.click();
+                }, 'image/png');
+            };
+        }
 
         // ---------------- Experiential Learning ----------------
         // v1 is text-only: no YouTube search/relevance-check (no such
@@ -1859,14 +2432,18 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
 
         // A family member reaching this page has no login of their own —
         // the only identity we can establish is by asking. tutp_family_id
-        // comes either from an existing session (the mother/father preview
-        // link) or a ?fid= query param on a shared link; once we also know
-        // tutp_family_member_id, the personal bonding score and per-member
-        // visibility rules can be applied.
+        // comes from an existing session (the mother/father "Switch" row's
+        // /app/family-member/?preview=1 link, the only thing that actually
+        // links here); once we also know tutp_family_member_id, the
+        // personal bonding score and per-member visibility rules can be
+        // applied. (A prior version of this also accepted tutp_family_id
+        // straight from a ?fid= query param, described as coming from "a
+        // shared link" — no such link was ever generated anywhere in the
+        // app, and every protected endpoint re-validates ownership against
+        // the real session cookie regardless, so removed as dead code
+        // describing a feature that didn't exist.)
         (function initViewerIdentity(){
             const params = new URLSearchParams(window.location.search);
-            const fid = params.get('fid');
-            if (fid) sessionStorage.setItem('tutp_family_id', fid);
             if (params.get('preview') === '1') sessionStorage.setItem('tutp_preview_mode', '1');
         })();
 
@@ -1900,6 +2477,95 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                 `).join('');
             } catch (err) {
                 console.error('[family-member] Could not load child chips:', err);
+            }
+        })();
+
+        // Landed here from a Play-Based Learning magic-link invite
+        // (POST /api/game-invite/consume is the one-shot, session-gated
+        // step — the login page's own resolve call before OTP grants
+        // nothing). Clears ?joinGame= from the URL immediately after
+        // consuming so a page refresh doesn't try to consume an
+        // already-used token again.
+        (async function checkGameInvite(){
+            const params = new URLSearchParams(location.search);
+            const joinToken = params.get('joinGame');
+            if (!joinToken) return;
+            params.delete('joinGame');
+            const cleanUrl = location.pathname + (params.toString() ? '?' + params.toString() : '');
+            history.replaceState(null, '', cleanUrl);
+            try {
+                const res = await fetch('/api/game-invite/consume', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: joinToken })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not join this game.');
+                await playModalJoinRemoteGame(data.gameSessionId, data.gamePlayerId);
+            } catch (err) {
+                console.error('[family-member] Could not join game from invite link:', err);
+                // Surfaced the same way every other modal on this page shows
+                // its own errors (a dedicated err box) instead of only
+                // logging to the console — silently landing on the normal
+                // dashboard gave no indication the join attempt failed at
+                // all, e.g. an expired/already-used/wrong-family link.
+                openPlayModal();
+                const errBox = document.getElementById('playModalErrBox');
+                errBox.textContent = err.message || 'Could not join this game.';
+                errBox.classList.remove('hidden');
+            }
+        })();
+
+        // Landed here after a real login that started from the root
+        // homepage's "attach homework" widget (index.html sets these
+        // sessionStorage keys right before sending the parent to
+        // /app/login/, which now routes here the same as any other login —
+        // see CLAUDE.md, this used to shortcut straight to /demo/ instead).
+        // The homepage now offers the same 6 modes as this page's own
+        // search-bar attach chooser (see routeSearchAttachTo above), so this
+        // looks up whichever mode was actually chosen there and opens that
+        // mode's own modal — silently doing nothing for a mode this page
+        // doesn't recognize (e.g. the Online Exam placeholder, which never
+        // sets these keys in the first place). Fetches the already-uploaded
+        // file back from its Supabase public URL and feeds it into that
+        // modal's attach input the same way a manual file pick would. Same
+        // 15-minute freshness window as before, so a long-abandoned attach
+        // flow (attach -> submit -> back out before finishing OTP) can't
+        // hijack an unrelated, later login.
+        const PENDING_ATTACH_MODES = {
+            homework: () => { openHomeworkModal('homework'); return hwModalAttachInput; },
+            quiz: () => { openHomeworkModal('quiz'); return hwModalAttachInput; },
+            story: () => { openStorytellingModal(); return storyModalAttachInput; },
+            play: () => { openPlayModal(); return document.getElementById('playModalAttachInput'); },
+            experiential: () => { openExperientialModal(); return document.getElementById('experientialModalAttachInput'); }
+        };
+        (async function checkPendingAttach(){
+            // A game invite link (?joinGame=) takes priority when both are
+            // pending on the same load — it's an explicit, time-boxed
+            // invite to a specific live session (2-hour expiry, one-shot
+            // token) that someone else may be waiting on, versus a homework
+            // attachment that can simply be resumed on a later visit within
+            // its own 15-minute window. Left untouched (not consumed) here,
+            // so it's still there if this page is reached again without a
+            // game invite in the URL.
+            if (new URLSearchParams(location.search).get('joinGame')) return;
+
+            const url = sessionStorage.getItem('tutp_pending_attach_url');
+            const mode = sessionStorage.getItem('tutp_pending_attach_mode');
+            const ts = parseInt(sessionStorage.getItem('tutp_pending_attach_ts'), 10);
+            sessionStorage.removeItem('tutp_pending_attach_url');
+            sessionStorage.removeItem('tutp_pending_attach_mode');
+            sessionStorage.removeItem('tutp_pending_attach_ts');
+            if (!url || !PENDING_ATTACH_MODES[mode] || !Number.isFinite(ts) || (Date.now() - ts) >= 15 * 60 * 1000) return;
+            try {
+                const blob = await (await fetch(url)).blob();
+                const file = new File([blob], url.split('/').pop() || 'homework', { type: blob.type });
+                const input = PENDING_ATTACH_MODES[mode]();
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change'));
+            } catch (err) {
+                console.error('[family-member] Could not pre-fill homepage attachment:', err);
             }
         })();
 

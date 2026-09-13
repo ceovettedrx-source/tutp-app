@@ -119,6 +119,25 @@
   const teacherId = sessionStorage.getItem('tutp_teacher_id');
   if (!teacherId) window.location.href = '/app/login/';
 
+  // A 403 from any /api/ call means the session cookie is missing or
+  // doesn't match sessionStorage's tutp_teacher_id — most likely a
+  // genuinely expired 30-day-inactive session. Without this, every fetch
+  // below just failed silently with no path back to login (this page was
+  // in fact the "third page" the comment above was watching for).
+  (function(){
+    const originalFetch = window.fetch;
+    window.fetch = function(input, init){
+      return originalFetch(input, init).then(res => {
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        if (res.status === 403 && url.startsWith('/api/')) {
+          try { sessionStorage.removeItem('tutp_teacher_id'); } catch (e) {}
+          window.location.href = '/app/login/';
+        }
+        return res;
+      });
+    };
+  })();
+
   const form = document.getElementById('createMaterialForm');
   const submitBtn = document.getElementById('submitBtn');
   const statusEl = document.getElementById('statusMessage');

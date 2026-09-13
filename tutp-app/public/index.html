@@ -8,6 +8,11 @@
 <title>Tut-P — The homework app that grades the parent, not just the child</title>
 <meta name="description" content="Tut-P turns your child's weekly classwork into a 10-minute guided moment together. Upload it, get a parent-friendly explanation in your language, guide your child, then see your own Bonding Report.">
 <link rel="canonical" href="https://tutp.online/">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#005bbf">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Tut-P">
@@ -126,6 +131,58 @@
 </button>
 </div>
 <p class="hidden text-sm text-on-surface-variant mt-2 px-2" id="homeAttachStatus"></p>
+</div>
+
+<!-- Search-bar attach chooser — same 6 modes as every logged-in dashboard's
+     own "+" attach icon (see routeSearchAttachTo there). Unifies the
+     homepage's hero search bar with that pattern instead of always
+     hardcoding Homework Help — see CLAUDE.md backlog. -->
+<div id="homeAttachChooser" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeAttachChooser()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Which one do you want?</h3>
+<button onclick="closeHomeAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Choose what to do with this file before you attach it.</p>
+<div class="space-y-2">
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('homework')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Homework Help</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Get a simple explanation of tonight's homework</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('story')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Storytelling Method</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a story your child will remember</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('play')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Play-Based Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a family quiz game</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('experiential')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Experiential Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('quiz')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Quiz</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Ask your child 5-10 questions one-on-one and see how they do</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('examPlaceholder')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Online Exam / Test</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Coming soon</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Online Exam / Test placeholder — same "coming soon" as the dashboards'
+     6th chooser option; see CLAUDE.md backlog. -->
+<div id="homeExamComingSoonModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeExamComingSoonModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6 text-center">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 block">fact_check</span>
+<h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Online Exam / Test</h3>
+<p class="font-body-md text-sm text-on-surface-variant mb-5">A formal, single-child exam mode is coming soon.</p>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" onclick="closeHomeExamComingSoonModal()">Got it</button>
+</div>
 </div>
 
 <div class="grid md:grid-cols-2 gap-lg items-center text-left w-full mt-8">
@@ -434,6 +491,14 @@
     };
     function triggerAttach(kind){
         document.getElementById('attachMenu').classList.add('hidden');
+        // Matches the logged-in dashboards' own search-bar attach chooser
+        // (handleSearchAttach there) — none of the 6 modes' attach inputs
+        // accept video, so this fails fast here instead of letting a video
+        // upload succeed only to break once it reaches a dashboard's modal.
+        if (kind === 'video') {
+            alert('Video attachments aren\'t supported yet — please attach a photo or a PDF document instead.');
+            return;
+        }
         homeAttachInputs[kind].click();
     }
     Object.values(homeAttachInputs).forEach(input => {
@@ -476,9 +541,31 @@
             statusEl.classList.remove('hidden');
             return;
         }
-        sessionStorage.setItem('tutp_pending_homework_url', pendingAttachUrl);
-        sessionStorage.setItem('tutp_pending_homework_ts', String(Date.now()));
+        document.getElementById('homeAttachChooser').classList.remove('hidden');
+    }
+    function closeHomeAttachChooser(){
+        document.getElementById('homeAttachChooser').classList.add('hidden');
+    }
+    // Same 6 modes as every dashboard's own search-bar attach chooser (see
+    // routeSearchAttachTo there) — picking a real one hands the already-
+    // uploaded file's URL plus the chosen mode to login via sessionStorage;
+    // whichever dashboard the parent lands on (see checkPendingAttach there)
+    // opens that exact mode pre-filled. The placeholder shows the same
+    // "coming soon" modal the dashboards use instead of navigating away, so
+    // the attachment stays available if the parent picks a real mode after.
+    function chooseHomeAttachMode(mode){
+        document.getElementById('homeAttachChooser').classList.add('hidden');
+        if (mode === 'examPlaceholder') {
+            document.getElementById('homeExamComingSoonModal').classList.remove('hidden');
+            return;
+        }
+        sessionStorage.setItem('tutp_pending_attach_url', pendingAttachUrl);
+        sessionStorage.setItem('tutp_pending_attach_mode', mode);
+        sessionStorage.setItem('tutp_pending_attach_ts', String(Date.now()));
         window.location.href = '/app/login/';
+    }
+    function closeHomeExamComingSoonModal(){
+        document.getElementById('homeExamComingSoonModal').classList.add('hidden');
     }
     function toggleHomeMic(){
         const statusEl = document.getElementById('homeAttachStatus');
