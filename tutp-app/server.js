@@ -405,7 +405,7 @@ const adminLoginLimiter = rateLimit({
 
 app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
   const { token } = req.body || {};
-  if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+  if (!process.env.ADMIN_TOKEN || String(token || '').trim() !== process.env.ADMIN_TOKEN.trim()) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (!process.env.SESSION_SECRET) {
@@ -431,7 +431,7 @@ function requireAdmin(req, res, next) {
       // Invalid/expired cookie — fall through to the query-token check.
     }
   }
-  if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) {
+  if (process.env.ADMIN_TOKEN && String(req.query.token || '').trim() === process.env.ADMIN_TOKEN.trim()) {
     return next();
   }
   return res.status(403).json({ error: 'Forbidden' });
