@@ -1175,7 +1175,7 @@ Parent's instruction: ${hwText || 'none given'}`;
                 const res = await fetch('/api/homework', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ systemPrompt, userContent })
+                    body: JSON.stringify({ systemPrompt, userContent, studentId: sessionStorage.getItem('tutp_student_id'), feature: hwCurrentMode === 'quiz' ? 'quiz' : 'homework_help' })
                 });
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
@@ -1512,11 +1512,11 @@ Parent's instruction: ${hwText || 'none given'}`;
             }
         }
 
-        async function callHomeworkApi(systemPrompt, userContent){
+        async function callHomeworkApi(systemPrompt, userContent, feature){
             const res = await fetch('/api/homework', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ systemPrompt, userContent })
+                body: JSON.stringify({ systemPrompt, userContent, studentId: sessionStorage.getItem('tutp_student_id'), feature })
             });
             if (!res.ok) {
                 // A 413 (oversized attachment) comes back as an HTML error page,
@@ -1672,7 +1672,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                 });
                 userContent.push({ type: 'text', text: storyTopic ? `Lesson: ${storyTopic}` : (storyAttachState.items.length > 1 ? 'Read the lesson in the attached photos/PDFs and turn it into a story.' : 'Read the lesson in the attached photo or PDF and turn it into a story.') });
 
-                const parsed = await callHomeworkApi(systemPrompt, userContent);
+                const parsed = await callHomeworkApi(systemPrompt, userContent, 'storytelling');
                 if (requestToken !== storySessionToken) return;
 
                 document.getElementById('storyModalForm').classList.add('hidden');
@@ -2367,7 +2367,7 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                 });
                 userContent.push({ type: 'text', text: topic ? `Lesson: ${topic}` : (experientialAttachState.items.length > 1 ? 'Read the lesson in the attached photos/PDFs and prepare notes from it.' : 'Read the lesson in the attached photo or PDF and prepare notes from it.') });
 
-                const parsed = await callHomeworkApi(systemPrompt, userContent);
+                const parsed = await callHomeworkApi(systemPrompt, userContent, 'experiential_learning');
                 if (requestToken !== experientialSessionToken) return;
 
                 document.getElementById('experientialModalForm').classList.add('hidden');

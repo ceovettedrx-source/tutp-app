@@ -1,0 +1,72 @@
+meta:
+  product: "Tut-P"
+  version: 1
+  created: 2026-09-13
+  destinations: [supabase]
+  pii_policy: traits_only
+  internal_user_policy: none
+
+groups:
+  - type: family
+    id_format: "bigint (family_registrations.id)"
+    is_top_level: true
+  - type: student
+    id_format: "uuid (students.id)"
+    parent_type: family
+
+events:
+  - name: session.started
+    category: core_value
+    group_level: student
+    description: Parent opens one of the 6 learning-mode features for a child
+    properties:
+      - {name: feature, type: string, required: true, enum: [homework_help, quiz, storytelling, experiential_learning, play_based_learning, exam_prep]}
+      - {name: language, type: string, required: false}
+    expected_frequency: high
+
+  - name: session.completed
+    category: core_value
+    group_level: student
+    description: A feature session finishes (not abandoned)
+    properties:
+      - {name: feature, type: string, required: true}
+      - {name: duration_seconds, type: integer, required: false}
+    expected_frequency: high
+
+  - name: feedback.submitted
+    category: core_value
+    group_level: student
+    description: Parent answers the post-session pulse survey
+    properties:
+      - {name: feature, type: string, required: true}
+      - {name: sentiment, type: string, required: true, enum: [positive, neutral, negative]}
+      - {name: explanation_clear, type: boolean, required: false}
+      - {name: free_text, type: string, required: false, pii: true}
+    expected_frequency: medium
+
+  - name: feedback.classified
+    category: core_value
+    group_level: student
+    description: Claude API auto-classifies a non-positive feedback event
+    properties:
+      - {name: category, type: string, required: true, enum: [too_complex, content_error, technical_bug, general_difficulty, pattern_flag]}
+      - {name: auto_resolvable, type: boolean, required: true}
+    expected_frequency: low
+
+  - name: feedback.auto_resolved
+    category: core_value
+    group_level: student
+    description: System fixed the issue automatically, no founder involvement
+    properties:
+      - {name: category, type: string, required: true}
+      - {name: resolution_action, type: string, required: true}
+    expected_frequency: low
+
+  - name: feedback.escalated
+    category: core_value
+    group_level: student
+    description: Founder alerted — content-accuracy issue or detected pattern
+    properties:
+      - {name: category, type: string, required: true}
+      - {name: pattern_count, type: integer, required: false}
+    expected_frequency: low

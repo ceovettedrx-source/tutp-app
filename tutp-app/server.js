@@ -16,6 +16,8 @@ import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
+import { initTracking, trackSessionStarted, trackSessionCompleted } from './tracking/tracking.js';
+import { FEATURES } from './tracking/events.js';
 
 // Only needed to verify ID tokens (JWT signature + claims against Google's
 // public certs) — no service-account credential required for that specific
@@ -225,6 +227,7 @@ async function sendPendingHomeworkEmail(recipientName, email, items) {
 let supabase = null;
 if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  initTracking(supabase);
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
 }
@@ -3016,7 +3019,7 @@ function isValidHomeworkContentBlock(block) {
 // The browser never sees the API key — it only ever talks to this route.
 app.post('/api/homework', async (req, res) => {
   try {
-    const { systemPrompt, userContent } = req.body;
+    const { systemPrompt, userContent, studentId } = req.body;
     if (!systemPrompt || !userContent) {
       return res.status(400).json({ error: 'Missing systemPrompt or userContent' });
     }
@@ -3029,9 +3032,16 @@ app.post('/api/homework', async (req, res) => {
     if (attachmentCount > 2) {
       return res.status(400).json({ error: 'At most 2 photo/PDF attachments are allowed per request.' });
     }
+    const session = await requireOwnStudent(req, res, studentId);
+    if (!session) return;
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
+
+    const VALID_FEATURES = Object.values(FEATURES);
+    const feature = VALID_FEATURES.includes(req.body.feature) ? req.body.feature : FEATURES.HOMEWORK_HELP;
+
+    trackSessionStarted(session.familyId, studentId, { feature, language: req.body.language });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -3067,9 +3077,66 @@ app.post('/api/homework', async (req, res) => {
     }
 
     const data = await response.json();
+    trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
     res.json(data);
   } catch (err) {
     console.error('Server error:', err);
+    res.status(500).json({ error: 'Server error calling Claude' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Demo-only, no-login variant of /api/homework — /demo/ is a standalone
+// teaser with no account and no session cookie, so it can never satisfy
+// requireOwnStudent above. This route is the unauthenticated logic
+// /api/homework itself used to have (see git history), split out once
+// /api/homework gained a real per-student auth gate + tracking, rather
+// than punching a studentId-less bypass hole back into the real route.
+// No tracking here — there's no family/student to attribute it to.
+// ------------------------------------------------------------------
+app.post('/api/homework-demo', async (req, res) => {
+  try {
+    const { systemPrompt, userContent } = req.body;
+    if (!systemPrompt || !userContent) {
+      return res.status(400).json({ error: 'Missing systemPrompt or userContent' });
+    }
+    if (!Array.isArray(userContent) || !userContent.length || !userContent.every(isValidHomeworkContentBlock)) {
+      return res.status(400).json({ error: 'Invalid userContent' });
+    }
+    const attachmentCount = userContent.filter(b => b.type === 'image' || b.type === 'document').length;
+    if (attachmentCount > 2) {
+      return res.status(400).json({ error: 'At most 2 photo/PDF attachments are allowed per request.' });
+    }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 3000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userContent }]
+      })
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Anthropic API error (demo):', response.status, errText);
+      return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
+    }
+
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    console.error('Server error (demo):', err);
     res.status(500).json({ error: 'Server error calling Claude' });
   }
 });

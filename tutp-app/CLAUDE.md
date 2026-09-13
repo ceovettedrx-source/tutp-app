@@ -5,6 +5,24 @@
 - Large-scope changes (new pages, rewriting a file's structure/framework, anything touching many files, deploys, deletions) — show a short plan first and wait for confirmation before editing.
 - After finishing a task, give a short summary (3-4 lines) of what was done — not a full diff or file dump.
 
+## Review discipline
+
+- Non-trivial feature work runs through 5 stages: idea framing →
+  engineering plan review → design plan review → pre-ship review →
+  post-deploy QA. Self-authored, not a third-party tool (gstack was
+  evaluated and rejected — supply-chain/telemetry risk).
+- Idea framing must include at least one competitive/market check
+  (what similar EdTech products do, relevant stats) before building —
+  not optional, not a one-off.
+- A local, unversioned `.git/hooks/pre-commit` checklist hook enforces
+  this: blocks with y/n confirmation at a real terminal, auto-passes
+  and just logs when run non-interactively (e.g. this CLI agent's own
+  commits) — checklist content lives in the hook file itself.
+- Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
+  communication — it's a live production product with real users.
+  (The literal file/route `public/demo/index.html` is exempt — that's
+  its actual name, not a characterization of the product.)
+
 # Backlog
 
 - Discussion Method and Lecture Method are backlogged for the Teacher Module, post-launch — removed from the parent-page search-bar row (which now shows only Storytelling Method, Experiential Learning, Play-Based Learning).

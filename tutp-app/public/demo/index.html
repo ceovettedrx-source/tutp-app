@@ -280,7 +280,7 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
     // authorized as that real student — the exact "real AI answer next to
     // fabricated sample dashboard data" risk the dashboards' own homework
     // modal was built to avoid, just never closed off here.
-    const response = await fetch("/api/homework", {
+    const response = await fetch("/api/homework-demo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ systemPrompt, userContent })
