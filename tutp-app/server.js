@@ -352,6 +352,235 @@ function requireOwnTeacher(req, res, teacherId) {
   return session;
 }
 
+// ------------------------------------------------------------------
+// Admin auth — a browser-friendly cookie session on top of the existing
+// ADMIN_TOKEN shared secret, so the founder doesn't have to paste
+// ?token=... into every admin URL by hand. The query-string path stays
+// supported everywhere it's used today (cron/external tools may already
+// depend on it), so requireAdmin below accepts either.
+// ------------------------------------------------------------------
+const ADMIN_COOKIE_NAME = 'tutp_admin';
+const ADMIN_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+app.get('/admin/login', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head><title>Tut-P Admin Login</title></head>
+<body>
+  <h1>Admin Login</h1>
+  <form id="loginForm">
+    <input type="password" id="token" placeholder="Admin token" required>
+    <button type="submit">Log in</button>
+  </form>
+  <p id="err" style="color:red;display:none;"></p>
+  <script>
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const token = document.getElementById('token').value;
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token })
+      });
+      if (res.ok) {
+        window.location.href = '/admin/dashboard';
+      } else {
+        const errEl = document.getElementById('err');
+        errEl.textContent = 'Incorrect token.';
+        errEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>`);
+});
+
+const adminLoginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts — please wait 15 minutes and try again.' }
+});
+
+app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
+  const { token } = req.body || {};
+  if (!process.env.ADMIN_TOKEN || token !== process.env.ADMIN_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!process.env.SESSION_SECRET) {
+    return res.status(500).json({ error: 'Server is missing SESSION_SECRET configuration' });
+  }
+  const signed = jwt.sign({ admin: true }, process.env.SESSION_SECRET, { expiresIn: '7d' });
+  res.cookie(ADMIN_COOKIE_NAME, signed, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: ADMIN_COOKIE_MAX_AGE_MS
+  });
+  res.json({ ok: true });
+});
+
+function requireAdmin(req, res, next) {
+  const cookieToken = req.cookies?.[ADMIN_COOKIE_NAME];
+  if (cookieToken && process.env.SESSION_SECRET) {
+    try {
+      const decoded = jwt.verify(cookieToken, process.env.SESSION_SECRET);
+      if (decoded.admin) return next();
+    } catch (err) {
+      // Invalid/expired cookie — fall through to the query-token check.
+    }
+  }
+  if (process.env.ADMIN_TOKEN && req.query.token === process.env.ADMIN_TOKEN) {
+    return next();
+  }
+  return res.status(403).json({ error: 'Forbidden' });
+}
+
+app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const now = new Date();
+    const startOfTodayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+    const startOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+
+    const [signupsRes, dauRes, revenueRes, failedPaymentsRes, activePaidRes] = await Promise.all([
+      supabase.from('family_registrations').select('*', { count: 'exact', head: true }),
+      supabase.from('usage_events').select('family_id').eq('event_name', 'session.started').gte('created_at', startOfTodayUTC),
+      supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', startOfMonthUTC),
+      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', startOfMonthUTC),
+      // Lifetime, not just this month — every family_registrations row that
+      // has ever had a captured payment, regardless of when.
+      supabase.from('payments').select('student_id').eq('status', 'captured')
+    ]);
+    if (signupsRes.error) throw signupsRes.error;
+    if (dauRes.error) throw dauRes.error;
+    if (revenueRes.error) throw revenueRes.error;
+    if (failedPaymentsRes.error) throw failedPaymentsRes.error;
+    if (activePaidRes.error) throw activePaidRes.error;
+
+    // Supabase-js has no COUNT(DISTINCT col) — dedupe client-side over the
+    // (small, already status-filtered) row set instead. Nulls excluded to
+    // match SQL's COUNT(DISTINCT) semantics (student_id is nullable —
+    // 017_payments_student_id.sql — for payments made before per-child
+    // billing started populating it).
+    const todayDau = new Set((dauRes.data || []).map(r => r.family_id)).size;
+    const activePaidUsers = new Set((activePaidRes.data || []).map(r => r.student_id).filter(Boolean)).size;
+    const mtdRevenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
+
+    res.json({
+      totalSignups: signupsRes.count,
+      todayDau,
+      mtdRevenue,
+      failedPayments: failedPaymentsRes.count,
+      activePaidUsers
+    });
+  } catch (err) {
+    console.error('Admin KPIs error:', err);
+    res.status(500).json({ error: 'Could not load KPIs' });
+  }
+});
+
+app.get('/admin/dashboard', requireAdmin, (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html>
+<head>
+<title>Tut-P Admin Dashboard</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f5f6f8;
+    color: #1a1a1a;
+  }
+  h1 { font-size: 20px; margin: 0 0 20px; }
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+  }
+  @media (max-width: 900px) {
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .kpi-card {
+    background: #fff;
+    border: 1px solid #e2e5e9;
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .kpi-label {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 8px;
+  }
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #005bbf;
+    margin: 0;
+  }
+  .kpi-value.loading, .kpi-value.error { color: #999; font-size: 16px; font-weight: 400; }
+</style>
+</head>
+<body>
+  <h1>Tut-P Admin Dashboard</h1>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <p class="kpi-label">Total Signups</p>
+      <p class="kpi-value loading" id="kpi-totalSignups">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Today's DAU</p>
+      <p class="kpi-value loading" id="kpi-todayDau">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">MTD Revenue</p>
+      <p class="kpi-value loading" id="kpi-mtdRevenue">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Failed Payments</p>
+      <p class="kpi-value loading" id="kpi-failedPayments">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Active Paid Users</p>
+      <p class="kpi-value loading" id="kpi-activePaidUsers">…</p>
+    </div>
+  </div>
+  <script>
+    (async () => {
+      try {
+        const res = await fetch('/api/admin/kpis');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          el.textContent = val;
+          el.classList.remove('loading');
+        };
+        setVal('kpi-totalSignups', data.totalSignups);
+        setVal('kpi-todayDau', data.todayDau);
+        setVal('kpi-mtdRevenue', '₹' + Number(data.mtdRevenue).toLocaleString('en-IN'));
+        setVal('kpi-failedPayments', data.failedPayments);
+        setVal('kpi-activePaidUsers', data.activePaidUsers);
+      } catch (err) {
+        document.querySelectorAll('.kpi-value').forEach(el => {
+          el.textContent = 'Error';
+          el.classList.remove('loading');
+          el.classList.add('error');
+        });
+        console.error('[admin dashboard] Could not load KPIs:', err);
+      }
+    })();
+  </script>
+</body>
+</html>`);
+});
+
 // The one join every student-scoped route needs: does this session's family
 // actually own this student_id? Built once here, reused everywhere a route
 // takes a bare student_id with no family_id alongside it to check directly.
@@ -432,10 +661,7 @@ app.post('/api/waitlist', async (req, res) => {
 });
 
 // Protected export: /api/waitlist?token=YOUR_ADMIN_TOKEN
-app.get('/api/waitlist', async (req, res) => {
-  if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.get('/api/waitlist', requireAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
   try {
     const { data, error, count } = await supabase
@@ -473,10 +699,7 @@ app.post('/api/track-demo-use', async (req, res) => {
 
 // Combined admin view: waitlist signups + demo usage in one place.
 // Visit: /api/stats?token=YOUR_ADMIN_TOKEN
-app.get('/api/stats', async (req, res) => {
-  if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.get('/api/stats', requireAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
   try {
     const [waitlistRes, usageRes] = await Promise.all([
@@ -1562,10 +1785,7 @@ app.post('/api/teacher-registrations/:id/peer-vouch', peerVouchLimiter, async (r
 // answer when a district import lands, and parent_name_match turns from
 // 'no_data_yet' into one when that section's parents fill the field in.
 // Admin-token protected, same shared-secret pattern as /api/waitlist.
-app.post('/api/teacher-registrations/:id/evaluate', async (req, res) => {
-  if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.post('/api/teacher-registrations/:id/evaluate', requireAdmin, async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
   const result = await runVerificationSignals(req.params.id);
   if (!result) return res.status(404).json({ error: 'Registration not found, or signal evaluation failed — see server logs' });
@@ -4237,10 +4457,7 @@ app.post('/api/game-sessions/:id/complete', async (req, res) => {
 // Admin/internal only for now — no public banner yet (2026-09-09 founder
 // call: showing another family's child's name to other logged-in families
 // is a separate opt-in/privacy decision for post-launch).
-app.get('/api/game-changer-of-the-day', async (req, res) => {
-  if (!process.env.ADMIN_TOKEN || req.query.token !== process.env.ADMIN_TOKEN) {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
+app.get('/api/game-changer-of-the-day', requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const today = new Date().toISOString().slice(0, 10);
