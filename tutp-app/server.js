@@ -16,8 +16,12 @@ import jwt from 'jsonwebtoken';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
-import { initTracking, trackSessionStarted, trackSessionCompleted } from './tracking/tracking.js';
+import {
+  initTracking, trackSessionStarted, trackSessionCompleted,
+  trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated
+} from './tracking/tracking.js';
 import { FEATURES } from './tracking/events.js';
+import { classifyFeedback, autoResolveTooComplex, escalateToFounder } from './tracking/feedback-pipeline.js';
 
 // Only needed to verify ID tokens (JWT signature + claims against Google's
 // public certs) — no service-account credential required for that specific
@@ -52,6 +56,12 @@ if (process.env.RESEND_API_KEY) {
   });
 } else {
   console.warn('No email provider configured (RESEND_API_KEY or GMAIL_USER/GMAIL_APP_PASSWORD) — waitlist confirmation emails are disabled.');
+}
+
+async function sendEmail(to, subject, text) {
+  if (resend) return resend.emails.send({ from: 'alerts@tutp.online', to, subject, text });
+  if (mailer) return mailer.sendMail({ from: process.env.GMAIL_USER, to, subject, text });
+  console.error('No email transport configured — could not send:', subject);
 }
 
 async function sendWaitlistEmail(name, email) {
@@ -3107,6 +3117,43 @@ app.post('/api/homework', async (req, res) => {
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Server error calling Claude' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Post-session parent feedback pulse — a positive rating just gets
+// recorded; anything else runs through Claude for triage (too_complex
+// gets auto-rewritten and handed back immediately, everything else
+// escalates to the founder by email) rather than sitting unseen.
+// ------------------------------------------------------------------
+app.post('/api/feedback', async (req, res) => {
+  try {
+    const { studentId, feature, sentiment, explanationClear, freeText, originalExplanation } = req.body || {};
+    const session = await requireOwnStudent(req, res, studentId);
+    if (!session) return;
+
+    trackFeedbackSubmitted(session.familyId, studentId, { feature, sentiment, explanationClear, freeText });
+
+    if (sentiment === 'positive') {
+      res.json({ ok: true });
+      return;
+    }
+
+    const { category, auto_resolvable } = await classifyFeedback({ feature, sentiment, explanationClear, freeText, originalExplanation });
+    trackFeedbackClassified(session.familyId, studentId, { category, autoResolvable: auto_resolvable });
+
+    if (auto_resolvable) {
+      const newExplanation = await autoResolveTooComplex(originalExplanation);
+      trackFeedbackAutoResolved(session.familyId, studentId, { category, resolutionAction: 'simplified_explanation' });
+      res.json({ ok: true, resolved: true, newExplanation });
+    } else {
+      await escalateToFounder(sendEmail, { familyId: session.familyId, studentId, feature, category, note: freeText });
+      trackFeedbackEscalated(session.familyId, studentId, { category, patternCount: null });
+      res.json({ ok: true, escalated: true });
+    }
+  } catch (err) {
+    console.error('Feedback pipeline error:', err);
+    res.status(500).json({ error: 'Could not process feedback' });
   }
 });
 

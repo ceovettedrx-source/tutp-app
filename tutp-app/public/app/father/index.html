@@ -1215,6 +1215,10 @@ Parent's instruction: ${hwText || 'none given'}`;
                     document.getElementById('hwModalQuizBlock').classList.add('hidden');
                     renderHwModalHomeworkResult(parsed);
                 }
+                const hwFeedbackExplanation = hwCurrentMode === 'quiz'
+                    ? parsed.explanation
+                    : (parsed.concept_explanation || (parsed.extracted_questions || []).map(q => q.reasoning).join(' '));
+                showFeedbackPrompt(hwCurrentMode === 'quiz' ? 'quiz' : 'homework_help', hwFeedbackExplanation);
             } catch (err) {
                 if (requestToken !== hwSessionToken) return;
                 console.error('[hwModal] Explain request failed:', err);
@@ -1525,6 +1529,51 @@ Parent's instruction: ${hwText || 'none given'}`;
             return extractJsonFromClaudeText(textBlock.text);
         }
 
+        // Post-session parent feedback pulse — minimal, non-blocking, no
+        // styling polish yet. Shared by Homework Help/Quiz/Storytelling/
+        // Experiential Learning, fired right after each one's API call
+        // resolves successfully.
+        function submitFeedback(studentId, feature, sentiment, explanationClear, originalExplanation) {
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, feature, sentiment, explanationClear, freeText: null, originalExplanation })
+            }).catch(err => console.error('[feedback] Could not submit:', err));
+        }
+        function showFeedbackPrompt(feature, originalExplanation) {
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:240px;';
+            box.innerHTML = `
+                <div id="fbSentimentStep">
+                    <p style="margin:0 0 8px;">How was this?</p>
+                    <button type="button" data-sentiment="positive" style="font-size:20px;background:none;border:none;cursor:pointer;">😊</button>
+                    <button type="button" data-sentiment="neutral" style="font-size:20px;background:none;border:none;cursor:pointer;">😐</button>
+                    <button type="button" data-sentiment="negative" style="font-size:20px;background:none;border:none;cursor:pointer;">😟</button>
+                </div>
+                <div id="fbClearStep" style="display:none;">
+                    <p style="margin:0 0 8px;">Was the explanation clear?</p>
+                    <button type="button" data-clear="true" style="font-size:20px;background:none;border:none;cursor:pointer;">👍</button>
+                    <button type="button" data-clear="false" style="font-size:20px;background:none;border:none;cursor:pointer;">👎</button>
+                </div>
+            `;
+            document.body.appendChild(box);
+            let chosenSentiment = null;
+            box.querySelectorAll('[data-sentiment]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    chosenSentiment = btn.dataset.sentiment;
+                    box.querySelector('#fbSentimentStep').style.display = 'none';
+                    box.querySelector('#fbClearStep').style.display = 'block';
+                });
+            });
+            box.querySelectorAll('[data-clear]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    submitFeedback(studentId, feature, chosenSentiment, btn.dataset.clear === 'true', originalExplanation);
+                    box.remove();
+                });
+            });
+        }
+
         // ---------------- Storytelling Method ----------------
         let storySessionToken = 0;
         const storyAttachState = { items: [] };
@@ -1664,6 +1713,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
 
                 const parsed = await callHomeworkApi(systemPrompt, userContent, 'storytelling');
                 if (requestToken !== storySessionToken) return;
+                showFeedbackPrompt('storytelling', parsed.story);
 
                 document.getElementById('storyModalForm').classList.add('hidden');
                 document.getElementById('storyModalResults').classList.remove('hidden');
@@ -2359,6 +2409,7 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
 
                 const parsed = await callHomeworkApi(systemPrompt, userContent, 'experiential_learning');
                 if (requestToken !== experientialSessionToken) return;
+                showFeedbackPrompt('experiential_learning', (parsed.notes || []).join(' '));
 
                 document.getElementById('experientialModalForm').classList.add('hidden');
                 document.getElementById('experientialModalResults').classList.remove('hidden');
