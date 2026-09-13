@@ -3745,6 +3745,8 @@ app.post('/api/game-sessions', async (req, res) => {
       subject: generated.subject, questions_per_player: generated.questionsPerPlayer
     }).eq('id', session.id);
 
+    trackSessionStarted(familyId, null, { feature: FEATURES.PLAY_BASED_LEARNING });
+
     const player1 = playerRows.find(p => p.turn_order === 1);
     const { data: questionRows, error: qErr } = await supabase.from('game_questions')
       .insert(generated.questions.map((q, i) => ({
@@ -4174,6 +4176,8 @@ app.post('/api/game-sessions/:id/complete', async (req, res) => {
       status: 'completed', completed_at: completedAt.toISOString(), total_duration_seconds: totalDurationSeconds, winning_game_player_id: winner.id
     }).eq('id', session.id);
     if (updateErr) throw updateErr;
+
+    trackSessionCompleted(session.family_id, null, { feature: FEATURES.PLAY_BASED_LEARNING, durationSeconds: totalDurationSeconds });
 
     // Game Changer of the Day: replace today's badge holder only if this
     // game is now the fastest completed game today. No cron — correct in
