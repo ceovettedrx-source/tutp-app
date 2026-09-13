@@ -517,15 +517,40 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
+const registerLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts — please wait a minute and try again.' }
+});
+
 // ------------------------------------------------------------------
 // Family registration — saves the full multi-step registration form
 // as a single JSONB record (simple, fast to ship; can be normalized
 // into separate tables later once the schema is stable).
 // ------------------------------------------------------------------
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const payload = req.body || {};
+    const { regIdToken, ...payload } = req.body || {};
+    if (!regIdToken) return res.status(400).json({ error: 'Phone verification missing — please verify your number again.' });
+    let decoded;
+    try {
+      decoded = await getFirebaseAuth().verifyIdToken(regIdToken);
+    } catch (err) {
+      return res.status(401).json({ error: 'Phone verification expired — please verify your number again.' });
+    }
+    const normPhone = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+    const verifiedPhone = normPhone(decoded.phone_number);
+    if (!decoded.phone_number) {
+      return res.status(401).json({ error: 'This sign-in method is not supported' });
+    }
+    const motherPhone = normPhone(payload.mother?.phone);
+    const fatherPhone = normPhone(payload.father?.phone);
+    if (verifiedPhone !== motherPhone && verifiedPhone !== fatherPhone) {
+      return res.status(403).json({ error: 'The verified phone number must match the mother or father phone entered in this form.' });
+    }
     const children = Array.isArray(payload.children) ? payload.children : [];
     if (!children.length || !children[0]?.name) {
       return res.status(400).json({ error: "Missing child's name" });

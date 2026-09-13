@@ -762,7 +762,7 @@
       const res = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({ ...payload, regIdToken })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
