@@ -61,7 +61,7 @@ if (process.env.RESEND_API_KEY) {
 }
 
 async function sendEmail(to, subject, text) {
-  if (resend) return resend.emails.send({ from: 'alerts@tutp.online', to, subject, text });
+  if (resend) return resend.emails.send({ from: 'contact@tutp.online', to, subject, text });
   if (mailer) return mailer.sendMail({ from: process.env.GMAIL_USER, to, subject, text });
   console.error('No email transport configured — could not send:', subject);
 }
@@ -74,7 +74,7 @@ async function sendWaitlistEmail(name, email) {
   if (resend) {
     try {
       const { error } = await resend.emails.send({
-        from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>',
+        from: process.env.RESEND_FROM || 'Tut-P <contact@tutp.online>',
         to: email,
         subject, text, html
       });
@@ -112,7 +112,7 @@ async function sendTeacherRegistrationEmail(teacher) {
   if (resend) {
     try {
       const { error } = await resend.emails.send({
-        from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>',
+        from: process.env.RESEND_FROM || 'Tut-P <contact@tutp.online>',
         to: adminEmail,
         subject, text, html
       });
@@ -148,7 +148,7 @@ async function sendGameInviteEmail(recipientName, recipientEmail, joinLink) {
 
   if (resend) {
     try {
-      const { error } = await resend.emails.send({ from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>', to: recipientEmail, subject, text, html });
+      const { error } = await resend.emails.send({ from: process.env.RESEND_FROM || 'Tut-P <contact@tutp.online>', to: recipientEmail, subject, text, html });
       if (error) throw new Error(JSON.stringify(error));
       console.log('Game invite email sent via Resend to', recipientEmail);
       return true;
@@ -175,7 +175,7 @@ async function sendGameInviteEmail(recipientName, recipientEmail, joinLink) {
 // each pending item's section reads as coming from the teacher who
 // actually posted it (name, subject, school) rather than a generic
 // system notice. Still clearly marked as automated in the closing line —
-// a parent replying to this reaches hello@tutp.online, not the teacher,
+// a parent replying to this reaches contact@tutp.online, not the teacher,
 // so it must not read as if the teacher personally sent it.
 // Best-effort, same posture as the other notification helpers here.
 // ------------------------------------------------------------------
@@ -210,7 +210,7 @@ async function sendPendingHomeworkEmail(recipientName, email, items) {
   if (resend) {
     try {
       const { error } = await resend.emails.send({
-        from: process.env.RESEND_FROM || 'Tut-P <hello@tutp.online>',
+        from: process.env.RESEND_FROM || 'Tut-P <contact@tutp.online>',
         to: email,
         subject, text, html
       });
@@ -4202,6 +4202,39 @@ app.post('/api/cron/weekly-digest', async (req, res) => {
   }
 });
 
+// Free-tier usage cap: 5 session.completed events per bucket per child,
+// unless that child has ever had a captured payment (any tier) — a paid
+// child is unlimited regardless of bucket. Two buckets rather than one
+// shared cap since Homework Help and the other five features (quiz/
+// storytelling/experiential_learning/play_based_learning/exam_prep) are
+// each capped independently.
+const FREE_LIMIT_PER_BUCKET = 5;
+const OTHER_FEATURES_BUCKET = ['quiz', 'storytelling', 'experiential_learning', 'play_based_learning', 'exam_prep'];
+
+async function checkFreeLimit(studentId, bucket) {
+  const { count: capturedCount, error: paymentsErr } = await supabase
+    .from('payments')
+    .select('id', { count: 'exact', head: true })
+    .eq('student_id', studentId)
+    .eq('status', 'captured');
+  if (paymentsErr) throw paymentsErr;
+  if (capturedCount > 0) return { allowed: true };
+
+  const { data: events, error: eventsErr } = await supabase
+    .from('usage_events')
+    .select('properties')
+    .eq('student_id', studentId)
+    .eq('event_name', 'session.completed');
+  if (eventsErr) throw eventsErr;
+
+  const count = (events || []).filter(e => {
+    const feature = e.properties?.feature;
+    return bucket === 'homework_help' ? feature === 'homework_help' : OTHER_FEATURES_BUCKET.includes(feature);
+  }).length;
+
+  return { allowed: count < FREE_LIMIT_PER_BUCKET, count, remaining: Math.max(0, FREE_LIMIT_PER_BUCKET - count) };
+}
+
 // Shape validation for the freeform userContent array this route forwards to
 // Claude — same attachment-block check as isValidQpContentBlock below, plus a
 // text-block variant, since /api/homework's content mixes a text block with
@@ -4234,12 +4267,22 @@ app.post('/api/homework', async (req, res) => {
     }
     const session = await requireOwnStudent(req, res, studentId);
     if (!session) return;
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
-    }
 
     const VALID_FEATURES = Object.values(FEATURES);
     const feature = VALID_FEATURES.includes(req.body.feature) ? req.body.feature : FEATURES.HOMEWORK_HELP;
+    const bucket = feature === FEATURES.HOMEWORK_HELP ? 'homework_help' : 'other_features';
+    const limit = await checkFreeLimit(studentId, bucket);
+    if (!limit.allowed) {
+      return res.status(402).json({
+        error: 'free_limit_reached',
+        bucket,
+        message: `You've used all 5 free ${bucket === 'homework_help' ? 'homework help sessions' : 'other feature sessions'} for this child. Upgrade to continue.`
+      });
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
+    }
 
     trackSessionStarted(session.familyId, studentId, { feature, language: req.body.language });
 
@@ -4865,6 +4908,46 @@ app.post('/api/game-sessions', async (req, res) => {
     const { familyId: rawFamilyId, language, players, timeLimitSeconds, lessonContent, childContext } = req.body || {};
     const familyId = parseInt(rawFamilyId, 10);
     if (!requireOwnFamily(req, res, familyId)) return;
+
+    // Family-level free-limit check: unlike Homework Help/Quiz/etc.
+    // (checkFreeLimit, per-child), Play-Based Learning's session.completed
+    // events carry no student_id (see trackSessionCompleted below — it's
+    // tracked family-wide, not per-child), so the cap is 5 free games per
+    // family rather than per child. A family is exempt entirely once any
+    // participating student in THIS session has a captured payment — a
+    // paid family plays Play-Based Learning together unlimited.
+    const studentPlayerIds = (Array.isArray(players) ? players : [])
+      .filter(p => p && p.type === 'student' && p.refId)
+      .map(p => p.refId);
+
+    let familyIsPaid = false;
+    if (studentPlayerIds.length) {
+      const { count: capturedCount, error: paidErr } = await supabase
+        .from('payments')
+        .select('id', { count: 'exact', head: true })
+        .in('student_id', studentPlayerIds)
+        .eq('status', 'captured');
+      if (paidErr) throw paidErr;
+      familyIsPaid = capturedCount > 0;
+    }
+
+    if (!familyIsPaid) {
+      const { data: familyEvents, error: familyEventsErr } = await supabase
+        .from('usage_events')
+        .select('properties')
+        .eq('family_id', familyId)
+        .eq('event_name', 'session.completed');
+      if (familyEventsErr) throw familyEventsErr;
+      const familyGameCount = (familyEvents || []).filter(e => e.properties?.feature === 'play_based_learning').length;
+      if (familyGameCount >= 5) {
+        return res.status(402).json({
+          error: 'free_limit_reached',
+          bucket: 'play_based_learning_family',
+          message: "This family has used all 5 free Play-Based Learning games. Upgrade to continue."
+        });
+      }
+    }
+
     if (![30, 45, 60].includes(Number(timeLimitSeconds))) {
       return res.status(400).json({ error: 'Invalid timeLimitSeconds' });
     }

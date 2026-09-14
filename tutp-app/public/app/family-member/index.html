@@ -1078,6 +1078,46 @@
             }
         }
 
+        // Thrown when the server blocks a request with 402 (free_limit_reached
+        // — see server.js's checkFreeLimit / /api/game-sessions' family-level
+        // check). Carries the friendly message + bucket the server already
+        // computed, so callers show showFreeLimitModal() instead of a plain
+        // error string.
+        class FreeLimitError extends Error {
+            constructor(message, bucket) {
+                super(message);
+                this.name = 'FreeLimitError';
+                this.bucket = bucket;
+            }
+        }
+
+        // No self-serve "upgrade an existing child" flow exists yet (the only
+        // plan-selection UI is embedded in the brand-new-family registration
+        // wizard, and would create a duplicate family/student if reused here)
+        // — so this links to contact instead of a plan-selection step.
+        function showFreeLimitModal(message, bucket) {
+            const familyId = sessionStorage.getItem('tutp_family_id') || '';
+            const studentId = sessionStorage.getItem('tutp_student_id') || '';
+            const bodyLines = [
+                message,
+                '',
+                'Account details (for support):',
+                'Family ID: ' + familyId,
+                studentId ? 'Child ID: ' + studentId : null,
+                'Limit type: ' + (bucket || '')
+            ].filter(Boolean);
+            const mailtoUrl = 'mailto:contact@tutp.online?subject=' + encodeURIComponent('Upgrade request') + '&body=' + encodeURIComponent(bodyLines.join('\n'));
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:280px;';
+            box.innerHTML = `
+                <p style="margin:0 0 8px;">${message}</p>
+                <a href="${mailtoUrl}" style="display:inline-block;background:#005bbf;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Contact us to upgrade</a>
+                <button type="button" id="freeLimitDismiss" style="display:block;margin-top:8px;background:none;border:none;color:#666;font-size:12px;cursor:pointer;padding:0;">Not now</button>
+            `;
+            document.body.appendChild(box);
+            box.querySelector('#freeLimitDismiss').addEventListener('click', () => box.remove());
+        }
+
         document.getElementById('hwModalSubmitBtn').addEventListener('click', async () => {
             const hwText = document.getElementById('hwModalText').value.trim();
             const lang = document.getElementById('hwModalLang').value;
@@ -1170,6 +1210,7 @@ Parent's instruction: ${hwText || 'none given'}`;
                 });
                 if (!res.ok) {
                     const errData = await res.json().catch(() => ({}));
+                    if (res.status === 402) throw new FreeLimitError(errData.message || "You've used all your free sessions for this child.", errData.bucket);
                     throw new Error(errData.error || `Server returned ${res.status}`);
                 }
                 const data = await res.json();
@@ -1223,13 +1264,16 @@ Parent's instruction: ${hwText || 'none given'}`;
             } catch (err) {
                 if (requestToken !== hwSessionToken) return;
                 console.error('[hwModal] Explain request failed:', err);
-                if (err.name === 'HwParseError') {
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                } else if (err.name === 'HwParseError') {
                     console.error('[hwModal] Raw AI response that failed to parse:', err.rawText);
                     errBox.textContent = "The AI couldn't generate a quiz from this — try describing the actual homework question instead of just asking for a quiz.";
+                    errBox.classList.remove('hidden');
                 } else {
                     errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                    errBox.classList.remove('hidden');
                 }
-                errBox.classList.remove('hidden');
             } finally {
                 stopLoading();
                 if (requestToken === hwSessionToken) {
@@ -1522,6 +1566,7 @@ Parent's instruction: ${hwText || 'none given'}`;
                     throw new Error('These files are too large for Tut-P to process together — try a smaller PDF, a clearer/smaller photo, or just one attachment.');
                 }
                 const errData = await res.json().catch(() => ({}));
+                if (res.status === 402) throw new FreeLimitError(errData.message || "You've used all your free sessions for this child.", errData.bucket);
                 throw new Error(errData.error || `Something went wrong reaching the AI (server returned ${res.status}). Please try again in a moment.`);
             }
             const data = await res.json();
@@ -1758,7 +1803,10 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             } catch (err) {
                 if (requestToken !== storySessionToken) return;
                 console.error('[storyModal] Story request failed:', err);
-                if (err.name === 'ModalParseError') {
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                    return;
+                } else if (err.name === 'ModalParseError') {
                     console.error('[storyModal] Raw AI response that failed to parse:', err.rawText);
                     errBox.textContent = "Couldn't write a story from this — try attaching the actual lesson page or typing what it's about.";
                 } else {
@@ -2051,7 +2099,10 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                     })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'Could not start the game.');
+                if (!res.ok) {
+                    if (res.status === 402) throw new FreeLimitError(data.message || "This family has used all its free Play-Based Learning games.", data.bucket);
+                    throw new Error(data.error || 'Could not start the game.');
+                }
                 if (requestToken !== playSessionToken) return;
 
                 playGameSessionId = data.gameSessionId;
@@ -2072,8 +2123,12 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             } catch (err) {
                 if (requestToken !== playSessionToken) return;
                 console.error('[playModal] Could not start game:', err);
-                errBox.textContent = err.message || "Couldn't build a game from this — try attaching the actual lesson page or typing what it's about.";
-                errBox.classList.remove('hidden');
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                } else {
+                    errBox.textContent = err.message || "Couldn't build a game from this — try attaching the actual lesson page or typing what it's about.";
+                    errBox.classList.remove('hidden');
+                }
             } finally {
                 stopLoading();
                 if (requestToken === playSessionToken) startBtn.disabled = false;
@@ -2457,7 +2512,10 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
             } catch (err) {
                 if (requestToken !== experientialSessionToken) return;
                 console.error('[experientialModal] Notes request failed:', err);
-                if (err.name === 'ModalParseError') {
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                    return;
+                } else if (err.name === 'ModalParseError') {
                     console.error('[experientialModal] Raw AI response that failed to parse:', err.rawText);
                     errBox.textContent = "Couldn't build notes from this — try attaching the actual lesson page or typing what it's about.";
                 } else {
