@@ -1,0 +1,10 @@
+# Tut-P
+
+> Parent-centered EdTech platform for Indian families — scores parental
+> engagement, not just child performance, across homework help, quizzes,
+> storytelling, experiential learning, and play-based learning.
+
+Tut-P (https://tutp.online) helps Indian parents actively participate in
+their children's education through AI-assisted homework help, multiplayer
+learning games, and a Parent Engagement Score that tracks involvement
+rather than just grades.
