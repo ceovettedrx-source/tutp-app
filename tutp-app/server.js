@@ -482,6 +482,40 @@ app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
   }
 });
 
+// Recent failed payments for the admin dashboard's "Failed Payments" table —
+// mother's name wins over father's when both are present, matching how the
+// family is otherwise referred to across admin views.
+app.get('/api/admin/failed-payments', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const { data, error } = await supabase
+      .from('payments')
+      .select('tier, amount, razorpay_order_id, created_at, students(name), family_registrations(data)')
+      .eq('status', 'failed')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    if (error) throw error;
+
+    const rows = (data || []).map(p => {
+      const familyData = p.family_registrations?.data || {};
+      return {
+        familyName: familyData.mother?.name || familyData.father?.name || null,
+        studentName: p.students?.name || null,
+        tier: p.tier,
+        amount: (p.amount || 0) / 100,
+        razorpayOrderId: p.razorpay_order_id,
+        createdAt: p.created_at
+      };
+    });
+
+    res.json(rows);
+  } catch (err) {
+    console.error('Admin failed-payments error:', err);
+    res.status(500).json({ error: 'Could not load failed payments' });
+  }
+});
+
 app.get('/admin/dashboard', requireAdmin, (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
@@ -525,6 +559,27 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     margin: 0;
   }
   .kpi-value.loading, .kpi-value.error { color: #999; font-size: 16px; font-weight: 400; }
+  .section-title { font-size: 16px; margin: 32px 0 12px; }
+  .panel {
+    background: #fff;
+    border: 1px solid #e2e5e9;
+    border-radius: 10px;
+    padding: 16px 18px;
+  }
+  .panel-message { color: #666; font-size: 14px; margin: 0; }
+  table.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.data-table th, table.data-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e5e9;
+  }
+  table.data-table th {
+    font-size: 12px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  table.data-table td.amount { color: #005bbf; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -551,6 +606,12 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
       <p class="kpi-value loading" id="kpi-activePaidUsers">…</p>
     </div>
   </div>
+
+  <h2 class="section-title">Failed Payments</h2>
+  <div class="panel" id="failedPaymentsPanel">
+    <p class="panel-message loading" id="failedPaymentsMessage">Loading…</p>
+  </div>
+
   <script>
     (async () => {
       try {
@@ -574,6 +635,37 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           el.classList.add('error');
         });
         console.error('[admin dashboard] Could not load KPIs:', err);
+      }
+    })();
+
+    (async () => {
+      const panel = document.getElementById('failedPaymentsPanel');
+      try {
+        const res = await fetch('/api/admin/failed-payments');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const rows = await res.json();
+        if (!rows.length) {
+          panel.innerHTML = '<p class="panel-message">No failed payments — clean record.</p>';
+          return;
+        }
+        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const rowsHtml = rows.map(r =>
+          '<tr>' +
+            '<td>' + escapeHtml(r.familyName || '—') + '</td>' +
+            '<td>' + escapeHtml(r.studentName || '—') + '</td>' +
+            '<td>' + escapeHtml(r.tier || '—') + '</td>' +
+            '<td class="amount">₹' + Number(r.amount).toLocaleString('en-IN') + '</td>' +
+            '<td>' + escapeHtml(new Date(r.createdAt).toLocaleString('en-IN')) + '</td>' +
+          '</tr>'
+        ).join('');
+        panel.innerHTML =
+          '<table class="data-table">' +
+            '<thead><tr><th>Family</th><th>Child</th><th>Plan</th><th>Amount</th><th>Date</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+          '</table>';
+      } catch (err) {
+        panel.innerHTML = '<p class="panel-message">Error loading failed payments.</p>';
+        console.error('[admin dashboard] Could not load failed payments:', err);
       }
     })();
   </script>
