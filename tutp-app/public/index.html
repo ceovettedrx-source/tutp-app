@@ -34,6 +34,19 @@
   gtag('config', 'G-XXXXXXXXXX');
 </script>
 
+<!-- ============ UTM capture — first-touch params persist across the session for registration to pick up ============ -->
+<script>
+  (function() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      ['source', 'medium', 'campaign'].forEach(function(key) {
+        const value = params.get('utm_' + key);
+        if (value) sessionStorage.setItem('tutp_utm_' + key, value);
+      });
+    } catch (e) { /* sessionStorage unavailable — UTM capture skipped */ }
+  })();
+</script>
+
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>

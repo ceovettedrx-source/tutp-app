@@ -752,7 +752,12 @@
       subjectWorkbooks: Object.keys(uploadedPhotos).filter(k => k.startsWith('subject_')).reduce((acc,k)=>{ acc[k.replace('subject_','')] = uploadedPhotos[k]; return acc; }, {}),
       consentGiven: true,
       submittedAt: new Date().toISOString(),
-      referralCode: localStorage.getItem('tutp_ref') || null
+      referralCode: localStorage.getItem('tutp_ref') || null,
+      utm: {
+        source: sessionStorage.getItem('tutp_utm_source') || null,
+        medium: sessionStorage.getItem('tutp_utm_medium') || null,
+        campaign: sessionStorage.getItem('tutp_utm_campaign') || null
+      }
     };
 
     submitBtn.disabled = true;

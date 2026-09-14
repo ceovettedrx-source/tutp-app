@@ -482,6 +482,52 @@ app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
   }
 });
 
+// 14-day signup breakdown + all-time UTM source breakdown for the admin
+// dashboard's "Signups" section. dailyBreakdown is zero-filled to exactly
+// 14 rows (today first), same pattern as Revenue/Engagement's daily
+// breakdowns — Supabase-js has no GROUP BY, so both groupings happen
+// client-side. Rows registered before UTM capture existed have no
+// data.utm.source and fall back to 'direct', same as a real direct visit.
+app.get('/api/admin/signups', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const now = new Date();
+    const startOfTodayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
+    const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
+
+    const [recentRes, allRes] = await Promise.all([
+      supabase.from('family_registrations').select('created_at').gte('created_at', windowStartUTC),
+      supabase.from('family_registrations').select('data')
+    ]);
+    if (recentRes.error) throw recentRes.error;
+    if (allRes.error) throw allRes.error;
+
+    const byDate = {};
+    for (const date of days) byDate[date] = 0;
+    for (const row of recentRes.data || []) {
+      const date = row.created_at.slice(0, 10);
+      if (date in byDate) byDate[date] += 1;
+    }
+    const dailyBreakdown = days.map(date => ({ date, count: byDate[date] }));
+
+    const sourceCounts = {};
+    for (const row of allRes.data || []) {
+      const source = row.data?.utm?.source || 'direct';
+      sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+    }
+    const utmBreakdown = Object.entries(sourceCounts)
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count);
+
+    res.json({ dailyBreakdown, utmBreakdown });
+  } catch (err) {
+    console.error('Admin signups error:', err);
+    res.status(500).json({ error: 'Could not load signups' });
+  }
+});
+
 // Feature-usage bars + 14-day DAU for the admin dashboard's "Engagement"
 // section. dailyActiveUsers is zero-filled to exactly 14 rows (today first),
 // same pattern as the Revenue route's dailyBreakdown — Supabase-js has no
@@ -770,6 +816,14 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     </div>
   </div>
 
+  <h2 class="section-title">Signups</h2>
+  <div class="panel" id="signupsDailyPanel">
+    <p class="panel-message loading" id="signupsDailyMessage">Loading…</p>
+  </div>
+  <div class="panel" id="signupsUtmPanel">
+    <p class="panel-message loading" id="signupsUtmMessage">Loading…</p>
+  </div>
+
   <h2 class="section-title">Engagement</h2>
   <div class="panel" id="featureUsagePanel">
     <p class="panel-message loading" id="featureUsageMessage">Loading…</p>
@@ -840,6 +894,45 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           el.classList.add('error');
         });
         console.error('[admin dashboard] Could not load KPIs:', err);
+      }
+    })();
+
+    (async () => {
+      const dailyPanel = document.getElementById('signupsDailyPanel');
+      const utmPanel = document.getElementById('signupsUtmPanel');
+      try {
+        const res = await fetch('/api/admin/signups');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+
+        const dailyRows = data.dailyBreakdown || [];
+        if (!dailyRows.length) {
+          dailyPanel.innerHTML = '<p class="panel-message">No signups in the last 14 days.</p>';
+        } else {
+          const rowsHtml = dailyRows.map(r => '<tr><td>' + r.date + '</td><td>' + r.count + '</td></tr>').join('');
+          dailyPanel.innerHTML =
+            '<table class="data-table">' +
+              '<thead><tr><th>Date</th><th>Signups</th></tr></thead>' +
+              '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>';
+        }
+
+        const utmRows = data.utmBreakdown || [];
+        if (!utmRows.length) {
+          utmPanel.innerHTML = '<p class="panel-message">No signups yet.</p>';
+        } else {
+          const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+          const rowsHtml = utmRows.map(r => '<tr><td>' + escapeHtml(r.source) + '</td><td>' + r.count + '</td></tr>').join('');
+          utmPanel.innerHTML =
+            '<table class="data-table">' +
+              '<thead><tr><th>Source</th><th>Count</th></tr></thead>' +
+              '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>';
+        }
+      } catch (err) {
+        dailyPanel.innerHTML = '<p class="panel-message">Error loading signups.</p>';
+        utmPanel.innerHTML = '<p class="panel-message">Error loading UTM breakdown.</p>';
+        console.error('[admin dashboard] Could not load signups:', err);
       }
     })();
 
