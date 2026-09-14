@@ -482,6 +482,54 @@ app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
   }
 });
 
+// Revenue summary + 14-day daily breakdown for the admin dashboard's
+// "Revenue" section. dailyBreakdown always returns exactly 14 rows (today
+// first), zero-filled for days with no captured/failed activity — Supabase-js
+// has no GROUP BY, so grouping by the UTC date portion of created_at happens
+// client-side over the (small, 14-day) row set.
+app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const now = new Date();
+    const startOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+    const startOfTodayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
+    const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
+
+    const [totalRes, mtdRes, recentRes] = await Promise.all([
+      supabase.from('payments').select('amount').eq('status', 'captured'),
+      supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', startOfMonthUTC),
+      supabase.from('payments').select('amount, status, created_at').gte('created_at', windowStartUTC).in('status', ['captured', 'failed'])
+    ]);
+    if (totalRes.error) throw totalRes.error;
+    if (mtdRes.error) throw mtdRes.error;
+    if (recentRes.error) throw recentRes.error;
+
+    const totalRevenue = (totalRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
+    const mtdRevenue = (mtdRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
+
+    const byDate = {};
+    for (const date of days) byDate[date] = { date, capturedAmount: 0, capturedCount: 0, failedCount: 0 };
+    for (const row of recentRes.data || []) {
+      const day = byDate[row.created_at.slice(0, 10)];
+      if (!day) continue;
+      if (row.status === 'captured') {
+        day.capturedAmount += (row.amount || 0) / 100;
+        day.capturedCount += 1;
+      } else if (row.status === 'failed') {
+        day.failedCount += 1;
+      }
+    }
+    const dailyBreakdown = days.map(d => byDate[d]);
+
+    res.json({ totalRevenue, mtdRevenue, dailyBreakdown });
+  } catch (err) {
+    console.error('Admin revenue error:', err);
+    res.status(500).json({ error: 'Could not load revenue' });
+  }
+});
+
 // Recent failed payments for the admin dashboard's "Failed Payments" table —
 // mother's name wins over father's when both are present, matching how the
 // family is otherwise referred to across admin views.
@@ -560,6 +608,15 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
   }
   .kpi-value.loading, .kpi-value.error { color: #999; font-size: 16px; font-weight: 400; }
   .section-title { font-size: 16px; margin: 32px 0 12px; }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 900px) {
+    .summary-grid { grid-template-columns: 1fr; }
+  }
   .panel {
     background: #fff;
     border: 1px solid #e2e5e9;
@@ -607,6 +664,21 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     </div>
   </div>
 
+  <h2 class="section-title">Revenue</h2>
+  <div class="summary-grid">
+    <div class="kpi-card">
+      <p class="kpi-label">Total Revenue</p>
+      <p class="kpi-value loading" id="kpi-totalRevenue">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">MTD Revenue</p>
+      <p class="kpi-value loading" id="kpi-revenueMtd">…</p>
+    </div>
+  </div>
+  <div class="panel" id="revenuePanel">
+    <p class="panel-message loading" id="revenueMessage">Loading…</p>
+  </div>
+
   <h2 class="section-title">Failed Payments</h2>
   <div class="panel" id="failedPaymentsPanel">
     <p class="panel-message loading" id="failedPaymentsMessage">Loading…</p>
@@ -635,6 +707,48 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           el.classList.add('error');
         });
         console.error('[admin dashboard] Could not load KPIs:', err);
+      }
+    })();
+
+    (async () => {
+      const panel = document.getElementById('revenuePanel');
+      const totalEl = document.getElementById('kpi-totalRevenue');
+      const mtdEl = document.getElementById('kpi-revenueMtd');
+      try {
+        const res = await fetch('/api/admin/revenue');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        totalEl.textContent = '₹' + Number(data.totalRevenue).toLocaleString('en-IN');
+        totalEl.classList.remove('loading');
+        mtdEl.textContent = '₹' + Number(data.mtdRevenue).toLocaleString('en-IN');
+        mtdEl.classList.remove('loading');
+
+        const rows = data.dailyBreakdown || [];
+        if (!rows.length) {
+          panel.innerHTML = '<p class="panel-message">No payment activity in the last 14 days.</p>';
+          return;
+        }
+        const rowsHtml = rows.map(r =>
+          '<tr>' +
+            '<td>' + r.date + '</td>' +
+            '<td class="amount">₹' + Number(r.capturedAmount).toLocaleString('en-IN') + '</td>' +
+            '<td>' + r.capturedCount + '</td>' +
+            '<td>' + r.failedCount + '</td>' +
+          '</tr>'
+        ).join('');
+        panel.innerHTML =
+          '<table class="data-table">' +
+            '<thead><tr><th>Date</th><th>Captured (₹)</th><th>Captured Count</th><th>Failed Count</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+          '</table>';
+      } catch (err) {
+        [totalEl, mtdEl].forEach(el => {
+          el.textContent = 'Error';
+          el.classList.remove('loading');
+          el.classList.add('error');
+        });
+        panel.innerHTML = '<p class="panel-message">Error loading revenue.</p>';
+        console.error('[admin dashboard] Could not load revenue:', err);
       }
     })();
 
