@@ -5,10 +5,16 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "build": "tailwindcss -i ./styles/tailwind.css -o ./public/css/tailwind.css --minify"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.11",
+    "autoprefixer": "^10.6.0",
+    "bcrypt": "^6.0.0",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
@@ -16,8 +22,10 @@
     "firebase-admin": "^14.3.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^6.9.14",
+    "postcss": "^8.5.28",
     "razorpay": "^2.9.8",
-    "resend": "^4.0.1"
+    "resend": "^4.0.1",
+    "tailwindcss": "^3.4.19"
   },
   "engines": {
     "node": ">=18"

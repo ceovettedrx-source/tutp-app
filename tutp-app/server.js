@@ -2,6 +2,7 @@
 // a genuinely new Cloud Run revision while proving out deploy.sh's traffic-
 // pinning fix (see deploy.sh's own header comment for the full story).
 import express from 'express';
+import compression from 'compression';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
@@ -247,6 +248,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 // signature is an HMAC over the raw request bytes, and by the time a route
 // handler runs after this middleware the raw stream is already consumed,
 // so this is the one place that can still capture it.
+app.use(compression());
 app.use(express.json({
   // Client-recompressed photo uploads stay well under 12mb, but PDF
   // attachments (Storytelling/Play-Based/Experiential Learning, homework

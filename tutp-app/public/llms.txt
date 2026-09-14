@@ -8,3 +8,8 @@ Tut-P (https://tutp.online) helps Indian parents actively participate in
 their children's education through AI-assisted homework help, multiplayer
 learning games, and a Parent Engagement Score that tracks involvement
 rather than just grades.
+
+## Pages
+
+- [Homepage](https://tutp.online/): product overview, pricing tiers, and FAQ.
+- [Live Demo](https://tutp.online/demo/): a working demo of the parent/child homework flow.
