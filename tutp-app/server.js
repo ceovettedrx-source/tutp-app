@@ -525,6 +525,53 @@ app.get('/api/admin/engagement', requireAdmin, async (req, res) => {
   }
 });
 
+// Recent feedback escalations + 30-day funnel counts for the admin
+// dashboard's "Parent Feedback" section — mother's name wins over father's
+// when both are present, same fallback pattern as Failed Payments.
+app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const thirtyDaysAgoUTC = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [escalationsRes, summaryRes] = await Promise.all([
+      supabase.from('usage_events')
+        .select('properties, created_at, students(name), family_registrations(data)')
+        .eq('event_name', 'feedback.escalated')
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase.from('usage_events')
+        .select('event_name')
+        .in('event_name', ['feedback.submitted', 'feedback.auto_resolved', 'feedback.escalated'])
+        .gte('created_at', thirtyDaysAgoUTC)
+    ]);
+    if (escalationsRes.error) throw escalationsRes.error;
+    if (summaryRes.error) throw summaryRes.error;
+
+    const recentEscalations = (escalationsRes.data || []).map(e => {
+      const familyData = e.family_registrations?.data || {};
+      return {
+        familyName: familyData.mother?.name || familyData.father?.name || null,
+        studentName: e.students?.name || null,
+        category: e.properties?.category || null,
+        createdAt: e.created_at
+      };
+    });
+
+    const summary = { submitted: 0, autoResolved: 0, escalated: 0 };
+    for (const row of summaryRes.data || []) {
+      if (row.event_name === 'feedback.submitted') summary.submitted += 1;
+      else if (row.event_name === 'feedback.auto_resolved') summary.autoResolved += 1;
+      else if (row.event_name === 'feedback.escalated') summary.escalated += 1;
+    }
+
+    res.json({ recentEscalations, summary });
+  } catch (err) {
+    console.error('Admin feedback-escalations error:', err);
+    res.status(500).json({ error: 'Could not load feedback escalations' });
+  }
+});
+
 // Revenue summary + 14-day daily breakdown for the admin dashboard's
 // "Revenue" section. dailyBreakdown always returns exactly 14 rows (today
 // first), zero-filled for days with no captured/failed activity — Supabase-js
@@ -660,6 +707,15 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
   @media (max-width: 900px) {
     .summary-grid { grid-template-columns: 1fr; }
   }
+  .summary-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  @media (max-width: 900px) {
+    .summary-grid-3 { grid-template-columns: 1fr; }
+  }
   .panel {
     background: #fff;
     border: 1px solid #e2e5e9;
@@ -720,6 +776,25 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
   </div>
   <div class="panel" id="dauPanel">
     <p class="panel-message loading" id="dauMessage">Loading…</p>
+  </div>
+
+  <h2 class="section-title">Parent Feedback</h2>
+  <div class="summary-grid-3">
+    <div class="kpi-card">
+      <p class="kpi-label">Submitted (30d)</p>
+      <p class="kpi-value loading" id="kpi-feedbackSubmitted">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Auto-Resolved (30d)</p>
+      <p class="kpi-value loading" id="kpi-feedbackAutoResolved">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Escalated (30d)</p>
+      <p class="kpi-value loading" id="kpi-feedbackEscalated">…</p>
+    </div>
+  </div>
+  <div class="panel" id="feedbackEscalationsPanel">
+    <p class="panel-message loading" id="feedbackEscalationsMessage">Loading…</p>
   </div>
 
   <h2 class="section-title">Revenue</h2>
@@ -806,6 +881,51 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         featurePanel.innerHTML = '<p class="panel-message">Error loading feature usage.</p>';
         dauPanel.innerHTML = '<p class="panel-message">Error loading daily active users.</p>';
         console.error('[admin dashboard] Could not load engagement:', err);
+      }
+    })();
+
+    (async () => {
+      const panel = document.getElementById('feedbackEscalationsPanel');
+      const submittedEl = document.getElementById('kpi-feedbackSubmitted');
+      const autoResolvedEl = document.getElementById('kpi-feedbackAutoResolved');
+      const escalatedEl = document.getElementById('kpi-feedbackEscalated');
+      try {
+        const res = await fetch('/api/admin/feedback-escalations');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+
+        const setVal = (el, val) => { el.textContent = val; el.classList.remove('loading'); };
+        setVal(submittedEl, data.summary.submitted);
+        setVal(autoResolvedEl, data.summary.autoResolved);
+        setVal(escalatedEl, data.summary.escalated);
+
+        const rows = data.recentEscalations || [];
+        if (!rows.length) {
+          panel.innerHTML = '<p class="panel-message">No feedback escalations — clean record.</p>';
+          return;
+        }
+        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        const rowsHtml = rows.map(r =>
+          '<tr>' +
+            '<td>' + escapeHtml(r.familyName || '—') + '</td>' +
+            '<td>' + escapeHtml(r.studentName || '—') + '</td>' +
+            '<td>' + escapeHtml(r.category || '—') + '</td>' +
+            '<td>' + escapeHtml(new Date(r.createdAt).toLocaleString('en-IN')) + '</td>' +
+          '</tr>'
+        ).join('');
+        panel.innerHTML =
+          '<table class="data-table">' +
+            '<thead><tr><th>Family</th><th>Child</th><th>Category</th><th>Date</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+          '</table>';
+      } catch (err) {
+        [submittedEl, autoResolvedEl, escalatedEl].forEach(el => {
+          el.textContent = 'Error';
+          el.classList.remove('loading');
+          el.classList.add('error');
+        });
+        panel.innerHTML = '<p class="panel-message">Error loading feedback escalations.</p>';
+        console.error('[admin dashboard] Could not load feedback escalations:', err);
       }
     })();
 
