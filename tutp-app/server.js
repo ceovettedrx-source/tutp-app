@@ -270,6 +270,14 @@ app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
       res.setHeader('Cache-Control', 'no-cache');
+    } else if (filePath.endsWith('.css')) {
+      // /css/tailwind.css is a fixed filename rebuilt on every deploy (no
+      // content hash), so a long max-age risks a returning browser holding
+      // stale CSS past a redeploy. "must-revalidate" keeps that safe: a
+      // fresh copy is served immediately from cache for a day, then the
+      // browser must check back with the server (a cheap 304 if unchanged)
+      // rather than silently reusing a possibly-stale copy indefinitely.
+      res.setHeader('Cache-Control', 'public, max-age=86400, must-revalidate');
     }
   }
 }));
@@ -535,6 +543,59 @@ app.get('/api/admin/signups', requireAdmin, async (req, res) => {
 // same pattern as the Revenue route's dailyBreakdown — Supabase-js has no
 // GROUP BY or COUNT(DISTINCT ...), so both the per-day distinct family_id
 // count and the per-feature event count are computed client-side.
+// Activation Rate for the admin dashboard's "Activation" section: the % of
+// families that registered in the last 30 days and had at least one
+// session.started usage_event within 7 days of signing up — did a new
+// signup actually experience the core product in its first week, not just
+// register and vanish.
+app.get('/api/admin/activation', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const thirtyDaysAgoUTC = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: families, error: familiesErr } = await supabase
+      .from('family_registrations')
+      .select('id, created_at')
+      .gte('created_at', thirtyDaysAgoUTC);
+    if (familiesErr) throw familiesErr;
+
+    const total = (families || []).length;
+    if (!total) return res.json({ rate: 0, activated: 0, total: 0 });
+
+    const familyIds = families.map(f => f.id);
+    const { data: sessionEvents, error: eventsErr } = await supabase
+      .from('usage_events')
+      .select('family_id, created_at')
+      .eq('event_name', 'session.started')
+      .in('family_id', familyIds);
+    if (eventsErr) throw eventsErr;
+
+    // Only the earliest session.started per family matters for "activated
+    // within 7 days of signup".
+    const earliestByFamily = {};
+    for (const ev of sessionEvents || []) {
+      if (ev.family_id == null) continue;
+      const t = new Date(ev.created_at).getTime();
+      if (!(ev.family_id in earliestByFamily) || t < earliestByFamily[ev.family_id]) {
+        earliestByFamily[ev.family_id] = t;
+      }
+    }
+
+    const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+    let activated = 0;
+    for (const family of families) {
+      const signupTime = new Date(family.created_at).getTime();
+      const firstSession = earliestByFamily[family.id];
+      if (firstSession != null && firstSession - signupTime <= SEVEN_DAYS_MS) activated += 1;
+    }
+
+    res.json({ rate: activated / total, activated, total });
+  } catch (err) {
+    console.error('Admin activation error:', err);
+    res.status(500).json({ error: 'Could not load activation rate' });
+  }
+});
+
 app.get('/api/admin/engagement', requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -826,6 +887,22 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="signupsUtmMessage">Loading…</p>
   </div>
 
+  <h2 class="section-title">Activation</h2>
+  <div class="summary-grid-3">
+    <div class="kpi-card">
+      <p class="kpi-label">Activation Rate (30d)</p>
+      <p class="kpi-value loading" id="kpi-activationRate">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Activated</p>
+      <p class="kpi-value loading" id="kpi-activationActivated">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Total Signups (30d)</p>
+      <p class="kpi-value loading" id="kpi-activationTotal">…</p>
+    </div>
+  </div>
+
   <h2 class="section-title">Engagement</h2>
   <div class="panel" id="featureUsagePanel">
     <p class="panel-message loading" id="featureUsageMessage">Loading…</p>
@@ -935,6 +1012,28 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         dailyPanel.innerHTML = '<p class="panel-message">Error loading signups.</p>';
         utmPanel.innerHTML = '<p class="panel-message">Error loading UTM breakdown.</p>';
         console.error('[admin dashboard] Could not load signups:', err);
+      }
+    })();
+
+    (async () => {
+      const rateEl = document.getElementById('kpi-activationRate');
+      const activatedEl = document.getElementById('kpi-activationActivated');
+      const totalEl = document.getElementById('kpi-activationTotal');
+      try {
+        const res = await fetch('/api/admin/activation');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        const setVal = (el, val) => { el.textContent = val; el.classList.remove('loading'); };
+        setVal(rateEl, (data.rate * 100).toFixed(1) + '%');
+        setVal(activatedEl, data.activated);
+        setVal(totalEl, data.total);
+      } catch (err) {
+        [rateEl, activatedEl, totalEl].forEach(el => {
+          el.textContent = 'Error';
+          el.classList.remove('loading');
+          el.classList.add('error');
+        });
+        console.error('[admin dashboard] Could not load activation:', err);
       }
     })();
 
@@ -3793,6 +3892,73 @@ app.post('/api/cron/parent-engagement-score', async (req, res) => {
   } catch (err) {
     console.error('Parent engagement score cron error:', err);
     res.status(500).json({ error: 'Could not compute parent engagement scores' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Weekly retention digest — meant to run once a week via a new Cloud
+// Scheduler job (none exists yet for this route; copy the pattern from
+// the two that already exist — tutp-parent-engagement-score,
+// tutp-evening-homework-alerts — same CRON_TOKEN auth, just a weekly
+// schedule instead of daily). Summarizes each family's last-7-days
+// session.completed count and positive-feedback count, emailed to
+// whichever parent has an email on file (mother wins if she has one,
+// same fallback the evening homework alert uses). Families with zero
+// activity this week are skipped entirely — a silent week shouldn't
+// get a guilt-trip email.
+// ------------------------------------------------------------------
+app.post('/api/cron/weekly-digest', async (req, res) => {
+  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const sevenDaysAgoUTC = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+    const [completedRes, feedbackRes] = await Promise.all([
+      supabase.from('usage_events').select('family_id').eq('event_name', 'session.completed').gte('created_at', sevenDaysAgoUTC),
+      supabase.from('usage_events').select('family_id, properties').eq('event_name', 'feedback.submitted').gte('created_at', sevenDaysAgoUTC)
+    ]);
+    if (completedRes.error) throw completedRes.error;
+    if (feedbackRes.error) throw feedbackRes.error;
+
+    const sessionsByFamily = {};
+    for (const row of completedRes.data || []) {
+      if (row.family_id == null) continue;
+      sessionsByFamily[row.family_id] = (sessionsByFamily[row.family_id] || 0) + 1;
+    }
+    const positiveFeedbackByFamily = {};
+    for (const row of feedbackRes.data || []) {
+      if (row.family_id == null || row.properties?.sentiment !== 'positive') continue;
+      positiveFeedbackByFamily[row.family_id] = (positiveFeedbackByFamily[row.family_id] || 0) + 1;
+    }
+
+    // Union of families with any activity this week — everyone else is
+    // skipped entirely rather than emailed a silent week.
+    const activeFamilyIds = new Set([...Object.keys(sessionsByFamily), ...Object.keys(positiveFeedbackByFamily)].map(Number));
+
+    let emailsSent = 0;
+    for (const familyId of activeFamilyIds) {
+      const sessionsCompleted = sessionsByFamily[familyId] || 0;
+      const positiveFeedback = positiveFeedbackByFamily[familyId] || 0;
+
+      const { data: family, error: familyErr } = await supabase.from('family_registrations')
+        .select('data').eq('id', familyId).maybeSingle();
+      if (familyErr || !family) continue;
+      const recipient = family.data?.mother?.email ? family.data.mother : family.data?.father;
+      if (!recipient || !recipient.email) continue; // no email channel on file for this family
+
+      const subject = 'Your Tut-P week in review';
+      const text = `Hi ${recipient.name || 'there'},\n\nHere's how your family used Tut-P this week:\n\n- ${sessionsCompleted} learning session${sessionsCompleted === 1 ? '' : 's'} completed\n- ${positiveFeedback} moment${positiveFeedback === 1 ? '' : 's'} you marked as genuinely helpful\n\nKeep it going — see you again soon.\n\n- The Tut-P team`;
+      await sendEmail(recipient.email, subject, text);
+      emailsSent++;
+    }
+
+    res.json({ ok: true, emailsSent, activeFamilies: activeFamilyIds.size });
+  } catch (err) {
+    console.error('Weekly digest error:', err);
+    res.status(500).json({ error: 'Could not run weekly digest' });
   }
 });
 
