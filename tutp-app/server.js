@@ -14,6 +14,7 @@ import Razorpay from 'razorpay';
 import { initializeApp as initializeFirebaseApp, getApps as getFirebaseApps } from 'firebase-admin/app';
 import { getAuth as getFirebaseAuth } from 'firebase-admin/auth';
 import jwt from 'jsonwebtoken';
+import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
@@ -3014,6 +3015,31 @@ function isCloseNameMatch(input, candidate) {
 // login page uses this to skip the profile-tile grid when exactly one role
 // matches, falling back to the grid otherwise so it never silently guesses
 // wrong in that edge case.
+// Builds the roleMatches entries — 'mother'/'father'/'family_member', same
+// shape findFamilyIdByPhone has always returned — for one family_registrations
+// row, restricted to whichever roles actually carry `digits` as their phone.
+// Shared by both findFamilyIdByPhone's single-match and ambiguous branches
+// below, so there's exactly one place that decides what counts as a match.
+async function buildRoleMatches(matchRow, digits) {
+  const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
+  const roleMatches = [];
+  if (norm(matchRow.data?.mother?.phone) === digits) {
+    roleMatches.push({ role: 'mother', name: matchRow.data?.mother?.name || null });
+  }
+  if (norm(matchRow.data?.father?.phone) === digits) {
+    roleMatches.push({ role: 'father', name: matchRow.data?.father?.name || null });
+  }
+  const { data: members, error: membersErr } = await supabase
+    .from('family_members')
+    .select('id, name, phone')
+    .eq('family_id', matchRow.id);
+  if (membersErr) throw membersErr;
+  (members || []).forEach(m => {
+    if (norm(m.phone) === digits) roleMatches.push({ role: 'family_member', memberId: m.id, name: m.name || null });
+  });
+  return roleMatches;
+}
+
 async function findFamilyIdByPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '').slice(-10);
   if (digits.length !== 10) return null;
@@ -3044,27 +3070,56 @@ async function findFamilyIdByPhone(phone) {
     norm(row.data?.mother?.phone) === digits || norm(row.data?.father?.phone) === digits
   );
   if (!matches.length) return null;
+
   if (matches.length > 1) {
     console.error('findFamilyIdByPhone: ambiguous phone match across', matches.length, 'family_registrations rows:', matches.map(m => m.id));
-    return { ambiguous: true, count: matches.length };
-  }
-  const match = matches[0];
 
-  const roleMatches = [];
-  if (norm(match.data?.mother?.phone) === digits) {
-    roleMatches.push({ role: 'mother', name: match.data?.mother?.name || null });
+    // Build every candidate across every ambiguous row — 'mother'/'father'
+    // aren't unique once more than one family is in play, so each entry is
+    // tagged with its own familyId. hasPassword is checked per candidate
+    // (family_registrations.data.<role>.passwordHash for mother/father,
+    // family_members.password_hash for a family_member) so /api/session can
+    // decide whether the picker flow is safe to offer at all — see the
+    // allHavePasswords check there. Only mother/father entries' password
+    // hashes come for free (already in `row.data`); family_member hashes
+    // need one batched extra query rather than one per candidate.
+    const perRowEntries = [];
+    for (const row of matches) {
+      const entries = await buildRoleMatches(row, digits);
+      perRowEntries.push({ row, entries });
+    }
+
+    const memberIds = perRowEntries.flatMap(({ entries }) =>
+      entries.filter(e => e.role === 'family_member').map(e => e.memberId)
+    );
+    let memberHasPasswordById = {};
+    if (memberIds.length) {
+      const { data: memberRows, error: memberErr } = await supabase
+        .from('family_members').select('id, password_hash').in('id', memberIds);
+      if (memberErr) throw memberErr;
+      memberHasPasswordById = Object.fromEntries((memberRows || []).map(m => [m.id, !!m.password_hash]));
+    }
+
+    const candidates = [];
+    for (const { row, entries } of perRowEntries) {
+      for (const entry of entries) {
+        const hasPassword = entry.role === 'family_member'
+          ? !!memberHasPasswordById[entry.memberId]
+          : !!row.data?.[entry.role]?.passwordHash;
+        candidates.push({
+          familyId: row.id,
+          viewerKey: entry.role === 'family_member' ? String(entry.memberId) : entry.role,
+          name: entry.name,
+          hasPassword
+        });
+      }
+    }
+    const allHavePasswords = candidates.length > 0 && candidates.every(c => c.hasPassword);
+    return { ambiguous: true, allHavePasswords, candidates };
   }
-  if (norm(match.data?.father?.phone) === digits) {
-    roleMatches.push({ role: 'father', name: match.data?.father?.name || null });
-  }
-  const { data: members, error: membersErr } = await supabase
-    .from('family_members')
-    .select('id, name, phone')
-    .eq('family_id', match.id);
-  if (membersErr) throw membersErr;
-  (members || []).forEach(m => {
-    if (norm(m.phone) === digits) roleMatches.push({ role: 'family_member', memberId: m.id, name: m.name || null });
-  });
+
+  const match = matches[0];
+  const roleMatches = await buildRoleMatches(match, digits);
 
   return {
     id: match.id,
@@ -3115,7 +3170,32 @@ app.post('/api/session', async (req, res) => {
       findTeacherIdByPhone(phone)
     ]);
     if (family && family.ambiguous) {
-      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
+      // Accidental-duplicate registrations (no passwords on file for at
+      // least one candidate) keep today's hard-stop — this morning's safety
+      // net stays unchanged. Only once every candidate has a password set
+      // is it safe to let the phone's owner pick which account they mean,
+      // since a password is what actually distinguishes them at that point.
+      if (!family.allHavePasswords) {
+        // Exactly one passwordless candidate among all of this phone's
+        // matches is the one genuinely unambiguous case: nobody else could
+        // mean that slot, since every other candidate already has its own
+        // password. Two or more passwordless candidates is still a real
+        // "which one do you mean" question this flow can't answer from
+        // phone+OTP alone, so it falls through to the same 409 as today.
+        const passwordless = family.candidates.filter(c => !c.hasPassword);
+        if (passwordless.length === 1) {
+          const target = passwordless[0];
+          const pendingToken = jwt.sign({ phone, purpose: 'password-setup' }, process.env.SESSION_SECRET, { expiresIn: '5m' });
+          return res.json({ needsPasswordSetup: true, pendingToken, viewerKey: target.viewerKey, familyId: target.familyId });
+        }
+        return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
+      }
+      // Short-lived, narrow-purpose token: proves `phone` was just
+      // OTP-verified, without re-touching Firebase or handing the client
+      // a long-lived credential for what should be a five-minute step.
+      const pendingToken = jwt.sign({ phone, purpose: 'account-picker' }, process.env.SESSION_SECRET, { expiresIn: '5m' });
+      const candidates = family.candidates.map(({ hasPassword, ...rest }) => rest);
+      return res.json({ needsPicker: true, pendingToken, candidates });
     }
     const session = { phone, familyId: family ? family.id : null, teacherId: teacherId || null };
     issueSessionCookie(res, session);
@@ -3123,6 +3203,153 @@ app.post('/api/session', async (req, res) => {
   } catch (err) {
     console.error('Create session error:', err);
     res.status(500).json({ error: 'Could not create session' });
+  }
+});
+
+const selectAccountLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many attempts — please wait 15 minutes and try again.' }
+});
+
+// ------------------------------------------------------------------
+// Completes login for a phone number ambiguous across multiple
+// password-bearing accounts (see /api/session above). pendingToken only
+// proves which phone was OTP-verified — it does NOT trust the client's
+// familyId/viewerKey pairing on its own, since that would let a valid
+// pendingToken for one phone be replayed against a completely unrelated
+// family's password hash. Instead it re-derives the legitimate candidate
+// set for that phone server-side (via findFamilyIdByPhone, the same
+// authority /api/session used to mint the token) and only proceeds to a
+// password check once the submitted pair is confirmed to actually be one
+// of that phone's own candidates.
+// ------------------------------------------------------------------
+app.post('/api/session/select-account', selectAccountLimiter, async (req, res) => {
+  try {
+    const { pendingToken, familyId, viewerKey, password } = req.body || {};
+    if (!pendingToken || familyId == null || !viewerKey || !password) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    if (!process.env.SESSION_SECRET) return res.status(500).json({ error: 'Server is missing SESSION_SECRET configuration' });
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    let decoded;
+    try {
+      decoded = jwt.verify(pendingToken, process.env.SESSION_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'This selection has expired — please log in again' });
+    }
+    if (decoded.purpose !== 'account-picker' || !decoded.phone) {
+      return res.status(401).json({ error: 'Invalid selection token' });
+    }
+
+    const famId = parseInt(familyId, 10);
+    if (!Number.isFinite(famId)) return res.status(400).json({ error: 'Invalid family id' });
+
+    const family = await findFamilyIdByPhone(decoded.phone);
+    if (!family || !family.ambiguous || !family.allHavePasswords) {
+      return res.status(401).json({ error: 'This selection is no longer valid — please log in again' });
+    }
+    const candidate = family.candidates.find(c => c.familyId === famId && c.viewerKey === String(viewerKey));
+    if (!candidate) return res.status(401).json({ error: 'Incorrect password' });
+
+    let passwordHash = null;
+    if (viewerKey === 'mother' || viewerKey === 'father') {
+      const { data: famRow, error: famErr } = await supabase.from('family_registrations')
+        .select('data').eq('id', famId).maybeSingle();
+      if (famErr) throw famErr;
+      passwordHash = famRow?.data?.[viewerKey]?.passwordHash || null;
+    } else {
+      const { data: member, error: memberErr } = await supabase.from('family_members')
+        .select('password_hash').eq('id', viewerKey).eq('family_id', famId).maybeSingle();
+      if (memberErr) throw memberErr;
+      passwordHash = member?.password_hash || null;
+    }
+    // Generic error either way — don't reveal whether the account exists,
+    // has no password set, or just got the password wrong.
+    if (!passwordHash) return res.status(401).json({ error: 'Incorrect password' });
+
+    const passwordMatches = await bcrypt.compare(String(password), passwordHash);
+    if (!passwordMatches) return res.status(401).json({ error: 'Incorrect password' });
+
+    const session = { phone: decoded.phone, familyId: famId, teacherId: null, viewerKey };
+    issueSessionCookie(res, session);
+    res.json({ ok: true, familyId: famId, viewerKey });
+  } catch (err) {
+    console.error('Select-account error:', err);
+    res.status(500).json({ error: 'Could not complete sign-in' });
+  }
+});
+
+// ------------------------------------------------------------------
+// First-time password setup for the one candidate /api/session found
+// unambiguous (see needsPasswordSetup above — exactly one passwordless
+// match for this phone). Deliberately takes only pendingToken + the new
+// password, nothing else identifying the account: which account gets the
+// password is re-derived server-side from the token's phone, the same
+// defense-in-depth as select-account, so a client can't steer this at
+// a different family's slot by passing a different familyId/viewerKey.
+// If the ambiguity has changed shape since the token was minted (someone
+// else set a password for that slot, or a new duplicate appeared), this
+// bails out to a fresh login rather than guess which account is meant.
+// ------------------------------------------------------------------
+app.post('/api/session/set-password', selectAccountLimiter, async (req, res) => {
+  try {
+    const { pendingToken, password } = req.body || {};
+    if (!pendingToken || !password) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+    if (!process.env.SESSION_SECRET) return res.status(500).json({ error: 'Server is missing SESSION_SECRET configuration' });
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(pendingToken, process.env.SESSION_SECRET);
+    } catch (err) {
+      return res.status(401).json({ error: 'This setup link has expired — please log in again' });
+    }
+    if (decoded.purpose !== 'password-setup' || !decoded.phone) {
+      return res.status(401).json({ error: 'Invalid setup token' });
+    }
+
+    const family = await findFamilyIdByPhone(decoded.phone);
+    if (!family || !family.ambiguous) {
+      return res.status(401).json({ error: 'This setup link is no longer valid — please log in again' });
+    }
+    const passwordless = family.candidates.filter(c => !c.hasPassword);
+    if (passwordless.length !== 1) {
+      return res.status(401).json({ error: 'This setup link is no longer valid — please log in again' });
+    }
+    const target = passwordless[0];
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    if (target.viewerKey === 'mother' || target.viewerKey === 'father') {
+      const { data: famRow, error: famErr } = await supabase.from('family_registrations')
+        .select('data').eq('id', target.familyId).maybeSingle();
+      if (famErr) throw famErr;
+      const updatedData = { ...(famRow?.data || {}) };
+      updatedData[target.viewerKey] = { ...(updatedData[target.viewerKey] || {}), passwordHash };
+      const { error: updateErr } = await supabase.from('family_registrations')
+        .update({ data: updatedData }).eq('id', target.familyId);
+      if (updateErr) throw updateErr;
+    } else {
+      const { error: updateErr } = await supabase.from('family_members')
+        .update({ password_hash: passwordHash }).eq('id', target.viewerKey).eq('family_id', target.familyId);
+      if (updateErr) throw updateErr;
+    }
+
+    const session = { phone: decoded.phone, familyId: target.familyId, teacherId: null, viewerKey: target.viewerKey };
+    issueSessionCookie(res, session);
+    res.json({ ok: true, familyId: target.familyId, viewerKey: target.viewerKey });
+  } catch (err) {
+    console.error('Set-password error:', err);
+    res.status(500).json({ error: 'Could not set password' });
   }
 });
 
@@ -3300,6 +3527,19 @@ app.patch('/api/students/:id/teacher-settings', async (req, res) => {
 // both bonding-score endpoints below so "private to the viewer" holds for
 // reads and writes alike.
 async function sessionOwnsViewerKey(session, viewerKey) {
+  // Sessions minted by /api/session/select-account or /api/session/set-password
+  // already know exactly which account they are — trust that directly
+  // instead of re-deriving from phone. (Re-deriving wouldn't even be
+  // possible here for those sessions: the phone is ambiguous across
+  // multiple accounts by definition, and a password isn't available at
+  // this point to re-disambiguate.) Older sessions (minted before this
+  // field existed, or via the single-match /api/session path where the
+  // phone maps to only one account anyway) have no session.viewerKey and
+  // fall back to the original phone-based re-derivation, so existing
+  // logged-in users aren't logged out by this change.
+  if (session.viewerKey != null) {
+    return String(session.viewerKey) === String(viewerKey);
+  }
   const family = await findFamilyIdByPhone(session.phone);
   if (family && family.ambiguous) return false;
   const ownRoleKeys = family ? family.roleMatches.map(m => m.role === 'family_member' ? String(m.memberId) : m.role) : [];

@@ -2655,15 +2655,22 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                 div.textContent = str;
                 return div.innerHTML;
             };
-            const row = (name, role, badge, href) => `
-                <a class="flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-surface-container-high transition-colors" href="${href}">
+            // Only the current viewer's own row is a link — every other family
+            // member is shown for information only (name/role/badge), not as a
+            // navigation shortcut into their dashboard.
+            const row = (name, role, badge, href) => {
+                const isSelf = badge === 'Active';
+                const tag = isSelf ? 'a' : 'div';
+                return `
+                <${tag} class="flex items-center gap-2 px-2 py-2 rounded-xl${isSelf ? ' hover:bg-surface-container-high transition-colors' : ''}"${isSelf ? ` href="${href}"` : ''}>
                     <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm shrink-0">${escapeHtml((name || '?')[0].toUpperCase())}</div>
                     <div class="flex-1 min-w-0">
                         <p class="font-label-md text-label-md text-on-surface truncate">${escapeHtml(name)}</p>
                         <p class="font-body text-[11px] text-on-surface-variant truncate">${escapeHtml(role)}</p>
                     </div>
                     <span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge === 'Active' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}">${badge}</span>
-                </a>`;
+                </${tag}>`;
+            };
             try {
                 const [famRes, membersRes] = await Promise.all([
                     fetch('/api/family/' + encodeURIComponent(familyId)),
@@ -2673,11 +2680,11 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                 const membersData = membersRes.ok ? await membersRes.json() : { members: [] };
                 let rows = '';
                 let count = 0;
-                if (fam.motherName) { rows += row(fam.motherName, 'Mother', 'Switch', '/app/mother/'); count++; }
-                if (fam.fatherName) { rows += row(fam.fatherName, 'Father', 'Switch', '/app/father/'); count++; }
+                if (fam.motherName) { rows += row(fam.motherName, 'Mother', 'Family', '/app/mother/'); count++; }
+                if (fam.fatherName) { rows += row(fam.fatherName, 'Father', 'Family', '/app/father/'); count++; }
                 (membersData.members || []).forEach(m => {
                     const isSelf = memberId && m.id === memberId;
-                    rows += row(m.name, m.relationship || 'Family', isSelf ? 'Active' : 'Switch', '/app/family-member/?preview=1');
+                    rows += row(m.name, m.relationship || 'Family', isSelf ? 'Active' : 'Family', '/app/family-member/?preview=1');
                     count++;
                 });
                 listEl.innerHTML = rows || '<p class="font-body text-xs text-on-surface-variant px-2 py-2">No family members yet.</p>';

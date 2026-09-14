@@ -155,6 +155,50 @@
 <p class="font-body-md text-body-md text-on-surface-variant">Your teacher/tutor registration is still being reviewed. We'll let you know once your account is approved — please check back later.</p>
 </div>
 </section>
+
+<!-- This phone number matches more than one password-protected account
+     (findFamilyIdByPhone's ambiguous+allHavePasswords case) — pick which
+     one, then enter that account's password. Two sub-steps in one view
+     rather than N password inputs at once. -->
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="account-picker-view">
+<div id="pickerSelectStep">
+<header class="text-center">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Whose account is this?</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">This phone number is linked to more than one account. Pick yours to continue.</p>
+</header>
+<div class="flex flex-col gap-sm" id="pickerCandidateList"></div>
+</div>
+<div class="hidden flex flex-col gap-md" id="pickerPasswordStep">
+<header class="text-center relative">
+<button class="absolute left-0 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors" onclick="showPickerSelectStep()" type="button">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm" id="pickerPasswordHeading">Enter your password</h1>
+</header>
+<form class="flex flex-col gap-md" id="picker-password-form" onsubmit="event.preventDefault(); handlePickerPasswordSubmit();">
+<input autocomplete="current-password" class="w-full h-14 px-md rounded-xl glass-input border-none focus:ring-0 font-body-md" id="pickerPasswordInput" placeholder="Password" type="password"/>
+<p class="text-center text-sm text-red-600 hidden" id="pickerPasswordError"></p>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] mt-sm" id="pickerPasswordSubmitBtn" type="submit">Continue</button>
+</form>
+</div>
+</section>
+
+<!-- This phone number matches exactly one password-less account among an
+     otherwise-ambiguous set (findFamilyIdByPhone's needsPasswordSetup
+     case) — first-time setup so this account has its own password to
+     disambiguate by from now on. -->
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="password-setup-view">
+<header class="text-center">
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Set a password for your account</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">This phone number is shared with another account on Tut-P. Set a password so you can always get back to yours.</p>
+</header>
+<form class="flex flex-col gap-md" id="password-setup-form" onsubmit="event.preventDefault(); handlePasswordSetupSubmit();">
+<input autocomplete="new-password" class="w-full h-14 px-md rounded-xl glass-input border-none focus:ring-0 font-body-md" id="setupPasswordInput" placeholder="New password" type="password"/>
+<input autocomplete="new-password" class="w-full h-14 px-md rounded-xl glass-input border-none focus:ring-0 font-body-md" id="setupPasswordConfirmInput" placeholder="Confirm password" type="password"/>
+<p class="text-center text-sm text-red-600 hidden" id="setupPasswordError"></p>
+<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)] mt-sm" id="setupPasswordSubmitBtn" type="submit">Set Password &amp; Continue</button>
+</form>
+</section>
 </main>
 <script>
         function transitionTo(fromId, toId, focusSelector) {
@@ -488,6 +532,233 @@
             }
         }
 
+        // Everything that decides where a successfully-authenticated login
+        // lands — Play-Based Learning invite, teacher status, child-name
+        // resolution, or the plain registered/new-family fallback. Pulled
+        // out of handleVerifyCode so the account-picker and password-setup
+        // success paths below can both re-enter it once a real session
+        // cookie is actually established, instead of duplicating this
+        // whole routing tree.
+        async function continuePostLoginFlow(){
+            // Came here from a Play-Based Learning invite link — skip
+            // every other post-login branch below (teacher status,
+            // pending homework, child-name resolution, profile grid):
+            // this login's only purpose was joining that specific game,
+            // so go straight to the matching dashboard, which detects
+            // ?joinGame= itself and opens the Play modal directly into
+            // it via POST /api/game-invite/consume.
+            if (pendingJoinGame) {
+                // Same thing every other post-login branch in this file
+                // does right before landing on a dashboard page — those
+                // pages read tutp_family_id directly for several calls,
+                // not just the session cookie.
+                if (pendingJoinGame.familyId) sessionStorage.setItem('tutp_family_id', pendingJoinGame.familyId);
+                const dashboardPath = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' }[pendingJoinGame.playerType] || '/app/login/';
+                window.location.href = dashboardPath + '?joinGame=' + encodeURIComponent(pendingJoinGame.token);
+                return;
+            }
+
+            if (loginRole === 'teacher') {
+                const statusRes = await fetch('/api/teacher-status?phone=' + encodeURIComponent('+91' + lastPhoneDigits));
+                const statusData = await statusRes.json();
+                const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'otp-view' : 'disambiguate-view';
+                if (!statusData.found) {
+                    transitionTo(fromId, 'teacher-register-prompt-view');
+                } else if (!statusData.is_approved) {
+                    transitionTo(fromId, 'teacher-pending-view');
+                } else {
+                    sessionStorage.setItem('tutp_teacher_id', statusData.id);
+                    window.location.href = '/app/teacher/';
+                }
+                return;
+            }
+
+            // A homepage attach flow (index.html) may have set
+            // tutp_pending_attach_url/_mode/_ts just before sending the
+            // parent here — this used to short-circuit straight to
+            // /demo/ instead of a real dashboard, regardless of who the
+            // parent actually was. That's gone: this login now routes
+            // exactly like any other (below), and whichever dashboard
+            // the parent lands on picks the pending attachment up itself
+            // (checking the same 15-minute freshness window) to pre-fill
+            // whichever mode was chosen on the homepage.
+
+            if (pendingStudentId) {
+                // Was an unconditional redirect straight to /app/child/ —
+                // launch-blocking bug (2026-09-06): a parent who typed
+                // their child's name (which the subtitle above literally
+                // instructs them to do) got silently routed past
+                // Mother/Father with no way back, since /app/child/ isn't
+                // ready for launch. Show the same profile grid as the
+                // "couldn't confidently match" case instead — Mother/
+                // Father are always reachable now, and the resolved
+                // student_id/family_id are still recorded, so tapping
+                // the child's tile in the grid still works correctly.
+                sessionStorage.setItem('tutp_student_id', pendingStudentId);
+                if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
+                routeAfterLogin(false);
+                return;
+            }
+            if (resolveFailed) {
+                if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
+                routeAfterLogin(true);
+                return;
+            }
+
+            // No child name was entered at all (old-style login) — fall back to the
+            // original registered/new-family check.
+            let registered = false;
+            try {
+                const checkRes = await fetch('/api/check-family', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone: '+91' + lastPhoneDigits })
+                });
+                const checkData = await checkRes.json();
+                registered = !!checkData.registered;
+                pendingFamilyId = checkData.family_id || null;
+                pendingRoleMatches = checkData.roleMatches || [];
+            } catch (checkErr) {
+                registered = false; // fail toward the register prompt, not the fake profile grid
+            }
+
+            if (registered) {
+                if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
+                routeAfterLogin(false);
+            } else {
+                sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
+                transitionTo('otp-view', 'register-prompt-view');
+            }
+        }
+
+        // --------- Account picker (ambiguous phone, all candidates have passwords) ---------
+        let pickerPendingToken = null;
+        let pickerCandidates = [];
+        let pickerSelectedCandidate = null;
+
+        function pickerRoleLabel(viewerKey) {
+            return viewerKey === 'mother' ? 'Mother' : viewerKey === 'father' ? 'Father' : 'Family Member';
+        }
+
+        function showAccountPicker(sessionData) {
+            pickerPendingToken = sessionData.pendingToken;
+            pickerCandidates = sessionData.candidates || [];
+            document.getElementById('pickerCandidateList').innerHTML = pickerCandidates.map((c, i) =>
+                `<button class="w-full flex items-center justify-between gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all text-left" data-candidate-index="${i}" onclick="selectPickerCandidate(${i})" type="button">
+<span class="font-headline-md text-headline-md text-on-surface">${escapeAttr(c.name || pickerRoleLabel(c.viewerKey))}</span>
+<span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full">${escapeAttr(pickerRoleLabel(c.viewerKey))}</span>
+</button>`
+            ).join('');
+            document.getElementById('pickerSelectStep').classList.remove('hidden');
+            document.getElementById('pickerPasswordStep').classList.add('hidden');
+            const from = document.getElementById('otp-view').classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
+            transitionTo(from, 'account-picker-view');
+        }
+
+        function showPickerSelectStep() {
+            document.getElementById('pickerPasswordStep').classList.add('hidden');
+            document.getElementById('pickerSelectStep').classList.remove('hidden');
+        }
+
+        function selectPickerCandidate(index) {
+            pickerSelectedCandidate = pickerCandidates[index];
+            document.getElementById('pickerPasswordHeading').textContent = 'Password for ' + (pickerSelectedCandidate.name || pickerRoleLabel(pickerSelectedCandidate.viewerKey));
+            document.getElementById('pickerPasswordInput').value = '';
+            document.getElementById('pickerPasswordError').classList.add('hidden');
+            document.getElementById('pickerSelectStep').classList.add('hidden');
+            document.getElementById('pickerPasswordStep').classList.remove('hidden');
+            document.getElementById('pickerPasswordInput').focus();
+        }
+
+        async function handlePickerPasswordSubmit() {
+            const errEl = document.getElementById('pickerPasswordError');
+            const btn = document.getElementById('pickerPasswordSubmitBtn');
+            const password = document.getElementById('pickerPasswordInput').value;
+            errEl.classList.add('hidden');
+            if (!password) {
+                errEl.textContent = 'Please enter your password.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true; btn.textContent = 'Verifying…';
+            try {
+                const res = await fetch('/api/session/select-account', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        pendingToken: pickerPendingToken,
+                        familyId: pickerSelectedCandidate.familyId,
+                        viewerKey: pickerSelectedCandidate.viewerKey,
+                        password
+                    })
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.familyId) sessionStorage.setItem('tutp_family_id', data.familyId);
+                    await continuePostLoginFlow();
+                    return;
+                }
+                errEl.textContent = 'Incorrect password — please try again.';
+                errEl.classList.remove('hidden');
+            } catch (err) {
+                errEl.textContent = 'Something went wrong — please try again.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Continue';
+            }
+        }
+
+        // --------- Password setup (ambiguous phone, exactly one candidate has no password) ---------
+        let setupPendingToken = null;
+
+        function showPasswordSetup(sessionData) {
+            setupPendingToken = sessionData.pendingToken;
+            document.getElementById('setupPasswordInput').value = '';
+            document.getElementById('setupPasswordConfirmInput').value = '';
+            document.getElementById('setupPasswordError').classList.add('hidden');
+            const from = document.getElementById('otp-view').classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
+            transitionTo(from, 'password-setup-view');
+        }
+
+        async function handlePasswordSetupSubmit() {
+            const errEl = document.getElementById('setupPasswordError');
+            const btn = document.getElementById('setupPasswordSubmitBtn');
+            const password = document.getElementById('setupPasswordInput').value;
+            const confirmPassword = document.getElementById('setupPasswordConfirmInput').value;
+            errEl.classList.add('hidden');
+            if (password.length < 8) {
+                errEl.textContent = 'Password must be at least 8 characters.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            if (password !== confirmPassword) {
+                errEl.textContent = 'Passwords do not match.';
+                errEl.classList.remove('hidden');
+                return;
+            }
+            btn.disabled = true; btn.textContent = 'Saving…';
+            try {
+                const res = await fetch('/api/session/set-password', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pendingToken: setupPendingToken, password })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok) {
+                    if (data.familyId) sessionStorage.setItem('tutp_family_id', data.familyId);
+                    await continuePostLoginFlow();
+                    return;
+                }
+                errEl.textContent = data.error || 'Could not set password — please try again.';
+                errEl.classList.remove('hidden');
+            } catch (err) {
+                errEl.textContent = 'Something went wrong — please try again.';
+                errEl.classList.remove('hidden');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Set Password & Continue';
+            }
+        }
+
         async function handleVerifyCode(){
             const errEl = document.getElementById('otpError');
             const btn = document.getElementById('verifyBtn');
@@ -501,97 +772,24 @@
             btn.disabled = true; btn.textContent = 'Verifying…';
             try{
                 const idToken = await window.tutpVerifyOTP(code);
-                await window.tutpEstablishSession(idToken);
+                const sessionResult = await window.tutpEstablishSession(idToken);
+                const sessionData = sessionResult && sessionResult.data;
 
-                // Came here from a Play-Based Learning invite link — skip
-                // every other post-login branch below (teacher status,
-                // pending homework, child-name resolution, profile grid):
-                // this login's only purpose was joining that specific game,
-                // so go straight to the matching dashboard, which detects
-                // ?joinGame= itself and opens the Play modal directly into
-                // it via POST /api/game-invite/consume.
-                if (pendingJoinGame) {
-                    // Same thing every other post-login branch in this file
-                    // does right before landing on a dashboard page — those
-                    // pages read tutp_family_id directly for several calls,
-                    // not just the session cookie.
-                    if (pendingJoinGame.familyId) sessionStorage.setItem('tutp_family_id', pendingJoinGame.familyId);
-                    const dashboardPath = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' }[pendingJoinGame.playerType] || '/app/login/';
-                    window.location.href = dashboardPath + '?joinGame=' + encodeURIComponent(pendingJoinGame.token);
+                if (sessionData && sessionData.needsPicker) {
+                    showAccountPicker(sessionData);
+                    return;
+                }
+                if (sessionData && sessionData.needsPasswordSetup) {
+                    showPasswordSetup(sessionData);
+                    return;
+                }
+                if (sessionResult && !sessionResult.ok && sessionResult.status === 409) {
+                    errEl.textContent = 'Multiple accounts found for this number — please contact support to resolve this.';
+                    errEl.classList.remove('hidden');
                     return;
                 }
 
-                if (loginRole === 'teacher') {
-                    const statusRes = await fetch('/api/teacher-status?phone=' + encodeURIComponent('+91' + lastPhoneDigits));
-                    const statusData = await statusRes.json();
-                    const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'otp-view' : 'disambiguate-view';
-                    if (!statusData.found) {
-                        transitionTo(fromId, 'teacher-register-prompt-view');
-                    } else if (!statusData.is_approved) {
-                        transitionTo(fromId, 'teacher-pending-view');
-                    } else {
-                        sessionStorage.setItem('tutp_teacher_id', statusData.id);
-                        window.location.href = '/app/teacher/';
-                    }
-                    return;
-                }
-
-                // A homepage attach flow (index.html) may have set
-                // tutp_pending_attach_url/_mode/_ts just before sending the
-                // parent here — this used to short-circuit straight to
-                // /demo/ instead of a real dashboard, regardless of who the
-                // parent actually was. That's gone: this login now routes
-                // exactly like any other (below), and whichever dashboard
-                // the parent lands on picks the pending attachment up itself
-                // (checking the same 15-minute freshness window) to pre-fill
-                // whichever mode was chosen on the homepage.
-
-                if (pendingStudentId) {
-                    // Was an unconditional redirect straight to /app/child/ —
-                    // launch-blocking bug (2026-09-06): a parent who typed
-                    // their child's name (which the subtitle above literally
-                    // instructs them to do) got silently routed past
-                    // Mother/Father with no way back, since /app/child/ isn't
-                    // ready for launch. Show the same profile grid as the
-                    // "couldn't confidently match" case instead — Mother/
-                    // Father are always reachable now, and the resolved
-                    // student_id/family_id are still recorded, so tapping
-                    // the child's tile in the grid still works correctly.
-                    sessionStorage.setItem('tutp_student_id', pendingStudentId);
-                    if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    routeAfterLogin(false);
-                    return;
-                }
-                if (resolveFailed) {
-                    if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    routeAfterLogin(true);
-                    return;
-                }
-
-                // No child name was entered at all (old-style login) — fall back to the
-                // original registered/new-family check.
-                let registered = false;
-                try {
-                    const checkRes = await fetch('/api/check-family', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: '+91' + lastPhoneDigits })
-                    });
-                    const checkData = await checkRes.json();
-                    registered = !!checkData.registered;
-                    pendingFamilyId = checkData.family_id || null;
-                    pendingRoleMatches = checkData.roleMatches || [];
-                } catch (checkErr) {
-                    registered = false; // fail toward the register prompt, not the fake profile grid
-                }
-
-                if (registered) {
-                    if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                    routeAfterLogin(false);
-                } else {
-                    sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
-                    transitionTo('otp-view', 'register-prompt-view');
-                }
+                await continuePostLoginFlow();
             } catch(err){
                 errEl.textContent = 'Incorrect code — please try again.';
                 errEl.classList.remove('hidden');
@@ -640,18 +838,30 @@
     // Exchanges the Firebase ID token for this app's own session cookie —
     // the server resolves the token's verified phone number to a
     // family_id/teacher_id and every family/student/teacher-scoped API
-    // route checks the cookie from then on. Best-effort: a failure here
-    // shouldn't block the login flow itself (the user still reaches their
-    // dashboard), it just means API calls there will 403 until they retry.
+    // route checks the cookie from then on. Returns { ok, status, data }
+    // so the caller can branch on needsPicker/needsPasswordSetup/409 —
+    // previously this discarded the response entirely, so those cases
+    // (and even a plain 409) went completely unnoticed by the UI.
+    // On a network-level failure only (not a non-2xx status), this still
+    // resolves rather than throwing, with data: null — callers that check
+    // `sessionData && sessionData.needsX` naturally fall through to
+    // continuePostLoginFlow() in that case, same silent best-effort
+    // behavior as before (the login flow itself was never meant to be
+    // blocked by this call failing; API calls elsewhere will 403 until a
+    // retry, exactly as today).
     window.tutpEstablishSession = async function(idToken){
         try {
-            await fetch('/api/session', {
+            const res = await fetch('/api/session', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ idToken })
             });
+            let data = null;
+            try { data = await res.json(); } catch (parseErr) { data = null; }
+            return { ok: res.ok, status: res.status, data };
         } catch (err) {
             console.error('[login] Could not establish session:', err);
+            return { ok: false, status: 0, data: null };
         }
     };
 </script>
