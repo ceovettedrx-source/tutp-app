@@ -482,6 +482,49 @@ app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
   }
 });
 
+// Feature-usage bars + 14-day DAU for the admin dashboard's "Engagement"
+// section. dailyActiveUsers is zero-filled to exactly 14 rows (today first),
+// same pattern as the Revenue route's dailyBreakdown — Supabase-js has no
+// GROUP BY or COUNT(DISTINCT ...), so both the per-day distinct family_id
+// count and the per-feature event count are computed client-side.
+app.get('/api/admin/engagement', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const now = new Date();
+    const startOfTodayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
+    const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
+
+    const [dauRes, featureRes] = await Promise.all([
+      supabase.from('usage_events').select('family_id, created_at').eq('event_name', 'session.started').gte('created_at', windowStartUTC),
+      supabase.from('usage_events').select('properties').eq('event_name', 'session.started')
+    ]);
+    if (dauRes.error) throw dauRes.error;
+    if (featureRes.error) throw featureRes.error;
+
+    const byDate = {};
+    for (const date of days) byDate[date] = new Set();
+    for (const row of dauRes.data || []) {
+      const families = byDate[row.created_at.slice(0, 10)];
+      if (families && row.family_id != null) families.add(row.family_id);
+    }
+    const dailyActiveUsers = days.map(date => ({ date, dau: byDate[date].size }));
+
+    const counts = Object.fromEntries(Object.values(FEATURES).map(f => [f, 0]));
+    for (const row of featureRes.data || []) {
+      const feature = row.properties?.feature;
+      if (feature && Object.prototype.hasOwnProperty.call(counts, feature)) counts[feature] += 1;
+    }
+    const featureUsage = Object.values(FEATURES).map(feature => ({ feature, count: counts[feature] }));
+
+    res.json({ dailyActiveUsers, featureUsage });
+  } catch (err) {
+    console.error('Admin engagement error:', err);
+    res.status(500).json({ error: 'Could not load engagement' });
+  }
+});
+
 // Revenue summary + 14-day daily breakdown for the admin dashboard's
 // "Revenue" section. dailyBreakdown always returns exactly 14 rows (today
 // first), zero-filled for days with no captured/failed activity — Supabase-js
@@ -624,6 +667,13 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     padding: 16px 18px;
   }
   .panel-message { color: #666; font-size: 14px; margin: 0; }
+  .panel + .panel { margin-top: 16px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .bar-row + .bar-row { margin-top: 10px; }
+  .bar-label { width: 170px; flex-shrink: 0; color: #444; }
+  .bar-track { flex: 1; background: #eef1f5; border-radius: 4px; overflow: hidden; height: 18px; }
+  .bar-fill { background: #005bbf; height: 100%; }
+  .bar-count { width: 36px; flex-shrink: 0; text-align: right; color: #666; font-size: 12px; }
   table.data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
   table.data-table th, table.data-table td {
     text-align: left;
@@ -662,6 +712,14 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
       <p class="kpi-label">Active Paid Users</p>
       <p class="kpi-value loading" id="kpi-activePaidUsers">…</p>
     </div>
+  </div>
+
+  <h2 class="section-title">Engagement</h2>
+  <div class="panel" id="featureUsagePanel">
+    <p class="panel-message loading" id="featureUsageMessage">Loading…</p>
+  </div>
+  <div class="panel" id="dauPanel">
+    <p class="panel-message loading" id="dauMessage">Loading…</p>
   </div>
 
   <h2 class="section-title">Revenue</h2>
@@ -707,6 +765,47 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           el.classList.add('error');
         });
         console.error('[admin dashboard] Could not load KPIs:', err);
+      }
+    })();
+
+    (async () => {
+      const featurePanel = document.getElementById('featureUsagePanel');
+      const dauPanel = document.getElementById('dauPanel');
+      try {
+        const res = await fetch('/api/admin/engagement');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+
+        const formatFeature = (f) => String(f).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const featureRows = data.featureUsage || [];
+        if (!featureRows.length) {
+          featurePanel.innerHTML = '<p class="panel-message">No feature usage yet.</p>';
+        } else {
+          const maxCount = Math.max(1, ...featureRows.map(r => r.count));
+          featurePanel.innerHTML = featureRows.map(r =>
+            '<div class="bar-row">' +
+              '<div class="bar-label">' + formatFeature(r.feature) + '</div>' +
+              '<div class="bar-track"><div class="bar-fill" style="width:' + Math.round((r.count / maxCount) * 100) + '%"></div></div>' +
+              '<div class="bar-count">' + r.count + '</div>' +
+            '</div>'
+          ).join('');
+        }
+
+        const dauRows = data.dailyActiveUsers || [];
+        if (!dauRows.length) {
+          dauPanel.innerHTML = '<p class="panel-message">No activity in the last 14 days.</p>';
+        } else {
+          const rowsHtml = dauRows.map(r => '<tr><td>' + r.date + '</td><td>' + r.dau + '</td></tr>').join('');
+          dauPanel.innerHTML =
+            '<table class="data-table">' +
+              '<thead><tr><th>Date</th><th>DAU</th></tr></thead>' +
+              '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>';
+        }
+      } catch (err) {
+        featurePanel.innerHTML = '<p class="panel-message">Error loading feature usage.</p>';
+        dauPanel.innerHTML = '<p class="panel-message">Error loading daily active users.</p>';
+        console.error('[admin dashboard] Could not load engagement:', err);
       }
     })();
 
