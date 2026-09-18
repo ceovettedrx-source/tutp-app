@@ -764,6 +764,347 @@ app.get('/api/admin/failed-payments', requireAdmin, async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// Tutors directory — admin-managed listings (see 020_tutors.sql). The
+// contact-request-with-payment flow (tutor_contact_requests) is a
+// separate, parent-facing piece, not part of this admin CRUD.
+// ------------------------------------------------------------------
+const TUTOR_CATEGORIES = ['online', 'area_wise', 'home_tuition'];
+const TUTOR_VERIFICATION_STATUSES = ['pending', 'verified', 'rejected'];
+
+function parseTutorSubjects(subjects) {
+  return Array.isArray(subjects)
+    ? subjects.map(s => String(s).trim()).filter(Boolean)
+    : String(subjects || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+app.get('/api/admin/tutors', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data, error } = await supabase.from('tutors').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ tutors: data || [] });
+  } catch (err) {
+    console.error('Admin tutors list error:', err);
+    res.status(500).json({ error: 'Could not load tutors' });
+  }
+});
+
+app.post('/api/admin/tutors', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { name, photoUrl, category, subjects, experienceYears, feeDisplay, area, bio, phone } = req.body || {};
+    if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
+    if (!phone || !String(phone).trim()) return res.status(400).json({ error: 'phone is required' });
+    if (!TUTOR_CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: 'category must be one of ' + TUTOR_CATEGORIES.join(', ') });
+    }
+
+    // verified_by is deliberately not settable at creation — it's the
+    // founder's own record of how/when verification happened, so it only
+    // gets written via the PATCH route once a real check has taken place.
+    const { data, error } = await supabase.from('tutors').insert({
+      name: String(name).trim(),
+      photo_url: photoUrl || null,
+      category,
+      subjects: parseTutorSubjects(subjects),
+      experience_years: experienceYears !== undefined && experienceYears !== '' ? Number(experienceYears) : null,
+      fee_display: feeDisplay || null,
+      area: area || null,
+      bio: bio || null,
+      phone: String(phone).trim()
+    }).select().single();
+    if (error) throw error;
+    res.json({ tutor: data });
+  } catch (err) {
+    console.error('Admin tutor create error:', err);
+    res.status(500).json({ error: 'Could not create tutor' });
+  }
+});
+
+app.patch('/api/admin/tutors/:id', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { name, photoUrl, category, subjects, experienceYears, feeDisplay, area, bio, phone, verifiedBy, verificationStatus, isActive } = req.body || {};
+
+    const updates = {};
+    if (name !== undefined) updates.name = String(name).trim();
+    if (photoUrl !== undefined) updates.photo_url = photoUrl || null;
+    if (category !== undefined) {
+      if (!TUTOR_CATEGORIES.includes(category)) {
+        return res.status(400).json({ error: 'category must be one of ' + TUTOR_CATEGORIES.join(', ') });
+      }
+      updates.category = category;
+    }
+    if (subjects !== undefined) updates.subjects = parseTutorSubjects(subjects);
+    if (experienceYears !== undefined) updates.experience_years = (experienceYears === '' || experienceYears === null) ? null : Number(experienceYears);
+    if (feeDisplay !== undefined) updates.fee_display = feeDisplay || null;
+    if (area !== undefined) updates.area = area || null;
+    if (bio !== undefined) updates.bio = bio || null;
+    if (phone !== undefined) {
+      if (!String(phone).trim()) return res.status(400).json({ error: 'phone cannot be empty' });
+      updates.phone = String(phone).trim();
+    }
+    if (verifiedBy !== undefined) updates.verified_by = verifiedBy || null;
+    if (verificationStatus !== undefined) {
+      if (!TUTOR_VERIFICATION_STATUSES.includes(verificationStatus)) {
+        return res.status(400).json({ error: 'verificationStatus must be one of ' + TUTOR_VERIFICATION_STATUSES.join(', ') });
+      }
+      updates.verification_status = verificationStatus;
+    }
+    if (isActive !== undefined) updates.is_active = !!isActive;
+
+    if (Object.keys(updates).length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+    const { data, error } = await supabase.from('tutors').update(updates).eq('id', req.params.id).select().single();
+    if (error) throw error;
+    res.json({ tutor: data });
+  } catch (err) {
+    console.error('Admin tutor update error:', err);
+    res.status(500).json({ error: 'Could not update tutor' });
+  }
+});
+
+// Public tutor directory feed — unauthenticated (unlike the /api/admin/tutors
+// routes above), so it only ever returns listings a parent should actually
+// see: active AND verified. phone is deliberately left out of the select —
+// Phase 1 has no masked-call layer yet, so the raw number must never reach
+// the client here regardless of verification/active state.
+app.get('/api/tutors', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { data, error } = await supabase.from('tutors')
+      .select('id, name, photo_url, category, subjects, experience_years, fee_display, area, bio, verification_status')
+      .eq('is_active', true)
+      .eq('verification_status', 'verified')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    res.json({ tutors: data || [] });
+  } catch (err) {
+    console.error('Public tutors list error:', err);
+    res.status(500).json({ error: 'Could not load tutors' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Public tutor discovery page — no login required. Self-contained
+// (Tailwind Play CDN, not the built /css/tailwind.css) since this isn't
+// in the build pipeline yet; worth moving over if/when this page graduates
+// past Phase 1. "Contact tutor" only logs to console for now — the ₹100
+// checkout flow is the next piece, not built here.
+// ------------------------------------------------------------------
+app.get('/tutors', (req, res) => {
+  res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Find a Tutor — Tut-P</title>
+<meta name="description" content="Connect directly with tutors near you or online — no agency markup, just a one-time ₹100 contact fee."/>
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@600;700;800&amp;display=swap" rel="stylesheet"/></noscript>
+<link as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/></noscript>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: { ink: '#1F3D31', paper: '#F7F5EF', accent: '#E8A33D', brand: '#005BBF' },
+        fontFamily: {
+          headline: ['"Plus Jakarta Sans"', 'sans-serif'],
+          body: ['Inter', 'sans-serif']
+        }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .material-symbols-outlined { font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24; }
+
+  .filter-chip {
+    font-family: Inter, sans-serif; font-size: 14px; font-weight: 600;
+    padding: 9px 20px; border-radius: 999px; border: 1px solid rgba(31,61,49,0.2);
+    background: #fff; color: #1F3D31; cursor: pointer; transition: all 0.15s ease;
+  }
+  .filter-chip.chip-active { background: #005BBF; border-color: #005BBF; color: #fff; }
+
+  .tutor-card {
+    background: #fff; border-radius: 20px; padding: 20px;
+    box-shadow: 0 1px 3px rgba(31,61,49,0.10), 0 1px 2px rgba(31,61,49,0.06);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .avatar-circle {
+    width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: #005BBF; color: #fff; font-family: 'Plus Jakarta Sans', sans-serif;
+    font-weight: 700; font-size: 16px;
+  }
+  .verified-pill {
+    display: inline-flex; align-items: center; gap: 3px; font-family: Inter, sans-serif;
+    font-size: 11px; font-weight: 700; color: #8a5a16; background: rgba(232,163,61,0.18);
+    padding: 2px 9px; border-radius: 999px; white-space: nowrap;
+  }
+  .verified-pill .material-symbols-outlined { font-size: 13px; }
+  .subject-chip {
+    font-family: Inter, sans-serif; font-size: 12px; font-weight: 500; color: rgba(31,61,49,0.8);
+    background: rgba(31,61,49,0.06); padding: 4px 11px; border-radius: 999px;
+  }
+  .info-row {
+    display: flex; align-items: center; gap: 8px; font-family: Inter, sans-serif;
+    font-size: 13px; color: rgba(31,61,49,0.75);
+  }
+  .info-row .material-symbols-outlined { font-size: 18px; color: rgba(31,61,49,0.5); }
+  .info-row.fee-row { font-weight: 700; color: #1F3D31; }
+  .info-row.fee-row .material-symbols-outlined { color: #1F3D31; }
+  .bio-box {
+    display: flex; gap: 8px; background: rgba(232,163,61,0.10); border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .bio-box .material-symbols-outlined { font-size: 18px; color: #E8A33D; flex-shrink: 0; }
+  .bio-box p {
+    font-family: Inter, sans-serif; font-size: 13px; font-style: italic;
+    color: rgba(31,61,49,0.8); line-height: 1.4;
+  }
+  .contact-tutor-btn {
+    width: 100%; background: #005BBF; color: #fff; font-family: Inter, sans-serif;
+    font-weight: 600; font-size: 14px; padding: 12px 18px; border-radius: 999px; border: none;
+    cursor: pointer; transition: background 0.15s ease; margin-top: auto;
+  }
+  .contact-tutor-btn:hover { background: #00479c; }
+
+  .empty-state {
+    grid-column: 1 / -1; text-align: center; padding: 56px 20px;
+  }
+  .empty-state .material-symbols-outlined { font-size: 32px; color: rgba(31,61,49,0.3); }
+  .empty-state p { font-family: Inter, sans-serif; font-size: 14px; color: rgba(31,61,49,0.55); margin-top: 8px; }
+</style>
+</head>
+<body class="bg-paper">
+
+  <header class="px-6 md:px-10 pt-8">
+    <div class="max-w-5xl mx-auto">
+      <a href="/" class="font-headline text-ink font-bold text-base tracking-tight">Tut-P</a>
+    </div>
+  </header>
+
+  <section class="px-6 md:px-10 pt-8 pb-8 text-center">
+    <div class="max-w-2xl mx-auto">
+      <h1 class="font-headline text-ink font-extrabold text-3xl md:text-4xl leading-tight">Great tutors, fairly paid.</h1>
+      <p class="font-body text-ink/70 text-sm md:text-base mt-3 leading-relaxed">No agency markup, no recurring commission — you connect directly with the tutor for a one-time ₹100 contact fee, and what you pay the tutor after that is between the two of you.</p>
+    </div>
+  </section>
+
+  <section class="px-6 md:px-10">
+    <div class="max-w-5xl mx-auto flex gap-3 justify-center flex-wrap" id="categoryChips">
+      <button type="button" class="filter-chip chip-active" data-category="online">Online</button>
+      <button type="button" class="filter-chip" data-category="area_wise">Near You</button>
+      <button type="button" class="filter-chip" data-category="home_tuition">Home Tuition</button>
+    </div>
+  </section>
+
+  <section class="px-6 md:px-10 py-10">
+    <div class="max-w-5xl mx-auto">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5" id="tutorsGrid">
+        <p class="font-body text-center text-sm text-ink/50 py-16" style="grid-column:1/-1;">Loading tutors…</p>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    let allTutors = [];
+    let activeCategory = 'online';
+    const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+    function initialsOf(name){
+      return String(name || '?').trim().split(/\\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
+    }
+
+    function tutorCardHtml(t){
+      const verifiedPill = t.verification_status === 'verified'
+        ? '<span class="verified-pill"><span class="material-symbols-outlined">verified</span>Verified</span>'
+        : '';
+      const subjectsHtml = (t.subjects && t.subjects.length)
+        ? t.subjects.map(s => '<span class="subject-chip">' + escapeHtml(s) + '</span>').join('')
+        : '<span class="subject-chip">Subjects not listed</span>';
+      const expText = t.experience_years != null ? escapeHtml(t.experience_years) + ' yrs experience' : 'Experience not listed';
+      const areaRow = (t.category === 'area_wise' && t.area)
+        ? '<div class="info-row"><span class="material-symbols-outlined">place</span>' + escapeHtml(t.area) + '</div>'
+        : '';
+      const bio = t.bio && String(t.bio).trim();
+      const bioHtml = bio
+        ? '<div class="bio-box"><span class="material-symbols-outlined">format_quote</span><p>' + escapeHtml(bio) + '</p></div>'
+        : '';
+      return (
+        '<div class="tutor-card">' +
+          '<div class="flex items-start gap-3">' +
+            '<div class="avatar-circle">' + escapeHtml(initialsOf(t.name)) + '</div>' +
+            '<div class="min-w-0 flex-1">' +
+              '<div class="flex items-center gap-2 flex-wrap">' +
+                '<h3 class="font-headline text-base font-bold text-ink truncate">' + escapeHtml(t.name) + '</h3>' +
+                verifiedPill +
+              '</div>' +
+              '<div class="flex flex-wrap gap-1.5 mt-2">' + subjectsHtml + '</div>' +
+            '</div>' +
+          '</div>' +
+          '<div class="info-row"><span class="material-symbols-outlined">work_history</span>' + expText + '</div>' +
+          '<div class="info-row fee-row"><span class="material-symbols-outlined">payments</span>' + escapeHtml(t.fee_display || 'Fee on request') + '</div>' +
+          areaRow +
+          bioHtml +
+          '<button type="button" class="contact-tutor-btn" data-tutor-id="' + escapeHtml(t.id) + '" data-tutor-name="' + escapeHtml(t.name) + '">Contact tutor</button>' +
+        '</div>'
+      );
+    }
+
+    function renderTutors(){
+      const grid = document.getElementById('tutorsGrid');
+      const filtered = allTutors.filter(t => t.category === activeCategory);
+      if (!filtered.length) {
+        grid.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">search_off</span><p>New tutors join every week — check back soon.</p></div>';
+        return;
+      }
+      grid.innerHTML = filtered.map(tutorCardHtml).join('');
+      grid.querySelectorAll('.contact-tutor-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          // Phase 1: no checkout wired yet — the ₹100 contact-fee payment
+          // flow (Razorpay order -> tutor_contact_requests row) is the
+          // next piece, not this one.
+          console.log('[tutors] Contact tutor clicked — would start ₹100 contact-fee checkout for tutor', btn.getAttribute('data-tutor-id'), btn.getAttribute('data-tutor-name'));
+        });
+      });
+    }
+
+    document.querySelectorAll('#categoryChips .filter-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeCategory = btn.getAttribute('data-category');
+        document.querySelectorAll('#categoryChips .filter-chip').forEach(b => b.classList.remove('chip-active'));
+        btn.classList.add('chip-active');
+        renderTutors();
+      });
+    });
+
+    (async function loadTutors(){
+      try {
+        const res = await fetch('/api/tutors');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        allTutors = data.tutors || [];
+      } catch (err) {
+        console.error('[tutors] Could not load tutors:', err);
+        allTutors = [];
+      } finally {
+        renderTutors();
+      }
+    })();
+  </script>
+</body>
+</html>`);
+});
+
 app.get('/admin/dashboard', requireAdmin, (req, res) => {
   res.send(`<!DOCTYPE html>
 <html>
@@ -853,6 +1194,24 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     letter-spacing: 0.03em;
   }
   table.data-table td.amount { color: #005bbf; font-weight: 700; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+  @media (max-width: 900px) { .form-grid { grid-template-columns: 1fr; } }
+  .form-grid input, .form-grid select, .form-grid textarea {
+    font-family: inherit; font-size: 14px; padding: 8px 10px;
+    border: 1px solid #d7dbe1; border-radius: 6px; width: 100%;
+  }
+  .form-grid textarea { grid-column: 1 / -1; resize: vertical; }
+  .btn-primary {
+    background: #005bbf; color: #fff; border: none; border-radius: 6px;
+    padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .btn-primary:hover { background: #004a99; }
+  .btn-toggle {
+    border: 1px solid #d7dbe1; background: #fff; border-radius: 6px;
+    padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  .btn-toggle.active { color: #0a7a3d; border-color: #bfe6cd; }
+  .btn-toggle.inactive { color: #999; }
 </style>
 </head>
 <body>
@@ -949,6 +1308,33 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
   <h2 class="section-title">Failed Payments</h2>
   <div class="panel" id="failedPaymentsPanel">
     <p class="panel-message loading" id="failedPaymentsMessage">Loading…</p>
+  </div>
+
+  <h2 class="section-title">Tutors</h2>
+  <div class="panel">
+    <form id="tutorForm">
+      <div class="form-grid">
+        <input type="text" id="tutorName" placeholder="Name" required>
+        <input type="tel" id="tutorPhone" placeholder="Phone (kept private — never shown to parents directly)" required>
+        <input type="text" id="tutorPhotoUrl" placeholder="Photo URL">
+        <select id="tutorCategory" required>
+          <option value="" disabled selected>Category</option>
+          <option value="online">Online</option>
+          <option value="area_wise">Area-wise</option>
+          <option value="home_tuition">Home Tuition</option>
+        </select>
+        <input type="text" id="tutorSubjects" placeholder="Subjects (comma-separated)">
+        <input type="number" id="tutorExperience" placeholder="Experience (years)" min="0">
+        <input type="text" id="tutorFee" placeholder="Fee (display text, e.g. ₹500/hr)">
+        <input type="text" id="tutorArea" placeholder="Area">
+        <textarea id="tutorBio" placeholder="Bio" rows="2"></textarea>
+      </div>
+      <button type="submit" class="btn-primary">Add Tutor</button>
+      <p class="panel-message" id="tutorFormMsg" style="display:none;margin-top:10px;"></p>
+    </form>
+  </div>
+  <div class="panel" id="tutorsPanel">
+    <p class="panel-message loading" id="tutorsMessage">Loading…</p>
   </div>
 
   <script>
@@ -1195,6 +1581,151 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         panel.innerHTML = '<p class="panel-message">Error loading failed payments.</p>';
         console.error('[admin dashboard] Could not load failed payments:', err);
       }
+    })();
+
+    (function tutorsSection(){
+      const panel = document.getElementById('tutorsPanel');
+      const form = document.getElementById('tutorForm');
+      const formMsg = document.getElementById('tutorFormMsg');
+      const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const CATEGORY_LABEL = { online: 'Online', area_wise: 'Area-wise', home_tuition: 'Home Tuition' };
+      // Phone numbers are kept out of the initial table HTML entirely (not
+      // just visually hidden) so a plain view-source/DOM scan doesn't leak
+      // them either — revealing one is a deliberate per-row click, looked
+      // up from this in-memory map rather than re-fetched.
+      let tutorsById = {};
+
+      async function loadTutors(){
+        try {
+          const res = await fetch('/api/admin/tutors');
+          if (!res.ok) throw new Error('Request failed: ' + res.status);
+          const data = await res.json();
+          const tutors = data.tutors || [];
+          tutorsById = {};
+          tutors.forEach(t => { tutorsById[t.id] = t; });
+          if (!tutors.length) {
+            panel.innerHTML = '<p class="panel-message">No tutors added yet.</p>';
+            return;
+          }
+          const rowsHtml = tutors.map(t =>
+            '<tr>' +
+              '<td>' + escapeHtml(t.name) + '</td>' +
+              '<td>' + escapeHtml(CATEGORY_LABEL[t.category] || t.category) + '</td>' +
+              '<td>' + escapeHtml((t.subjects || []).join(', ') || '—') + '</td>' +
+              '<td>' + escapeHtml(t.experience_years != null ? t.experience_years : '—') + '</td>' +
+              '<td>' + escapeHtml(t.fee_display || '—') + '</td>' +
+              '<td>' + escapeHtml(t.area || '—') + '</td>' +
+              '<td><span data-phone-cell="' + t.id + '"><button type="button" class="btn-toggle" data-reveal-phone="' + t.id + '">Reveal</button></span></td>' +
+              '<td>' + escapeHtml(t.verification_status) + '</td>' +
+              '<td>' +
+                '<input type="text" class="verified-by-input" data-tutor-id="' + t.id + '" value="' + escapeHtml(t.verified_by || '') + '" placeholder="How/when verified" style="width:140px;font-size:12px;padding:4px 6px;">' +
+                ' <button type="button" class="btn-toggle" data-save-verified-by="' + t.id + '">Save</button>' +
+              '</td>' +
+              '<td><button type="button" class="btn-toggle ' + (t.is_active ? 'active' : 'inactive') + '" data-tutor-id="' + t.id + '" data-is-active="' + t.is_active + '">' + (t.is_active ? 'Active' : 'Inactive') + '</button></td>' +
+            '</tr>'
+          ).join('');
+          panel.innerHTML =
+            '<table class="data-table">' +
+              '<thead><tr><th>Name</th><th>Category</th><th>Subjects</th><th>Exp.</th><th>Fee</th><th>Area</th><th>Phone</th><th>Verification</th><th>Verified By</th><th>Status</th></tr></thead>' +
+              '<tbody>' + rowsHtml + '</tbody>' +
+            '</table>';
+
+          panel.querySelectorAll('[data-reveal-phone]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const id = btn.getAttribute('data-reveal-phone');
+              const cell = panel.querySelector('[data-phone-cell="' + id + '"]');
+              const tutor = tutorsById[id];
+              cell.textContent = tutor ? (tutor.phone || '—') : '—';
+            });
+          });
+
+          panel.querySelectorAll('[data-save-verified-by]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const id = btn.getAttribute('data-save-verified-by');
+              const input = panel.querySelector('.verified-by-input[data-tutor-id="' + id + '"]');
+              btn.disabled = true;
+              const original = btn.textContent;
+              try {
+                const res = await fetch('/api/admin/tutors/' + encodeURIComponent(id), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ verifiedBy: input.value.trim() })
+                });
+                if (!res.ok) throw new Error('Request failed: ' + res.status);
+                if (tutorsById[id]) tutorsById[id].verified_by = input.value.trim();
+                btn.textContent = 'Saved';
+                setTimeout(() => { btn.textContent = original; }, 1200);
+              } catch (err) {
+                console.error('[admin dashboard] Could not save verified_by:', err);
+                btn.textContent = 'Error';
+                setTimeout(() => { btn.textContent = original; }, 1500);
+              } finally {
+                btn.disabled = false;
+              }
+            });
+          });
+
+          panel.querySelectorAll('.btn-toggle[data-is-active]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+              const id = btn.getAttribute('data-tutor-id');
+              const nextActive = btn.getAttribute('data-is-active') !== 'true';
+              btn.disabled = true;
+              try {
+                const res = await fetch('/api/admin/tutors/' + encodeURIComponent(id), {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ isActive: nextActive })
+                });
+                if (!res.ok) throw new Error('Request failed: ' + res.status);
+                await loadTutors();
+              } catch (err) {
+                console.error('[admin dashboard] Could not toggle tutor status:', err);
+                btn.disabled = false;
+              }
+            });
+          });
+        } catch (err) {
+          panel.innerHTML = '<p class="panel-message">Error loading tutors.</p>';
+          console.error('[admin dashboard] Could not load tutors:', err);
+        }
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        formMsg.style.display = 'none';
+        try {
+          const body = {
+            name: document.getElementById('tutorName').value.trim(),
+            phone: document.getElementById('tutorPhone').value.trim(),
+            photoUrl: document.getElementById('tutorPhotoUrl').value.trim(),
+            category: document.getElementById('tutorCategory').value,
+            subjects: document.getElementById('tutorSubjects').value,
+            experienceYears: document.getElementById('tutorExperience').value,
+            feeDisplay: document.getElementById('tutorFee').value.trim(),
+            area: document.getElementById('tutorArea').value.trim(),
+            bio: document.getElementById('tutorBio').value.trim()
+          };
+          const res = await fetch('/api/admin/tutors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Request failed: ' + res.status);
+          form.reset();
+          await loadTutors();
+        } catch (err) {
+          formMsg.textContent = err.message || 'Could not add tutor.';
+          formMsg.style.display = 'block';
+          console.error('[admin dashboard] Could not create tutor:', err);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+
+      loadTutors();
     })();
   </script>
 </body>
@@ -4199,6 +4730,74 @@ app.post('/api/cron/weekly-digest', async (req, res) => {
   } catch (err) {
     console.error('Weekly digest error:', err);
     res.status(500).json({ error: 'Could not run weekly digest' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Tutor contact-request refunds — Phase 1's SLA safety net. Phase 1 has
+// no real-time masked calling yet, so a paid contact request only
+// becomes status='connected' when the founder manually confirms the
+// parent and tutor were put in touch. refund_deadline (set alongside
+// status='paid' — see the not-yet-built checkout flow's payment.captured
+// handler) is the promise to the parent that this won't just sit paid
+// and unconnected forever.
+// ------------------------------------------------------------------
+async function refundTutorContact(request) {
+  if (!razorpay) {
+    console.error('Could not refund tutor contact request', request.id, ': Razorpay is not configured');
+    return false;
+  }
+  try {
+    await razorpay.payments.refund(request.razorpay_payment_id, { speed: 'optimum' });
+  } catch (err) {
+    // Razorpay didn't confirm the refund — leave status as 'paid' so the
+    // next cron run retries. Never mark 'refunded' on a guess.
+    console.error('Could not refund tutor contact request', request.id, ':', err.message || err);
+    return false;
+  }
+  const { error } = await supabase.from('tutor_contact_requests')
+    .update({ status: 'refunded' })
+    .eq('id', request.id);
+  if (error) {
+    // The refund itself succeeded at Razorpay — only our own status
+    // update failed. Flagged distinctly so this doesn't read as a normal
+    // "will retry cleanly" failure: a retry here would try to refund an
+    // already-refunded payment.
+    console.error('Refunded at Razorpay but could not update tutor_contact_requests', request.id, ':', error.message);
+    return false;
+  }
+  return true;
+}
+
+app.post('/api/cron/tutor-contact-refund-check', async (req, res) => {
+  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+
+    const { data: dueRequests, error } = await supabase.from('tutor_contact_requests')
+      .select('id, razorpay_payment_id, family_id, tutor_id')
+      .eq('status', 'paid')
+      .lte('refund_deadline', new Date().toISOString());
+    if (error) throw error;
+
+    let refunded = 0;
+    let failed = 0;
+    for (const request of dueRequests || []) {
+      const ok = await refundTutorContact(request);
+      if (ok) refunded++; else failed++;
+    }
+
+    const subject = `Tutor contact refund check: ${refunded} refunded, ${failed} failed`;
+    const text = `Tutor contact refund cron ran.\n\nDue for refund: ${(dueRequests || []).length}\nRefunded: ${refunded}\nFailed (needs manual attention): ${failed}` +
+      (failed > 0 ? '\n\nCheck tutor_contact_requests rows still at status=\'paid\' past their refund_deadline.' : '');
+    await sendEmail(process.env.FOUNDER_ALERT_EMAIL || 'ceo.vettedrx@gmail.com', subject, text);
+
+    res.json({ ok: true, refunded, failed });
+  } catch (err) {
+    console.error('Tutor contact refund check error:', err);
+    res.status(500).json({ error: 'Could not run tutor contact refund check' });
   }
 });
 
