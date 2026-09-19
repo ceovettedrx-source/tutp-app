@@ -887,6 +887,53 @@ app.get('/api/tutors', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// Starts the ₹100 tutor-contact fee checkout (Phase 1's pay-to-connect
+// flow, referenced in the /tutors comment above). Requires a logged-in
+// family — /tutors itself has no login gate, so this is the first point
+// that needs one; login_required is a distinct error code (not just a
+// generic 401) so the client can tell "not logged in" apart from any other
+// failure and redirect to login rather than showing a payment error.
+// Same razorpay.orders.create + payments-row-insert shape as /api/register,
+// just against tutor_contact_requests instead of payments. The actual
+// status transition to 'paid' happens via /api/razorpay-webhook once
+// payment.captured fires, not here.
+// ------------------------------------------------------------------
+app.post('/api/tutor-contact/create-order', async (req, res) => {
+  try {
+    const session = getSession(req);
+    if (!session?.familyId) return res.status(401).json({ error: 'login_required' });
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    if (!razorpay) return res.status(500).json({ error: 'Payments are not configured' });
+
+    const { tutorId } = req.body || {};
+    const { data: tutor, error: tutorErr } = await supabase.from('tutors')
+      .select('id, name, is_active, verification_status').eq('id', tutorId).maybeSingle();
+    if (tutorErr) throw tutorErr;
+    if (!tutor || !tutor.is_active || tutor.verification_status !== 'verified') {
+      return res.status(404).json({ error: 'Tutor not found' });
+    }
+
+    const amount = 10000; // ₹100 contact fee, in paise
+    const order = await razorpay.orders.create({
+      amount,
+      currency: 'INR',
+      receipt: `tutor_contact_${session.familyId}_${tutor.id}_${Date.now()}`,
+      notes: { family_id: String(session.familyId), tutor_id: tutor.id }
+    });
+
+    const { error: insertErr } = await supabase.from('tutor_contact_requests').insert({
+      family_id: session.familyId, tutor_id: tutor.id, razorpay_order_id: order.id, status: 'created'
+    });
+    if (insertErr) throw insertErr;
+
+    res.json({ orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tutorName: tutor.name });
+  } catch (err) {
+    console.error('Tutor-contact create-order error:', err);
+    res.status(500).json({ error: 'Could not start payment' });
+  }
+});
+
+// ------------------------------------------------------------------
 // Public tutor discovery page — no login required. Self-contained
 // (Tailwind Play CDN, not the built /css/tailwind.css) since this isn't
 // in the build pipeline yet; worth moving over if/when this page graduates
@@ -909,6 +956,7 @@ app.get('/tutors', (req, res) => {
 <link as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
 <noscript><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/></noscript>
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -982,6 +1030,13 @@ app.get('/tutors', (req, res) => {
   }
   .empty-state .material-symbols-outlined { font-size: 32px; color: rgba(31,61,49,0.3); }
   .empty-state p { font-family: Inter, sans-serif; font-size: 14px; color: rgba(31,61,49,0.55); margin-top: 8px; }
+
+  .contact-status-banner {
+    max-width: 640px; margin: 0 auto; padding: 12px 18px; border-radius: 10px;
+    font-family: Inter, sans-serif; font-size: 14px; text-align: center;
+  }
+  .contact-status-success { background: #e6f4ea; color: #0a7a3d; }
+  .contact-status-neutral { background: #f0f0ec; color: #1F3D31; }
 </style>
 </head>
 <body class="bg-paper">
@@ -991,6 +1046,10 @@ app.get('/tutors', (req, res) => {
       <a href="/" class="font-headline text-ink font-bold text-base tracking-tight">Tut-P</a>
     </div>
   </header>
+
+  <div class="px-6 md:px-10 pt-4">
+    <p id="contactStatusBanner" class="contact-status-banner hidden"></p>
+  </div>
 
   <section class="px-6 md:px-10 pt-8 pb-8 text-center">
     <div class="max-w-2xl mx-auto">
@@ -1069,13 +1128,58 @@ app.get('/tutors', (req, res) => {
       }
       grid.innerHTML = filtered.map(tutorCardHtml).join('');
       grid.querySelectorAll('.contact-tutor-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-          // Phase 1: no checkout wired yet — the ₹100 contact-fee payment
-          // flow (Razorpay order -> tutor_contact_requests row) is the
-          // next piece, not this one.
-          console.log('[tutors] Contact tutor clicked — would start ₹100 contact-fee checkout for tutor', btn.getAttribute('data-tutor-id'), btn.getAttribute('data-tutor-name'));
-        });
+        btn.addEventListener('click', () => startContactFlow(btn.getAttribute('data-tutor-id')));
       });
+    }
+
+    function showContactStatus(message, variant){
+      const el = document.getElementById('contactStatusBanner');
+      el.textContent = message;
+      el.className = 'contact-status-banner ' + (variant === 'success' ? 'contact-status-success' : 'contact-status-neutral');
+    }
+
+    // Shared by a direct "Contact tutor" click and the ?resumeContact= path
+    // below (same-origin login round-trip via /app/login/'s dashboards —
+    // see checkPendingTutorContact there) so there's exactly one place that
+    // creates the order and opens Checkout.js, same shape as register/
+    // index.html's runPaymentQueue but for a single one-off order.
+    async function startContactFlow(tutorId){
+      try {
+        const res = await fetch('/api/tutor-contact/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tutorId })
+        });
+        const data = await res.json();
+        if (res.status === 401 && data.error === 'login_required') {
+          sessionStorage.setItem('tutp_pending_tutor_contact', tutorId);
+          sessionStorage.setItem('tutp_pending_tutor_contact_ts', String(Date.now()));
+          window.location.href = '/app/login/';
+          return;
+        }
+        if (!res.ok) throw new Error(data.error || 'Could not start payment');
+
+        const rzp = new Razorpay({
+          key: data.razorpayKeyId,
+          order_id: data.orderId,
+          amount: data.amount,
+          currency: data.currency,
+          name: 'Tut-P',
+          description: 'Contact fee — ' + data.tutorName,
+          handler: function(){
+            showContactStatus("Payment received — we'll connect you with " + data.tutorName + ' within 24 hours.', 'success');
+          },
+          modal: {
+            ondismiss: function(){
+              showContactStatus('Payment not completed — you can try again anytime.', 'neutral');
+            }
+          }
+        });
+        rzp.open();
+      } catch (err) {
+        console.error('[tutors] Could not start contact payment:', err);
+        showContactStatus(err.message || 'Could not start payment — please try again.', 'neutral');
+      }
     }
 
     document.querySelectorAll('#categoryChips .filter-chip').forEach(btn => {
@@ -1098,6 +1202,16 @@ app.get('/tutors', (req, res) => {
         allTutors = [];
       } finally {
         renderTutors();
+        // Landed back here from /app/login/'s checkPendingTutorContact
+        // redirect — resume the same flow a "Contact tutor" click would
+        // have started, without making the parent find and click it again.
+        // Stripped from the URL immediately so a later refresh/back doesn't
+        // re-trigger a second order for the same tutor.
+        const resumeTutorId = new URLSearchParams(location.search).get('resumeContact');
+        if (resumeTutorId) {
+          history.replaceState({}, '', location.pathname);
+          startContactFlow(resumeTutorId);
+        }
       }
     })();
   </script>
@@ -3550,6 +3664,32 @@ async function handlePaymentFailed(event) {
   if (error) console.error('Could not mark payment failed:', error.message);
 }
 
+// Same razorpay_order_id match as handlePaymentCaptured/handlePaymentFailed
+// above, against tutor_contact_requests instead of payments — an order's
+// razorpay_order_id only ever exists in one of the two tables, so this is
+// a harmless no-op update (0 rows matched) whenever the event is actually
+// a family registration payment, and vice versa. refund_deadline is set
+// here (created_at + 24h) since capture is the only point that starts the
+// SLA clock the refund-check cron watches.
+async function handleTutorContactCaptured(event) {
+  const payment = event.payload?.payment?.entity;
+  if (!payment || !payment.order_id) return;
+  const refundDeadline = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const { error } = await supabase.from('tutor_contact_requests')
+    .update({ razorpay_payment_id: payment.id, status: 'paid', refund_deadline: refundDeadline })
+    .eq('razorpay_order_id', payment.order_id);
+  if (error) console.error('Could not mark tutor contact request paid:', error.message);
+}
+
+async function handleTutorContactFailed(event) {
+  const payment = event.payload?.payment?.entity;
+  if (!payment || !payment.order_id) return;
+  const { error } = await supabase.from('tutor_contact_requests')
+    .update({ status: 'failed' })
+    .eq('razorpay_order_id', payment.order_id);
+  if (error) console.error('Could not mark tutor contact request failed:', error.message);
+}
+
 app.post('/api/razorpay-webhook', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -3565,8 +3705,8 @@ app.post('/api/razorpay-webhook', async (req, res) => {
 
     const event = req.body || {};
     switch (event.event) {
-      case 'payment.captured': await handlePaymentCaptured(event); break;
-      case 'payment.failed': await handlePaymentFailed(event); break;
+      case 'payment.captured': await handlePaymentCaptured(event); await handleTutorContactCaptured(event); break;
+      case 'payment.failed': await handlePaymentFailed(event); await handleTutorContactFailed(event); break;
       default: break; // unhandled event types are fine to ignore — ack so Razorpay stops retrying
     }
     res.json({ ok: true });

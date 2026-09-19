@@ -2692,6 +2692,22 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
             }
         })();
 
+        // /tutors' "Contact tutor" flow bounces here (mother/father/family-
+        // member, whichever /api/session/OTP routes this login to) when it
+        // needs a login first — this page is only ever the login redirect's
+        // landing spot for that flow, never where it actually resumes, so
+        // its only job is to notice the pending flag and send the parent
+        // straight back to /tutors. Same one-shot + 15-minute-freshness
+        // shape as checkPendingAttach above.
+        (function checkPendingTutorContact(){
+            const tutorId = sessionStorage.getItem('tutp_pending_tutor_contact');
+            const ts = parseInt(sessionStorage.getItem('tutp_pending_tutor_contact_ts'), 10);
+            sessionStorage.removeItem('tutp_pending_tutor_contact');
+            sessionStorage.removeItem('tutp_pending_tutor_contact_ts');
+            if (!tutorId || !Number.isFinite(ts) || (Date.now() - ts) >= 15 * 60 * 1000) return;
+            window.location.href = '/tutors?resumeContact=' + encodeURIComponent(tutorId);
+        })();
+
         // Sidebar family list — self (mother) marked Active, the other
         // parent and every family_members row marked Switch. Reuses the
         // same /api/family/:id (+/members) data as the chip row and the
