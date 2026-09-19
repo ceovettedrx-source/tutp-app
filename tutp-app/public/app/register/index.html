@@ -534,7 +534,7 @@
       document.getElementById('reviewChildName').textContent = childName;
       document.getElementById('reviewChildClass').textContent = document.getElementById('childClass').value || '—';
       const avatarEl = document.getElementById('reviewChildAvatar');
-      if (uploadedPhotos['child']) avatarEl.innerHTML = `<img src="${uploadedPhotos['child']}" class="upload-thumb"/>`;
+      if (uploadedPhotos['child']) avatarEl.innerHTML = `<img src="${uploadedPhotos['child']}" class="upload-thumb" alt="Child's photo"/>`;
       else avatarEl.textContent = (childName && childName !== '—') ? childName[0].toUpperCase() : '?';
       const extraChildNames = Array.from(document.querySelectorAll('.extra-child-row .child-name')).map(i => i.value.trim()).filter(Boolean);
       const extraChildrenEl = document.getElementById('reviewExtraChildren');
