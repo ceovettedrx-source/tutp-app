@@ -1337,6 +1337,21 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="tutorsMessage">Loading…</p>
   </div>
 
+  <h2 class="section-title">Resolve Ambiguous Phone</h2>
+  <div class="panel">
+    <form id="resolvePhoneForm">
+      <div class="form-grid">
+        <input type="tel" id="resolvePhoneInput" placeholder="Phone number" required>
+      </div>
+      <button type="submit" class="btn-primary">Look up</button>
+      <p class="panel-message" id="resolvePhoneFormMsg" style="display:none;margin-top:10px;"></p>
+    </form>
+  </div>
+  <div class="panel" id="resolvePhonePanel" style="display:none;">
+    <p class="panel-message" id="resolvePhoneMessage" style="display:none;"></p>
+    <div id="resolvePhoneResults"></div>
+  </div>
+
   <script>
     (async () => {
       try {
@@ -1726,6 +1741,106 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
       });
 
       loadTutors();
+    })();
+
+    (() => {
+      const form = document.getElementById('resolvePhoneForm');
+      const formMsg = document.getElementById('resolvePhoneFormMsg');
+      const panel = document.getElementById('resolvePhonePanel');
+      const message = document.getElementById('resolvePhoneMessage');
+      const results = document.getElementById('resolvePhoneResults');
+      const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      let candidates = [];
+
+      function renderCandidates() {
+        if (!candidates.length) {
+          message.textContent = 'No candidates found for this number.';
+          message.style.display = 'block';
+          results.innerHTML = '';
+          return;
+        }
+        message.style.display = 'none';
+        const rowsHtml = candidates.map((c, i) =>
+          '<tr>' +
+            '<td>' + escapeHtml(c.familyId) + '</td>' +
+            '<td>' + escapeHtml(c.viewerKey) + '</td>' +
+            '<td>' + escapeHtml(c.name || '—') + '</td>' +
+            '<td>' + (c.hasPassword ? 'Yes' : 'No') + '</td>' +
+            '<td>' +
+              '<input type="password" class="set-password-input" data-idx="' + i + '" placeholder="New password (min 8 chars)" style="width:170px;font-size:12px;padding:4px 6px;">' +
+              ' <button type="button" class="btn-toggle" data-set-password-idx="' + i + '">Set password</button>' +
+              '<span class="panel-message" data-set-password-msg="' + i + '" style="display:none;margin-left:8px;"></span>' +
+            '</td>' +
+          '</tr>'
+        ).join('');
+        results.innerHTML =
+          '<table class="data-table">' +
+            '<thead><tr><th>Family ID</th><th>Viewer Key</th><th>Name</th><th>Has Password</th><th>Action</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+          '</table>';
+
+        results.querySelectorAll('[data-set-password-idx]').forEach(btn => {
+          btn.addEventListener('click', async () => {
+            const idx = Number(btn.getAttribute('data-set-password-idx'));
+            const input = results.querySelector('.set-password-input[data-idx="' + idx + '"]');
+            const msgEl = results.querySelector('[data-set-password-msg="' + idx + '"]');
+            const candidate = candidates[idx];
+            const password = input.value;
+            msgEl.style.display = 'none';
+            if (!password || password.length < 8) {
+              msgEl.textContent = 'Min 8 characters.';
+              msgEl.style.color = '#c0392b';
+              msgEl.style.display = 'inline';
+              return;
+            }
+            btn.disabled = true;
+            try {
+              const res = await fetch('/api/admin/resolve-phone/set-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ familyId: candidate.familyId, viewerKey: candidate.viewerKey, password })
+              });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error || 'Request failed: ' + res.status);
+              input.value = '';
+              candidate.hasPassword = true;
+              msgEl.textContent = 'Password set.';
+              msgEl.style.color = '#0a7a3d';
+              msgEl.style.display = 'inline';
+            } catch (err) {
+              msgEl.textContent = err.message || 'Could not set password.';
+              msgEl.style.color = '#c0392b';
+              msgEl.style.display = 'inline';
+              console.error('[admin dashboard] Could not set password:', err);
+            } finally {
+              btn.disabled = false;
+            }
+          });
+        });
+      }
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = form.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        formMsg.style.display = 'none';
+        panel.style.display = 'none';
+        try {
+          const phone = document.getElementById('resolvePhoneInput').value.trim();
+          const res = await fetch('/api/admin/resolve-phone?phone=' + encodeURIComponent(phone));
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Request failed: ' + res.status);
+          candidates = data.candidates || [];
+          panel.style.display = 'block';
+          renderCandidates();
+        } catch (err) {
+          formMsg.textContent = err.message || 'Could not resolve phone number.';
+          formMsg.style.display = 'block';
+          console.error('[admin dashboard] Could not resolve phone:', err);
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
     })();
   </script>
 </body>
@@ -3670,6 +3785,105 @@ async function findTeacherIdByPhone(phone) {
   const match = (data || []).find(row => norm(row.phone) === digits);
   return match ? match.id : null;
 }
+
+// ------------------------------------------------------------------
+// Admin diagnostic for a stuck/ambiguous phone number: surfaces every
+// {familyId, viewerKey, name, hasPassword} candidate for a number, whether
+// findFamilyIdByPhone considers it ambiguous or not — the founder needs the
+// full picture (who's colliding, who already has a password) to decide how
+// to unblock a family, not just the ambiguous case the login flow itself
+// cares about. findFamilyIdByPhone's ambiguous branch already returns that
+// exact candidates shape, so it's reused directly; its single-match branch
+// doesn't build one (no caller needed it before now), so that shape is
+// assembled here instead of changing findFamilyIdByPhone's return value for
+// every login attempt.
+// ------------------------------------------------------------------
+app.get('/api/admin/resolve-phone', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const family = await findFamilyIdByPhone(req.query.phone);
+    if (!family) return res.json({ candidates: [] });
+
+    if (family.ambiguous) {
+      return res.json({ candidates: family.candidates });
+    }
+
+    // Single match: build the same {familyId, viewerKey, name, hasPassword}
+    // shape from family.roleMatches, one extra lookup per role type.
+    const candidates = [];
+    const parentRoles = family.roleMatches.filter(r => r.role === 'mother' || r.role === 'father');
+    if (parentRoles.length) {
+      const { data: famRow, error: famErr } = await supabase
+        .from('family_registrations').select('data').eq('id', family.id).maybeSingle();
+      if (famErr) throw famErr;
+      parentRoles.forEach(r => {
+        candidates.push({ familyId: family.id, viewerKey: r.role, name: r.name, hasPassword: !!famRow?.data?.[r.role]?.passwordHash });
+      });
+    }
+    const memberRoles = family.roleMatches.filter(r => r.role === 'family_member');
+    if (memberRoles.length) {
+      const { data: memberRows, error: memberErr } = await supabase
+        .from('family_members').select('id, password_hash').in('id', memberRoles.map(r => r.memberId));
+      if (memberErr) throw memberErr;
+      const hasPasswordById = Object.fromEntries((memberRows || []).map(m => [m.id, !!m.password_hash]));
+      memberRoles.forEach(r => {
+        candidates.push({ familyId: family.id, viewerKey: String(r.memberId), name: r.name, hasPassword: !!hasPasswordById[r.memberId] });
+      });
+    }
+    res.json({ candidates });
+  } catch (err) {
+    console.error('Admin resolve-phone error:', err);
+    res.status(500).json({ error: 'Could not resolve phone number' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Admin-only manual override for a family stuck behind a phone collision:
+// sets one specific candidate's password directly by familyId/viewerKey,
+// same write logic as /api/session/set-password (bcrypt hash into
+// family_registrations.data for mother/father, family_members.password_hash
+// for a member) — but without that route's pendingToken/candidate
+// re-derivation, since here an authenticated admin is trusted to have
+// already picked the right familyId/viewerKey via resolve-phone above.
+// Setting one account's password is what then lets the OTHER account's
+// owner see the picker/setup flow the next time they log in.
+// ------------------------------------------------------------------
+app.post('/api/admin/resolve-phone/set-password', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { familyId, viewerKey, password } = req.body || {};
+    const famId = parseInt(familyId, 10);
+    if (!Number.isFinite(famId) || !viewerKey) {
+      return res.status(400).json({ error: 'Missing or invalid familyId/viewerKey' });
+    }
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters' });
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    if (viewerKey === 'mother' || viewerKey === 'father') {
+      const { data: famRow, error: famErr } = await supabase.from('family_registrations')
+        .select('data').eq('id', famId).maybeSingle();
+      if (famErr) throw famErr;
+      if (!famRow) return res.status(404).json({ error: 'Family not found' });
+      const updatedData = { ...(famRow.data || {}) };
+      updatedData[viewerKey] = { ...(updatedData[viewerKey] || {}), passwordHash };
+      const { error: updateErr } = await supabase.from('family_registrations')
+        .update({ data: updatedData }).eq('id', famId);
+      if (updateErr) throw updateErr;
+    } else {
+      const { error: updateErr } = await supabase.from('family_members')
+        .update({ password_hash: passwordHash }).eq('id', viewerKey).eq('family_id', famId);
+      if (updateErr) throw updateErr;
+    }
+
+    res.json({ ok: true, familyId: famId, viewerKey });
+  } catch (err) {
+    console.error('Admin resolve-phone set-password error:', err);
+    res.status(500).json({ error: 'Could not set password' });
+  }
+});
 
 // ------------------------------------------------------------------
 // Establishes the session cookie every family/student/teacher-scoped route
