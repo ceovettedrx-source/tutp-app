@@ -1612,23 +1612,48 @@ Parent's instruction: ${hwText || 'none given'}`;
 
         // Shown at most once per session, right after a 'positive' feedback
         // sentiment — the moment a parent is most likely to want to share.
-        // family_id is passed as ?ref= on the registration link so it's
-        // forward-compatible with attribution, but no referral_codes row
-        // exists for it today (that table is teacher-only) — so this share
-        // works, it's just not tracked/attributed yet.
-        function showWhatsappSharePrompt() {
+        // The share link now carries a real family_referral_codes code
+        // (fetched from the server, created lazily on first request) instead
+        // of the old untracked ?ref=family_<familyId> shape, so a signup
+        // through it actually attributes back to this family (see
+        // family_referral_conversions, written by /api/register). If the
+        // fetch fails, the prompt is skipped entirely rather than showing an
+        // untracked link — the whole point of this version is attribution.
+        async function showWhatsappSharePrompt() {
             const familyId = sessionStorage.getItem('tutp_family_id');
-            const shareUrl = 'https://tutp.online/app/register/' + (familyId ? '?ref=family_' + encodeURIComponent(familyId) : '');
-            const message = "I've been using Tut-P to help with my child's homework — it explains everything in plain language (even in Telugu/Hindi) and shows me how involved I'm actually being, not just my child's grades. Thought you might like it too: " + shareUrl;
+            if (!familyId) return;
+            let referralData;
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/referral-code');
+                if (!res.ok) throw new Error('Request failed: ' + res.status);
+                referralData = await res.json();
+            } catch (err) {
+                console.error('[father] Could not load referral code — skipping share prompt:', err);
+                return;
+            }
+            const message = "I've been using Tut-P to help with my child's homework — it explains everything in plain language (even in Telugu/Hindi) and shows me how involved I'm actually being, not just my child's grades. Thought you might like it too: " + referralData.shareUrl;
             const waUrl = 'https://wa.me/?text=' + encodeURIComponent(message);
+            // "Immediate Gratitude Loop" — omitted below 1 rather than
+            // showing "You've helped 0 families join!"
+            const gratitudeLine = referralData.referralCount > 0
+                ? '<p style="margin:0 0 8px;color:#0a7a3d;font-weight:600;">You\'ve already helped ' + referralData.referralCount + ' families join!</p>'
+                : '';
             const box = document.createElement('div');
             box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:240px;';
             box.innerHTML = `
+                ${gratitudeLine}
                 <p style="margin:0 0 8px;">Glad that helped! Know another parent who'd want this?</p>
-                <a href="${waUrl}" target="_blank" rel="noopener" style="display:inline-block;background:#25D366;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Share on WhatsApp</a>
+                <a href="${waUrl}" target="_blank" rel="noopener" id="fbShareLink" style="display:inline-block;background:#25D366;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Share on WhatsApp</a>
                 <button type="button" id="fbShareDismiss" style="display:block;margin-top:8px;background:none;border:none;color:#666;font-size:12px;cursor:pointer;padding:0;">Not now</button>
             `;
             document.body.appendChild(box);
+            box.querySelector('#fbShareLink').addEventListener('click', () => {
+                fetch('/api/track/share-clicked', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ familyId })
+                }).catch(err => console.error('[father] Could not record share-clicked event:', err));
+            });
             box.querySelector('#fbShareDismiss').addEventListener('click', () => box.remove());
         }
 

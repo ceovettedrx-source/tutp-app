@@ -27,3 +27,6 @@ export function trackFeedbackAutoResolved(familyId, studentId, { category, resol
 export function trackFeedbackEscalated(familyId, studentId, { category, patternCount }) {
   trackEvent(EVENTS.FEEDBACK_ESCALATED, { familyId, studentId, properties: { category, pattern_count: patternCount } });
 }
+export function trackShareClicked(familyId) {
+  trackEvent(EVENTS.SHARE_CLICKED, { familyId });
+}

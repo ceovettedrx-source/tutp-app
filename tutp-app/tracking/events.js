@@ -5,6 +5,7 @@ export const EVENTS = {
   FEEDBACK_CLASSIFIED: 'feedback.classified',
   FEEDBACK_AUTO_RESOLVED: 'feedback.auto_resolved',
   FEEDBACK_ESCALATED: 'feedback.escalated',
+  SHARE_CLICKED: 'share.clicked',
 };
 export const FEATURES = {
   HOMEWORK_HELP: 'homework_help',

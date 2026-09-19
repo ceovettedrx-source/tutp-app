@@ -20,7 +20,8 @@ import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
-  trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated
+  trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
+  trackShareClicked
 } from './tracking/tracking.js';
 import { FEATURES } from './tracking/events.js';
 import { classifyFeedback, autoResolveTooComplex, escalateToFounder } from './tracking/feedback-pipeline.js';
@@ -2250,6 +2251,26 @@ app.post('/api/register', registerLimiter, async (req, res) => {
         });
         if (convErr) console.error('Could not record referral conversion (registration itself still succeeded):', convErr.message);
       }
+
+      // Same referralCode value, tried against the family-referral table
+      // too — teacher codes (base64url) and family codes (alphanumeric,
+      // see getOrCreateFamilyReferralCode) use different generators, so in
+      // practice a code only ever matches one of the two tables. Both
+      // lookups are safe to run unconditionally rather than branching on
+      // format, since a miss here is just "not a family code" (frc null),
+      // exactly like the teacher lookup above.
+      const { data: frc, error: frcErr } = await supabase.from('family_referral_codes')
+        .select('id, family_id').eq('code', referralCode).maybeSingle();
+      if (frcErr) {
+        console.error('Could not look up family referral code (registration itself still succeeded):', frcErr.message);
+      } else if (frc) {
+        const { error: familyConvErr } = await supabase.from('family_referral_conversions').insert({
+          referral_code_id: frc.id,
+          referring_family_id: frc.family_id,
+          new_family_id: data.id
+        });
+        if (familyConvErr) console.error('Could not record family referral conversion (registration itself still succeeded):', familyConvErr.message);
+      }
     }
 
     // Registration itself is always free — a paid tier only determines
@@ -2482,6 +2503,76 @@ app.get('/r/:code', async (req, res) => {
   const code = String(req.params.code || '').trim();
   res.redirect('/app/register/?ref=' + encodeURIComponent(code));
   recordReferralLinkOpen(code); // fire-and-forget, fired after the redirect so it never delays it
+});
+
+// ------------------------------------------------------------------
+// Family referral links (parent-to-parent) — the analog to the teacher
+// referral_codes/referral_conversions pair above, kept in their own tables
+// (021_family_referrals.sql) rather than reusing those: referral_codes.
+// teacher_id is NOT NULL + UNIQUE (one code per teacher) and
+// referral_conversions carries teacher-payout-only columns
+// (share_percentage, teacher_share, payout_status) that don't apply to a
+// family referrer. Plain alphanumeric (not referral_codes' base64url)
+// since this code is meant to be read in a WhatsApp message, not just
+// clicked. Returns the whole row (not just the code) so the route below
+// can use its id for the referralCount query without a second lookup.
+// ------------------------------------------------------------------
+async function getOrCreateFamilyReferralCode(familyId) {
+  const { data: existing, error: existingErr } = await supabase
+    .from('family_referral_codes').select('id, code').eq('family_id', familyId).maybeSingle();
+  if (existingErr) throw existingErr;
+  if (existing) return existing;
+
+  const ALPHANUMERIC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const bytes = crypto.randomBytes(8);
+    let code = '';
+    for (let i = 0; i < 8; i++) code += ALPHANUMERIC[bytes[i] % ALPHANUMERIC.length];
+    const { data, error } = await supabase.from('family_referral_codes')
+      .insert({ family_id: familyId, code }).select('id, code').single();
+    if (!error) return data;
+    if (error.code !== '23505') throw error; // not a unique-violation — bail
+  }
+  throw new Error('Could not generate a unique family referral code');
+}
+
+app.get('/api/family/:id/referral-code', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
+
+    const frc = await getOrCreateFamilyReferralCode(familyId);
+    const { count, error: countErr } = await supabase.from('family_referral_conversions')
+      .select('id', { count: 'exact', head: true }).eq('referral_code_id', frc.id);
+    if (countErr) throw countErr;
+
+    res.json({ code: frc.code, shareUrl: 'https://tutp.online/app/register/?ref=' + frc.code, referralCount: count || 0 });
+  } catch (err) {
+    console.error('Get family referral code error:', err);
+    res.status(500).json({ error: 'Could not get referral code' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Funnel tracking for the WhatsApp share prompt (prompt shown is a
+// client-only counter today, not tracked server-side) — this is the
+// "clicked" step, so prompt-shown vs. clicked vs. converted
+// (family_referral_conversions) can be compared on the existing
+// usage_events dashboard infrastructure without a new table.
+// ------------------------------------------------------------------
+app.post('/api/track/share-clicked', async (req, res) => {
+  try {
+    const familyId = parseInt((req.body || {}).familyId, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
+    trackShareClicked(familyId);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Track share-clicked error:', err);
+    res.status(500).json({ error: 'Could not record event' });
+  }
 });
 
 app.get('/api/schools', async (req, res) => {
