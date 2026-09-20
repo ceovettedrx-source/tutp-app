@@ -22,12 +22,15 @@
         .find-tutor-tile:hover { box-shadow: 0 10px 28px rgba(31,61,49,0.35); transform: translateY(-1px); }
         .find-tutor-tile:focus-visible { outline: 3px solid #E8A33D; outline-offset: 3px; }
         .find-tutor-inner { display: flex; flex-direction: column; gap: 20px; }
-        @media (min-width: 768px) { .find-tutor-inner { flex-direction: row; align-items: center; justify-content: space-between; gap: 32px; } }
+        .find-tutor-copy { flex: 1; min-width: 0; }
+        .find-tutor-side { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 240px; }
+        @media (min-width: 880px) { .find-tutor-inner { flex-direction: row; align-items: center; gap: 32px; } .find-tutor-side { width: 200px; max-width: none; flex-shrink: 0; } }
+        @media (min-width: 600px) and (max-width: 879px) { .find-tutor-side { align-self: center; } }
+        .find-tutor-photo { display: block; width: 100%; height: auto; aspect-ratio: 876 / 1024; object-fit: cover; border-radius: 8px; border: 1px solid #E8A33D; }
         .find-tutor-tile .find-tutor-icon { font-size: 32px; color: #E8A33D; display: block; margin-bottom: 12px; }
         .find-tutor-tile h3 { color: #fff; margin-bottom: 8px; }
         .find-tutor-tile p { color: rgba(255,255,255,0.85); }
-        .find-tutor-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; background: #E8A33D; color: #1F3D31; font-weight: 700; font-size: 15px; padding: 12px 20px; border-radius: 12px; white-space: nowrap; transition: background 0.15s ease; }
-        @media (min-width: 768px) { .find-tutor-btn { align-self: center; } }
+        .find-tutor-btn { display: inline-flex; align-items: center; gap: 6px; align-self: stretch; justify-content: center; background: #E8A33D; color: #1F3D31; font-weight: 700; font-size: 14px; padding: 12px; border-radius: 12px; white-space: nowrap; transition: background 0.15s ease; }
         .find-tutor-tile:hover .find-tutor-btn { background: #F0B458; }
         .find-tutor-btn .material-symbols-outlined { font-size: 20px; transition: transform 0.15s ease; }
         .find-tutor-tile:hover .find-tutor-btn .material-symbols-outlined { transform: translateX(3px); }
@@ -477,12 +480,15 @@
 <section>
 <a class="find-tutor-tile group block rounded-2xl p-6 md:p-8" href="/tutors">
 <div class="find-tutor-inner">
-<div>
+<div class="find-tutor-copy">
 <span class="material-symbols-outlined find-tutor-icon">person_search</span>
 <h3 class="font-headline text-xl md:text-2xl font-semibold">Need a Maths or Science tutor near you?</h3>
 <p class="font-body text-sm">Verified tutors, ₹100 one-time connect fee — no agency markup, real conversations, not video subscriptions.</p>
 </div>
+<div class="find-tutor-side">
+<img class="find-tutor-photo" src="/images/tutor-tile.webp" width="448" height="524" loading="lazy" decoding="async" alt="A parent helping their child with schoolwork at home">
 <span class="find-tutor-btn font-label">Browse Verified Tutors<span class="material-symbols-outlined">arrow_forward</span></span>
+</div>
 </div>
 </a>
 </section>
