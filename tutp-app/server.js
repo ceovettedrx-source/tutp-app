@@ -4971,6 +4971,49 @@ app.get('/api/homework-completion/:familyId', async (req, res) => {
 });
 
 // ------------------------------------------------------------------
+// "This Week's Goal" on the parent dashboards: how many learning sessions
+// this family has completed so far this week. Deliberately the honest,
+// lightweight signal — a plain count of session.completed events — and NOT
+// the researched Parent Engagement / PIS model (that is a separate, deferred
+// build). Family-level, not per child: Play-Based Learning's
+// session.completed events carry no student_id (see trackSessionCompleted),
+// so a per-child count would silently miss them. The week runs
+// Monday 00:00 to Sunday 23:59 IST, since the families are in India.
+// ------------------------------------------------------------------
+const WEEKLY_SESSION_TARGET = 5;
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+// The UTC instant of the most recent Monday 00:00 IST.
+function startOfWeekIST(now = new Date()) {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS); // UTC getters now read IST wall-clock
+  const daysSinceMonday = (ist.getUTCDay() + 6) % 7;   // Mon=0 ... Sun=6
+  const mondayIstMidnight = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() - daysSinceMonday);
+  return new Date(mondayIstMidnight - IST_OFFSET_MS);
+}
+
+app.get('/api/weekly-sessions/:familyId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    if (!Number.isFinite(familyId)) return res.status(400).json({ error: 'Invalid family id' });
+    if (!requireOwnFamily(req, res, familyId)) return;
+    const weekStart = startOfWeekIST();
+    const { count, error } = await supabase
+      .from('usage_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('family_id', familyId)
+      .eq('event_name', 'session.completed')
+      .gte('created_at', weekStart.toISOString());
+    if (error) throw error;
+    res.set('Cache-Control', 'no-store');
+    res.json({ count: count || 0, target: WEEKLY_SESSION_TARGET, weekStart: weekStart.toISOString() });
+  } catch (err) {
+    console.error('Get weekly sessions error:', err);
+    res.status(500).json({ error: 'Could not fetch weekly sessions' });
+  }
+});
+
+// ------------------------------------------------------------------
 // Evening homework alert — called once daily by a Cloud Scheduler job,
 // protected by the same shared-secret-token pattern as ADMIN_TOKEN.
 // Sends one digest email per family covering every child with homework
