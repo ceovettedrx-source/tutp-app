@@ -14,6 +14,22 @@
         .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* "Find a Tutor" dashboard tile — plain CSS (not Tailwind arbitrary
+           values) so the /tutors palette (ink #1F3D31, marigold #E8A33D)
+           doesn't depend on the compiled tailwind.css picking up new hex values. */
+        .find-tutor-tile { background: #1F3D31; color: #fff; transition: box-shadow 0.2s ease, transform 0.2s ease; }
+        .find-tutor-tile:hover { box-shadow: 0 10px 28px rgba(31,61,49,0.35); transform: translateY(-1px); }
+        .find-tutor-tile:focus-visible { outline: 3px solid #E8A33D; outline-offset: 3px; }
+        .find-tutor-inner { display: flex; flex-direction: column; gap: 20px; }
+        @media (min-width: 768px) { .find-tutor-inner { flex-direction: row; align-items: center; justify-content: space-between; gap: 32px; } }
+        .find-tutor-tile .find-tutor-icon { font-size: 32px; color: #E8A33D; display: block; margin-bottom: 12px; }
+        .find-tutor-tile h3 { color: #fff; margin-bottom: 8px; }
+        .find-tutor-tile p { color: rgba(255,255,255,0.85); }
+        .find-tutor-btn { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; background: #E8A33D; color: #1F3D31; font-weight: 700; font-size: 15px; padding: 12px 20px; border-radius: 12px; white-space: nowrap; transition: background 0.15s ease; }
+        @media (min-width: 768px) { .find-tutor-btn { align-self: center; } }
+        .find-tutor-tile:hover .find-tutor-btn { background: #F0B458; }
+        .find-tutor-btn .material-symbols-outlined { font-size: 20px; transition: transform 0.15s ease; }
+        .find-tutor-tile:hover .find-tutor-btn .material-symbols-outlined { transform: translateX(3px); }
         /* Play-Based Learning turn-transition card — CSS-only flip (no
            library) shown between a player's answer and the next player's
            question, so the score bump feels revealed, not snapped in. */
@@ -26,7 +42,12 @@
         #topAppBar { position: fixed; top: 0; left: 0; width: 100%; z-index: 50; }
         #parentalSidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; z-index: 40; }
         main { padding-top: 88px; }
-        @media (min-width: 768px) { main { margin-left: 280px; } #topAppBar { left: 280px; width: calc(100% - 280px); } }
+        /* Sidebar offset lives on <body>, not <main>: <main> carries Tailwind's
+           .mx-auto (margin-left/right: auto), which out-specifies a plain
+           `main { margin-left }` rule and let the 280px fixed sidebar cover the
+           content column at every desktop width. Padding on body leaves
+           mx-auto free to centre the column in the space right of the sidebar. */
+        @media (min-width: 768px) { body { padding-left: 280px; } #topAppBar { left: 280px; width: calc(100% - 280px); } }
         @media (max-width: 767px) { #parentalSidebar { display: none; } }
         /* "Save as PDF / Print" for Homework Help, Quiz, Storytelling and
            Experiential Learning results — see printResult() below. Resets
@@ -199,7 +220,7 @@
 </section>
 
 <section class="space-y-6">
-<div class="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
 <div class="space-y-2 flex-1">
 <p class="font-label text-sm text-tertiary uppercase tracking-widest">What Your Child Sees <span class="text-on-surface-variant normal-case font-normal tracking-normal">— exactly what your child experiences when they log in</span></p>
 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary font-label text-xs font-semibold">
@@ -356,7 +377,7 @@
 
 <section class="space-y-sm">
 <h2 class="font-label-lg text-label-lg text-on-surface px-xs uppercase tracking-wide">Today's Goal</h2>
-<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 p-6 md:p-8 flex flex-col md:flex-row items-center gap-8">
+<div class="bg-surface-container-lowest rounded-2xl border border-outline-variant/15 p-6 md:p-8 flex flex-col lg:flex-row items-center gap-8">
 <div class="glass-card rounded-xl p-md flex flex-col items-center justify-center text-center shrink-0">
 <div class="relative w-32 h-32 mb-2 flex items-center justify-center">
 <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
@@ -430,14 +451,14 @@
 <span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
 </div>
 </a>
-<a class="group block md:col-span-2 bg-surface-container-highest hover:bg-surface-dim transition-colors duration-300 rounded-2xl p-6 border border-outline-variant/15" href="/tutors">
-<div class="flex items-start justify-between">
+<a class="find-tutor-tile group block md:col-span-2 rounded-2xl p-6 md:p-8" href="/tutors">
+<div class="find-tutor-inner">
 <div>
-<span class="material-symbols-outlined text-secondary text-3xl mb-4 block group-hover:scale-110 transition-transform">person_search</span>
-<h3 class="font-headline text-xl text-on-surface mb-2">Find a Tutor</h3>
-<p class="font-body text-sm text-on-surface-variant">Browse tutors and get in touch directly.</p>
+<span class="material-symbols-outlined find-tutor-icon">person_search</span>
+<h3 class="font-headline text-xl md:text-2xl font-semibold">Need a Maths or Science tutor near you?</h3>
+<p class="font-body text-sm">Verified tutors, ₹100 one-time connect fee — no agency markup, real conversations, not video subscriptions.</p>
 </div>
-<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors">arrow_outward</span>
+<span class="find-tutor-btn font-label">Browse Verified Tutors<span class="material-symbols-outlined">arrow_forward</span></span>
 </div>
 </a>
 </section>
