@@ -54,6 +54,54 @@ function renderGroundingBadge(grounding) {
   return `<div class="grounding-chips">${chips.join('')}</div>`;
 }
 
+// Fixed display order + gloss for the Panchpadi stages, independent of which
+// stages a given lesson actually includes.
+const PANCHPADI_STAGES = [
+  { key: 'aditi', name: 'Aditi', gloss: 'Introduction' },
+  { key: 'bodha', name: 'Bodha', gloss: 'Understanding' },
+  { key: 'abhyasa', name: 'Abhyasa', gloss: 'Practice' },
+  { key: 'prayoga', name: 'Prayoga', gloss: 'Application' },
+  { key: 'prasara', name: 'Prasara', gloss: 'Expansion' }
+];
+
+/**
+ * Renders the "Lesson Structure (Panchpadi)" section. Returns '' when
+ * panchpadi_applicable is not true, panchpadi is missing, or every stage is
+ * null — null stages are skipped entirely (no empty heading).
+ */
+function renderPanchpadi(teacher_notes) {
+  const { panchpadi_applicable, panchpadi } = teacher_notes || {};
+  if (panchpadi_applicable !== true || !panchpadi) return '';
+
+  const stagesHtml = PANCHPADI_STAGES
+    .filter(({ key }) => panchpadi[key])
+    .map(({ key, name, gloss }) => {
+      const stage = panchpadi[key];
+      return `
+      <div class="panchpadi-stage">
+        <h3>${name} <span class="stage-gloss">(${gloss})</span></h3>
+        <p>${escapeHtml(stage.instructions)}</p>
+        <p class="stage-timing">${escapeHtml(stage.timing_minutes)} min</p>
+      </div>`;
+    })
+    .join('\n');
+
+  if (!stagesHtml) return '';
+  return `<section class="panchpadi">
+    <h2>Lesson Structure (Panchpadi)</h2>${stagesHtml}
+  </section>`;
+}
+
+/**
+ * Pedagogy grounding is a separate concern from the NCF/state content
+ * grounding badge above, so it's rendered as its own plain labeled line
+ * rather than merged into the chips.
+ */
+function renderPedagogyNote(note) {
+  if (!note) return '';
+  return `<p class="pedagogy-note"><strong>Pedagogy:</strong> ${escapeHtml(note)}</p>`;
+}
+
 /**
  * Renders an item's diagram (if any) to an SVG wrapped for spacing/styling.
  *
@@ -90,7 +138,8 @@ function renderItemDiagram(diagram, itemText) {
 
 /**
  * @param {object} lesson_json - see lessonMaterialGenerator.js for the shape:
- *   { teacher_notes: { objective, key_points, timing_minutes },
+ *   { teacher_notes: { objective, timing_minutes, panchpadi_applicable,
+ *       panchpadi, pedagogy_grounding_note },
  *     student_sections: [{ title, instructions, items }],
  *     grounding: { ncf_code, state_chapter, verification_status } }
  * @returns {string} a full standalone HTML document, ready to print or save.
@@ -105,10 +154,6 @@ export function renderLessonHtml(lesson_json) {
     student_sections = [],
     grounding = {}
   } = lesson_json || {};
-
-  const keyPointsHtml = (teacher_notes.key_points || [])
-    .map(point => `<li>${escapeHtml(point)}</li>`)
-    .join('\n');
 
   const sectionsHtml = student_sections.map(section => {
     const itemsHtml = (section.items || [])
@@ -163,6 +208,12 @@ export function renderLessonHtml(lesson_json) {
   .item-diagram-error { font-style: italic; color: #8a5a00; }
   .grounding-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 20px; }
   .chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .pedagogy-note { font-size: 12px; color: #444; margin: -12px 0 20px; }
+  .panchpadi h3 { font-size: 15px; margin: 16px 0 2px; }
+  .panchpadi .stage-gloss { font-weight: 400; color: #444; }
+  .panchpadi p { margin: 2px 0; }
+  .panchpadi .stage-timing { font-size: 12px; color: #444; }
+  .panchpadi-stage { break-inside: avoid; page-break-inside: avoid; }
   .chip-sourced { background: #eaf2ff; color: #005bbf; border: 1px solid #b3d1ff; }
   .chip-placeholder { background: #fff4e0; color: #8a5a00; border: 1px solid #f0c987; }
   .chip-uploaded { background: #e6f6f2; color: #00695c; border: 1px solid #a5d6cc; }
@@ -177,10 +228,10 @@ export function renderLessonHtml(lesson_json) {
 <body>
   <h1>${escapeHtml(teacher_notes.objective) || 'Lesson Material'}</h1>
   ${groundingBadgeHtml}
+  ${renderPedagogyNote(teacher_notes.pedagogy_grounding_note)}
   <p class="meta">Timing: ${escapeHtml(teacher_notes.timing_minutes)} min</p>
 
-  <h2>Key Points</h2>
-  <ul>${keyPointsHtml}</ul>
+  ${renderPanchpadi(teacher_notes)}
 
   ${sectionsHtml}
 </body>
