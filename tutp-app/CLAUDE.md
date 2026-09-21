@@ -14,10 +14,16 @@
 - Idea framing must include at least one competitive/market check
   (what similar EdTech products do, relevant stats) before building —
   not optional, not a one-off.
-- A local, unversioned `.git/hooks/pre-commit` checklist hook enforces
-  this: blocks with y/n confirmation at a real terminal, auto-passes
-  and just logs when run non-interactively (e.g. this CLI agent's own
-  commits) — checklist content lives in the hook file itself.
+- A local, unversioned `.git/hooks/pre-commit` hook backs this up. It
+  runs on the staged content and blocks the commit on: (1) a `node --check`
+  syntax error in any staged `.js`/`.mjs`/`.cjs`, or (2) a secret-pattern hit
+  in the added lines (reports file:line only; `secret-scan:allow` on the line
+  suppresses a false positive). It only warns when `server.js` is staged. It
+  then requires a y/n confirmation of the review checklist (an attestation —
+  the stages themselves aren't verified), read from `/dev/tty`; with no
+  terminal attached (agent, CI, GUI client) the commit fails closed. Bypass
+  consciously with `git commit --no-verify`, which also skips the syntax and
+  secret checks. Checklist content lives in the hook file itself.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
   communication — it's a live production product with real users.
   (The literal file/route `public/demo/index.html` is exempt — that's
