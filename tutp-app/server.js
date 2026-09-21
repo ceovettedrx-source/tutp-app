@@ -18,6 +18,7 @@ import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
+import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -239,7 +240,9 @@ async function sendPendingHomeworkEmail(recipientName, email, items) {
 // ------------------------------------------------------------------
 let supabase = null;
 if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
-  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+  supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+    global: { fetch: createRetryFetch() }
+  });
   initTracking(supabase);
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
