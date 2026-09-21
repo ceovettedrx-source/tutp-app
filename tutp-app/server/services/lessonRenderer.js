@@ -22,8 +22,16 @@ function escapeHtml(str) {
  * amber chip since there's no ncf_code/state_chapter to show.
  */
 function renderGroundingBadge(grounding) {
-  const { ncf_code, state_chapter, verification_status } = grounding || {};
+  const { ncf_code, state_chapter, verification_status, source_note } = grounding || {};
   if (!verification_status) return '';
+
+  // Teacher's own upload is the content source — no NCF/state match exists,
+  // so show where the material came from instead (teal, distinct from the
+  // blue sourced / amber placeholder chips).
+  if (verification_status === 'teacher-uploaded') {
+    const note = source_note ? escapeHtml(source_note) : "Generated from the teacher's uploaded lesson";
+    return `<div class="grounding-chips"><span class="chip chip-uploaded">📄 ${note}</span></div>`;
+  }
 
   if (verification_status === 'ungrounded') {
     return `<div class="grounding-chips"><span class="chip chip-placeholder">⚠ Not matched to a specific NCF/state standard — based on general teaching practice</span></div>`;
@@ -157,10 +165,12 @@ export function renderLessonHtml(lesson_json) {
   .chip { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
   .chip-sourced { background: #eaf2ff; color: #005bbf; border: 1px solid #b3d1ff; }
   .chip-placeholder { background: #fff4e0; color: #8a5a00; border: 1px solid #f0c987; }
+  .chip-uploaded { background: #e6f6f2; color: #00695c; border: 1px solid #a5d6cc; }
   @media print {
     body { padding: 0; max-width: 100%; }
     .chip-sourced { background: #fff; border: 1px solid #005bbf; color: #005bbf; }
     .chip-placeholder { background: #fff; border: 1px solid #8a5a00; color: #8a5a00; }
+    .chip-uploaded { background: #fff; border: 1px solid #00695c; color: #00695c; }
   }
 </style>
 </head>

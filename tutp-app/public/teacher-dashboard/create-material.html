@@ -60,6 +60,23 @@
     </div>
 
     <div class="soft-input rounded-lg p-sm">
+      <label for="board" class="font-label-md text-label-md text-on-surface-variant block mb-1">Board</label>
+      <select id="board" name="board" class="w-full bg-transparent outline-none">
+        <option value="state_board" selected>State Board</option>
+        <option value="cbse">CBSE</option>
+        <option value="icse">ICSE</option>
+        <option value="ib">IB</option>
+        <option value="igcse">IGCSE</option>
+      </select>
+    </div>
+
+    <div id="uploadField" class="soft-input rounded-lg p-sm hidden">
+      <label for="lessonPdf" class="font-label-md text-label-md text-on-surface-variant block mb-1">Upload your lesson (PDF)</label>
+      <input type="file" id="lessonPdf" accept="application/pdf" class="w-full"/>
+      <div id="lessonPdfStatus" class="font-label-md text-label-md text-on-surface-variant mt-1"></div>
+    </div>
+
+    <div id="stateField" class="soft-input rounded-lg p-sm">
       <label for="state" class="font-label-md text-label-md text-on-surface-variant block mb-1">State</label>
       <select id="state" name="state" class="w-full bg-transparent outline-none" required>
         <option value="" disabled selected>Select state</option>
@@ -148,17 +165,90 @@
   const regenerateBtn = document.getElementById('regenerateBtn');
   const printBtn = document.getElementById('printBtn');
 
+  const boardEl = document.getElementById('board');
+  const stateFieldEl = document.getElementById('stateField');
+  const uploadFieldEl = document.getElementById('uploadField');
+  const lessonPdfEl = document.getElementById('lessonPdf');
+  const lessonPdfStatusEl = document.getElementById('lessonPdfStatus');
+
   let selectedCandidateTopic = null;
+  let uploadedContentBlock = null;
+
+  // Same base64 content-block convention as fileToContentBlock in
+  // public/app/teacher/index.html (Question Paper Generator) — copied since
+  // that one is inline in another page, and PDF-only here since that's all
+  // this form's file input offers. Server accepts the same shape.
+  function fileToContentBlock(file) {
+    return new Promise((resolve, reject) => {
+      if (file.type !== 'application/pdf') {
+        reject(new Error('Please attach a PDF file.'));
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve({ type: 'document', source: { type: 'base64', media_type: file.type, data: reader.result.split(',')[1] } });
+      };
+      reader.onerror = () => reject(new Error('Could not read that file — please try again.'));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // The server's JSON body limit is 20mb and base64 adds ~33%, so a PDF
+  // over ~14mb would 413 with no useful message.
+  const MAX_UPLOAD_BYTES = 14 * 1024 * 1024;
+
+  function isUploadMode() {
+    return boardEl.value !== 'state_board';
+  }
+
+  // Non-State boards have no knowledge-graph data, so State is replaced by a
+  // PDF upload. `required` must be toggled too — a hidden required field
+  // would silently block form submission.
+  function syncBoardFields() {
+    const upload = isUploadMode();
+    stateFieldEl.classList.toggle('hidden', upload);
+    form.state.required = !upload;
+    uploadFieldEl.classList.toggle('hidden', !upload);
+  }
+
+  boardEl.addEventListener('change', syncBoardFields);
+  syncBoardFields();
+
+  lessonPdfEl.addEventListener('change', async () => {
+    uploadedContentBlock = null;
+    lessonPdfStatusEl.textContent = '';
+    const file = lessonPdfEl.files[0];
+    if (!file) return;
+    if (file.size > MAX_UPLOAD_BYTES) {
+      lessonPdfEl.value = '';
+      lessonPdfStatusEl.textContent = 'That PDF is too large (max 14 MB) — please upload a smaller file.';
+      return;
+    }
+    lessonPdfStatusEl.textContent = 'Reading…';
+    try {
+      uploadedContentBlock = await fileToContentBlock(file);
+      lessonPdfStatusEl.textContent = '✓ ' + file.name;
+    } catch (err) {
+      lessonPdfEl.value = '';
+      lessonPdfStatusEl.textContent = err.message || 'Could not read that file — please try again.';
+    }
+  });
 
   function currentPayload(topicOverride) {
-    return {
+    const payload = {
       grade: form.grade.value,
       subject: form.subject.value,
       chapter_or_topic: topicOverride !== undefined ? topicOverride : form.chapter_or_topic.value,
-      state: form.state.value,
+      board: boardEl.value,
       material_type: form.material_type.value,
       teacher_id: teacherId
     };
+    if (isUploadMode()) {
+      payload.uploaded_content_block = uploadedContentBlock;
+    } else {
+      payload.state = form.state.value;
+    }
+    return payload;
   }
 
   async function createMaterial(payload) {
@@ -243,6 +333,10 @@
 
   form.addEventListener('submit', (e) => {
     e.preventDefault();
+    if (isUploadMode() && !uploadedContentBlock) {
+      statusEl.textContent = 'Please upload your lesson as a PDF for this board.';
+      return;
+    }
     createMaterial(currentPayload());
   });
 
