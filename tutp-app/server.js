@@ -26,6 +26,8 @@ import {
 } from './tracking/tracking.js';
 import { FEATURES } from './tracking/events.js';
 import { classifyFeedback, autoResolveTooComplex, escalateToFounder } from './tracking/feedback-pipeline.js';
+import { getCharacterSVG } from './server/services/illustration/characters.js';
+import { buildIllustrationParsePrompt, validateParsedProblem, placeholderObjectSVG, NOT_A_MATH_PROBLEM } from './server/services/illustration/problemParser.js';
 
 // Only needed to verify ID tokens (JWT signature + claims against Google's
 // public certs) — no service-account credential required for that specific
@@ -5415,6 +5417,90 @@ app.post('/api/homework', async (req, res) => {
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Server error calling Claude' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Homework illustration — step 1 of the "show the problem as a picture"
+// flow. Claude parses a maths word problem into structured JSON; the
+// characters then get deterministic Open Peeps SVGs (no extra AI call) and
+// every object gets one placeholder SVG until the real object library
+// exists. Session-gated + rate-limited since it spends Claude tokens; not
+// tied to a studentId, so it doesn't count against the free-tier buckets.
+// ------------------------------------------------------------------
+const illustrateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests — please wait a minute and try again.' }
+});
+
+app.post('/api/homework/illustrate', illustrateLimiter, async (req, res) => {
+  try {
+    const session = getSession(req);
+    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
+
+    const { problemText, language } = req.body || {};
+    if (typeof problemText !== 'string' || !problemText.trim() || problemText.length > 1000) {
+      return res.status(400).json({ error: 'problemText must be a non-empty string of at most 1000 characters' });
+    }
+    if (language !== 'te' && language !== 'en') {
+      return res.status(400).json({ error: "language must be 'te' or 'en'" });
+    }
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
+    }
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        // Output is a small JSON object (a few names/entities, which in
+        // Telugu script are token-heavy) — 1500 leaves a wide margin.
+        max_tokens: 1500,
+        system: buildIllustrationParsePrompt(language),
+        messages: [{ role: 'user', content: `<problem>\n${problemText.trim()}\n</problem>` }]
+      })
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error('Anthropic API error (illustrate):', response.status, errText);
+      return res.status(502).json({ error: 'Claude API returned an error' });
+    }
+
+    const data = await response.json();
+    let raw = data.content?.[0]?.text || '';
+    const fenceMatch = raw.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    if (fenceMatch) raw = fenceMatch[1];
+    let parsed;
+    try {
+      parsed = validateParsedProblem(JSON.parse(raw));
+    } catch (parseErr) {
+      console.error('Could not parse illustrate JSON:', parseErr.message, 'raw:', raw);
+      return res.status(502).json({ error: 'Claude returned an unexpected response' });
+    }
+    if (parsed.error === NOT_A_MATH_PROBLEM) {
+      return res.status(422).json({ error: NOT_A_MATH_PROBLEM });
+    }
+
+    const characterSVGs = {};
+    for (const c of parsed.characters) characterSVGs[c.name] = getCharacterSVG(c.name, {});
+
+    res.json({
+      parsed,
+      characterSVGs,
+      placeholderObjectSVG: placeholderObjectSVG(parsed.quantities[0].entity)
+    });
+  } catch (err) {
+    console.error('Illustrate route error:', err);
+    res.status(500).json({ error: 'Server error illustrating problem' });
   }
 });
 
