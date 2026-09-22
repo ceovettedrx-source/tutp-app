@@ -214,6 +214,31 @@
   boardEl.addEventListener('change', syncBoardFields);
   syncBoardFields();
 
+  // Clears the chosen file entirely — used by the Remove link below. Resets
+  // lessonPdfEl.value too, since a browser file input won't fire a 'change'
+  // event if the same file is picked again while its old value is still set.
+  function clearUploadedFile() {
+    uploadedContentBlock = null;
+    lessonPdfEl.value = '';
+    lessonPdfStatusEl.textContent = '';
+  }
+
+  // Success state needs a Remove control (there's no reliable way to clear a
+  // file input by reopening the picker and choosing nothing), so it's built
+  // as elements rather than a plain textContent string like the error cases.
+  function renderUploadedStatus(filename) {
+    lessonPdfStatusEl.textContent = '';
+    const label = document.createElement('span');
+    label.textContent = '✓ ' + filename;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '✕ Remove';
+    removeBtn.className = 'ml-sm text-primary hover:underline';
+    removeBtn.addEventListener('click', clearUploadedFile);
+    lessonPdfStatusEl.appendChild(label);
+    lessonPdfStatusEl.appendChild(removeBtn);
+  }
+
   lessonPdfEl.addEventListener('change', async () => {
     uploadedContentBlock = null;
     lessonPdfStatusEl.textContent = '';
@@ -227,7 +252,7 @@
     lessonPdfStatusEl.textContent = 'Reading…';
     try {
       uploadedContentBlock = await fileToContentBlock(file);
-      lessonPdfStatusEl.textContent = '✓ ' + file.name;
+      renderUploadedStatus(file.name);
     } catch (err) {
       lessonPdfEl.value = '';
       lessonPdfStatusEl.textContent = err.message || 'Could not read that file — please try again.';
