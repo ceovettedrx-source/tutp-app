@@ -1751,7 +1751,7 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
               '<td>' + escapeHtml(t.fee_display || '—') + '</td>' +
               '<td>' + escapeHtml(t.area || '—') + '</td>' +
               '<td><span data-phone-cell="' + t.id + '"><button type="button" class="btn-toggle" data-reveal-phone="' + t.id + '">Reveal</button></span></td>' +
-              '<td>' + escapeHtml(t.verification_status) + '</td>' +
+              '<td><span data-verification-cell="' + t.id + '">' + escapeHtml(t.verification_status) + '</span></td>' +
               '<td>' +
                 '<input type="text" class="verified-by-input" data-tutor-id="' + t.id + '" value="' + escapeHtml(t.verified_by || '') + '" placeholder="How/when verified" style="width:140px;font-size:12px;padding:4px 6px;">' +
                 ' <button type="button" class="btn-toggle" data-save-verified-by="' + t.id + '">Save</button>' +
@@ -1781,13 +1781,25 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
               btn.disabled = true;
               const original = btn.textContent;
               try {
+                const verifiedBy = input.value.trim();
+                // Typing a name and clicking Save IS the verification act (see
+                // the create-route comment: verified_by only gets written once
+                // a real check has happened) — so this also flips
+                // verification_status to 'verified'. Clearing the field back
+                // to empty and saving reverts it to 'pending'.
+                const body = { verifiedBy, verificationStatus: verifiedBy ? 'verified' : 'pending' };
                 const res = await fetch('/api/admin/tutors/' + encodeURIComponent(id), {
                   method: 'PATCH',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ verifiedBy: input.value.trim() })
+                  body: JSON.stringify(body)
                 });
                 if (!res.ok) throw new Error('Request failed: ' + res.status);
-                if (tutorsById[id]) tutorsById[id].verified_by = input.value.trim();
+                if (tutorsById[id]) {
+                  tutorsById[id].verified_by = verifiedBy;
+                  tutorsById[id].verification_status = body.verificationStatus;
+                }
+                const statusCell = panel.querySelector('[data-verification-cell="' + id + '"]');
+                if (statusCell) statusCell.textContent = body.verificationStatus;
                 btn.textContent = 'Saved';
                 setTimeout(() => { btn.textContent = original; }, 1200);
               } catch (err) {
