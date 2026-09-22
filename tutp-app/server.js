@@ -530,15 +530,28 @@ app.get('/api/admin/signups', requireAdmin, async (req, res) => {
     const dailyBreakdown = days.map(date => ({ date, count: byDate[date] }));
 
     const sourceCounts = {};
+    const mediumCounts = {};
+    const campaignCounts = {};
     for (const row of allRes.data || []) {
-      const source = row.data?.utm?.source || 'direct';
+      const utm = row.data?.utm || {};
+      const source = utm.source || 'direct';
+      const medium = utm.medium || 'none';
+      const campaign = utm.campaign || 'none';
       sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+      mediumCounts[medium] = (mediumCounts[medium] || 0) + 1;
+      campaignCounts[campaign] = (campaignCounts[campaign] || 0) + 1;
     }
     const utmBreakdown = Object.entries(sourceCounts)
       .map(([source, count]) => ({ source, count }))
       .sort((a, b) => b.count - a.count);
+    const mediumBreakdown = Object.entries(mediumCounts)
+      .map(([medium, count]) => ({ medium, count }))
+      .sort((a, b) => b.count - a.count);
+    const campaignBreakdown = Object.entries(campaignCounts)
+      .map(([campaign, count]) => ({ campaign, count }))
+      .sort((a, b) => b.count - a.count);
 
-    res.json({ dailyBreakdown, utmBreakdown });
+    res.json({ dailyBreakdown, utmBreakdown, mediumBreakdown, campaignBreakdown });
   } catch (err) {
     console.error('Admin signups error:', err);
     res.status(500).json({ error: 'Could not load signups' });
@@ -704,8 +717,8 @@ app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
     const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
 
     const [totalRes, mtdRes, recentRes] = await Promise.all([
-      supabase.from('payments').select('amount').eq('status', 'captured'),
-      supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', startOfMonthUTC),
+      supabase.from('payments').select('amount, tier').eq('status', 'captured'),
+      supabase.from('payments').select('amount, tier').eq('status', 'captured').gte('created_at', startOfMonthUTC),
       supabase.from('payments').select('amount, status, created_at').gte('created_at', windowStartUTC).in('status', ['captured', 'failed'])
     ]);
     if (totalRes.error) throw totalRes.error;
@@ -714,6 +727,28 @@ app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
 
     const totalRevenue = (totalRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
     const mtdRevenue = (mtdRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
+
+    // By-plan breakdown — same tier keys payments.tier is written with
+    // (TIER_PRICE_PAISE above: pro/ultrapro/max). Supabase-js has no GROUP
+    // BY, so grouped client-side same as dailyBreakdown below.
+    const byTier = {};
+    for (const row of totalRes.data || []) {
+      const t = row.tier || 'unknown';
+      if (!byTier[t]) byTier[t] = { tier: t, totalRevenue: 0, totalCount: 0, mtdRevenue: 0, mtdCount: 0 };
+      byTier[t].totalRevenue += (row.amount || 0) / 100;
+      byTier[t].totalCount += 1;
+    }
+    for (const row of mtdRes.data || []) {
+      const t = row.tier || 'unknown';
+      if (!byTier[t]) byTier[t] = { tier: t, totalRevenue: 0, totalCount: 0, mtdRevenue: 0, mtdCount: 0 };
+      byTier[t].mtdRevenue += (row.amount || 0) / 100;
+      byTier[t].mtdCount += 1;
+    }
+    const TIER_ORDER = ['pro', 'ultrapro', 'max'];
+    const revenueByTier = Object.values(byTier).sort((a, b) => {
+      const ai = TIER_ORDER.indexOf(a.tier), bi = TIER_ORDER.indexOf(b.tier);
+      return (ai === -1 ? TIER_ORDER.length : ai) - (bi === -1 ? TIER_ORDER.length : bi);
+    });
 
     const byDate = {};
     for (const date of days) byDate[date] = { date, capturedAmount: 0, capturedCount: 0, failedCount: 0 };
@@ -729,7 +764,7 @@ app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
     }
     const dailyBreakdown = days.map(d => byDate[d]);
 
-    res.json({ totalRevenue, mtdRevenue, dailyBreakdown });
+    res.json({ totalRevenue, mtdRevenue, dailyBreakdown, revenueByTier });
   } catch (err) {
     console.error('Admin revenue error:', err);
     res.status(500).json({ error: 'Could not load revenue' });
@@ -1371,6 +1406,12 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
   <div class="panel" id="signupsUtmPanel">
     <p class="panel-message loading" id="signupsUtmMessage">Loading…</p>
   </div>
+  <div class="panel" id="signupsMediumPanel">
+    <p class="panel-message loading" id="signupsMediumMessage">Loading…</p>
+  </div>
+  <div class="panel" id="signupsCampaignPanel">
+    <p class="panel-message loading" id="signupsCampaignMessage">Loading…</p>
+  </div>
 
   <h2 class="section-title">Activation</h2>
   <div class="summary-grid-3">
@@ -1425,6 +1466,9 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
       <p class="kpi-label">MTD Revenue</p>
       <p class="kpi-value loading" id="kpi-revenueMtd">…</p>
     </div>
+  </div>
+  <div class="panel" id="revenueByTierPanel">
+    <p class="panel-message loading" id="revenueByTierMessage">Loading…</p>
   </div>
   <div class="panel" id="revenuePanel">
     <p class="panel-message loading" id="revenueMessage">Loading…</p>
@@ -1506,6 +1550,21 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     (async () => {
       const dailyPanel = document.getElementById('signupsDailyPanel');
       const utmPanel = document.getElementById('signupsUtmPanel');
+      const mediumPanel = document.getElementById('signupsMediumPanel');
+      const campaignPanel = document.getElementById('signupsCampaignPanel');
+      const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const renderBreakdownTable = (panel, rows, key, label, emptyMessage) => {
+        if (!rows.length) {
+          panel.innerHTML = '<p class="panel-message">' + emptyMessage + '</p>';
+          return;
+        }
+        const rowsHtml = rows.map(r => '<tr><td>' + escapeHtml(r[key]) + '</td><td>' + r.count + '</td></tr>').join('');
+        panel.innerHTML =
+          '<table class="data-table">' +
+            '<thead><tr><th>' + label + '</th><th>Count</th></tr></thead>' +
+            '<tbody>' + rowsHtml + '</tbody>' +
+          '</table>';
+      };
       try {
         const res = await fetch('/api/admin/signups');
         if (!res.ok) throw new Error('Request failed: ' + res.status);
@@ -1523,21 +1582,14 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
             '</table>';
         }
 
-        const utmRows = data.utmBreakdown || [];
-        if (!utmRows.length) {
-          utmPanel.innerHTML = '<p class="panel-message">No signups yet.</p>';
-        } else {
-          const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-          const rowsHtml = utmRows.map(r => '<tr><td>' + escapeHtml(r.source) + '</td><td>' + r.count + '</td></tr>').join('');
-          utmPanel.innerHTML =
-            '<table class="data-table">' +
-              '<thead><tr><th>Source</th><th>Count</th></tr></thead>' +
-              '<tbody>' + rowsHtml + '</tbody>' +
-            '</table>';
-        }
+        renderBreakdownTable(utmPanel, data.utmBreakdown || [], 'source', 'Source', 'No signups yet.');
+        renderBreakdownTable(mediumPanel, data.mediumBreakdown || [], 'medium', 'Medium', 'No signups yet.');
+        renderBreakdownTable(campaignPanel, data.campaignBreakdown || [], 'campaign', 'Campaign', 'No signups yet.');
       } catch (err) {
         dailyPanel.innerHTML = '<p class="panel-message">Error loading signups.</p>';
         utmPanel.innerHTML = '<p class="panel-message">Error loading UTM breakdown.</p>';
+        mediumPanel.innerHTML = '<p class="panel-message">Error loading UTM breakdown.</p>';
+        campaignPanel.innerHTML = '<p class="panel-message">Error loading UTM breakdown.</p>';
         console.error('[admin dashboard] Could not load signups:', err);
       }
     })();
@@ -1652,6 +1704,7 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
 
     (async () => {
       const panel = document.getElementById('revenuePanel');
+      const tierPanel = document.getElementById('revenueByTierPanel');
       const totalEl = document.getElementById('kpi-totalRevenue');
       const mtdEl = document.getElementById('kpi-revenueMtd');
       try {
@@ -1662,6 +1715,27 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         totalEl.classList.remove('loading');
         mtdEl.textContent = '₹' + Number(data.mtdRevenue).toLocaleString('en-IN');
         mtdEl.classList.remove('loading');
+
+        const TIER_LABELS = { pro: 'Pro', ultrapro: 'UltraPro', max: 'Max', unknown: 'Unknown' };
+        const tierRows = data.revenueByTier || [];
+        if (!tierRows.length) {
+          tierPanel.innerHTML = '<p class="panel-message">No captured payments yet.</p>';
+        } else {
+          const tierRowsHtml = tierRows.map(r =>
+            '<tr>' +
+              '<td>' + (TIER_LABELS[r.tier] || r.tier) + '</td>' +
+              '<td class="amount">₹' + Number(r.totalRevenue).toLocaleString('en-IN') + '</td>' +
+              '<td>' + r.totalCount + '</td>' +
+              '<td class="amount">₹' + Number(r.mtdRevenue).toLocaleString('en-IN') + '</td>' +
+              '<td>' + r.mtdCount + '</td>' +
+            '</tr>'
+          ).join('');
+          tierPanel.innerHTML =
+            '<table class="data-table">' +
+              '<thead><tr><th>Plan</th><th>Total (₹)</th><th>Total Count</th><th>MTD (₹)</th><th>MTD Count</th></tr></thead>' +
+              '<tbody>' + tierRowsHtml + '</tbody>' +
+            '</table>';
+        }
 
         const rows = data.dailyBreakdown || [];
         if (!rows.length) {
@@ -1688,6 +1762,7 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           el.classList.add('error');
         });
         panel.innerHTML = '<p class="panel-message">Error loading revenue.</p>';
+        tierPanel.innerHTML = '<p class="panel-message">Error loading revenue by plan.</p>';
         console.error('[admin dashboard] Could not load revenue:', err);
       }
     })();
