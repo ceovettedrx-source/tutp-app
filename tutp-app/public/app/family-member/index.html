@@ -2305,7 +2305,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
 
                 document.getElementById('playModalResults').classList.remove('hidden');
                 const winner = data.leaderboard.find(p => p.playerId === data.winnerId);
-                document.getElementById('playModalWinnerBanner').textContent = `🏆 Winner of the Day: ${winner.name}!` + (data.isGameChangerToday ? ' · Fastest game today!' : '');
+                document.getElementById('playModalWinnerBanner').textContent = `🏆 Winner of the Day: ${winner.name}!` + (data.isGameChangerToday ? ' · Fastest game today!' : '') + (data.isTodaysChampion ? ' · 🎉 Today\'s Champion — best score in your family today!' : '');
                 document.getElementById('playModalFinalLeaderboard').innerHTML = data.leaderboard.map(p => `
                     <div class="flex items-center justify-between px-3.5 py-2 rounded-lg ${p.rank === 1 ? 'bg-tertiary-container/40 border-2 border-tertiary' : 'bg-surface-container-high'}">
                         <span class="font-body-md text-sm text-on-surface">${p.rank === 1 ? '🏆 ' : ''}${p.rank}. ${hwEscapeHtml(p.name)}</span>
@@ -2321,7 +2321,7 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
                     </div>
                 `).join('');
 
-                playModalDrawShareCard(winner);
+                playModalDrawShareCard(winner, data.isTodaysChampion);
             } catch (err) {
                 console.error('[playModal] Could not complete game:', err);
                 document.getElementById('playModalResults').classList.remove('hidden');
@@ -2330,37 +2330,50 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
             }
         }
 
-        function playModalDrawShareCard(winner){
+        function playModalDrawShareCard(winner, isTodaysChampion){
             const canvas = document.getElementById('playModalShareCanvas');
             const ctx = canvas.getContext('2d');
             const grad = ctx.createLinearGradient(0, 0, 600, 600);
-            grad.addColorStop(0, '#5B4FE9'); grad.addColorStop(1, '#8B7FF2');
+            if (isTodaysChampion) {
+                grad.addColorStop(0, '#E9A23B'); grad.addColorStop(1, '#F2C879');
+            } else {
+                grad.addColorStop(0, '#5B4FE9'); grad.addColorStop(1, '#8B7FF2');
+            }
             ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 600);
             ctx.textAlign = 'center';
             ctx.fillStyle = '#ffffff';
             ctx.font = 'bold 34px sans-serif';
-            ctx.fillText('🏆 Winner of the Day', 300, 220);
+            ctx.fillText(isTodaysChampion ? '🏆 Today\'s Champion' : '🏆 Winner of the Day', 300, 220);
             ctx.font = 'bold 48px sans-serif';
             ctx.fillText(winner.name, 300, 300);
             ctx.font = '28px sans-serif';
             ctx.fillText(`${winner.score} points`, 300, 350);
+            if (isTodaysChampion) {
+                ctx.font = '20px sans-serif';
+                ctx.fillText('Best score in the family today!', 300, 385);
+            }
             ctx.font = '18px sans-serif';
-            ctx.fillText(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 300, 400);
+            ctx.fillText(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 300, 420);
             ctx.font = 'bold 20px sans-serif';
             ctx.fillText('Tut-P · Play-Based Learning', 300, 550);
 
+            const fileName = isTodaysChampion ? 'todays-champion.png' : 'winner-of-the-day.png';
+            const shareTitle = isTodaysChampion ? "Today's Champion" : 'Winner of the Day';
+            const shareText = isTodaysChampion
+                ? `${winner.name} is today's Tut-P Champion in our family — ${winner.score} points!`
+                : `${winner.name} won today's Tut-P family quiz with ${winner.score} points!`;
             document.getElementById('playModalShareBtn').onclick = async () => {
                 canvas.toBlob(async (blob) => {
-                    const file = new File([blob], 'winner-of-the-day.png', { type: 'image/png' });
+                    const file = new File([blob], fileName, { type: 'image/png' });
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
                         try {
-                            await navigator.share({ files: [file], title: 'Winner of the Day', text: `${winner.name} won today's Tut-P family quiz with ${winner.score} points!` });
+                            await navigator.share({ files: [file], title: shareTitle, text: shareText });
                             return;
                         } catch (err) { /* user cancelled or share failed — fall through to download */ }
                     }
                     const a = document.createElement('a');
                     a.href = URL.createObjectURL(blob);
-                    a.download = 'winner-of-the-day.png';
+                    a.download = fileName;
                     a.click();
                 }, 'image/png');
             };

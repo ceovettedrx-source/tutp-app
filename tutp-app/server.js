@@ -6738,10 +6738,40 @@ app.post('/api/game-sessions/:id/complete', async (req, res) => {
       isGameChangerToday = true;
     }
 
+    // Today's Champion — family-scoped, score-based (see 022_daily_family_
+    // champions.sql for why this is a separate table from daily_game_badges
+    // rather than admin-only/app-wide). Replaces today's holder only if
+    // this game's winning score is strictly higher than the current one's.
+    // Best-effort and non-fatal: this is a bonus celebration, not core to
+    // completing the game, and 022_daily_family_champions.sql is run
+    // manually (standing migration rule) — a completion request landing
+    // before that migration has been run must still succeed normally.
+    let isTodaysChampion = false;
+    try {
+      const { data: currentChampion, error: champReadErr } = await supabase.from('daily_family_champions')
+        .select('winning_game_player_id').eq('family_id', session.family_id).eq('champion_date', badgeDate).maybeSingle();
+      if (champReadErr) throw champReadErr;
+      let currentBestScore = -1;
+      if (currentChampion) {
+        const { data: currentChampPlayer } = await supabase.from('game_players').select('total_score').eq('id', currentChampion.winning_game_player_id).maybeSingle();
+        currentBestScore = currentChampPlayer?.total_score ?? -1;
+      }
+      if (winner.total_score > currentBestScore) {
+        const { error: champErr } = await supabase.from('daily_family_champions').upsert({
+          family_id: session.family_id, champion_date: badgeDate, game_session_id: session.id, winning_game_player_id: winner.id
+        }, { onConflict: 'family_id,champion_date' });
+        if (champErr) throw champErr;
+        isTodaysChampion = true;
+      }
+    } catch (champErr) {
+      console.error('Could not compute Today\'s Champion (game completion itself still succeeded):', champErr.message);
+    }
+
     res.json({
       leaderboard: ranked.map((p, i) => ({ rank: i + 1, playerId: p.id, name: p.player_name, score: p.total_score, correctCount: p.correct_count })),
       winnerId: winner.id,
       isGameChangerToday,
+      isTodaysChampion,
       recap: questions.map(q => ({
         playerId: q.game_player_id, questionIndex: q.question_index, questionText: q.question_text,
         isCorrect: q.is_correct, cognitiveCategory: q.cognitive_category
