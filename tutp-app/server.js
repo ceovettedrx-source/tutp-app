@@ -6122,6 +6122,16 @@ async function generateGameQuestions(lang, childContext, fixedCount, userContent
   if (!Number.isInteger(questionsPerPlayer) || questionsPerPlayer < 3 || questionsPerPlayer > 15) {
     throw new Error('questionsPerPlayer out of range');
   }
+  // The model returns questions in whatever order it generated them in —
+  // never explicitly randomized, so a lesson tends to produce the same
+  // rough difficulty/topic progression every game. Fisher-Yates shuffle
+  // here (shared by both the Player 1 creation path and the per-player
+  // prefetch path below) so question_index assignment downstream is always
+  // over an actually-randomized order, not the model's raw output order.
+  for (let i = questions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [questions[i], questions[j]] = [questions[j], questions[i]];
+  }
   return { subject: typeof parsed.subject === 'string' ? parsed.subject : null, questionsPerPlayer, questions };
 }
 
