@@ -4,9 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Tut-P — Close the education gap</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
-<script src="/shared/tailwind-tokens.js"></script>
+<meta name="description" content="Try Tut-P's live working demo — see how a parent gets an AI-guided, parent-friendly walkthrough of their child's homework in minutes.">
+<link as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload">
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet"></noscript>
+<link href="/css/tailwind.css" rel="stylesheet"/>
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen">
 <div class="max-w-[920px] mx-auto px-6 pb-32">
@@ -113,7 +114,7 @@
     <div class="flex items-center gap-3 mt-3.5 flex-wrap">
       <label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" for="hwImage">📷 Attach a photo or PDF of the homework (optional)</label>
       <input type="file" id="hwImage" accept="image/*,application/pdf" class="hidden">
-      <img id="hwThumb" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+      <img id="hwThumb" alt="Preview of attached homework photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
       <span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwPdfLabel">📄</span>
       <button class="font-label-md text-xs text-error underline hidden" id="clearImg">remove</button>
     </div>
@@ -231,33 +232,6 @@ clearImgBtn.addEventListener('click', () => {
   clearAttachedFilePreview();
 });
 
-// Picks up a file attached on the homepage before the login redirect —
-// images and PDFs can feed the Claude call below; other types are just noted.
-(async function loadPendingHomeworkAttachment(){
-  const url = sessionStorage.getItem('tutp_pending_homework_url');
-  sessionStorage.removeItem('tutp_pending_homework_url');
-  sessionStorage.removeItem('tutp_pending_homework_ts');
-  if (!url) return;
-  try {
-    const resp = await fetch(url);
-    const blob = await resp.blob();
-    if (!blob.type.startsWith('image/') && blob.type !== 'application/pdf') {
-      errBox.textContent = 'Your attached file was saved, but only photos and PDFs can be read automatically here — please attach one of those below.';
-      errBox.classList.remove('hidden');
-      return;
-    }
-    uploadedImageMediaType = blob.type;
-    const reader = new FileReader();
-    reader.onload = () => {
-      uploadedImageBase64 = reader.result.split(',')[1];
-      showAttachedFilePreview(reader.result, blob.type, null);
-    };
-    reader.readAsDataURL(blob);
-  } catch (err) {
-    console.error('Could not load attached homework file:', err);
-  }
-})();
-
 const goBtn = document.getElementById('goBtn');
 const errBox = document.getElementById('errBox');
 const results = document.getElementById('results');
@@ -280,44 +254,38 @@ goBtn.addEventListener('click', async () => {
   sessionStartTime = Date.now();
   correctCount = 0;
 
-  // Personalized path: only when we know which student this is (set elsewhere
-  // in the app, not by anything in this repo yet) AND there's typed text —
-  // /api/homework-explain doesn't accept an image, unlike /api/homework below.
-  const studentId = sessionStorage.getItem('tutp_student_id');
-  const subject = document.getElementById('hwSubject').value;
-
   try {
-    let response;
-    if (studentId && hwText) {
-      response = await fetch("/api/homework-explain", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ student_id: studentId, subject, question: hwText })
-      });
-    } else {
-      const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+    const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${parentLang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[{"question":"short question in ${parentLang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${parentLang} on why the correct answer is right"}]}
 Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is in ${childClass}, curriculum: ${curriculum}, name: ${childName}.`;
 
-      const userContent = [];
-      if (uploadedImageBase64) {
-        userContent.push({
-          type: uploadedImageMediaType === "application/pdf" ? "document" : "image",
-          source: { type: "base64", media_type: uploadedImageMediaType, data: uploadedImageBase64 }
-        });
-      }
+    const userContent = [];
+    if (uploadedImageBase64) {
       userContent.push({
-        type: "text",
-        text: hwText ? `Homework: ${hwText}` : "Read the homework in the attached photo or PDF and respond to it."
-      });
-
-      response = await fetch("/api/homework", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ systemPrompt, userContent })
+        type: uploadedImageMediaType === "application/pdf" ? "document" : "image",
+        source: { type: "base64", media_type: uploadedImageMediaType, data: uploadedImageBase64 }
       });
     }
+    userContent.push({
+      type: "text",
+      text: hwText ? `Homework: ${hwText}` : "Read the homework in the attached photo or PDF and respond to it."
+    });
+
+    // Always the standalone, no-login path — /demo/ is a no-account teaser
+    // and must never authorize against a real session. It used to also read
+    // sessionStorage.tutp_student_id and call the personalized
+    // /api/homework-explain when set: harmless when nothing ever set that
+    // key, but login.js has set it since student disambiguation shipped, so
+    // reaching /demo/ in the same tab as a real prior login would have
+    // authorized as that real student — the exact "real AI answer next to
+    // fabricated sample dashboard data" risk the dashboards' own homework
+    // modal was built to avoid, just never closed off here.
+    const response = await fetch("/api/homework-demo", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ systemPrompt, userContent })
+    });
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
       throw new Error(errData.error || `Server returned ${response.status}`);

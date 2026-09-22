@@ -5,6 +5,30 @@
 - Large-scope changes (new pages, rewriting a file's structure/framework, anything touching many files, deploys, deletions) — show a short plan first and wait for confirmation before editing.
 - After finishing a task, give a short summary (3-4 lines) of what was done — not a full diff or file dump.
 
+## Review discipline
+
+- Non-trivial feature work runs through 5 stages: idea framing →
+  engineering plan review → design plan review → pre-ship review →
+  post-deploy QA. Self-authored, not a third-party tool (gstack was
+  evaluated and rejected — supply-chain/telemetry risk).
+- Idea framing must include at least one competitive/market check
+  (what similar EdTech products do, relevant stats) before building —
+  not optional, not a one-off.
+- A local, unversioned `.git/hooks/pre-commit` hook backs this up. It
+  runs on the staged content and blocks the commit on: (1) a `node --check`
+  syntax error in any staged `.js`/`.mjs`/`.cjs`, or (2) a secret-pattern hit
+  in the added lines (reports file:line only; `secret-scan:allow` on the line
+  suppresses a false positive). It only warns when `server.js` is staged. It
+  then requires a y/n confirmation of the review checklist (an attestation —
+  the stages themselves aren't verified), read from `/dev/tty`; with no
+  terminal attached (agent, CI, GUI client) the commit fails closed. Bypass
+  consciously with `git commit --no-verify`, which also skips the syntax and
+  secret checks. Checklist content lives in the hook file itself.
+- Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
+  communication — it's a live production product with real users.
+  (The literal file/route `public/demo/index.html` is exempt — that's
+  its actual name, not a characterization of the product.)
+
 # Backlog
 
 - Discussion Method and Lecture Method are backlogged for the Teacher Module, post-launch — removed from the parent-page search-bar row (which now shows only Storytelling Method, Experiential Learning, Play-Based Learning).
@@ -15,7 +39,7 @@
 - `/app/child/` (Child View) still has the original dead decorative attach-menu alert — never received the attach-menu fixes/chip work the parent pages got. Needs a product decision on what child-side attach should actually do (same 6 options? different scope?) before fixing — not a copy-paste of the parent fix without that decision.
 - Homework Help: a parent can type a bare meta-instruction ("generate 10 questions with answers") with no actual topic and no attachment. The existing empty/empty guard (`hwModalText` + `hwUploadedBase64` both empty) doesn't catch this since the text field is non-empty — the model then invents unrelated general-knowledge trivia instead of anything tied to the child's real schoolwork. Founder decision 2026-09-05: not worth a heuristic (regex/keyword detection of "bare instruction" text) given false-positive risk — left as-is. Revisit only if this turns out to be a real recurring pattern, not just a test-scenario edge case.
 - **Parent Engagement Score / "Bonding Score" is not what it's marketed as.** The live `bonding_scores` table / `/api/bonding-score` computes only a 14-day homework-completion rate — a deliberate, explicit V1 scope-down under launch pressure, not the researched design. The actual researched model (Epstein's Six Types of Involvement, a 4-factor PIS composite weighting Consistency/Quality-of-Support/Communication/Emotional-Tone, supportive-vs-intrusive involvement distinction, BKT-based child mastery tracking, Growth-Involvement Correlation Card) is entirely unbuilt. Founder's "world's first parent-engagement-scored EdTech" positioning is not yet backed by what's live. Full detail preserved in the assistant's memory (`pes-pis-mastery-research-gap`) since this has previously gone missing between sessions — read that before touching PES/bonding-score code or marketing copy. Open decision as of 2026-09-05: ship Monday as-is (Option A) vs. build one high-value researched piece first (Option B) — not yet resolved.
-- **Secret rotation in progress (started 2026-09-05, incomplete).** `ADMIN_TOKEN` and `CRON_TOKEN` are done — rotated, migrated to Secret Manager (`admin-token`, `cron-token` secrets, `secretKeyRef` on the Cloud Run service, live on revision `tutp-demo-00107-5gw`). Still pending, blocked on the founder's own dashboard actions (regenerate/revoke+create), each with an empty Secret Manager container already created and IAM-granted, waiting for a value: `SUPABASE_SERVICE_ROLE_KEY` → `supabase-service-role-key`, `GMAIL_APP_PASSWORD` → `gmail-app-password`, `RESEND_API_KEY` → `resend-api-key`. Once populated, still needs: Cloud Run cutover to `secretKeyRef` for these three, redeploy, traffic verification, and live tests (Supabase read/write, real email send). Reason for rotation: a `gcloud run services describe --format=json` dump accidentally printed all 5 plaintext values into a chat transcript on 2026-09-05.
+- **Secret rotation complete (started 2026-09-05, confirmed done 2026-09-14).** All 5 secrets flagged after the incident are now rotated and migrated to Secret Manager with `secretKeyRef` on the Cloud Run service: `ADMIN_TOKEN` → `admin-token`, `CRON_TOKEN` → `cron-token`, `SUPABASE_SERVICE_ROLE_KEY` → `supabase-service-role-key`, `GMAIL_APP_PASSWORD` → `gmail-app-password`, `RESEND_API_KEY` → `resend-api-key`. Confirmed 2026-09-14 via a metadata-only `gcloud run services describe` query (env var name → `secretKeyRef` secret name only, no values fetched or printed). Reason for the original rotation: a `gcloud run services describe --format=json` dump accidentally printed all 5 plaintext values into a chat transcript on 2026-09-05.
 
 # Deploying
 

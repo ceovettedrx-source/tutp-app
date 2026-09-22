@@ -5,74 +5,76 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 
 <!-- ============ SEO ============ -->
-<title>Tut-P — The homework app that grades the parent, not just the child</title>
-<meta name="description" content="Tut-P turns your child's weekly classwork into a 10-minute guided moment together. Upload it, get a parent-friendly explanation in your language, guide your child, then see your own Bonding Report.">
+<title>Tut-P — The homework app that grades parents, not kids</title>
+<meta name="description" content="Tut-P scores parent engagement, not just child performance — AI-guided homework help, quizzes, storytelling, experiential and play-based learning for Indian families, in Telugu or English.">
 <link rel="canonical" href="https://tutp.online/">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#005bbf">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <meta name="robots" content="index, follow">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Tut-P">
-<meta property="og:title" content="Tut-P — The homework app that grades the parent, not just the child">
-<meta property="og:description" content="A 10-minute weekly ritual that closes the language, subject-knowledge and time gaps between parents and their child's classroom.">
+<meta property="og:title" content="Tut-P — The homework app that grades parents, not kids">
+<meta property="og:description" content="Tut-P scores parent engagement, not just child performance — AI-guided homework help, quizzes, storytelling, experiential and play-based learning for Indian families, in Telugu or English.">
 <meta property="og:url" content="https://tutp.online/">
+<!-- No 1200x630 OG image exists yet — hero-family-*.jpg / philosophy-together.jpg are only 512x286px (too small, wrong crop) and icon-512.png is a square app icon. og:image intentionally omitted until a real social-preview image is made; add it here once created. -->
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Tut-P — The homework app that grades parents, not kids">
+<meta name="twitter:description" content="Tut-P scores parent engagement, not just child performance — AI-guided homework help, quizzes, storytelling, experiential and play-based learning for Indian families, in Telugu or English.">
 <meta name="google-site-verification" content="REPLACE_WITH_YOUR_SEARCH_CONSOLE_CODE">
 <script type="application/ld+json">
-{"@context":"https://schema.org","@type":"Organization","name":"Tut-P","url":"https://tutp.online/","email":"hello@tutp.online"}
+{"@context":"https://schema.org","@type":"Organization","name":"Tut-P","url":"https://tutp.online/","email":"contact@tutp.online"}
 </script>
 
-<!-- ============ GA4 — replace G-XXXXXXXXXX with your Measurement ID ============ -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXXXX"></script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Is this another app that grades my child?","acceptedAnswer":{"@type":"Answer","text":"No. Tut-P is built around you, the parent. Instead of another score for your child, you get a weekly Bonding Report that reflects how involved you were — because that involvement is what moves outcomes most."}},
+{"@type":"Question","name":"What exactly happens in a session?","acceptedAnswer":{"@type":"Answer","text":"You upload or photograph your child's classwork. Tut-P explains it in plain language, gives you talking points, and builds a short quiz you go through together."}},
+{"@type":"Question","name":"When does Tut-P launch?","acceptedAnswer":{"@type":"Answer","text":"We're in early access right now. Join the waitlist to get a priority invite as soon as beta seats open."}},
+{"@type":"Question","name":"How much does it cost?","acceptedAnswer":{"@type":"Answer","text":"Tut-P has a Free tier (₹0), plus Pro (₹500/mo), UltraPro (₹1,500/mo) and Max (₹2,500/mo) tiers for families who want deeper coverage."}}
+]}
+</script>
+
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Tut-P","applicationCategory":"EducationApplication","operatingSystem":"Web","offers":[
+{"@type":"Offer","name":"Free","price":"0","priceCurrency":"INR"},
+{"@type":"Offer","name":"Pro","price":"500","priceCurrency":"INR"},
+{"@type":"Offer","name":"UltraPro","price":"1500","priceCurrency":"INR"},
+{"@type":"Offer","name":"Max","price":"2500","priceCurrency":"INR"}
+]}
+</script>
+
+<!-- ============ GA4 ============ -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-02PZ2EFZVY"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
-  gtag('config', 'G-XXXXXXXXXX');
+  gtag('config', 'G-02PZ2EFZVY');
+</script>
+
+<!-- ============ UTM capture — first-touch params persist across the session for registration to pick up ============ -->
+<script>
+  (function() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      ['source', 'medium', 'campaign'].forEach(function(key) {
+        const value = params.get('utm_' + key);
+        if (value) sessionStorage.setItem('tutp_utm_' + key, value);
+      });
+    } catch (e) { /* sessionStorage unavailable — UTM capture skipped */ }
+  })();
 </script>
 
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<script id="tailwind-config">
-  tailwind.config = {
-    darkMode: "class",
-    theme: {
-      extend: {
-        "colors": {
-                "inverse-surface": "#2d3135","surface-container-highest": "#dfe3e8","secondary": "#805600",
-                "inverse-primary": "#adc7ff","on-secondary-fixed-variant": "#614000","primary-fixed-dim": "#adc7ff",
-                "secondary-fixed": "#ffddb0","on-secondary-fixed": "#281800","error-container": "#ffdad6",
-                "error": "#ba1a1a","background": "#f7f9ff","primary-container": "#1a73e8","outline": "#727785",
-                "surface-container-lowest": "#ffffff","on-error": "#ffffff","on-secondary-container": "#694600",
-                "inverse-on-surface": "#eef1f7","surface-container-low": "#f1f4fa","on-background": "#181c20",
-                "tertiary-fixed": "#89fa9b","surface-container-high": "#e5e8ee","primary": "#005bbf",
-                "on-surface": "#181c20","on-secondary": "#ffffff","on-primary-fixed-variant": "#004493",
-                "primary-fixed": "#d8e2ff","tertiary-fixed-dim": "#6ddd81","on-tertiary-fixed": "#002108",
-                "secondary-fixed-dim": "#ffba45","surface-variant": "#dfe3e8","on-error-container": "#93000a",
-                "surface-dim": "#d7dae0","surface": "#f7f9ff","surface-tint": "#005bc0","surface-bright": "#f7f9ff",
-                "on-primary": "#ffffff","tertiary-container": "#008939","on-surface-variant": "#414754",
-                "on-primary-fixed": "#001a41","on-tertiary-container": "#ffffff","on-tertiary-fixed-variant": "#005320",
-                "outline-variant": "#c1c6d6","on-tertiary": "#ffffff","tertiary": "#006d2c","on-primary-container": "#ffffff",
-                "surface-container": "#ebeef4","secondary-container": "#fdaf0a"
-        },
-        "borderRadius": { "DEFAULT": "1rem","lg": "2rem","xl": "3rem","full": "9999px" },
-        "spacing": { "xs": "4px","md": "24px","sm": "12px","margin-desktop": "120px","margin-mobile": "20px","gutter": "16px","base": "8px","lg": "40px","xl": "64px" },
-        "fontFamily": { "headline-lg-mobile": ["Plus Jakarta Sans"],"body-md": ["Inter"],"display-lg": ["Plus Jakarta Sans"],"headline-lg": ["Plus Jakarta Sans"],"headline-md": ["Plus Jakarta Sans"],"body-lg": ["Inter"],"label-lg": ["Inter"],"label-md": ["Inter"] },
-        "fontSize": {
-                "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "700" }],
-                "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
-                "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
-                "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
-                "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
-                "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
-                "label-lg": ["16px", { "lineHeight": "20px", "letterSpacing": "0.01em", "fontWeight": "600" }],
-                "label-md": ["14px", { "lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "600" }]
-        }
-      },
-    },
-  }
-</script>
+<link as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/></noscript>
+<link as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
+<noscript><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/></noscript>
+<link href="/css/tailwind.css" rel="stylesheet"/>
 <style>
         .material-symbols-outlined { font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24 }
         .icon-filled { font-variation-settings: 'FILL' 1; }
@@ -128,6 +130,58 @@
 <p class="hidden text-sm text-on-surface-variant mt-2 px-2" id="homeAttachStatus"></p>
 </div>
 
+<!-- Search-bar attach chooser — same 6 modes as every logged-in dashboard's
+     own "+" attach icon (see routeSearchAttachTo there). Unifies the
+     homepage's hero search bar with that pattern instead of always
+     hardcoding Homework Help — see CLAUDE.md backlog. -->
+<div id="homeAttachChooser" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeAttachChooser()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Which one do you want?</h3>
+<button onclick="closeHomeAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Choose what to do with this file before you attach it.</p>
+<div class="space-y-2">
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('homework')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Homework Help</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Get a simple explanation of tonight's homework</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('story')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Storytelling Method</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a story your child will remember</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('play')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Play-Based Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a family quiz game</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('experiential')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Experiential Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('quiz')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Quiz</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Ask your child 5-10 questions one-on-one and see how they do</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="chooseHomeAttachMode('examPlaceholder')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Online Exam / Test</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Coming soon</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Online Exam / Test placeholder — same "coming soon" as the dashboards'
+     6th chooser option; see CLAUDE.md backlog. -->
+<div id="homeExamComingSoonModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeExamComingSoonModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6 text-center">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 block">fact_check</span>
+<h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Online Exam / Test</h3>
+<p class="font-body-md text-sm text-on-surface-variant mb-5">A formal, single-child exam mode is coming soon.</p>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" onclick="closeHomeExamComingSoonModal()">Got it</button>
+</div>
+</div>
+
 <div class="grid md:grid-cols-2 gap-lg items-center text-left w-full mt-8">
 <div class="flex flex-col gap-md order-2 md:order-1">
 <div class="inline-flex items-center gap-2 bg-secondary-container text-on-secondary-container px-4 py-2 rounded-full w-max font-label-md">
@@ -145,7 +199,7 @@
 <div class="absolute inset-0 bg-primary/5 rounded-xl translate-x-4 translate-y-4 -z-10"></div>
 <div class="relative w-full overflow-hidden rounded-xl shadow-[0_4px_20px_rgba(0,91,191,0.05)] border border-surface-variant group">
 <div class="flex transition-transform duration-700 ease-in-out" id="heroSlider">
-<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family together at home" class="w-full h-full object-cover" src="/images/hero-family-1.jpg"/></div>
+<div class="w-full flex-shrink-0 aspect-[4/3]"><picture><source srcset="/images/hero-family-1.webp" type="image/webp"/><img alt="Three-generation family together at home" class="w-full h-full object-cover" src="/images/hero-family-1.jpg"/></picture></div>
 <div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family reading together" class="w-full h-full object-cover" src="/images/hero-family-2.jpg"/></div>
 <div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family working on a science project" class="w-full h-full object-cover" src="/images/hero-family-3.jpg"/></div>
 <div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family exploring nature together" class="w-full h-full object-cover" src="/images/hero-family-4.jpg"/></div>
@@ -173,10 +227,61 @@
 <h3 class="font-headline-md text-headline-md text-on-surface">Guide the Journey</h3>
 <p class="font-body-md text-body-md text-on-surface-variant">We provide the structure and tools; you provide the direction and encouragement. You are the captain of your child's educational voyage.</p>
 </div>
-<div class="md:col-span-1 rounded-lg overflow-hidden relative shadow-sm min-h-[300px]">
-<img alt="A parent carrying their child, moving forward together" class="w-full h-full object-cover absolute inset-0" src="/images/philosophy-together.jpg"/>
+<div class="md:col-span-1 rounded-lg overflow-hidden relative shadow-sm min-h-[300px] group" id="philosophyCard">
+<div class="absolute inset-0 flex transition-transform duration-700 ease-in-out" id="philosophySlider">
+<div class="w-full h-full flex-shrink-0 relative">
+<picture><source srcset="/images/philosophy-together.webp" type="image/webp"/><img alt="A parent carrying their child, moving forward together" class="w-full h-full object-cover absolute inset-0" src="/images/philosophy-together.jpg"/></picture>
 <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-md">
 <p class="text-white font-headline-md text-headline-md">Moving Forward Together</p>
+</div>
+</div>
+<div class="w-full h-full flex-shrink-0 relative bg-[#dbe9ff]">
+<svg class="absolute inset-0 w-full h-full" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Illustration: a boat labeled Parent carrying children, pushed forward by an engine labeled Tut-P" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<linearGradient id="phSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1f7ff"/><stop offset="1" stop-color="#cfe2ff"/></linearGradient>
+<linearGradient id="phWater" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fbcf2"/><stop offset="1" stop-color="#4f8bd8"/></linearGradient>
+</defs>
+<rect width="400" height="300" fill="url(#phSky)"/>
+<g transform="translate(0,-30)">
+<circle cx="322" cy="62" r="24" fill="#ffffff" opacity="0.7"/>
+<rect y="176" width="400" height="160" fill="url(#phWater)"/>
+<g stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" fill="none" opacity="0.5">
+<path d="M30 232 q10 -6 20 0 t20 0"/><path d="M250 250 q10 -6 20 0 t20 0"/><path d="M330 226 q10 -6 20 0 t20 0"/><path d="M150 262 q10 -6 20 0 t20 0"/>
+</g>
+<g stroke="#005bbf" stroke-width="3" stroke-linecap="round" opacity="0.35">
+<line x1="40" y1="126" x2="84" y2="126"/><line x1="24" y1="142" x2="76" y2="142"/><line x1="48" y1="158" x2="86" y2="158"/>
+</g>
+<g fill="none" stroke="#ffffff" stroke-width="3.5" stroke-linecap="round" opacity="0.9">
+<path d="M104 196 q-22 -6 -44 2 t-40 -2"/><path d="M104 206 q-18 4 -36 -2 t-34 4"/>
+</g>
+<g fill="#ffffff" opacity="0.85"><circle cx="92" cy="200" r="5"/><circle cx="76" cy="206" r="4"/><circle cx="58" cy="203" r="3"/><circle cx="110" cy="212" r="4"/></g>
+<g>
+<path d="M178 152 v-16 a9 9 0 0 1 18 0 v16 z" fill="#4a8be0"/><circle cx="187" cy="124" r="8" fill="#0a2a5c"/>
+<path d="M212 152 v-22 a10 10 0 0 1 20 0 v22 z" fill="#0a2a5c"/><circle cx="222" cy="116" r="9" fill="#0a2a5c"/>
+<path d="M251 152 v-14 a8 8 0 0 1 16 0 v14 z" fill="#4a8be0"/><circle cx="259" cy="127" r="7" fill="#0a2a5c"/>
+</g>
+<path d="M126 150 H318 Q310 190 282 202 H152 Q133 196 126 150 Z" fill="#005bbf"/>
+<rect x="126" y="150" width="192" height="6" rx="2" fill="#0a4aa0"/>
+<text x="222" y="184" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="17" font-weight="700" fill="#ffffff">Parent</text>
+<g>
+<line x1="118" y1="122" x2="118" y2="140" stroke="#005bbf" stroke-width="2" stroke-dasharray="3 3"/>
+<rect x="88" y="98" width="60" height="24" rx="12" fill="#ffffff" stroke="#005bbf" stroke-width="2"/>
+<text x="118" y="115" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" fill="#005bbf">Tut-P</text>
+<rect x="107" y="140" width="22" height="30" rx="5" fill="#ffffff" stroke="#005bbf" stroke-width="2.5"/>
+<rect x="112" y="170" width="8" height="34" rx="2" fill="#ffffff" stroke="#005bbf" stroke-width="2.5"/>
+<circle cx="116" cy="206" r="5" fill="#005bbf"/>
+</g>
+<path d="M0 190 Q25 182 50 190 T100 190 T150 190 T200 190 T250 190 T300 190 T350 190 T400 190 V340 H0 Z" fill="#6aa4ea" opacity="0.55" transform="translate(0,4)"/>
+</g>
+</svg>
+<div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#0a2a5c]/90 via-[#0a2a5c]/65 to-transparent px-md pb-md pt-12">
+<p class="text-white font-body-lg text-body-lg font-semibold leading-snug">Parents are the boat. Children are the passengers. Tut-P is the engine.</p>
+</div>
+</div>
+</div>
+<div class="absolute top-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10 bg-black/30 rounded-full px-2 py-1" id="philosophyDots">
+<button aria-label="Go to slide 1" class="w-1.5 h-1.5 rounded-full bg-white transition-colors" onclick="setPhilosophySlide(0)"></button>
+<button aria-label="Go to slide 2" class="w-1.5 h-1.5 rounded-full bg-white/40 transition-colors" onclick="setPhilosophySlide(1)"></button>
 </div>
 </div>
 <div class="bg-surface/80 backdrop-blur-xl p-md rounded-lg shadow-sm text-left flex flex-col gap-sm border border-surface-variant/50">
@@ -252,10 +357,10 @@
 </div>
 </div>
 <div class="flex justify-center gap-2 mt-8" id="featureDots">
-<button class="w-3 h-3 rounded-full bg-primary" onclick="setSlide(0)"></button>
-<button class="w-3 h-3 rounded-full bg-outline-variant" onclick="setSlide(1)"></button>
-<button class="w-3 h-3 rounded-full bg-outline-variant" onclick="setSlide(2)"></button>
-<button class="w-3 h-3 rounded-full bg-outline-variant" onclick="setSlide(3)"></button>
+<button aria-label="Go to slide 1" class="w-3 h-3 rounded-full bg-primary" onclick="setSlide(0)"></button>
+<button aria-label="Go to slide 2" class="w-3 h-3 rounded-full bg-outline-variant" onclick="setSlide(1)"></button>
+<button aria-label="Go to slide 3" class="w-3 h-3 rounded-full bg-outline-variant" onclick="setSlide(2)"></button>
+<button aria-label="Go to slide 4" class="w-3 h-3 rounded-full bg-outline-variant" onclick="setSlide(3)"></button>
 </div>
 </div>
 
@@ -269,15 +374,15 @@
 </div>
 <form class="bg-surface-container p-8 rounded-xl text-on-surface flex flex-col gap-4 shadow-sm border-l-4 border-l-primary" id="waitlistForm">
 <div class="flex flex-col gap-1">
-<label class="text-[10px] font-mono tracking-wider uppercase text-on-surface-variant">YOUR NAME</label>
+<label class="text-[10px] font-mono tracking-wider uppercase text-on-surface-variant" for="name">YOUR NAME</label>
 <input class="w-full px-3 py-2 border border-outline-variant rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm bg-surface" type="text" id="name" placeholder="Raman Kumar" required/>
 </div>
 <div class="flex flex-col gap-1">
-<label class="text-[10px] font-mono tracking-wider uppercase text-on-surface-variant">EMAIL ADDRESS</label>
+<label class="text-[10px] font-mono tracking-wider uppercase text-on-surface-variant" for="email">EMAIL ADDRESS</label>
 <input class="w-full px-3 py-2 border border-outline-variant rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm bg-surface" type="email" id="email" placeholder="raman@example.com" required/>
 </div>
 <div class="flex flex-col gap-1">
-<label class="text-[10px] font-mono tracking-wider uppercase text-on-surface-variant">YOU ARE A</label>
+<label class="text-[10px] font-mono tracking-wider uppercase text-on-surface-variant" for="role">YOU ARE A</label>
 <div class="relative">
 <select class="w-full px-3 py-2 border border-outline-variant rounded-md focus:border-primary focus:ring-1 focus:ring-primary outline-none text-sm appearance-none bg-surface" id="role" required>
 <option value="" disabled selected>Select one</option>
@@ -310,7 +415,7 @@
 <div class="border border-outline-variant p-6 rounded-xl bg-surface-container-low">
 <h3 class="text-xl font-bold mb-2 font-headline-md">Prefer a quick call?</h3>
 <p class="text-sm text-on-surface-variant mb-4">If you want to discuss Tut-P for your family or school, you can reach the founding team directly.</p>
-<a href="mailto:hello@tutp.online" class="inline-block border border-outline-variant px-4 py-2 rounded-full font-label-md text-sm hover:bg-surface-variant transition-colors">EMAIL THE TEAM</a>
+<a href="mailto:contact@tutp.online" class="inline-block border border-outline-variant px-4 py-2 rounded-full font-label-md text-sm hover:bg-surface-variant transition-colors">EMAIL THE TEAM</a>
 </div>
 </div>
 </div>
@@ -348,7 +453,7 @@
 <span class="font-headline-md text-xl">How much does it cost?</span>
 <span class="text-secondary text-2xl leading-none faq-icon">+</span>
 </button>
-<p class="text-sm text-on-surface-variant mt-2 pr-8 font-body-md faq-answer hidden">Tut-P has a Free tier, plus Pro ($15/mo), Max ($25/mo) and Ultra Max ($100/mo) tiers for families who want deeper coverage.</p>
+<p class="text-sm text-on-surface-variant mt-2 pr-8 font-body-md faq-answer hidden">Tut-P has a Free tier (₹0), plus Pro (₹500/mo), UltraPro (₹1,500/mo) and Max (₹2,500/mo) tiers for families who want deeper coverage.</p>
 </div>
 </div>
 </section>
@@ -364,7 +469,7 @@
 <div class="flex flex-col gap-3">
 <a class="hover:text-primary-fixed transition-colors" href="/demo/">Live demo</a>
 <a class="text-white hover:text-primary-fixed transition-colors" href="/app/login/">Login</a>
-<a class="hover:text-primary-fixed transition-colors" href="mailto:hello@tutp.online">Contact</a>
+<a class="hover:text-primary-fixed transition-colors" href="mailto:contact@tutp.online">Contact</a>
 </div>
 </div>
 </div>
@@ -418,6 +523,30 @@
     function nextHeroSlide(){ currentHeroSlide = (currentHeroSlide + 1) % totalHeroSlides; updateHeroSlider(); }
     function prevHeroSlide(){ currentHeroSlide = (currentHeroSlide - 1 + totalHeroSlides) % totalHeroSlides; updateHeroSlider(); }
 
+    // Philosophy card carousel
+    let currentPhilosophySlide = 0;
+    const totalPhilosophySlides = 2;
+    const philosophySlider = document.getElementById('philosophySlider');
+    const philosophyDots = document.querySelectorAll('#philosophyDots button');
+    function updatePhilosophySlider(){
+        if(!philosophySlider) return;
+        philosophySlider.style.transform = `translateX(-${currentPhilosophySlide * 100}%)`;
+        philosophyDots.forEach((d, i) => {
+            d.classList.toggle('bg-white', i === currentPhilosophySlide);
+            d.classList.toggle('bg-white/40', i !== currentPhilosophySlide);
+        });
+    }
+    function setPhilosophySlide(i){ currentPhilosophySlide = i; updatePhilosophySlider(); }
+    function nextPhilosophySlide(){ currentPhilosophySlide = (currentPhilosophySlide + 1) % totalPhilosophySlides; updatePhilosophySlider(); }
+    if(philosophySlider){
+        let philosophyInterval = setInterval(nextPhilosophySlide, 6000);
+        const philosophyCard = document.getElementById('philosophyCard');
+        if(philosophyCard){
+            philosophyCard.addEventListener('mouseenter', () => clearInterval(philosophyInterval));
+            philosophyCard.addEventListener('mouseleave', () => { philosophyInterval = setInterval(nextPhilosophySlide, 6000); });
+        }
+    }
+
     // ---------------- Hero "attach homework" widget ----------------
     let pendingAttachUrl = null;
     function toggleAttachMenu(){ document.getElementById('attachMenu').classList.toggle('hidden'); }
@@ -434,6 +563,14 @@
     };
     function triggerAttach(kind){
         document.getElementById('attachMenu').classList.add('hidden');
+        // Matches the logged-in dashboards' own search-bar attach chooser
+        // (handleSearchAttach there) — none of the 6 modes' attach inputs
+        // accept video, so this fails fast here instead of letting a video
+        // upload succeed only to break once it reaches a dashboard's modal.
+        if (kind === 'video') {
+            alert('Video attachments aren\'t supported yet — please attach a photo or a PDF document instead.');
+            return;
+        }
         homeAttachInputs[kind].click();
     }
     Object.values(homeAttachInputs).forEach(input => {
@@ -476,9 +613,31 @@
             statusEl.classList.remove('hidden');
             return;
         }
-        sessionStorage.setItem('tutp_pending_homework_url', pendingAttachUrl);
-        sessionStorage.setItem('tutp_pending_homework_ts', String(Date.now()));
+        document.getElementById('homeAttachChooser').classList.remove('hidden');
+    }
+    function closeHomeAttachChooser(){
+        document.getElementById('homeAttachChooser').classList.add('hidden');
+    }
+    // Same 6 modes as every dashboard's own search-bar attach chooser (see
+    // routeSearchAttachTo there) — picking a real one hands the already-
+    // uploaded file's URL plus the chosen mode to login via sessionStorage;
+    // whichever dashboard the parent lands on (see checkPendingAttach there)
+    // opens that exact mode pre-filled. The placeholder shows the same
+    // "coming soon" modal the dashboards use instead of navigating away, so
+    // the attachment stays available if the parent picks a real mode after.
+    function chooseHomeAttachMode(mode){
+        document.getElementById('homeAttachChooser').classList.add('hidden');
+        if (mode === 'examPlaceholder') {
+            document.getElementById('homeExamComingSoonModal').classList.remove('hidden');
+            return;
+        }
+        sessionStorage.setItem('tutp_pending_attach_url', pendingAttachUrl);
+        sessionStorage.setItem('tutp_pending_attach_mode', mode);
+        sessionStorage.setItem('tutp_pending_attach_ts', String(Date.now()));
         window.location.href = '/app/login/';
+    }
+    function closeHomeExamComingSoonModal(){
+        document.getElementById('homeExamComingSoonModal').classList.add('hidden');
     }
     function toggleHomeMic(){
         const statusEl = document.getElementById('homeAttachStatus');
@@ -558,7 +717,7 @@
                 throw new Error(data.error || 'Something went wrong');
             }
         } catch (err) {
-            statusEl.textContent = 'Could not submit right now — please email hello@tutp.online instead.';
+            statusEl.textContent = 'Could not submit right now — please email contact@tutp.online instead.';
             statusEl.className = 'form-status err';
         } finally {
             submitBtn.disabled = false;
