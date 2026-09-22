@@ -923,7 +923,12 @@ app.post('/api/tutor-contact/create-order', async (req, res) => {
     const order = await razorpay.orders.create({
       amount,
       currency: 'INR',
-      receipt: `tutor_contact_${session.familyId}_${tutor.id}_${Date.now()}`,
+      // Razorpay caps receipt length (56 chars) — tutor.id alone is a 36-char
+      // UUID, so a full family/tutor/timestamp receipt overflows it and the
+      // order.create() call fails outright. notes below already carries the
+      // full, untruncated identifiers, so receipt only needs to be short and
+      // unique, not human-decodable.
+      receipt: `tc_${session.familyId}_${tutor.id.slice(0, 8)}_${Date.now().toString(36)}`,
       notes: { family_id: String(session.familyId), tutor_id: tutor.id }
     });
 
@@ -2313,7 +2318,12 @@ app.post('/api/register', registerLimiter, async (req, res) => {
         const order = await razorpay.orders.create({
           amount,
           currency: 'INR',
-          receipt: `family_${data.id}_student_${student.id}_${Date.now()}`,
+          // Same receipt-length fix as /api/tutor-contact/create-order above
+          // — student.id is a 36-char UUID, so the old full-identifier
+          // receipt overflowed Razorpay's 56-char cap and order.create()
+          // failed every time (silently, since this is caught below and the
+          // child is just left unpaid). notes carries the full identifiers.
+          receipt: `reg_${data.id}_${student.id.slice(0, 8)}_${Date.now().toString(36)}`,
           notes: { family_id: String(data.id), student_id: student.id, tier }
         });
         const { error: paymentErr } = await supabase.from('payments').insert({
