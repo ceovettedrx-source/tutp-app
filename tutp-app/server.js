@@ -2306,13 +2306,19 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     // on different tiers pays for each independently; the webhook
     // (/api/razorpay-webhook) is what marks each one captured/failed.
     const paymentInfos = [];
+    // Parallel to paymentInfos — every paid-tier child who did NOT get an
+    // order started, for whatever reason, so the client can tell the parent
+    // plainly instead of the registration silently reporting success. Not
+    // shown live retry UI (yet) — founder handles these via the existing
+    // /admin/dashboard failed-payments visibility.
+    const paymentFailures = [];
     for (let i = 0; i < childrenWithNames.length; i++) {
       const child = childrenWithNames[i];
       const student = insertedStudents[i];
       const tier = ['pro', 'ultrapro', 'max'].includes(child.tier) ? child.tier : 'free';
       if (tier === 'free') continue;
-      if (!student) { console.error('No students row for', child.name, '— skipping Razorpay order.'); continue; }
-      if (!razorpay) { console.error('Razorpay not configured for tier', tier, '— child left unpaid:', child.name); continue; }
+      if (!student) { console.error('No students row for', child.name, '— skipping Razorpay order.'); paymentFailures.push({ studentName: child.name, tier }); continue; }
+      if (!razorpay) { console.error('Razorpay not configured for tier', tier, '— child left unpaid:', child.name); paymentFailures.push({ studentName: child.name, tier }); continue; }
       const amount = TIER_PRICE_PAISE[tier];
       try {
         const order = await razorpay.orders.create({
@@ -2334,6 +2340,7 @@ app.post('/api/register', registerLimiter, async (req, res) => {
         paymentInfos.push({ studentId: student.id, studentName: child.name, orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tier });
       } catch (rzpErr) {
         console.error('Could not create Razorpay order for', child.name, '(registration itself still succeeded, left unpaid):', rzpErr.message);
+        paymentFailures.push({ studentName: child.name, tier });
       }
     }
 
@@ -2345,8 +2352,8 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     const { error: subErr } = await supabase.from('family_subscriptions').insert({ family_id: data.id, tier: 'free', status: 'active' });
     if (subErr) console.error('Could not save family_subscriptions row (registration itself still succeeded):', subErr.message);
 
-    console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length, 'paid:', paymentInfos.length);
-    res.json({ ok: true, id: data.id, payments: paymentInfos });
+    console.log('New family registration:', children[0].name, 'id:', data.id, 'children:', children.length, 'paid:', paymentInfos.length, 'paymentFailures:', paymentFailures.length);
+    res.json({ ok: true, id: data.id, payments: paymentInfos, paymentFailures });
   } catch (err) {
     console.error('Registration error:', err);
     res.status(500).json({ error: 'Could not save registration: ' + (err.message || '') });

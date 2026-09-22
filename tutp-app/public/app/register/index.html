@@ -638,16 +638,24 @@
     return items.slice(0, -1).join(', ') + ', and ' + items[items.length - 1];
   }
 
-  function runPaymentQueue(payments){
+  function runPaymentQueue(payments, paymentFailures){
     const statusEl = document.getElementById('formStatus');
     let idx = 0;
     let dismissedPayments = [];
     function finish(){
+      const messages = [];
       if (dismissedPayments.length) {
         const plans = dismissedPayments.map(p => `${p.studentName}'s ${TIER_LABELS[p.tier] || p.tier} plan`);
         const verb = dismissedPayments.length > 1 ? 'payments are' : 'payment is';
         const pronoun = dismissedPayments.length > 1 ? 'them' : 'it';
-        statusEl.textContent = `You're registered — ${joinWithAnd(plans)} ${verb} still pending. Finish ${pronoun} later from your account. Redirecting to login…`;
+        messages.push(`${joinWithAnd(plans)} ${verb} still pending — finish ${pronoun} later from your account`);
+      }
+      if (paymentFailures && paymentFailures.length) {
+        const plans = paymentFailures.map(p => `${p.studentName}'s ${TIER_LABELS[p.tier] || p.tier} plan`);
+        messages.push(`payment for ${joinWithAnd(plans)} couldn't be started — please email contact@tutp.online and we'll help you complete it`);
+      }
+      if (messages.length) {
+        statusEl.textContent = `You're registered — ${messages.join('; ')}. Redirecting to login…`;
         statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
       } else {
         statusEl.textContent = 'Payment received — finalizing your plan. Redirecting to login…';
@@ -778,7 +786,12 @@
       if (data.payments && data.payments.length) {
         statusEl.textContent = 'Almost done — complete your payment to activate your plan.';
         statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
-        runPaymentQueue(data.payments);
+        runPaymentQueue(data.payments, data.paymentFailures);
+      } else if (data.paymentFailures && data.paymentFailures.length) {
+        const plans = data.paymentFailures.map(p => `${p.studentName}'s ${TIER_LABELS[p.tier] || p.tier} plan`);
+        statusEl.textContent = `Your family is registered! However, payment for ${joinWithAnd(plans)} couldn't be started — please email contact@tutp.online and we'll help you complete it. Redirecting to login…`;
+        statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
+        setTimeout(() => { window.location.href = '/app/login/'; }, 2500);
       } else {
         statusEl.textContent = "Your family is registered! Redirecting to login…";
         statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-success';
