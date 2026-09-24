@@ -4,6 +4,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Tut-P - Child Dashboard</title>
 <meta name="robots" content="noindex, nofollow">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
 <link href="/css/tailwind.css" rel="stylesheet"/>
@@ -20,6 +21,25 @@
         main { padding-top: 88px; }
         @media (min-width: 768px) { main { margin-left: 240px; } #topAppBar { left: 240px; width: calc(100% - 240px); } }
         @media (max-width: 767px) { #parentalSidebar { display: none; } }
+        /* Play-Based Learning turn-transition card — CSS-only flip (no
+           library) shown between a player's answer and the next player's
+           question, so the score bump feels revealed, not snapped in. */
+        @keyframes playFlipIn { 0% { transform: perspective(600px) rotateY(90deg) scale(0.85); opacity: 0; } 60% { transform: perspective(600px) rotateY(-8deg) scale(1.04); opacity: 1; } 100% { transform: perspective(600px) rotateY(0deg) scale(1); opacity: 1; } }
+        .play-turn-transition { animation: playFlipIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        /* "Save as PDF / Print" for Homework Help, Quiz, Storytelling and
+           Experiential Learning results — see printResult() below. Resets
+           the modal panel's overflow-y-auto/max-h-[90vh] so the printed
+           output isn't clipped to the on-screen modal height, and forces a
+           plain white background so the modal's dark overlay can't bleed
+           through onto the page. */
+        @media print {
+            body * { visibility: hidden !important; }
+            .print-target, .print-target * { visibility: visible !important; }
+            .print-target { position: absolute !important; top: 0; left: 0; width: 100%; background: #fff !important; color: #111 !important; padding: 24px !important; }
+            #homeworkExplainModal, #homeworkExplainModal > div, #storyModal, #storyModal > div, #experientialModal, #experientialModal > div { position: static !important; overflow: visible !important; max-height: none !important; height: auto !important; }
+            header, nav, main { display: none !important; }
+            .no-print { display: none !important; }
+        }
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md antialiased min-h-screen pb-32">
@@ -236,6 +256,352 @@
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-base hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">history_edu</span><span class="font-label-md text-[10px] mt-1">Records</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-base hover:text-primary transition-colors" href="#"><span class="material-symbols-outlined">query_stats</span><span class="font-label-md text-[10px] mt-1">Progress</span></a>
 </nav>
+<!-- Search-bar attach chooser — the generic "+" attach icon used to jump
+     straight into Homework Help with no confirmation, silently running that
+     one specific mode regardless of which method pill looked selected. A
+     parent with limited digital confidence has no way to notice that
+     mismatch, so this now always asks explicitly which mode to use before
+     opening anything or touching the file picker. -->
+<div id="searchAttachChooser" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeSearchAttachChooser()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Which one do you want?</h3>
+<button onclick="closeSearchAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Choose what to do with this file before you attach it.</p>
+<div class="space-y-2">
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('homework')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Homework Help</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Get a simple explanation of tonight's homework</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('story')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Storytelling Method</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a story your child will remember</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('play')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Play-Based Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a family quiz game</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('experiential')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Experiential Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('quiz')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Quiz</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Ask your child 5-10 questions one-on-one and see how they do</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('examPlaceholder')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Online Exam / Test</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Coming soon</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Online Exam / Test placeholder — icon-only 6th chooser option, no real
+     functionality yet. Full spec (single-child formal exam, distinct from
+     Play-Based Learning's multiplayer quiz) is pending founder sign-off —
+     see CLAUDE.md backlog note. -->
+<div id="examComingSoonModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeExamComingSoonModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6 text-center">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 block">fact_check</span>
+<h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Online Exam / Test</h3>
+<p class="font-body-md text-sm text-on-surface-variant mb-5">A formal, single-child exam mode is coming soon.</p>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" onclick="closeExamComingSoonModal()">Got it</button>
+</div>
+</div>
+<!-- Ask Tut-P AI Tutor — inline attach + explain, real Claude call against
+     /api/homework using this session's real child context. Replaces the old
+     redirect to /demo/ (a generic, session-agnostic marketing page whose
+     post-quiz "Bonding dashboard" is fabricated sample data — unsafe to show
+     a real parent right after a real AI explanation). -->
+<div id="homeworkExplainModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeworkModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface" id="hwModalTitle">Homework Help</h3>
+<button onclick="closeHomeworkModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4" id="hwModalChildContext">Helping your child</p>
+
+<div id="hwModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Explain in</label>
+<select id="hwModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5" id="hwModalTextLabel">Homework question / topic (optional if attaching a file)</label>
+<textarea id="hwModalText" placeholder="Describe the homework you need explained, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="hwModalAttachTrigger" onclick="hwModalAttachInput.accept='image/*,application/pdf'; hwModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="hwModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="hwModalThumb" alt="Preview of first attached homework photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach">remove</button>
+<img id="hwModalThumb2" alt="Preview of second attached homework photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach2">remove</button>
+</div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="hwModalSubmitBtn">Explain My Homework</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="hwModalErrBox"></div>
+</div>
+
+<div id="hwModalResults" class="hidden">
+<div class="flex justify-end mb-2 no-print">
+<button onclick="printResult('hwModalResults')" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base">print</span>Save as PDF / Print</button>
+</div>
+<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-6 mt-2" id="hwModalExplanationBlock">
+<details id="hwModalExplanationDetails" open>
+<summary class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5 cursor-pointer">
+<span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalLangTag">your language</span>
+</summary>
+<p id="hwModalExplanationText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0 mt-2"></p>
+</details>
+</div>
+<div id="hwModalQuizBlock">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary">Check understanding</div>
+<div class="font-label-md text-xs bg-on-surface text-surface px-3 py-1.5 rounded-full" id="hwModalScorePill">0 / 5 answered</div>
+</div>
+<p class="text-[11px] text-on-surface-variant -mt-2.5 mb-4">Each question is tagged by cognitive-demand category, mapped to NCF-SE 2023's Panchpadi stages where it applies — Tut-P's own tagging, not a verified curriculum record.</p>
+<div id="hwModalQuizArea"></div>
+</div>
+<div id="hwModalHomeworkResultBlock" class="hidden">
+<div id="hwModalConceptBlock" class="hidden bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mt-2">
+<div id="hwModalAditiHookBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-4 py-3 mb-3">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">A connection to build on</div>
+<p id="hwModalAditiHookText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Grounded in NCF-SE 2023's Panchpadi method — not a verified curriculum record.</p>
+</div>
+<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
+<span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalConceptLangTag">your language</span>
+</div>
+<p id="hwModalConceptText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+</div>
+<div id="hwModalQuestionsArea" class="hidden space-y-3 mt-2"></div>
+</div>
+<div class="text-center mt-2 no-print">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()" id="hwModalRetryBtn">↺ Try another homework</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Storytelling Method — attach a lesson, get a short story connecting it to
+     real life, then read aloud via the browser's Web Speech API. Text is
+     always shown regardless of TTS support; "Submit & Tell" auto-plays when
+     a matching voice exists, falling back to text-only silently otherwise. -->
+<div id="storyModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeStoryModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Storytelling Method</h3>
+<button onclick="closeStoryModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Turn today's lesson into a story your child will remember</p>
+
+<div id="storyModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Tell the story in</label>
+<select id="storyModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="storyModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="storyModalAttachTrigger" onclick="storyModalAttachInput.accept='image/*,application/pdf'; storyModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="storyModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="storyModalThumb" alt="Preview of first attached storytelling photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="storyModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="storyModalClearAttach">remove</button>
+<img id="storyModalThumb2" alt="Preview of second attached storytelling photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="storyModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="storyModalClearAttach2">remove</button>
+</div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="storyModalSubmitBtn">Submit &amp; Tell</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="storyModalErrBox"></div>
+</div>
+
+<div id="storyModalResults" class="hidden">
+<div class="flex justify-end mb-2 no-print">
+<button onclick="printResult('storyModalResults')" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base">print</span>Save as PDF / Print</button>
+</div>
+<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-4 mt-2">
+<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">📖 Your child's story</div>
+<p id="storyModalStoryText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-2 mb-0">Grounded in NCF-SE 2023's Panchpadi method (Bodha + Prayoga) — not a verified curriculum record.</p>
+</div>
+<div id="storyModalAbhyasaBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-4 py-3 mb-4">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">Try this together</div>
+<p id="storyModalAbhyasaText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+</div>
+<div class="flex items-center gap-3 flex-wrap no-print">
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" id="storyModalPlayBtn" onclick="playStory()">▶ Play story</button>
+<button class="bg-surface-container-high text-on-surface font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hidden hover:bg-surface-container-highest active:scale-[0.98] transition-colors" id="storyModalStopBtn" onclick="stopStory()">⏹ Stop</button>
+</div>
+<div class="hidden text-xs text-on-surface-variant mt-3 no-print" id="storyModalTtsNote"></div>
+<div class="text-center mt-5 no-print">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetStoryModal()">↺ Try another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Play-Based Learning — a turn-based multiplayer family game engine. Up
+     to 4 players (mother/father/family members/children) take turns
+     answering AI-generated multiple-choice questions from the lesson,
+     against one per-game locked countdown timer; explaining the answer
+     afterward is untimed. Scoring is server-authoritative — the browser
+     never receives a question's correct answer until after it submits one,
+     so the live leaderboard and the shareable "Winner of the Day" badge can
+     be trusted. See /api/game-sessions* in server.js. -->
+<div id="playModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closePlayModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Play-Based Learning</h3>
+<button onclick="closePlayModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Turn today's lesson into a family quiz game</p>
+
+<!-- Step 1: setup -->
+<div id="playModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Ask in</label>
+<select id="playModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Who's playing? (pick 2-4)</label>
+<div class="flex flex-col gap-1.5 mb-3.5" id="playModalPlayerPicker"><p class="text-xs text-on-surface-variant">Loading family members…</p></div>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="playModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="playModalAttachInput.accept='image/*,application/pdf'; playModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="playModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="playModalThumb" alt="Preview of attached play-based learning photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="playModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="playModalClearAttach">remove</button>
+</div>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalSubmitBtn">Next: pick a timer</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalErrBox"></div>
+</div>
+
+<!-- Step 2: locked per-game answer timer -->
+<div id="playModalTimerStep" class="hidden">
+<p class="font-body-md text-sm text-on-surface-variant mb-3.5">Pick one time limit for every question, for this whole game — it can't be changed once the game starts.</p>
+<div class="flex gap-2 mb-4" id="playModalTimerPicker">
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="30">30s</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="45">45s</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="60">60s</button>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 border-2 border-outline-variant text-on-surface-variant font-label-md text-sm rounded-lg px-4 py-2.5 hover:border-on-surface-variant transition-colors" onclick="playModalBackToForm()">Back</button>
+<button class="flex-[2] bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalStartGameBtn" disabled>Start game</button>
+</div>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalTimerErrBox"></div>
+</div>
+
+<!-- Step 3: live game -->
+<div id="playModalGame" class="hidden">
+<div class="flex flex-wrap gap-2 mb-4" id="playModalScoreboard"></div>
+<!-- Minimal remote-invite entry point — no polish intended, this exists
+     so POST /api/game-sessions/:id/invite can be exercised from a real
+     browser. Hidden for a device that joined remotely (see
+     playModalJoinRemoteGame): only the host device invites others. -->
+<div class="mb-4" id="playModalInvitePanel">
+<button id="playModalInviteBtn" class="font-label-md text-xs text-primary underline" onclick="playModalSendInvites()">Invite players (remote)</button>
+<div class="mt-2 space-y-1.5" id="playModalInviteResults"></div>
+</div>
+<div id="playModalTurnTransition" class="hidden"></div>
+<div id="playModalQuestionArea"></div>
+</div>
+
+<!-- Step 4: results -->
+<div id="playModalResults" class="hidden">
+<div class="font-label-md text-label-md text-primary mb-2 text-center" id="playModalWinnerBanner"></div>
+<div class="flex flex-col gap-1.5 mb-4" id="playModalFinalLeaderboard"></div>
+<canvas id="playModalShareCanvas" width="600" height="600" class="hidden"></canvas>
+<div class="flex gap-2 justify-center mb-5">
+<button class="bg-tertiary text-on-tertiary font-label-md text-xs uppercase tracking-wide rounded-lg px-4 py-2.5 hover:bg-tertiary/90 transition-colors inline-flex items-center gap-1.5" id="playModalShareBtn"><span class="material-symbols-outlined text-base">share</span>Share Winner of the Day</button>
+</div>
+<div class="border-t border-outline-variant pt-4">
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-1">What this game tested</div>
+<p class="text-[11px] text-on-surface-variant mb-3">Each question is tagged by cognitive-demand category, mapped to NCF-SE 2023's Panchpadi stages where it applies — Tut-P's own tagging, not a verified curriculum record.</p>
+<div id="playModalRecap" class="flex flex-col gap-1.5"></div>
+</div>
+<div class="text-center mt-5">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetPlayModal()">↺ Play another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Experiential Learning — attach a lesson, get an inferred "what came
+     before this" callout plus step-by-step notes the child can follow at
+     home. v1 is text-only: no YouTube search/relevance-check yet (none of
+     that infrastructure exists in this backend today), so notes never claim
+     to be based on a video — see CLAUDE.md backlog note. -->
+<div id="experientialModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeExperientialModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Experiential Learning</h3>
+<button onclick="closeExperientialModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Step-by-step notes so your child can follow along at home</p>
+
+<div id="experientialModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Notes in</label>
+<select id="experientialModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="experientialModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="experientialModalAttachTrigger" onclick="experientialModalAttachInput.accept='image/*,application/pdf'; experientialModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="experientialModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="experientialModalThumb" alt="Preview of first attached experiential learning photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach">remove</button>
+<img id="experientialModalThumb2" alt="Preview of second attached experiential learning photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach2">remove</button>
+</div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="experientialModalSubmitBtn">Get step-by-step notes</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="experientialModalErrBox"></div>
+</div>
+
+<div id="experientialModalResults" class="hidden">
+<div class="flex justify-end mb-2 no-print">
+<button onclick="printResult('experientialModalResults')" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base">print</span>Save as PDF / Print</button>
+</div>
+<div id="experientialModalHookBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-5 py-4 mb-4 mt-2">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">A connection to build on</div>
+<p id="experientialModalHookText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Grounded in NCF-SE 2023's Panchpadi method — not a verified curriculum record.</p>
+</div>
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-2">Step-by-step notes</div>
+<ol id="experientialModalNotes" class="list-decimal pl-5 space-y-2 text-[15px] text-on-surface leading-relaxed"></ol>
+<p class="text-xs text-on-surface-variant mt-4 mb-0">Video matching for this lesson isn't available yet — these are text-only notes.</p>
+<div class="text-center mt-5 no-print">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetExperientialModal()">↺ Try another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
 
 <script>
         const header = document.getElementById('topAppBar');
@@ -243,19 +609,1767 @@
             header.classList.toggle('shadow-md', window.scrollY > 10);
         });
 
-        // Search bar's attach menu — decorative (no real upload wiring here,
-        // unlike the homepage's homework-attach widget this pattern is
-        // borrowed from).
+        function startStagedLoading(btn, messages, intervalMs){
+            let i = 0;
+            const render = () => {
+                btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 mr-1.5 align-[-2px] border-2 border-current border-t-transparent rounded-full animate-spin"></span>' + messages[i];
+            };
+            render();
+            const timer = setInterval(() => {
+                if (i < messages.length - 1) { i++; render(); }
+            }, intervalMs);
+            return () => clearInterval(timer);
+        }
+        function printResult(id){
+            document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'));
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.add('print-target');
+            window.print();
+        }
+        window.addEventListener('afterprint', function(){
+            document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'));
+        });
         function toggleSearchAttachMenu(){ document.getElementById('searchAttachMenu').classList.toggle('hidden'); }
+        let pendingSearchAttachKind = null;
         function handleSearchAttach(kind){
             document.getElementById('searchAttachMenu').classList.add('hidden');
-            alert('Attach ' + kind + ' — coming soon in the live app.');
+            if (kind === 'Videos') {
+                alert('Video attachments aren\'t supported yet — please attach a photo or a PDF document instead.');
+                return;
+            }
+            pendingSearchAttachKind = kind;
+            document.getElementById('searchAttachChooser').classList.remove('hidden');
+        }
+        function closeSearchAttachChooser(){
+            document.getElementById('searchAttachChooser').classList.add('hidden');
+            pendingSearchAttachKind = null;
+        }
+        function routeSearchAttachTo(mode){
+            const kind = pendingSearchAttachKind;
+            document.getElementById('searchAttachChooser').classList.add('hidden');
+            pendingSearchAttachKind = null;
+            const accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
+            if (mode === 'homework' || mode === 'quiz') {
+                openHomeworkModal(mode);
+                hwModalAttachInput.accept = accept;
+                hwModalAttachInput.click();
+            } else if (mode === 'examPlaceholder') {
+                document.getElementById('examComingSoonModal').classList.remove('hidden');
+            } else if (mode === 'story') {
+                openStorytellingModal();
+                storyModalAttachInput.accept = accept;
+                storyModalAttachInput.click();
+            } else if (mode === 'play') {
+                openPlayModal();
+                const input = document.getElementById('playModalAttachInput');
+                input.accept = accept;
+                input.click();
+            } else if (mode === 'experiential') {
+                openExperientialModal();
+                const input = document.getElementById('experientialModalAttachInput');
+                input.accept = accept;
+                input.click();
+            }
+        }
+
+        // ---------------- Ask Tut-P AI Tutor modal (inline homework-explain) ----------------
+        // Reuses /api/upload's sibling /api/homework exactly as the homepage
+        // and Teacher Module do — real Claude call, real attached file. Unlike
+        // /demo/, child context comes from this session's real family/student
+        // records, and there's no post-quiz dashboard reveal (this page's own
+        // bonding-score/homework-completion sections already show real data).
+        const hwAttachState = { items: [] };
+        const hwModalAttachInput = document.getElementById('hwModalAttachInput');
+
+        // Bumped on every open — an in-flight /api/homework request from a
+        // prior session compares its captured value against this before
+        // touching the DOM, so a late response after close+reopen (found in
+        // manual testing: submit -> close early -> reopen -> attach a
+        // different file) gets discarded instead of overwriting fresh state.
+        let hwSessionToken = 0;
+
+        // Homework Help and Quiz are the same underlying explain+quiz modal
+        // (see CLAUDE.md backlog — splitting them for real is a separate
+        // task), but each chip's promise is different, so this drives the
+        // title/label/placeholder/button/result-layout differences between
+        // the two without duplicating the modal.
+        let hwCurrentMode = 'homework';
+        const HW_MODE_COPY = {
+            homework: {
+                title: 'Homework Help',
+                label: 'Homework question / topic (optional if attaching a file)',
+                placeholder: 'Describe the homework you need explained, or just attach a photo/PDF below.',
+                idleBtn: 'Explain My Homework',
+                loadingStages: ['Reading the homework…', 'Thinking it through…', 'Almost done…'],
+                retryBtn: '↺ Try another homework'
+            },
+            quiz: {
+                title: 'Quiz',
+                label: 'What should the quiz cover? (optional if attaching a file)',
+                placeholder: 'Describe what to quiz your child on, or just attach a photo/PDF below.',
+                idleBtn: 'Start My Quiz',
+                loadingStages: ['Preparing your quiz…', 'Thinking it through…', 'Almost done…'],
+                retryBtn: '↺ Try another quiz'
+            }
+        };
+        function applyHwModeChrome(mode){
+            const copy = HW_MODE_COPY[mode];
+            document.getElementById('hwModalTitle').textContent = copy.title;
+            document.getElementById('hwModalTextLabel').textContent = copy.label;
+            document.getElementById('hwModalText').placeholder = copy.placeholder;
+            document.getElementById('hwModalSubmitBtn').textContent = copy.idleBtn;
+            document.getElementById('hwModalRetryBtn').textContent = copy.retryBtn;
+        }
+        // Homework Help's result shows only the explanation (quiz section
+        // hidden) since that chip never promised a quiz; Quiz's result leads
+        // with the quiz it promised, with the explanation still generated
+        // by the same API call but demoted to a collapsed, secondary <details>
+        // rather than removed outright.
+        function applyHwResultLayout(mode){
+            const resultsEl = document.getElementById('hwModalResults');
+            const explBlock = document.getElementById('hwModalExplanationBlock');
+            const quizBlock = document.getElementById('hwModalQuizBlock');
+            const explDetails = document.getElementById('hwModalExplanationDetails');
+            if (mode === 'quiz') {
+                quizBlock.classList.remove('hidden');
+                explDetails.open = false;
+                resultsEl.insertBefore(quizBlock, explBlock);
+            } else {
+                quizBlock.classList.add('hidden');
+                explDetails.open = true;
+                resultsEl.insertBefore(explBlock, quizBlock);
+            }
+        }
+
+        function openHomeworkModal(mode){
+            hwCurrentMode = (mode === 'quiz') ? 'quiz' : 'homework';
+            hwSessionToken++;
+            resetHomeworkModal();
+            document.getElementById('homeworkExplainModal').classList.remove('hidden');
+            loadHomeworkModalChildContext();
+        }
+        function closeHomeworkModal(){
+            document.getElementById('homeworkExplainModal').classList.add('hidden');
+        }
+
+        async function loadHomeworkModalChildContext(){
+            const el = document.getElementById('hwModalChildContext');
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            el.textContent = 'Helping your child';
+            try {
+                if (studentId) {
+                    const res = await fetch('/api/student/' + encodeURIComponent(studentId));
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.name) { el.textContent = 'Helping ' + data.name + (data.class ? ' · ' + data.class : ''); return; }
+                    }
+                }
+                if (familyId) {
+                    const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+                    if (res.ok) {
+                        const data = await res.json();
+                        const first = (data.students || [])[0];
+                        if (first && first.name) { el.textContent = 'Helping ' + first.name + (first.class ? ' · ' + first.class : ''); return; }
+                    }
+                }
+            } catch (err) {
+                console.error('[hwModal] Could not load child context:', err);
+            }
+        }
+
+        // Claude's vision API only accepts these 4 image types — a phone
+        // camera photo (esp. iPhone) is very commonly HEIC, which isn't in
+        // this list, passes our own accept="image/*" filter and file-type
+        // check unchanged, and previously reached Claude's API only to be
+        // rejected there with an opaque 502 the parent couldn't act on.
+        const HW_SUPPORTED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
+        // Re-encodes an unsupported image (or one with no/blank reported
+        // type) to JPEG via canvas before it ever reaches Claude. Relies on
+        // the browser's own <img> decoder — notably, Safari/iOS (the
+        // platform most likely to hand us HEIC in the first place) decodes
+        // HEIC natively, so this fixes the common case with no backend
+        // change. Rejects if the browser can't decode the file as an image.
+        function reencodeImageToJpeg(file){
+            return new Promise((resolve, reject) => {
+                const objectUrl = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        canvas.getContext('2d').drawImage(img, 0, 0);
+                        resolve(canvas.toDataURL('image/jpeg', 0.92));
+                    } catch (err) {
+                        reject(err);
+                    } finally {
+                        URL.revokeObjectURL(objectUrl);
+                    }
+                };
+                img.onerror = () => {
+                    URL.revokeObjectURL(objectUrl);
+                    reject(new Error('Could not decode file as an image'));
+                };
+                img.src = objectUrl;
+            });
+        }
+
+        const resetHwAttach = attachFilePickerMulti(
+            hwModalAttachInput,
+            [
+                { thumbEl: document.getElementById('hwModalThumb'), pdfLabelEl: document.getElementById('hwModalPdfLabel'), clearBtnEl: document.getElementById('hwModalClearAttach') },
+                { thumbEl: document.getElementById('hwModalThumb2'), pdfLabelEl: document.getElementById('hwModalPdfLabel2'), clearBtnEl: document.getElementById('hwModalClearAttach2') }
+            ],
+            document.getElementById('hwModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            hwAttachState,
+            document.getElementById('hwModalErrBox'),
+            2
+        );
+
+        // Claude is instructed to respond with ONLY a JSON object, but isn't
+        // 100% reliable about it — e.g. given a vague question like "make a
+        // quiz" with nothing concrete to quiz on, it sometimes prepends a
+        // clarifying sentence before the JSON instead of omitting it. Thrown
+        // instead of a plain Error so the catch block below can show a
+        // specific, honest message for this failure mode instead of the
+        // generic one, and log the raw text for debugging.
+        class HwParseError extends Error {
+            constructor(message, rawText) {
+                super(message);
+                this.name = 'HwParseError';
+                this.rawText = rawText;
+            }
+        }
+
+        // Thrown when the server blocks a request with 402 (free_limit_reached
+        // — see server.js's checkFreeLimit / /api/game-sessions' family-level
+        // check). Carries the friendly message + bucket the server already
+        // computed, so callers show showFreeLimitModal() instead of a plain
+        // error string.
+        class FreeLimitError extends Error {
+            constructor(message, bucket) {
+                super(message);
+                this.name = 'FreeLimitError';
+                this.bucket = bucket;
+            }
+        }
+
+        // No self-serve "upgrade an existing child" flow exists yet (the only
+        // plan-selection UI is embedded in the brand-new-family registration
+        // wizard, and would create a duplicate family/student if reused here)
+        // — so this links to contact instead of a plan-selection step.
+        function showFreeLimitModal(message, bucket) {
+            const familyId = sessionStorage.getItem('tutp_family_id') || '';
+            const studentId = sessionStorage.getItem('tutp_student_id') || '';
+            const bodyLines = [
+                message,
+                '',
+                'Account details (for support):',
+                'Family ID: ' + familyId,
+                studentId ? 'Child ID: ' + studentId : null,
+                'Limit type: ' + (bucket || '')
+            ].filter(Boolean);
+            const mailtoUrl = 'mailto:contact@tutp.online?subject=' + encodeURIComponent('Upgrade request') + '&body=' + encodeURIComponent(bodyLines.join('\n'));
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:280px;';
+            box.innerHTML = `
+                <p style="margin:0 0 8px;">${message}</p>
+                <a href="${mailtoUrl}" style="display:inline-block;background:#005bbf;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Contact us to upgrade</a>
+                <button type="button" id="freeLimitDismiss" style="display:block;margin-top:8px;background:none;border:none;color:#666;font-size:12px;cursor:pointer;padding:0;">Not now</button>
+            `;
+            document.body.appendChild(box);
+            box.querySelector('#freeLimitDismiss').addEventListener('click', () => box.remove());
+        }
+
+        document.getElementById('hwModalSubmitBtn').addEventListener('click', async () => {
+            const hwText = document.getElementById('hwModalText').value.trim();
+            const lang = document.getElementById('hwModalLang').value;
+            const errBox = document.getElementById('hwModalErrBox');
+            const submitBtn = document.getElementById('hwModalSubmitBtn');
+            if (!hwText && !hwAttachState.items.length) {
+                errBox.textContent = 'Please type the question or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            const stopLoading = startStagedLoading(submitBtn, HW_MODE_COPY[hwCurrentMode].loadingStages, 7000);
+            // Captured now so the response handlers below can tell whether
+            // this is still the current modal session by the time the
+            // request resolves — see hwSessionToken above.
+            const requestToken = hwSessionToken;
+
+            const childContext = document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
+            let systemPrompt;
+            if (hwCurrentMode === 'quiz') {
+                // Bloom's Taxonomy via the Teacher Module's own 4 cognitive-demand
+                // categories, mapped to Panchpadi per pedagogy-nep-ncf.md (see
+                // hwGroundingNote) and now shown to the parent as a per-question
+                // badge (see HW_QUIZ_CATEGORY_LABELS in renderHwModalQuiz). "category"
+                // field kept in English regardless of ${lang} to avoid Telugu/Indic
+                // token cost — the badge label translation happens client-side instead.
+                const hwGroundingNote = `Ground the quiz in NCF-SE 2023's Panchpadi sequence via Bloom's Taxonomy, using the same four cognitive-demand categories Tut-P's Teacher Module uses for question papers: "logical_reasoning" (deduction/pattern/sequencing), "understanding" (explaining what/why — Panchpadi's Bodha), "application" (using the idea in a new/real-life context — Panchpadi's Prayoga), "skill_based" (direct procedure/recall, lower cognitive load — Panchpadi's Abhyasa). For each question, genuinely decide which category it's testing based on that specific question's content, not a fixed rotation or quota — across 5 questions this naturally tends to span multiple categories when the lesson supports it, but a narrow or simple lesson may legitimately concentrate on fewer; never force artificial variety onto thin content.`;
+                const hwQuizItemShape = `{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right","category":"logical_reasoning|understanding|application|skill_based, always in English regardless of ${lang}"}`;
+                systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+${hwGroundingNote}
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[${hwQuizItemShape}]}
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+            } else {
+                // Homework Help — extracts and directly answers specific
+                // homework questions when present (original language/
+                // wording preserved, never translated), or explains the
+                // underlying concept when the content is a broad topic
+                // with no specific questions. The reasoning line is always
+                // generated regardless of how the parent phrases their
+                // request, so NEP-2020's facilitator framing survives even
+                // a parent asking for "just the answers" — the UI (not the
+                // model) decides whether to show it upfront or behind a
+                // toggle. See CLAUDE.md backlog: this branch replaced the
+                // old always-5-quiz-questions shape for Homework Help.
+                const hwGroundingNote = `Ground this in NCF-SE 2023's Panchpadi teaching sequence. The explanation/reasoning you write is always doing Bodha (conceptual understanding) work: where this homework genuinely allows for guided discovery, phrase it so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit. This is a quick homework-help tool, not a full lesson plan, so do not force Abhyasa/Prayoga/Prasara here.`;
+                systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+${hwGroundingNote}
+
+CRITICAL RULES — follow in order:
+
+1. If the parent's typed note (given below as "Parent's instruction") requests a specific structure — a question count, a format — follow that structural request.
+
+2. If the homework (from the photo/PDF or typed text) contains specific numbered/lettered questions the child must answer:
+   - Extract each question, preserving its original language and wording exactly as written — never translate it.
+   - Give a direct, correct answer or a strong sample answer for each one, in the same language/medium the child is expected to write in — never translate the answer either, unless the parent's instruction explicitly asks for a translated answer.
+   - The reasoning field is the one exception to the "never translate" rules above: unlike the question and answer, which stay in the homework's original source language, reasoning must ALWAYS switch to ${lang} — the parent's selected explanation language — even when that differs from the source language. Always include one short reasoning line in ${lang} for every answer, in a guided-discovery style — briefly showing the thinking path, not just restating the answer. Include this regardless of how the parent phrased their request (e.g. even if they asked for "just the answers") — the app's own UI decides whether to show this line upfront or behind a toggle, so it must always be present in your output.
+   - Extract at most 8 questions. If the homework contains more than 8 questions, extract only the first 8 and append a short note to the 8th question's reasoning field (also in ${lang}) mentioning that there are more questions in the homework than shown here.
+
+3. If the homework is a broad topic or concept with no specific questions attached, explain the underlying concept in ${lang} instead — 2-4 short sentences, simple enough for a busy parent, focused on how to guide the child rather than just stating facts. Before writing it, decide honestly whether a Panchpadi Aditi (introduction/hook) genuinely fits this specific topic: a short, relatable hook connecting it to something the child likely already knows or has experienced, phrased as a genuine engaging hook — not a dry statement. Only set aditiApplicable to true and write aditiHook when one naturally fits; otherwise aditiApplicable is false and aditiHook is null. Aditi never applies in "questions" mode (mode "questions" always has aditiApplicable: false, aditiHook: null) — the child already has specific assigned questions in front of them, so there is no fresh-topic hook moment.
+
+4. Never let ${lang} cause you to translate or rewrite the original homework content — the question and answer fields always stay in the source language. ${lang} applies ONLY to your own commentary to the parent: the reasoning field (mode "questions"), the concept_explanation field, and the aditiHook field (mode "concept") must ALWAYS be written in ${lang}, regardless of what language the source homework is in.
+
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","mode":"questions" or "concept","extracted_questions":[{"question":"original-language question text, or null if mode is concept","answer":"original-language answer, or null if mode is concept","reasoning":"one short guided-discovery-style sentence, ALWAYS in ${lang} even though the question/answer above are in the source language"}],"concept_explanation":"2-4 short sentences in ${lang}, or null if mode is questions","aditiApplicable":boolean,"aditiHook":"short hook in ${lang} connecting to something the child already knows, only present when aditiApplicable is true and mode is concept — otherwise null"}
+
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit the token budget. The child is: ${childContext}.
+
+Parent's instruction: ${hwText || 'none given'}`;
+            }
+
+            const userContent = [];
+            hwAttachState.items.forEach(item => {
+                userContent.push({
+                    type: item.mediaType === 'application/pdf' ? 'document' : 'image',
+                    source: { type: 'base64', media_type: item.mediaType, data: item.base64 }
+                });
+            });
+            userContent.push({
+                type: 'text',
+                text: hwText ? `Homework: ${hwText}` : (hwAttachState.items.length > 1 ? 'Read the homework in the attached photos/PDFs and respond to it.' : 'Read the homework in the attached photo or PDF and respond to it.')
+            });
+
+            try {
+                const res = await fetch('/api/homework', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ systemPrompt, userContent, studentId: sessionStorage.getItem('tutp_student_id'), feature: hwCurrentMode === 'quiz' ? 'quiz' : 'homework_help' })
+                });
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    if (res.status === 402) throw new FreeLimitError(errData.message || "You've used all your free sessions for this child.", errData.bucket);
+                    throw new Error(errData.error || `Server returned ${res.status}`);
+                }
+                const data = await res.json();
+                const textBlock = (data.content || []).find(b => b.type === 'text');
+                if (!textBlock) throw new HwParseError('No response content', '');
+
+                // Extract the JSON object itself rather than assuming the
+                // whole string is JSON — Claude occasionally prepends a
+                // clarifying sentence before it (see HwParseError above).
+                const firstBrace = textBlock.text.indexOf('{');
+                const lastBrace = textBlock.text.lastIndexOf('}');
+                if (firstBrace === -1 || lastBrace < firstBrace) {
+                    throw new HwParseError('No JSON object found in response', textBlock.text);
+                }
+                let parsed;
+                try {
+                    parsed = JSON.parse(textBlock.text.slice(firstBrace, lastBrace + 1));
+                } catch (parseErr) {
+                    throw new HwParseError(parseErr.message, textBlock.text);
+                }
+
+                // A newer session (modal closed and reopened) has started
+                // since this request went out — its own fresh state must
+                // not be clobbered by this now-stale response.
+                if (requestToken !== hwSessionToken) return;
+
+                document.getElementById('hwModalForm').classList.add('hidden');
+                document.getElementById('hwModalResults').classList.remove('hidden');
+                if (hwCurrentMode === 'quiz') {
+                    // Explicitly restored here (not by applyHwResultLayout,
+                    // which is untouched) — the Homework Help branch below
+                    // now hides this element, so a parent switching from
+                    // Homework Help to Quiz within the same page session
+                    // needs it un-hidden again; applyHwResultLayout was
+                    // never written to do this since nothing hid it before.
+                    document.getElementById('hwModalExplanationBlock').classList.remove('hidden');
+                    document.getElementById('hwModalHomeworkResultBlock').classList.add('hidden');
+                    document.getElementById('hwModalLangTag').textContent = lang;
+                    document.getElementById('hwModalExplanationText').textContent = parsed.explanation;
+                    renderHwModalQuiz(parsed.quiz || []);
+                    applyHwResultLayout(hwCurrentMode);
+                } else {
+                    document.getElementById('hwModalExplanationBlock').classList.add('hidden');
+                    document.getElementById('hwModalQuizBlock').classList.add('hidden');
+                    renderHwModalHomeworkResult(parsed);
+                }
+                const hwFeedbackExplanation = hwCurrentMode === 'quiz'
+                    ? parsed.explanation
+                    : (parsed.concept_explanation || (parsed.extracted_questions || []).map(q => q.reasoning).join(' '));
+                showFeedbackPrompt(hwCurrentMode === 'quiz' ? 'quiz' : 'homework_help', hwFeedbackExplanation);
+            } catch (err) {
+                if (requestToken !== hwSessionToken) return;
+                console.error('[hwModal] Explain request failed:', err);
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                } else if (err.name === 'HwParseError') {
+                    console.error('[hwModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "The AI couldn't generate a quiz from this — try describing the actual homework question instead of just asking for a quiz.";
+                    errBox.classList.remove('hidden');
+                } else {
+                    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+                    errBox.classList.remove('hidden');
+                }
+            } finally {
+                stopLoading();
+                if (requestToken === hwSessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = HW_MODE_COPY[hwCurrentMode].idleBtn;
+                }
+            }
+        });
+
+        const HW_OPT_BASE = 'text-left font-body-md text-sm rounded-lg px-3.5 py-2.5 flex items-center justify-between gap-2.5 transition-colors border-2';
+        const HW_OPT_DEFAULT = HW_OPT_BASE + ' text-on-surface bg-surface-container-lowest border-outline-variant cursor-pointer hover:border-on-surface-variant disabled:cursor-default disabled:pointer-events-none';
+        const HW_OPT_CORRECT = HW_OPT_BASE + ' bg-tertiary-container/40 border-tertiary text-on-tertiary-container';
+        const HW_OPT_WRONG = HW_OPT_BASE + ' bg-error-container/40 border-error text-error';
+        function hwEscapeHtml(str){ const div = document.createElement('div'); div.textContent = str; return div.innerHTML; }
+        const HW_QUIZ_CATEGORY_LABELS = {
+            logical_reasoning: 'Logical Reasoning',
+            understanding: 'Understanding · Bodha',
+            application: 'Application · Prayoga',
+            skill_based: 'Skill-based · Abhyasa'
+        };
+        function renderHwModalQuiz(quiz){
+            const area = document.getElementById('hwModalQuizArea');
+            area.innerHTML = '';
+            let answered = 0;
+            document.getElementById('hwModalScorePill').textContent = `0 / ${quiz.length} answered`;
+            quiz.forEach((q, qi) => {
+                const card = document.createElement('div');
+                card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5 mb-3.5';
+                card.innerHTML = `
+                    <div class="flex items-center justify-between gap-2 mb-1.5">
+                        <div class="font-label-md text-[11px] text-on-surface-variant">Question ${qi + 1} of ${quiz.length}</div>
+                        <span class="font-label-md text-[10px] uppercase tracking-wide bg-tertiary-container/50 text-on-tertiary-container px-2 py-0.5 rounded-full">${hwEscapeHtml(HW_QUIZ_CATEGORY_LABELS[q.category] || q.category || '')}</span>
+                    </div>
+                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.question)}</div>
+                    <div class="grid gap-2" data-role="opts"></div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
+                `;
+                const optsWrap = card.querySelector('[data-role="opts"]');
+                q.options.forEach((opt, oi) => {
+                    const btn = document.createElement('button');
+                    btn.className = HW_OPT_DEFAULT;
+                    btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
+                    btn.addEventListener('click', () => {
+                        const allBtns = optsWrap.querySelectorAll('button');
+                        allBtns.forEach(b => b.disabled = true);
+                        if (oi === q.correct) {
+                            btn.className = HW_OPT_CORRECT;
+                            btn.querySelector('[data-role="mark"]').textContent = '✓';
+                        } else {
+                            btn.className = HW_OPT_WRONG;
+                            btn.querySelector('[data-role="mark"]').textContent = '✗';
+                            const correctBtn = allBtns[q.correct];
+                            correctBtn.className = HW_OPT_CORRECT;
+                            correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
+                        }
+                        const explainBox = card.querySelector('[data-role="explain"]');
+                        explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(q.explain)}`;
+                        explainBox.classList.remove('hidden');
+                        answered++;
+                        document.getElementById('hwModalScorePill').textContent = `${answered} / ${quiz.length} answered`;
+                    });
+                    optsWrap.appendChild(btn);
+                });
+                area.appendChild(card);
+            });
+        }
+        // Homework Help's result view — genuinely different shape from
+        // Quiz's, so it gets its own render function rather than reusing
+        // renderHwModalQuiz. "questions" mode: one card per extracted
+        // question with the direct answer inline and the guided-discovery
+        // reasoning line collapsed behind a <details> toggle (matching
+        // Experiential Learning's hook pattern) so the parent isn't forced
+        // to read it, but can always get to it. "concept" mode: a single
+        // paragraph, no toggle needed.
+        function renderHwModalHomeworkResult(parsed){
+            const conceptBlock = document.getElementById('hwModalConceptBlock');
+            const questionsArea = document.getElementById('hwModalQuestionsArea');
+            if (parsed.mode === 'questions') {
+                conceptBlock.classList.add('hidden');
+                questionsArea.classList.remove('hidden');
+                questionsArea.innerHTML = '';
+                (parsed.extracted_questions || []).forEach((q, qi) => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5';
+                    card.innerHTML = `
+                        <div class="font-label-md text-[11px] text-on-surface-variant mb-1.5">Question ${qi + 1}</div>
+                        <div class="text-[15.5px] font-semibold text-on-surface mb-2 leading-snug">${hwEscapeHtml(q.question || '')}</div>
+                        <div class="text-[15px] text-on-surface mb-2 leading-relaxed"><b>Answer:</b> ${hwEscapeHtml(q.answer || '')}</div>
+                        <details>
+                            <summary class="font-label-md text-xs text-primary cursor-pointer">Why? (a hint to guide your child)</summary>
+                            <p class="text-[13.5px] text-on-surface-variant mt-1.5 leading-relaxed">${hwEscapeHtml(q.reasoning || '')}</p>
+                        </details>
+                    `;
+                    questionsArea.appendChild(card);
+                });
+            } else {
+                questionsArea.classList.add('hidden');
+                questionsArea.innerHTML = '';
+                conceptBlock.classList.remove('hidden');
+                document.getElementById('hwModalConceptLangTag').textContent = document.getElementById('hwModalLang').value;
+                document.getElementById('hwModalConceptText').textContent = parsed.concept_explanation || '';
+                const aditiBlock = document.getElementById('hwModalAditiHookBlock');
+                if (parsed.aditiApplicable && parsed.aditiHook) {
+                    document.getElementById('hwModalAditiHookText').textContent = parsed.aditiHook;
+                    aditiBlock.classList.remove('hidden');
+                } else {
+                    aditiBlock.classList.add('hidden');
+                }
+            }
+            document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
+        }
+        function resetHomeworkModal(){
+            document.getElementById('hwModalForm').classList.remove('hidden');
+            document.getElementById('hwModalResults').classList.add('hidden');
+            document.getElementById('hwModalText').value = '';
+            resetHwAttach();
+            document.getElementById('hwModalErrBox').classList.add('hidden');
+            document.getElementById('hwModalSubmitBtn').disabled = false;
+            applyHwModeChrome(hwCurrentMode);
         }
         document.addEventListener('click', (e) => {
             const menu = document.getElementById('searchAttachMenu');
             const btn = e.target.closest('[aria-label="Attach a file"]');
             if (menu && !menu.contains(e.target) && !btn) menu.classList.add('hidden');
         });
+
+        // ---------------- Shared helpers for the 3 learning-model modals ----------------
+        // Reuses loadHomeworkModalChildContext()/#hwModalChildContext (defined above for
+        // the AI Tutor modal) as a shared child-name cache rather than re-fetching per modal.
+        async function getSharedChildContext(){
+            await loadHomeworkModalChildContext();
+            return document.getElementById('hwModalChildContext').textContent.replace(/^Helping /, '') || 'your child';
+        }
+
+        function attachFilePicker(inputEl, thumbEl, pdfLabelEl, clearBtnEl, state, errBoxEl){
+            inputEl.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                errBoxEl.classList.add('hidden');
+                if (file.type === 'application/pdf' || HW_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+                    state.mediaType = file.type;
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        state.base64 = reader.result.split(',')[1];
+                        if (file.type === 'application/pdf') {
+                            thumbEl.classList.add('hidden');
+                            pdfLabelEl.textContent = '📄 ' + (file.name || 'document.pdf');
+                            pdfLabelEl.classList.remove('hidden');
+                        } else {
+                            pdfLabelEl.classList.add('hidden');
+                            thumbEl.src = reader.result;
+                            thumbEl.classList.remove('hidden');
+                        }
+                        clearBtnEl.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                    return;
+                }
+                try {
+                    const jpegDataUrl = await reencodeImageToJpeg(file);
+                    state.mediaType = 'image/jpeg';
+                    state.base64 = jpegDataUrl.split(',')[1];
+                    pdfLabelEl.classList.add('hidden');
+                    thumbEl.src = jpegDataUrl;
+                    thumbEl.classList.remove('hidden');
+                    clearBtnEl.classList.remove('hidden');
+                } catch (err) {
+                    console.error('[attachFilePicker] Could not convert unsupported file format:', err);
+                    inputEl.value = '';
+                    errBoxEl.textContent = "This file isn't in a format Tut-P can read yet — please attach a photo (JPG/PNG) or a PDF instead.";
+                    errBoxEl.classList.remove('hidden');
+                }
+            });
+            clearBtnEl.addEventListener('click', () => {
+                state.base64 = null;
+                state.mediaType = null;
+                inputEl.value = '';
+                thumbEl.classList.add('hidden');
+                pdfLabelEl.classList.add('hidden');
+                clearBtnEl.classList.add('hidden');
+            });
+        }
+
+        // Same idea as attachFilePicker but supports up to `max` attachments
+        // (2, for multi-page homework) instead of exactly one — used by
+        // Homework Help/Quiz, Storytelling and Experiential Learning. Not
+        // used by Play-Based Learning, which stays on the single-attachment
+        // attachFilePicker above — not asked to change and no reason to.
+        // Returns a reset() function callers use to clear both slots (e.g.
+        // from each modal's own resetXModal()).
+        function attachFilePickerMulti(inputEl, slots, triggerEl, triggerText, state, errBoxEl, max){
+            function render(){
+                slots.forEach((slot, i) => {
+                    const item = state.items[i];
+                    if (item) {
+                        if (item.mediaType === 'application/pdf') {
+                            slot.thumbEl.classList.add('hidden');
+                            slot.pdfLabelEl.textContent = '📄 ' + (item.name || 'document.pdf');
+                            slot.pdfLabelEl.classList.remove('hidden');
+                        } else {
+                            slot.pdfLabelEl.classList.add('hidden');
+                            slot.thumbEl.src = 'data:' + item.mediaType + ';base64,' + item.base64;
+                            slot.thumbEl.classList.remove('hidden');
+                        }
+                        slot.clearBtnEl.classList.remove('hidden');
+                    } else {
+                        slot.thumbEl.classList.add('hidden');
+                        slot.pdfLabelEl.classList.add('hidden');
+                        slot.clearBtnEl.classList.add('hidden');
+                    }
+                });
+                triggerEl.textContent = state.items.length === 0 ? triggerText.first : triggerText.more;
+                triggerEl.classList.toggle('hidden', state.items.length >= max);
+            }
+            inputEl.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                inputEl.value = '';
+                if (!file) return;
+                errBoxEl.classList.add('hidden');
+                try {
+                    let base64, mediaType;
+                    if (file.type === 'application/pdf' || HW_SUPPORTED_IMAGE_TYPES.includes(file.type)) {
+                        const dataUrl = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = () => resolve(reader.result);
+                            reader.onerror = () => reject(new Error('Could not read file'));
+                            reader.readAsDataURL(file);
+                        });
+                        base64 = dataUrl.split(',')[1];
+                        mediaType = file.type;
+                    } else {
+                        const jpegDataUrl = await reencodeImageToJpeg(file);
+                        base64 = jpegDataUrl.split(',')[1];
+                        mediaType = 'image/jpeg';
+                    }
+                    state.items.push({ base64, mediaType, name: file.name });
+                } catch (err) {
+                    console.error('[attachFilePickerMulti] Could not read file:', err);
+                    errBoxEl.textContent = "This file isn't in a format Tut-P can read yet — please attach a photo (JPG/PNG) or a PDF instead.";
+                    errBoxEl.classList.remove('hidden');
+                }
+                render();
+            });
+            slots.forEach((slot, i) => {
+                slot.clearBtnEl.addEventListener('click', () => {
+                    state.items.splice(i, 1);
+                    render();
+                });
+            });
+            render();
+            return function resetAttach(){ state.items = []; render(); };
+        }
+
+        class ModalParseError extends Error {
+            constructor(message, rawText) {
+                super(message);
+                this.name = 'ModalParseError';
+                this.rawText = rawText;
+            }
+        }
+
+        // Extracts a JSON object from Claude's response text (see HwParseError above
+        // for why this can't just be JSON.parse(text) — Claude occasionally prepends
+        // a clarifying sentence instead of pure JSON).
+        function extractJsonFromClaudeText(text){
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            if (firstBrace === -1 || lastBrace < firstBrace) {
+                throw new ModalParseError('No JSON object found in response', text);
+            }
+            try {
+                return JSON.parse(text.slice(firstBrace, lastBrace + 1));
+            } catch (parseErr) {
+                throw new ModalParseError(parseErr.message, text);
+            }
+        }
+
+        async function callHomeworkApi(systemPrompt, userContent, feature){
+            const res = await fetch('/api/homework', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ systemPrompt, userContent, studentId: sessionStorage.getItem('tutp_student_id'), feature })
+            });
+            if (!res.ok) {
+                // A 413 (oversized attachment) comes back as an HTML error page,
+                // not JSON — res.json() below would throw and get swallowed by
+                // the .catch(), losing the real cause. Handle it explicitly so
+                // the user gets an actionable message instead of a generic one.
+                if (res.status === 413) {
+                    throw new Error('These files are too large for Tut-P to process together — try a smaller PDF, a clearer/smaller photo, or just one attachment.');
+                }
+                const errData = await res.json().catch(() => ({}));
+                if (res.status === 402) throw new FreeLimitError(errData.message || "You've used all your free sessions for this child.", errData.bucket);
+                throw new Error(errData.error || `Something went wrong reaching the AI (server returned ${res.status}). Please try again in a moment.`);
+            }
+            const data = await res.json();
+            const textBlock = (data.content || []).find(b => b.type === 'text');
+            if (!textBlock) throw new ModalParseError('No response content', '');
+            return extractJsonFromClaudeText(textBlock.text);
+        }
+
+        // Post-session parent feedback pulse — minimal, non-blocking, no
+        // styling polish yet. Shared by Homework Help/Quiz/Storytelling/
+        // Experiential Learning, fired right after each one's API call
+        // resolves successfully.
+        function submitFeedback(studentId, feature, sentiment, explanationClear, originalExplanation) {
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, feature, sentiment, explanationClear, freeText: null, originalExplanation })
+            }).catch(err => console.error('[feedback] Could not submit:', err));
+        }
+        function showFeedbackPrompt(feature, originalExplanation) {
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:240px;';
+            box.innerHTML = `
+                <div id="fbSentimentStep">
+                    <p style="margin:0 0 8px;">How was this?</p>
+                    <button type="button" data-sentiment="positive" style="font-size:20px;background:none;border:none;cursor:pointer;">😊</button>
+                    <button type="button" data-sentiment="neutral" style="font-size:20px;background:none;border:none;cursor:pointer;">😐</button>
+                    <button type="button" data-sentiment="negative" style="font-size:20px;background:none;border:none;cursor:pointer;">😟</button>
+                </div>
+                <div id="fbClearStep" style="display:none;">
+                    <p style="margin:0 0 8px;">Was the explanation clear?</p>
+                    <button type="button" data-clear="true" style="font-size:20px;background:none;border:none;cursor:pointer;">👍</button>
+                    <button type="button" data-clear="false" style="font-size:20px;background:none;border:none;cursor:pointer;">👎</button>
+                </div>
+            `;
+            document.body.appendChild(box);
+            let chosenSentiment = null;
+            box.querySelectorAll('[data-sentiment]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    chosenSentiment = btn.dataset.sentiment;
+                    box.querySelector('#fbSentimentStep').style.display = 'none';
+                    box.querySelector('#fbClearStep').style.display = 'block';
+                });
+            });
+            box.querySelectorAll('[data-clear]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    submitFeedback(studentId, feature, chosenSentiment, btn.dataset.clear === 'true', originalExplanation);
+                    box.remove();
+                });
+            });
+        }
+        // ---------------- Storytelling Method ----------------
+        let storySessionToken = 0;
+        const storyAttachState = { items: [] };
+        const storyModalAttachInput = document.getElementById('storyModalAttachInput');
+        const resetStoryAttach = attachFilePickerMulti(
+            storyModalAttachInput,
+            [
+                { thumbEl: document.getElementById('storyModalThumb'), pdfLabelEl: document.getElementById('storyModalPdfLabel'), clearBtnEl: document.getElementById('storyModalClearAttach') },
+                { thumbEl: document.getElementById('storyModalThumb2'), pdfLabelEl: document.getElementById('storyModalPdfLabel2'), clearBtnEl: document.getElementById('storyModalClearAttach2') }
+            ],
+            document.getElementById('storyModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            storyAttachState,
+            document.getElementById('storyModalErrBox'),
+            2
+        );
+
+        function openStorytellingModal(){
+            storySessionToken++;
+            resetStoryModal();
+            document.getElementById('storyModal').classList.remove('hidden');
+        }
+        function closeStoryModal(){
+            window.speechSynthesis && window.speechSynthesis.cancel();
+            document.getElementById('storyModal').classList.add('hidden');
+        }
+        function resetStoryModal(){
+            window.speechSynthesis && window.speechSynthesis.cancel();
+            document.getElementById('storyModalForm').classList.remove('hidden');
+            document.getElementById('storyModalResults').classList.add('hidden');
+            document.getElementById('storyModalText').value = '';
+            resetStoryAttach();
+            document.getElementById('storyModalErrBox').classList.add('hidden');
+            const btn = document.getElementById('storyModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Submit & Tell';
+        }
+
+        // Maps this app's language <select> labels to BCP-47 prefixes for
+        // matching Web Speech API voices (speechSynthesis.getVoices()[].lang).
+        const STORY_LANG_TO_BCP47 = { English: 'en', Hindi: 'hi', Telugu: 'te', Tamil: 'ta', Marathi: 'mr', Spanish: 'es', French: 'fr', German: 'de', Arabic: 'ar' };
+        let storyVoicesPromise = null;
+        // Voice lists load asynchronously on many browsers (notably Chrome) — this
+        // resolves once available, or after a short timeout if the browser never
+        // fires onvoiceschanged (which happens when there simply are no voices).
+        function waitForSpeechVoices(){
+            if (storyVoicesPromise) return storyVoicesPromise;
+            storyVoicesPromise = new Promise((resolve) => {
+                if (!('speechSynthesis' in window)) { resolve([]); return; }
+                const existing = window.speechSynthesis.getVoices();
+                if (existing.length) { resolve(existing); return; }
+                window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+                setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1500);
+            });
+            return storyVoicesPromise;
+        }
+        let storyCurrentText = '';
+        let storyCurrentLangPrefix = 'en';
+        async function setupStoryTts(storyText, lang){
+            storyCurrentText = storyText;
+            storyCurrentLangPrefix = STORY_LANG_TO_BCP47[lang] || 'en';
+            const note = document.getElementById('storyModalTtsNote');
+            const playBtn = document.getElementById('storyModalPlayBtn');
+            if (!('speechSynthesis' in window)) {
+                note.textContent = "This device/browser can't read stories aloud — read the text above to your child instead.";
+                note.classList.remove('hidden');
+                playBtn.classList.add('hidden');
+                return false;
+            }
+            const voices = await waitForSpeechVoices();
+            const match = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(storyCurrentLangPrefix));
+            if (!match) {
+                note.textContent = `No ${lang} voice is available on this device — read the text above to your child instead.`;
+                note.classList.remove('hidden');
+                playBtn.classList.add('hidden');
+                return false;
+            }
+            note.classList.add('hidden');
+            playBtn.classList.remove('hidden');
+            return true;
+        }
+        function playStory(){
+            if (!('speechSynthesis' in window) || !storyCurrentText) return;
+            window.speechSynthesis.cancel();
+            const utter = new SpeechSynthesisUtterance(storyCurrentText);
+            const voices = window.speechSynthesis.getVoices();
+            const match = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(storyCurrentLangPrefix));
+            if (match) utter.voice = match;
+            utter.onend = () => {
+                document.getElementById('storyModalPlayBtn').classList.remove('hidden');
+                document.getElementById('storyModalStopBtn').classList.add('hidden');
+            };
+            window.speechSynthesis.speak(utter);
+            document.getElementById('storyModalPlayBtn').classList.add('hidden');
+            document.getElementById('storyModalStopBtn').classList.remove('hidden');
+        }
+        function stopStory(){
+            window.speechSynthesis && window.speechSynthesis.cancel();
+            document.getElementById('storyModalPlayBtn').classList.remove('hidden');
+            document.getElementById('storyModalStopBtn').classList.add('hidden');
+        }
+
+        document.getElementById('storyModalSubmitBtn').addEventListener('click', async () => {
+            const storyTopic = document.getElementById('storyModalText').value.trim();
+            const lang = document.getElementById('storyModalLang').value;
+            const errBox = document.getElementById('storyModalErrBox');
+            const submitBtn = document.getElementById('storyModalSubmitBtn');
+            if (!storyTopic && !storyAttachState.items.length) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            const stopLoading = startStagedLoading(submitBtn, ['Writing the story…', 'Thinking it through…', 'Almost done…'], 7000);
+            const requestToken = storySessionToken;
+            try {
+                const childContext = await getSharedChildContext();
+                // Grounded in NCF-SE 2023's Panchpadi sequence: the story
+                // itself always does Bodha (explaining the concept) framed
+                // through Prayoga (a real-life connection) — inherent to the
+                // feature, no boolean needed. The optional ending engagement
+                // line is a light Abhyasa touch, honest-null per-story like
+                // Homework Help's aditiApplicable — surfaced to the parent
+                // via the panchpadi tag / storyModalAbhyasaBlock below.
+                const systemPrompt = `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read or play it before homework time.
+Ground this in NCF-SE 2023's Panchpadi teaching sequence. The story itself always does two stages at once: Bodha (conceptual understanding) by explaining the lesson's actual content, framed through Prayoga (application) by connecting it to a real-life situation or event a child would recognize — this is inherent to how this feature works, not a per-story choice.
+Separately, decide honestly whether a light Abhyasa (practice/reinforcement) touch genuinely fits this specific story: one short embedded invitation for the child to actively engage with the idea just told — e.g. a one-line question to answer together, a tiny action to try, or something to spot in real life. Only set abhyasaApplicable to true and write abhyasaPrompt when this fits naturally; otherwise abhyasaApplicable is false and abhyasaPrompt is null — never force an artificial activity onto content that doesn't lend itself to one.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label","story":"a short story in ${lang}, 5-10 short sentences, connecting the lesson's actual content to a real-life situation or event a child would recognize, written to make the lesson memorable rather than just re-explaining it","abhyasaApplicable":boolean,"abhyasaPrompt":"one short engaging line in ${lang}, only present when abhyasaApplicable is true — otherwise null"}
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep it concise — this must fit a small token budget. The child is: ${childContext}.`;
+                const userContent = [];
+                storyAttachState.items.forEach(item => {
+                    userContent.push({ type: item.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: item.mediaType, data: item.base64 } });
+                });
+                userContent.push({ type: 'text', text: storyTopic ? `Lesson: ${storyTopic}` : (storyAttachState.items.length > 1 ? 'Read the lesson in the attached photos/PDFs and turn it into a story.' : 'Read the lesson in the attached photo or PDF and turn it into a story.') });
+
+                const parsed = await callHomeworkApi(systemPrompt, userContent, 'storytelling');
+                if (requestToken !== storySessionToken) return;
+                showFeedbackPrompt('storytelling', parsed.story);
+
+                document.getElementById('storyModalForm').classList.add('hidden');
+                document.getElementById('storyModalResults').classList.remove('hidden');
+                document.getElementById('storyModalStoryText').textContent = parsed.story;
+                const abhyasaBlock = document.getElementById('storyModalAbhyasaBlock');
+                if (parsed.abhyasaApplicable && parsed.abhyasaPrompt) {
+                    document.getElementById('storyModalAbhyasaText').textContent = parsed.abhyasaPrompt;
+                    abhyasaBlock.classList.remove('hidden');
+                } else {
+                    abhyasaBlock.classList.add('hidden');
+                }
+                const canSpeak = await setupStoryTts(parsed.story, lang);
+                if (requestToken !== storySessionToken) return;
+                if (canSpeak) playStory();
+            } catch (err) {
+                if (requestToken !== storySessionToken) return;
+                console.error('[storyModal] Story request failed:', err);
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                    return;
+                } else if (err.name === 'ModalParseError') {
+                    console.error('[storyModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "Couldn't write a story from this — try attaching the actual lesson page or typing what it's about.";
+                } else {
+                    errBox.textContent = err.message;
+                }
+                errBox.classList.remove('hidden');
+            } finally {
+                stopLoading();
+                if (requestToken === storySessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Submit & Tell';
+                }
+            }
+        });
+
+        // ---------------- Play-Based Learning (multiplayer game engine) ----------------
+        // State machine: form -> timer lock -> live turn-based game (server-
+        // authoritative scoring, correct answers withheld until submitted) ->
+        // results (leaderboard + share card + post-game pedagogy recap).
+        let playSessionToken = 0;
+        const playAttachState = { base64: null, mediaType: null };
+        attachFilePicker(document.getElementById('playModalAttachInput'), document.getElementById('playModalThumb'), document.getElementById('playModalPdfLabel'), document.getElementById('playModalClearAttach'), playAttachState, document.getElementById('playModalErrBox'));
+
+        const PLAY_CATEGORY_LABELS = {
+            logical_reasoning: 'Logical Reasoning',
+            understanding: 'Understanding · Bodha',
+            application: 'Application · Prayoga',
+            skill_based: 'Skill-based · Abhyasa'
+        };
+
+        let playRoster = [];          // [{type, refId, name, checked}] built from mother/father/family_members/students
+        let playSelectedTimeLimit = null;
+        let playGameSessionId = null;
+        let playQuestionsPerPlayer = null;
+        let playPlayers = [];         // [{id, turnOrder, name, score, correctCount}]
+        let playQuestionQueue = {};   // turnOrder -> [{id, questionIndex, questionText, options}]
+        let playPrefetchPromises = {};   // turnOrder -> Promise, shared by every caller (background kickoff AND playStartTurn's fallback) so a second call for the same player awaits the same in-flight request instead of silently no-op'ing while it's still pending
+        let playTurnIdx = 0;          // index into playPlayers for whoever's turn it is
+        let playLap = 0;              // 0-based question slot, same for every player per lap
+        let playCurrentQuestion = null;
+        let playPendingPoints = 0;    // points from the answer just submitted, applied during the turn-transition reveal
+        let playPendingCorrect = false;
+        let playNextTurnOrder = 1;    // whose turn is next, decided server-side by POST /answer (see migration 015) — this client only renders it
+        let playNextLap = 0;
+        let playNextIsGameOver = false;
+        let playMyGamePlayerId = null;   // set only when this device joined remotely via a magic-link invite (playModalJoinRemoteGame) — null for the host device, which "is" whoever's turn it currently is rather than one fixed seat
+        let playPollHandle = null;       // setInterval handle for a remote joiner waiting on someone else's turn — see playModalRefreshRemoteState
+        let playTimerHandle = null;
+        let playTimerRemaining = 0;
+        let playAnswerStartedAt = 0;
+
+        async function loadPlayModalPlayerPicker(){
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            const pickerEl = document.getElementById('playModalPlayerPicker');
+            try {
+                const [famRes, membersRes, studentsRes] = await Promise.all([
+                    fetch('/api/family/' + encodeURIComponent(familyId)),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/members'),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/students')
+                ]);
+                const fam = famRes.ok ? await famRes.json() : {};
+                const members = membersRes.ok ? (await membersRes.json()).members || [] : [];
+                const students = studentsRes.ok ? (await studentsRes.json()).students || [] : [];
+                playRoster = [
+                    ...(fam.motherName ? [{ type: 'mother', refId: null, name: fam.motherName }] : []),
+                    ...(fam.fatherName ? [{ type: 'father', refId: null, name: fam.fatherName }] : []),
+                    ...students.map(s => ({ type: 'student', refId: s.id, name: s.name })),
+                    ...members.map(m => ({ type: 'family_member', refId: m.id, name: m.name }))
+                ].map((p, i) => ({ ...p, checked: i < 2 }));
+                renderPlayModalPlayerPicker();
+            } catch (err) {
+                console.error('[playModal] Could not load family roster:', err);
+                pickerEl.innerHTML = '<p class="text-xs text-error">Could not load family members — please close and reopen this.</p>';
+            }
+        }
+        function renderPlayModalPlayerPicker(){
+            const pickerEl = document.getElementById('playModalPlayerPicker');
+            const checkedCount = playRoster.filter(p => p.checked).length;
+            pickerEl.innerHTML = playRoster.map((p, i) => `
+                <label class="flex items-center gap-2.5 border-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${p.checked ? 'border-primary bg-primary-container/10' : 'border-outline-variant'}">
+                    <input type="checkbox" data-idx="${i}" ${p.checked ? 'checked' : ''} ${(!p.checked && checkedCount >= 4) ? 'disabled' : ''} class="w-4 h-4 accent-primary">
+                    <span class="font-body-md text-sm text-on-surface">${hwEscapeHtml(p.name)}</span>
+                </label>
+            `).join('');
+            pickerEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    playRoster[parseInt(cb.dataset.idx, 10)].checked = cb.checked;
+                    renderPlayModalPlayerPicker();
+                });
+            });
+        }
+
+        function openPlayModal(){
+            playSessionToken++;
+            resetPlayModal();
+            loadPlayModalPlayerPicker();
+            document.getElementById('playModal').classList.remove('hidden');
+        }
+        function closePlayModal(){
+            document.getElementById('playModal').classList.add('hidden');
+            if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+        }
+        function resetPlayModal(){
+            if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+            playMyGamePlayerId = null;
+            document.getElementById('playModalForm').classList.remove('hidden');
+            document.getElementById('playModalTimerStep').classList.add('hidden');
+            document.getElementById('playModalGame').classList.add('hidden');
+            document.getElementById('playModalResults').classList.add('hidden');
+            document.getElementById('playModalText').value = '';
+            document.getElementById('playModalClearAttach').click();
+            document.getElementById('playModalErrBox').classList.add('hidden');
+            document.getElementById('playModalTimerErrBox').classList.add('hidden');
+            const btn = document.getElementById('playModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Next: pick a timer';
+            document.querySelectorAll('#playModalTimerPicker button').forEach(b => b.classList.remove('border-primary', 'bg-primary-container/10', 'text-primary'));
+            playSelectedTimeLimit = null;
+            document.getElementById('playModalStartGameBtn').disabled = true;
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            playGameSessionId = null; playQuestionsPerPlayer = null; playPlayers = []; playQuestionQueue = {};
+            playPrefetchPromises = {}; playTurnIdx = 0; playLap = 0; playCurrentQuestion = null;
+            playPendingPoints = 0; playPendingCorrect = false;
+            playNextTurnOrder = 1; playNextLap = 0; playNextIsGameOver = false;
+            document.getElementById('playModalTurnTransition').classList.add('hidden');
+            document.getElementById('playModalQuestionArea').classList.remove('hidden');
+            document.getElementById('playModalInvitePanel').classList.remove('hidden');
+            document.getElementById('playModalInviteResults').innerHTML = '';
+        }
+
+        // Minimal host-side invite trigger — invites every player in this
+        // game (the server skips student players itself, since remote
+        // children join by QR/code, not email; see /invite's per-player
+        // error entries). No selection UI: this exists to make
+        // POST /api/game-sessions/:id/invite testable from a real browser,
+        // not to be the final invite experience.
+        async function playModalSendInvites(){
+            const btn = document.getElementById('playModalInviteBtn');
+            const resultsEl = document.getElementById('playModalInviteResults');
+            btn.disabled = true; btn.textContent = 'Sending invites…';
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/invite`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gamePlayerIds: playPlayers.map(p => p.id) })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not send invites');
+                resultsEl.innerHTML = data.invited.map(inv => `
+                    <div class="text-xs bg-surface-container-lowest border border-outline-variant rounded-lg px-2.5 py-2">
+                        <div class="font-label-md text-on-surface">${hwEscapeHtml(inv.playerName)} — ${inv.delivered ? '✅ emailed' : (inv.error ? '⚠️ ' + hwEscapeHtml(inv.error) : '📋 copy link below')}</div>
+                        ${inv.joinLink ? `<input readonly class="w-full mt-1 text-[11px] bg-transparent border border-outline-variant/40 rounded px-1.5 py-1" value="${inv.joinLink}" onclick="this.select()">` : ''}
+                    </div>
+                `).join('');
+            } catch (err) {
+                resultsEl.innerHTML = `<p class="text-xs text-error">${hwEscapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false; btn.textContent = 'Invite players (remote)';
+            }
+        }
+
+        // Entry point for a magic-link invite (see the page-load check near
+        // the bottom of this file): skips the create-game form entirely and
+        // drops this device straight into an already-in-progress session,
+        // driven by polling instead of the host device's locally-tracked
+        // turn order.
+        async function playModalJoinRemoteGame(gameSessionId, gamePlayerId){
+            playSessionToken++;
+            resetPlayModal();
+            playGameSessionId = gameSessionId;
+            playMyGamePlayerId = gamePlayerId;
+            document.getElementById('playModalForm').classList.add('hidden');
+            document.getElementById('playModalInvitePanel').classList.add('hidden');
+            document.getElementById('playModal').classList.remove('hidden');
+            await playModalRefreshRemoteState();
+        }
+
+        // Polls GET /state and either shows "waiting for X's turn" or, once
+        // it's this device's own turn, hands off to the same playStartTurn()
+        // the host device uses. From that point this device behaves exactly
+        // like the host for its own turn (playModalSubmitAnswer ->
+        // playModalAdvanceTurn already reads currentTurnOrder from its own
+        // /answer response, no polling needed) — polling only resumes once
+        // this device goes back to waiting on someone else again.
+        async function playModalRefreshRemoteState(){
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/state`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not load this game.');
+
+                if (data.status !== 'in_progress') {
+                    if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+                    document.getElementById('playModalGame').classList.add('hidden');
+                    document.getElementById('playModalForm').classList.remove('hidden');
+                    const errBox = document.getElementById('playModalErrBox');
+                    errBox.textContent = data.status === 'completed' ? 'This game has already finished.' : 'This game is no longer available.';
+                    errBox.classList.remove('hidden');
+                    return;
+                }
+
+                playPlayers = data.players;
+                playSelectedTimeLimit = data.timeLimitSeconds;
+                playQuestionsPerPlayer = data.questionsPerPlayer;
+                playLap = data.currentLap;
+                playTurnIdx = playPlayers.findIndex(p => p.turnOrder === data.currentTurnOrder);
+
+                document.getElementById('playModalGame').classList.remove('hidden');
+                renderPlayScoreboard();
+
+                const me = playPlayers.find(p => p.id === playMyGamePlayerId);
+                if (me && me.turnOrder === data.currentTurnOrder) {
+                    if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+                    playStartTurn();
+                    return;
+                }
+
+                const upNext = playPlayers.find(p => p.turnOrder === data.currentTurnOrder);
+                document.getElementById('playModalQuestionArea').innerHTML =
+                    `<p class="text-sm text-on-surface-variant text-center py-10">Waiting for ${hwEscapeHtml(upNext ? upNext.name : 'the next player')}'s turn…</p>`;
+
+                if (!playPollHandle) playPollHandle = setInterval(playModalRefreshRemoteState, 4000);
+            } catch (err) {
+                console.error('[playModal] Could not load remote game state:', err);
+            }
+        }
+
+        function playModalBackToForm(){
+            document.getElementById('playModalTimerStep').classList.add('hidden');
+            document.getElementById('playModalForm').classList.remove('hidden');
+        }
+
+        document.getElementById('playModalSubmitBtn').addEventListener('click', () => {
+            const playTopic = document.getElementById('playModalText').value.trim();
+            const errBox = document.getElementById('playModalErrBox');
+            const checkedCount = playRoster.filter(p => p.checked).length;
+            if (!playTopic && !playAttachState.base64) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if (checkedCount < 2) {
+                errBox.textContent = 'Pick at least 2 players.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            document.getElementById('playModalForm').classList.add('hidden');
+            document.getElementById('playModalTimerStep').classList.remove('hidden');
+        });
+
+        document.querySelectorAll('#playModalTimerPicker button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                playSelectedTimeLimit = parseInt(btn.dataset.seconds, 10);
+                document.querySelectorAll('#playModalTimerPicker button').forEach(b => {
+                    b.classList.toggle('border-primary', b === btn);
+                    b.classList.toggle('bg-primary-container/10', b === btn);
+                    b.classList.toggle('text-primary', b === btn);
+                });
+                document.getElementById('playModalStartGameBtn').disabled = false;
+            });
+        });
+
+        function playModalBuildLessonContent(){
+            const playTopic = document.getElementById('playModalText').value.trim();
+            const content = [];
+            if (playAttachState.base64) {
+                content.push({ type: playAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: playAttachState.mediaType, data: playAttachState.base64 } });
+            }
+            content.push({ type: 'text', text: playTopic ? `Lesson: ${playTopic}` : 'Read the lesson in the attached photo or PDF and build the game from it.' });
+            return content;
+        }
+
+        document.getElementById('playModalStartGameBtn').addEventListener('click', async () => {
+            const errBox = document.getElementById('playModalTimerErrBox');
+            const startBtn = document.getElementById('playModalStartGameBtn');
+            errBox.classList.add('hidden');
+            startBtn.disabled = true;
+            const requestToken = playSessionToken;
+            const stopLoading = startStagedLoading(startBtn, ['Preparing your game…', 'Writing questions…', 'Almost ready…'], 7000);
+            try {
+                const familyId = sessionStorage.getItem('tutp_family_id');
+                const childContext = await getSharedChildContext();
+                const lang = document.getElementById('playModalLang').value;
+                const lessonContent = playModalBuildLessonContent();
+                const selected = playRoster.filter(p => p.checked);
+                const res = await fetch('/api/game-sessions', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        familyId, language: lang, timeLimitSeconds: playSelectedTimeLimit, childContext, lessonContent,
+                        players: selected.map(p => ({ type: p.type, refId: p.refId, name: p.name }))
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    if (res.status === 402) throw new FreeLimitError(data.message || "This family has used all its free Play-Based Learning games.", data.bucket);
+                    throw new Error(data.error || 'Could not start the game.');
+                }
+                if (requestToken !== playSessionToken) return;
+
+                playGameSessionId = data.gameSessionId;
+                playQuestionsPerPlayer = data.questionsPerPlayer;
+                playPlayers = data.players.map(p => ({ id: p.id, turnOrder: p.turnOrder, name: p.name, score: 0, correctCount: 0 }));
+                playQuestionQueue[1] = data.player1Questions;
+                playPrefetchPromises[1] = Promise.resolve();
+                playTurnIdx = 0; playLap = 0;
+
+                // Fire prefetch for every other player immediately, in the
+                // background — usually finishes well before their turn.
+                for (let t = 2; t <= playPlayers.length; t++) playModalPrefetch(t, lessonContent, childContext);
+
+                document.getElementById('playModalTimerStep').classList.add('hidden');
+                document.getElementById('playModalGame').classList.remove('hidden');
+                renderPlayScoreboard();
+                playStartTurn();
+            } catch (err) {
+                if (requestToken !== playSessionToken) return;
+                console.error('[playModal] Could not start game:', err);
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                } else {
+                    errBox.textContent = err.message || "Couldn't build a game from this — try attaching the actual lesson page or typing what it's about.";
+                    errBox.classList.remove('hidden');
+                }
+            } finally {
+                stopLoading();
+                if (requestToken === playSessionToken) startBtn.disabled = false;
+            }
+        });
+
+        // Returns the SAME promise to every caller for a given turnOrder while
+        // one is in flight, so playStartTurn's fallback (called when a turn
+        // arrives before the background kickoff has finished) correctly waits
+        // for that same request instead of finding "already marked, nothing to
+        // do" and failing instantly — the bug that caused "Could not prepare
+        // the next question" even though the original request went on to
+        // succeed a few seconds later. On failure the entry is cleared so a
+        // later call starts a genuinely fresh attempt rather than being stuck
+        // replaying a dead promise forever.
+        function playModalPrefetch(turnOrder, lessonContent, childContext){
+            if (playPrefetchPromises[turnOrder]) return playPrefetchPromises[turnOrder];
+            const promise = (async () => {
+                try {
+                    const res = await fetch(`/api/game-sessions/${playGameSessionId}/players/${turnOrder}/generate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lessonContent, childContext })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Prefetch failed');
+                    playQuestionQueue[turnOrder] = data.questions;
+                } catch (err) {
+                    console.error('[playModal] Prefetch failed for player', turnOrder, err);
+                    delete playPrefetchPromises[turnOrder]; // allow a fresh retry when their turn actually arrives
+                }
+            })();
+            playPrefetchPromises[turnOrder] = promise;
+            return promise;
+        }
+
+        function renderPlayScoreboard(){
+            const el = document.getElementById('playModalScoreboard');
+            el.innerHTML = playPlayers.map((p, i) => `<span class="font-label-md text-xs px-3 py-1.5 rounded-full ${i === playTurnIdx ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'}">${hwEscapeHtml(p.name)}: ${p.score} pts</span>`).join('');
+        }
+
+        async function playStartTurn(){
+            const player = playPlayers[playTurnIdx];
+            let queue = playQuestionQueue[player.turnOrder];
+            if (!queue) {
+                // Prefetch hadn't finished (or failed) — generate inline now.
+                const area = document.getElementById('playModalQuestionArea');
+                area.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-6">Preparing ' + hwEscapeHtml(player.name) + "'s questions…</p>";
+                await playModalPrefetch(player.turnOrder, playModalBuildLessonContent(), await getSharedChildContext());
+                queue = playQuestionQueue[player.turnOrder];
+                if (!queue) {
+                    area.innerHTML = '<p class="text-sm text-error text-center py-6">Could not prepare the next question — please close and try again.</p>';
+                    return;
+                }
+            }
+            playCurrentQuestion = queue[playLap];
+            renderPlayQuestion(player, playCurrentQuestion);
+            playStartTimer();
+        }
+
+        function renderPlayQuestion(player, q){
+            const area = document.getElementById('playModalQuestionArea');
+            area.innerHTML = `
+                <div class="bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="font-label-md text-[11px] text-on-surface-variant">Question ${q.questionIndex} of ${playQuestionsPerPlayer} — ${hwEscapeHtml(player.name)}'s turn</div>
+                        <div class="font-label-md text-sm font-semibold text-primary" id="playModalTimerDisplay">${playSelectedTimeLimit}s</div>
+                    </div>
+                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.questionText)}</div>
+                    <div class="grid gap-2" data-role="opts"></div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
+                    <button class="hidden w-full bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-2.5 mt-3.5 hover:bg-primary/90 transition-colors" data-role="next">Next</button>
+                </div>
+            `;
+            const optsWrap = area.querySelector('[data-role="opts"]');
+            q.options.forEach((opt, oi) => {
+                const btn = document.createElement('button');
+                btn.className = HW_OPT_DEFAULT;
+                btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
+                btn.addEventListener('click', () => playModalSubmitAnswer(oi));
+                optsWrap.appendChild(btn);
+            });
+        }
+
+        function playStartTimer(){
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            playTimerRemaining = playSelectedTimeLimit;
+            playAnswerStartedAt = Date.now();
+            const display = document.getElementById('playModalTimerDisplay');
+            playTimerHandle = setInterval(() => {
+                playTimerRemaining--;
+                if (display) display.textContent = playTimerRemaining + 's';
+                if (playTimerRemaining <= 0) {
+                    clearInterval(playTimerHandle);
+                    playModalSubmitAnswer(null); // timeout — unanswered
+                }
+            }, 1000);
+        }
+
+        async function playModalSubmitAnswer(selectedIndex){
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            const area = document.getElementById('playModalQuestionArea');
+            const optsWrap = area.querySelector('[data-role="opts"]');
+            optsWrap.querySelectorAll('button').forEach(b => b.disabled = true);
+            const answerTimeSeconds = Math.min(playSelectedTimeLimit, Math.round((Date.now() - playAnswerStartedAt) / 1000));
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/answer`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameQuestionId: playCurrentQuestion.id, selectedIndex, answerTimeSeconds })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not record the answer');
+
+                const allBtns = optsWrap.querySelectorAll('button');
+                if (selectedIndex !== null) {
+                    const chosenBtn = allBtns[selectedIndex];
+                    chosenBtn.className = data.isCorrect ? HW_OPT_CORRECT : HW_OPT_WRONG;
+                    chosenBtn.querySelector('[data-role="mark"]').textContent = data.isCorrect ? '✓' : '✗';
+                }
+                if (!data.isCorrect) {
+                    const correctBtn = allBtns[data.correctIndex];
+                    correctBtn.className = HW_OPT_CORRECT;
+                    correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
+                }
+                const explainBox = area.querySelector('[data-role="explain"]');
+                explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(data.explanation)}`;
+                explainBox.classList.remove('hidden');
+
+                if (data.isCorrect && typeof confetti === 'function') {
+                    confetti({ particleCount: 50, spread: 55, origin: { y: 0.6 }, scalar: 0.8 });
+                }
+                // Not applied to the player/scoreboard yet — that happens in
+                // the turn-transition reveal (playModalAdvanceTurn) so the
+                // score bump feels earned instead of snapping in instantly.
+                playPendingPoints = data.pointsAwarded;
+                playPendingCorrect = data.isCorrect;
+                // Turn order is decided server-side, not computed here — see
+                // playModalAdvanceTurn.
+                playNextTurnOrder = data.currentTurnOrder;
+                playNextLap = data.currentLap;
+                playNextIsGameOver = data.isGameOver;
+
+                const nextBtn = area.querySelector('[data-role="next"]');
+                nextBtn.classList.remove('hidden');
+                nextBtn.addEventListener('click', playModalAdvanceTurn, { once: true });
+            } catch (err) {
+                console.error('[playModal] Answer submission failed:', err);
+                area.insertAdjacentHTML('beforeend', `<p class="text-sm text-error mt-2">${hwEscapeHtml(err.message)}</p>`);
+            }
+        }
+
+        async function playModalAdvanceTurn(){
+            const finishedPlayer = playPlayers[playTurnIdx];
+            const oldScore = finishedPlayer.score;
+            finishedPlayer.score += playPendingPoints;
+            if (playPendingCorrect) finishedPlayer.correctCount++;
+
+            // Whose turn is next was already decided server-side inside
+            // POST /answer (see migration 015) — this just renders it, so a
+            // remote device polling GET /state agrees with what happens
+            // here instead of each device computing its own answer.
+            playLap = playNextLap;
+            const isGameOver = playNextIsGameOver;
+            const nextPlayer = isGameOver ? null : playPlayers.find(p => p.turnOrder === playNextTurnOrder);
+            if (nextPlayer) playTurnIdx = playPlayers.indexOf(nextPlayer);
+
+            await playModalShowTurnTransition(finishedPlayer, oldScore, finishedPlayer.score, nextPlayer);
+            renderPlayScoreboard();
+
+            if (isGameOver) {
+                playModalCompleteGame();
+                return;
+            }
+            playStartTurn();
+        }
+
+        // Brief CSS-flip card shown in place of the question area between
+        // turns: reveals the score just earned with a count-up, then names
+        // whoever's turn is next — replaces the old instant scoreboard bump
+        // with something that feels suspenseful for a couple hundred ms.
+        function playModalShowTurnTransition(player, oldScore, newScore, nextPlayer){
+            return new Promise(resolve => {
+                const questionArea = document.getElementById('playModalQuestionArea');
+                const overlay = document.getElementById('playModalTurnTransition');
+                questionArea.classList.add('hidden');
+                overlay.classList.remove('hidden');
+                overlay.innerHTML = `
+                    <div class="play-turn-transition bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-6 text-center">
+                        <div class="font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1">${hwEscapeHtml(player.name)}</div>
+                        <div class="font-headline-sm text-2xl font-bold text-primary" id="playTransitionScore">${oldScore} pts</div>
+                        <div class="font-body-md text-sm text-on-surface-variant mt-3">${nextPlayer ? `Next: ${hwEscapeHtml(nextPlayer.name)}'s turn` : 'Final scores…'}</div>
+                    </div>`;
+                playAnimateCount(document.getElementById('playTransitionScore'), oldScore, newScore, 600, ' pts');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.innerHTML = '';
+                    questionArea.classList.remove('hidden');
+                    resolve();
+                }, 900);
+            });
+        }
+
+        function playAnimateCount(el, from, to, duration, suffix){
+            if (!el || from === to) { if (el) el.textContent = to + (suffix || ''); return; }
+            const start = performance.now();
+            function step(now){
+                const progress = Math.min((now - start) / duration, 1);
+                el.textContent = Math.round(from + (to - from) * progress) + (suffix || '');
+                if (progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        async function playModalCompleteGame(){
+            document.getElementById('playModalGame').classList.add('hidden');
+            const requestToken = playSessionToken;
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/complete`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not finish the game');
+                if (requestToken !== playSessionToken) return;
+
+                document.getElementById('playModalResults').classList.remove('hidden');
+                const winner = data.leaderboard.find(p => p.playerId === data.winnerId);
+                document.getElementById('playModalWinnerBanner').textContent = `🏆 Winner of the Day: ${winner.name}!` + (data.isGameChangerToday ? ' · Fastest game today!' : '') + (data.isTodaysChampion ? ' · 🎉 Today\'s Champion — best score in your family today!' : '');
+                document.getElementById('playModalFinalLeaderboard').innerHTML = data.leaderboard.map(p => `
+                    <div class="flex items-center justify-between px-3.5 py-2 rounded-lg ${p.rank === 1 ? 'bg-tertiary-container/40 border-2 border-tertiary' : 'bg-surface-container-high'}">
+                        <span class="font-body-md text-sm text-on-surface">${p.rank === 1 ? '🏆 ' : ''}${p.rank}. ${hwEscapeHtml(p.name)}</span>
+                        <span class="font-label-md text-sm font-semibold text-on-surface">${p.score} pts</span>
+                    </div>
+                `).join('');
+
+                const byPlayer = Object.fromEntries(playPlayers.map(p => [p.id, p.name]));
+                document.getElementById('playModalRecap').innerHTML = data.recap.map(q => `
+                    <div class="flex items-center justify-between gap-2 text-[13px] px-3 py-1.5 bg-surface-container-low rounded-lg">
+                        <span class="text-on-surface-variant">${q.isCorrect ? '✓' : '✗'} ${hwEscapeHtml(byPlayer[q.playerId] || '')} · Q${q.questionIndex}</span>
+                        <span class="text-[10px] uppercase tracking-wide text-on-tertiary-container bg-tertiary-container/50 px-2 py-0.5 rounded-full">${hwEscapeHtml(PLAY_CATEGORY_LABELS[q.cognitiveCategory] || 'General')}</span>
+                    </div>
+                `).join('');
+
+                playModalDrawShareCard(winner, data.isTodaysChampion);
+            } catch (err) {
+                console.error('[playModal] Could not complete game:', err);
+                document.getElementById('playModalResults').classList.remove('hidden');
+                document.getElementById('playModalWinnerBanner').textContent = '';
+                document.getElementById('playModalFinalLeaderboard').innerHTML = `<p class="text-sm text-error">${hwEscapeHtml(err.message)}</p>`;
+            }
+        }
+
+        function playModalDrawShareCard(winner, isTodaysChampion){
+            const canvas = document.getElementById('playModalShareCanvas');
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 600, 600);
+            if (isTodaysChampion) {
+                grad.addColorStop(0, '#E9A23B'); grad.addColorStop(1, '#F2C879');
+            } else {
+                grad.addColorStop(0, '#5B4FE9'); grad.addColorStop(1, '#8B7FF2');
+            }
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 600);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 34px sans-serif';
+            ctx.fillText(isTodaysChampion ? '🏆 Today\'s Champion' : '🏆 Winner of the Day', 300, 220);
+            ctx.font = 'bold 48px sans-serif';
+            ctx.fillText(winner.name, 300, 300);
+            ctx.font = '28px sans-serif';
+            ctx.fillText(`${winner.score} points`, 300, 350);
+            if (isTodaysChampion) {
+                ctx.font = '20px sans-serif';
+                ctx.fillText('Best score in the family today!', 300, 385);
+            }
+            ctx.font = '18px sans-serif';
+            ctx.fillText(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 300, 420);
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText('Tut-P · Play-Based Learning', 300, 550);
+
+            const fileName = isTodaysChampion ? 'todays-champion.png' : 'winner-of-the-day.png';
+            const shareTitle = isTodaysChampion ? "Today's Champion" : 'Winner of the Day';
+            const shareText = isTodaysChampion
+                ? `${winner.name} is today's Tut-P Champion in our family — ${winner.score} points!`
+                : `${winner.name} won today's Tut-P family quiz with ${winner.score} points!`;
+            document.getElementById('playModalShareBtn').onclick = async () => {
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], fileName, { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({ files: [file], title: shareTitle, text: shareText });
+                            return;
+                        } catch (err) { /* user cancelled or share failed — fall through to download */ }
+                    }
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    a.click();
+                }, 'image/png');
+            };
+        }
+
+        // ---------------- Experiential Learning ----------------
+        // v1 is text-only: no YouTube search/relevance-check (no such
+        // infrastructure exists in this backend yet) — see CLAUDE.md backlog.
+        let experientialSessionToken = 0;
+        const experientialAttachState = { items: [] };
+        const resetExperientialAttach = attachFilePickerMulti(
+            document.getElementById('experientialModalAttachInput'),
+            [
+                { thumbEl: document.getElementById('experientialModalThumb'), pdfLabelEl: document.getElementById('experientialModalPdfLabel'), clearBtnEl: document.getElementById('experientialModalClearAttach') },
+                { thumbEl: document.getElementById('experientialModalThumb2'), pdfLabelEl: document.getElementById('experientialModalPdfLabel2'), clearBtnEl: document.getElementById('experientialModalClearAttach2') }
+            ],
+            document.getElementById('experientialModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            experientialAttachState,
+            document.getElementById('experientialModalErrBox'),
+            2
+        );
+
+        function openExperientialModal(){
+            experientialSessionToken++;
+            resetExperientialModal();
+            document.getElementById('experientialModal').classList.remove('hidden');
+        }
+        function closeExperientialModal(){
+            document.getElementById('experientialModal').classList.add('hidden');
+        }
+        function closeExamComingSoonModal(){
+            document.getElementById('examComingSoonModal').classList.add('hidden');
+        }
+        function resetExperientialModal(){
+            document.getElementById('experientialModalForm').classList.remove('hidden');
+            document.getElementById('experientialModalResults').classList.add('hidden');
+            document.getElementById('experientialModalText').value = '';
+            resetExperientialAttach();
+            document.getElementById('experientialModalErrBox').classList.add('hidden');
+            const btn = document.getElementById('experientialModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Get step-by-step notes';
+        }
+
+        document.getElementById('experientialModalSubmitBtn').addEventListener('click', async () => {
+            const topic = document.getElementById('experientialModalText').value.trim();
+            const lang = document.getElementById('experientialModalLang').value;
+            const errBox = document.getElementById('experientialModalErrBox');
+            const submitBtn = document.getElementById('experientialModalSubmitBtn');
+            if (!topic && !experientialAttachState.items.length) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            const stopLoading = startStagedLoading(submitBtn, ['Preparing notes…', 'Thinking it through…', 'Almost done…'], 7000);
+            const requestToken = experientialSessionToken;
+            try {
+                const childContext = await getSharedChildContext();
+                // Genuine Panchpadi grounding (NCF-SE 2023) — Aditi (hook)
+                // + Bodha (explanation) only, per the "not every stage every
+                // time" rule: Abhyasa/Prayoga/Prasara don't fit a two-minute
+                // homework-notes feature. Replaces the old precedingTopic
+                // disclaimer-style callout (an estimate of *past* curriculum,
+                // not an actual engagement hook) with aditiApplicable/
+                // aditiHook, which can be honestly null when no natural
+                // connection exists rather than forcing one.
+                const systemPrompt = `You are Tut-P, an assistant that helps a child understand a school lesson at home, grounded in NCF-SE 2023's Panchpadi five-stage teaching sequence. For a short at-home moment like this, apply only the first two stages — Aditi and Bodha — do not force Abhyasa/Prayoga/Prasara into a two-minute homework-notes feature where they don't fit.
+1. Aditi (introduction/hook): connect the lesson to something the child likely already knows or has experienced, phrased as a genuine engaging hook — a short relatable example, a familiar situation, or a mini question — never a dry curriculum-history statement. Only produce this if the lesson content genuinely supports a natural connection to something a child would already know; if it doesn't fit, say so honestly (aditiApplicable: false) rather than forcing one.
+2. Bodha (conceptual understanding): clear, short step-by-step notes explaining the new idea, based on the lesson's actual content, so a child can follow along at home.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label","aditiApplicable":boolean,"aditiHook":"a short engaging hook in ${lang} connecting to something the child likely already knows — a familiar example or a short question — only present when aditiApplicable is true, otherwise null","notes":["step 1 in ${lang}","step 2 in ${lang}"]}
+Generate 4-8 note steps. Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+                const userContent = [];
+                experientialAttachState.items.forEach(item => {
+                    userContent.push({ type: item.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: item.mediaType, data: item.base64 } });
+                });
+                userContent.push({ type: 'text', text: topic ? `Lesson: ${topic}` : (experientialAttachState.items.length > 1 ? 'Read the lesson in the attached photos/PDFs and prepare notes from it.' : 'Read the lesson in the attached photo or PDF and prepare notes from it.') });
+
+                const parsed = await callHomeworkApi(systemPrompt, userContent, 'experiential_learning');
+                if (requestToken !== experientialSessionToken) return;
+                showFeedbackPrompt('experiential_learning', (parsed.notes || []).join(' '));
+
+                document.getElementById('experientialModalForm').classList.add('hidden');
+                document.getElementById('experientialModalResults').classList.remove('hidden');
+                const hookBlock = document.getElementById('experientialModalHookBlock');
+                if (parsed.aditiApplicable && parsed.aditiHook) {
+                    document.getElementById('experientialModalHookText').textContent = parsed.aditiHook;
+                    hookBlock.classList.remove('hidden');
+                } else {
+                    hookBlock.classList.add('hidden');
+                }
+                const notesEl = document.getElementById('experientialModalNotes');
+                notesEl.innerHTML = '';
+                (parsed.notes || []).forEach(step => {
+                    const li = document.createElement('li');
+                    li.textContent = step;
+                    notesEl.appendChild(li);
+                });
+            } catch (err) {
+                if (requestToken !== experientialSessionToken) return;
+                console.error('[experientialModal] Notes request failed:', err);
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                    return;
+                } else if (err.name === 'ModalParseError') {
+                    console.error('[experientialModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "Couldn't build notes from this — try attaching the actual lesson page or typing what it's about.";
+                } else {
+                    errBox.textContent = err.message;
+                }
+                errBox.classList.remove('hidden');
+            } finally {
+                stopLoading();
+                if (requestToken === experientialSessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Get step-by-step notes';
+                }
+            }
+        });
+        // Landed here from a Play-Based Learning magic-link invite
+        // (POST /api/game-invite/consume is the one-shot, session-gated
+        // step — the login page's own resolve call before OTP grants
+        // nothing). Clears ?joinGame= from the URL immediately after
+        // consuming so a page refresh doesn't try to consume an
+        // already-used token again.
+        (async function checkGameInvite(){
+            const params = new URLSearchParams(location.search);
+            const joinToken = params.get('joinGame');
+            if (!joinToken) return;
+            params.delete('joinGame');
+            const cleanUrl = location.pathname + (params.toString() ? '?' + params.toString() : '');
+            history.replaceState(null, '', cleanUrl);
+            try {
+                const res = await fetch('/api/game-invite/consume', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: joinToken })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not join this game.');
+                await playModalJoinRemoteGame(data.gameSessionId, data.gamePlayerId);
+            } catch (err) {
+                console.error('[child] Could not join game from invite link:', err);
+                // Surfaced the same way every other modal on this page shows
+                // its own errors (a dedicated err box) instead of only
+                // logging to the console — silently landing on the normal
+                // dashboard gave no indication the join attempt failed at
+                // all, e.g. an expired/already-used/wrong-family link.
+                openPlayModal();
+                const errBox = document.getElementById('playModalErrBox');
+                errBox.textContent = err.message || 'Could not join this game.';
+                errBox.classList.remove('hidden');
+            }
+        })();
+        // Landed here after a real login that started from the root
+        // homepage's "attach homework" widget (index.html sets these
+        // sessionStorage keys right before sending the parent to
+        // /app/login/, which now routes here the same as any other login —
+        // see CLAUDE.md, this used to shortcut straight to /demo/ instead).
+        // The homepage now offers the same 6 modes as this page's own
+        // search-bar attach chooser (see routeSearchAttachTo above), so this
+        // looks up whichever mode was actually chosen there and opens that
+        // mode's own modal — silently doing nothing for a mode this page
+        // doesn't recognize (e.g. the Online Exam placeholder, which never
+        // sets these keys in the first place). Fetches the already-uploaded
+        // file back from its Supabase public URL and feeds it into that
+        // modal's attach input the same way a manual file pick would. Same
+        // 15-minute freshness window as before, so a long-abandoned attach
+        // flow (attach -> submit -> back out before finishing OTP) can't
+        // hijack an unrelated, later login.
+        const PENDING_ATTACH_MODES = {
+            homework: () => { openHomeworkModal('homework'); return hwModalAttachInput; },
+            quiz: () => { openHomeworkModal('quiz'); return hwModalAttachInput; },
+            story: () => { openStorytellingModal(); return storyModalAttachInput; },
+            play: () => { openPlayModal(); return document.getElementById('playModalAttachInput'); },
+            experiential: () => { openExperientialModal(); return document.getElementById('experientialModalAttachInput'); }
+        };
+        (async function checkPendingAttach(){
+            // A game invite link (?joinGame=) takes priority when both are
+            // pending on the same load — it's an explicit, time-boxed
+            // invite to a specific live session (2-hour expiry, one-shot
+            // token) that someone else may be waiting on, versus a homework
+            // attachment that can simply be resumed on a later visit within
+            // its own 15-minute window. Left untouched (not consumed) here,
+            // so it's still there if this page is reached again without a
+            // game invite in the URL.
+            if (new URLSearchParams(location.search).get('joinGame')) return;
+
+            const url = sessionStorage.getItem('tutp_pending_attach_url');
+            const mode = sessionStorage.getItem('tutp_pending_attach_mode');
+            const ts = parseInt(sessionStorage.getItem('tutp_pending_attach_ts'), 10);
+            sessionStorage.removeItem('tutp_pending_attach_url');
+            sessionStorage.removeItem('tutp_pending_attach_mode');
+            sessionStorage.removeItem('tutp_pending_attach_ts');
+            if (!url || !PENDING_ATTACH_MODES[mode] || !Number.isFinite(ts) || (Date.now() - ts) >= 15 * 60 * 1000) return;
+            try {
+                const blob = await (await fetch(url)).blob();
+                const file = new File([blob], url.split('/').pop() || 'homework', { type: blob.type });
+                const input = PENDING_ATTACH_MODES[mode]();
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change'));
+            } catch (err) {
+                console.error('[child] Could not pre-fill homepage attachment:', err);
+            }
+        })();
 
         // Shows loading skeletons until the real student's name resolves —
         // never flashes a hardcoded fallback before a real fetch has had
