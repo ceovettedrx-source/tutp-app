@@ -129,72 +129,93 @@ Play-Based Learning screen. Show diff before applying.
 
 ### 3.1 Architecture
 
-**New table:**
-```sql
-CREATE TABLE IF NOT EXISTS emotional_checkins (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID NOT NULL REFERENCES sessions(id),
-  child_id UUID NOT NULL REFERENCES children(id),
-  mood_value SMALLINT NOT NULL CHECK (mood_value BETWEEN 1 AND 5),
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-CREATE INDEX IF NOT EXISTS idx_emotional_checkins_child ON emotional_checkins(child_id, created_at);
-```
-(Claude Code must confirm actual `sessions`/`children` table names and PK types against the live schema before running this — do not assume UUID vs serial without checking.)
+**Starting point in production (checked 2026-09-24):**
+- PES V1 is a single raw percentage: 14-day homework completion.
+  - It is computed by `computeFamilyHomeworkCompletion()` in `server.js`.
+  - It is written daily to `bonding_scores` by `POST /api/cron/parent-engagement-score`, which is `CRON_TOKEN`-authenticated.
+- There are **no weights and no factors** in the live formula.
+- There is no generic `sessions` or `children` table.
+  - Children are `students`: `id uuid`, `family_id bigint` → `family_registrations(id)`.
+  - Learning-session starts are logged as `session.started` rows in `usage_events` (migration 018).
+  - The only real session table is `game_sessions`, and it covers Play-Based Learning only.
 
-**PES formula impact:** per `PRODUCT-RESEARCH-AND-ROADMAP.md`, this check-in is weighted **15%** into the overall PES calculation. The existing PES cron job (`CRON_TOKEN`-authenticated, per CLAUDE.md) must be updated to pull from `emotional_checkins` and re-weight the formula — this is the highest-risk part of this feature since it touches a formula already in production.
+**New table: `supabase/migrations/023_emotional_checkins.sql`.** The latest existing migration is `022_daily_family_champions.sql`, and 013 is already `013_game_engine.sql`. The schema follows repo conventions: lowercase SQL, `uuid` PKs, `bigint family_id`, and `on delete cascade`.
+```sql
+create table if not exists emotional_checkins (
+  id uuid primary key default gen_random_uuid(),
+  family_id bigint not null references family_registrations(id) on delete cascade,
+  viewer_key text not null,        -- the parent/family member checking in: 'mother', 'father', or a family_members.id stored as text (same convention as bonding_scores.viewer_key)
+  student_id uuid not null references students(id) on delete cascade,  -- the child the session was with
+  feature text not null,           -- which learning mode just ended; use the same keys session.started logs
+  usage_event_id uuid references usage_events(id) on delete set null,  -- the session.started row, when known
+  mood smallint not null check (mood between 1 and 3),                 -- 1 = 😣 hard, 2 = 😐 okay, 3 = 😊 good
+  created_at timestamptz not null default now()
+);
+create index if not exists idx_emotional_checkins_viewer_created on emotional_checkins(family_id, viewer_key, created_at);
+create index if not exists idx_emotional_checkins_student_created on emotional_checkins(student_id, created_at);
+```
+**Whose mood (decided 2026-09-24): the parent's.** It records how the parent or family member felt the session went, not the child's emotion. That fits PES's purpose, which is measuring parent involvement and reflection. Each viewer (mother, father, each family member) checks in independently, so rows are keyed by `viewer_key`. The route must take `viewer_key` from the logged-in session, never from the request body.
+
+**Score impact: this is not a small re-weight.** The research gives Emotional-Tone **15%** of the PIS composite (`PRODUCT-RESEARCH-AND-ROADMAP.md` §1). But production has no multi-factor formula to adjust. Putting Emotional-Tone into the score at 15% means deciding where the other 85% comes from. That is the full PIS weighting decision, made from scratch. The options:
+
+1. **Collect only.** Ship the check-in and store it, but keep PES V1 unchanged. Emotional-Tone joins the score once the other PIS factors exist. The live formula doesn't change.
+2. **Interim blend.** `PES = 0.85 × completion + 0.15 × emotional-tone`. This makes homework completion stand in for Consistency, Quality-of-Support and Communication together, which doesn't match the research. It would need to be clearly labelled as interim.
+3. **Full PIS.** Define and build all four sub-scores, then apply the researched weights. This is weeks of work (see §4 of the roadmap).
+
+Whichever is chosen, the change to the live formula needs explicit founder approval with a before/after breakdown.
 
 ### 3.2 Execution steps
 
-**Step 1 — Confirm current PES formula implementation:**
+**Step 1 — Decide the score impact (founder):**
 ```
-Show me the current PES calculation logic — which file/function computes it, what
-inputs it currently uses, and where the weights are defined. I need to see this
-before adding the 15%-weighted emotional check-in, since re-weighting an existing
-production formula is high-risk. Also show the cron job definition that triggers it
-(Cloud Scheduler + CRON_TOKEN per CLAUDE.md).
+Pick option 1, 2 or 3 from §3.1. No code until this is decided. (Whose mood
+is recorded is already decided: the parent's — see §3.1.)
 ```
 
 **Step 2 — Migration:**
 ```
-Write migration_013_emotional_checkins.sql creating the emotional_checkins table
-[use the exact schema I'll confirm after your Step 1 report]. Do NOT run it — per
-our standing rule, I run all migrations manually via Supabase SQL Editor.
+Write supabase/migrations/023_emotional_checkins.sql with the §3.1 schema.
+Confirm 023 is still the next free
+number first. Do NOT run it — per our standing rule, I run all migrations
+manually via Supabase SQL Editor.
 ```
 
 **Step 3 — 1-tap mood UI:**
 ```
 Add a 1-tap mood question immediately after a learning session ends (which
 feature(s) trigger this — confirm: all 6 chooser options, or specific ones?).
-Use 5 simple mood states (recommend emoji-based: 😞😕😐🙂😄 or similar,
-confirm visual style against Group A design system). On tap, POST to a new
-/api/emotional-checkin route, store in emotional_checkins, and dismiss —
-must be genuinely 1-tap, no confirmation step. Show diff before applying.
+Use the 3-mood scale from PRODUCT-RESEARCH-AND-ROADMAP.md: 😊 good (3),
+😐 okay (2), 😣 hard (1). Confirm visual style against the Group A design
+system. On tap, POST to a new /api/emotional-checkin route (session-ownership
+checked like every other family-scoped route), store in emotional_checkins,
+and dismiss — must be genuinely 1-tap, no confirmation step. Show diff before
+applying.
 ```
 
-**Step 4 — Re-weight PES formula:**
+**Step 4 — Score change (only if option 2 or 3 was chosen in Step 1):**
 ```
-Update the PES calculation to incorporate emotional_checkins at 15% weight per
-PRODUCT-RESEARCH-AND-ROADMAP.md. Show me the exact before/after weight
-distribution across all PES components before applying — I need to approve the
-re-weighting explicitly since this changes a live scoring formula. Update the
-CRON_TOKEN-authenticated cron job accordingly.
+Implement the approved formula in the parent-engagement-score cron. Show the
+exact before/after formula and 2–3 worked family examples before applying —
+this replaces a live single-input score with a multi-factor one. Map mood to
+0–100 as (mood − 1) / 2 × 100.
 ```
 
-**Step 5 — Backfill/default handling:**
+**Step 5 — Missing-data handling (only if option 2 or 3):**
 ```
-For children with zero emotional_checkins so far (all of them, pre-launch), confirm
-how the 15% weight is handled — should it be excluded from the denominator until
-first check-in, or defaulted to a neutral midpoint? Recommend the statistically
-sounder option and explain the tradeoff before implementing.
+For families with zero emotional_checkins (all of them at first), recommend
+either excluding Emotional-Tone from the denominator until the first check-in
+or defaulting to the neutral midpoint (mood 2). Explain the tradeoff before
+implementing.
 ```
 
 ### 3.3 Testing checklist
 - [ ] Mood tap UI appears post-session, is genuinely 1-tap
-- [ ] `/api/emotional-checkin` writes correctly, rejects invalid mood_value
-- [ ] PES formula re-weight verified against 2–3 manual hand-calculations
+- [ ] `/api/emotional-checkin` writes correctly, rejects `mood` outside 1–3, and rejects another family's `student_id`
+- [ ] `viewer_key` comes from the logged-in session; a `viewer_key` in the request body is ignored
+- [ ] Option 1: PES scores unchanged after deploy (compare `bonding_scores` before/after one cron run)
+- [ ] Option 2/3: formula verified against 2–3 manual hand-calculations
 - [ ] Cron job runs successfully post-change (check Cloud Scheduler logs, not just deploy.sh output — per standing verification rule)
-- [ ] No regression in PES scores for children with no check-in data yet
+- [ ] No regression in PES scores for families with no check-in data yet
 
 ---
 

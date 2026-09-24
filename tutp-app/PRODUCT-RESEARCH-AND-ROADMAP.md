@@ -1,5 +1,3 @@
-Create a file called PRODUCT-RESEARCH-AND-ROADMAP.md at the repo root with exactly this content:
-
 # Tut-P Product Research & Roadmap — Extracted from Prior Discussion
 
 This document exists because detailed research and design work discussed in 
@@ -9,7 +7,17 @@ designs. This file extracts everything substantive that was discussed, marked
 honestly as BUILT / PARTIALLY BUILT / NOT BUILT, so nothing gets silently lost 
 again.
 
-Last updated: 2026-09-05 (Saturday)
+Last updated: 2026-09-24 (consistency fixes: PIS vs PEI separated, mood
+scale set to 3 moods, live-score terminology). Originally written 2026-09-05.
+
+**Terminology used in this doc:**
+- **PES (Parent Engagement Score)**: the product name for the score parents
+  see ("Bonding Score" in the UI). PES V1 is what's live today.
+- **PIS (Parent Involvement Score)**: the researched 4-factor composite that
+  PES is meant to become. **This is the score formula.**
+- **PEI (Parent Engagement Intensity)**: a separate researched lens for
+  measuring how intense a single involvement action is. **It is not part of
+  the PIS formula.**
 
 ---
 
@@ -26,15 +34,17 @@ intended structural basis for engagement measurement:
 5. Decision Making — involvement in child's education decisions
 6. Collaborating with Community — external resource use
 
-**Parent Engagement Intensity (PEI) formula** — a 4-factor composite, not just 
-a frequency count:
-- Frequency — how often
-- Effort — how much work the action took
-- Convenience — how easy it was (weighted so low-convenience-but-done-anyway 
-  scores higher)
-- Invasiveness — how much it intruded on personal time
+There are two separate researched frameworks below, each with four factors.
+They are easy to confuse, so they are kept apart:
 
-**Tut-P PIS (Parent Involvement Score) composite formula** as researched:
+| | PIS: Parent Involvement Score | PEI: Parent Engagement Intensity |
+|---|---|---|
+| What it is | **The composite score formula.** PES is meant to become this. | A way to measure how intense a single involvement action is |
+| Factors | Consistency, Quality-of-Support, Communication, Emotional-Tone | Frequency, Effort, Convenience, Invasiveness |
+| Weights | 35% / 30% / 20% / 15% | None researched |
+| Used in the score? | Yes, it *is* the score | **No.** Whether PEI later feeds any PIS sub-score (e.g. weighting Consistency events by effort) is undecided. |
+
+**A. PIS (Parent Involvement Score): the composite score formula**
 ```
 PIS = 0.35 × Consistency Score
     + 0.30 × Quality-of-Support Score
@@ -47,8 +57,26 @@ PIS = 0.35 × Consistency Score
   intrusive help correlates with worse outcomes — this distinction was meant 
   to be core to the score, not just presence/absence of involvement)
 - Communication: teacher-message responsiveness, meeting attendance
-- Emotional-Tone: optional 1-tap mood check-in after homework sessions (😊😐😣) 
-  to catch negative-pattern intensity early
+- Emotional-Tone: optional 1-tap check-in of the **parent's** own mood after
+  homework sessions (decided 2026-09-24: parent, not child; each parent or
+  family member checks in separately), on a
+  **3-mood scale: 😊 good (3), 😐 okay (2), 😣 hard (1)**, to catch negative
+  patterns early. The scale is kept to 3 moods because it's a 1-tap
+  post-session prompt and every extra option adds friction. The V1.5 plan in
+  `TUTP-4-FEATURES-ARCHITECTURE-EXECUTION-PLAN.md` §3 uses this same scale.
+
+The weights are researched. How each sub-score is actually measured is not
+yet specified: there's no operational definition of "intrusive", and
+Communication has no data source in the product today.
+
+**B. PEI (Parent Engagement Intensity): a separate lens, not the score**
+
+Four factors, no weights researched:
+- Frequency — how often
+- Effort — how much work the action took
+- Convenience — how easy it was (weighted so low-convenience-but-done-anyway 
+  scores higher)
+- Invasiveness — how much it intruded on personal time
 
 **Creative presentation ideas researched**: "Involvement Weather" (☀️/⛅/🌧️ icons 
 instead of raw numbers, to avoid feeling judgmental), "Family Streak Garden" 
@@ -57,11 +85,14 @@ AND too intrusive involvement, not just "do more").
 
 ### What's actually built (BUILT)
 
-`bonding_scores` table + `/api/bonding-score` — but the score currently 
+`bonding_scores` table + `/api/bonding-score` (PES V1) — but the score currently 
 computed is **only 14-day homework completion rate** (child's homework marked 
-done ÷ homework assigned). This is:
-- NOT the 4-factor PIS composite formula (no Effort/Convenience/Invasiveness 
-  weighting)
+done ÷ homework assigned). It is a single raw percentage with **no weights and
+no factors**. It is:
+- NOT the PIS composite: none of Consistency, Quality-of-Support, Communication
+  or Emotional-Tone is computed
+- NOT using PEI either (no Frequency/Effort/Convenience/Invasiveness), which
+  is expected, since PEI isn't part of the score formula
 - NOT distinguishing supportive vs. intrusive involvement
 - NOT using Epstein's six types at all
 - NOT including a communication or emotional-tone component
@@ -117,8 +148,8 @@ Researched and documented (in this conversation, not necessarily in code):
 - SparkSchool AI's "Mentora" (launched ~Sept 5, 2026) is the closest emerging 
   competitor — student-facing, not parent-engagement-scored.
 - This positioning claim ("world's first parent-engagement-scored EdTech") is 
-  currently NOT fully backed by what's live — the live PIS is a homework-
-  completion tracker, not the researched multi-factor model. Marketing/pitch 
+  currently NOT fully backed by what's live — the live score (PES V1) is a
+  homework-completion tracker, not the researched multi-factor PIS model. Marketing/pitch 
   claims should be calibrated to what's actually shipped, not the full 
   research vision, until the gap above is closed.
 
