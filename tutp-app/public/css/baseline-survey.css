@@ -147,6 +147,22 @@
 .pib-thanks .pib-hint { margin: 0 0 20px; }
 .pib-thanks .pib-save { width: 100%; }
 
+/* Answer strip inside the Bonding Report card, under the score row.
+   Tut-P dashboard tokens (not the survey's storybook palette): it sits in
+   the card's own visual language. Icon-first; text is a short hint. */
+.pib-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 16px; padding: 0; list-style: none; }
+.pib-strip-item {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px 4px 8px; border-radius: 9999px;
+  background: #ffffff; border: 1px solid rgba(193, 198, 214, 0.6);
+  font: 600 12px/18px Inter, sans-serif; color: #414754; white-space: nowrap;
+}
+.pib-strip-icon { font-size: 16px; line-height: 1; letter-spacing: 1px; }
+.pib-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 @keyframes pib-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes pib-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes pib-page { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }

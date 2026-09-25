@@ -13,7 +13,13 @@
    without advancing, so keyboard users can look before they commit.
    "Skip for now" writes nothing: it's suppressed for the rest of this
    browser session (sessionStorage) and asked again on a later visit.
-   Collect-only — nothing here affects the Bonding Score. */
+   Collect-only — nothing here affects the Bonding Score.
+
+   Once answered, the same GET also drives a small icon strip under the
+   score on the Bonding Report card (#bondingScoreValue's row): homework
+   days, meals, activities (icons only) and trip days. Icon-first so it
+   reads without reading; each item carries its full wording for screen
+   readers. Nothing is shown before the survey is answered. */
 (function () {
   var SKIP_KEY = 'tutp_baseline_skipped';
   var FIRST_DELAY_MS = 1500;
@@ -86,6 +92,15 @@
       ]
     }
   ];
+
+  // Icons for the Bonding Report strip, keyed by the stored answer values.
+  var STRIP_ACTIVITY_ICONS = {
+    meals: '🍲', game_night: '🎲', story_time: '📖', outdoor: '🌳', chores: '🧹', celebrations: '🎉'
+  };
+  var STRIP_TRIP_LABELS = {
+    none: '0 days/year', '1_5': '1–5 days/year', '6_15': '6–15 days/year',
+    '16_30': '16–30 days/year', '30_plus': '30+ days/year'
+  };
 
   var answer = { homework_days: null, support_style: null, activities: [], meal_frequency: null, trip_days_bucket: null };
   var stepIdx = 0;
@@ -399,6 +414,7 @@
       body: JSON.stringify(answer)
     }).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
+      renderStrip(answer);
       showThanks();
     }).catch(function (e) {
       console.error('[baseline] Could not save:', e);
@@ -431,13 +447,71 @@
     render();
   }
 
+  function optionLabel(key, value) {
+    for (var i = 0; i < STEPS.length; i++) {
+      if (STEPS[i].key !== key) continue;
+      for (var j = 0; j < STEPS[i].options.length; j++) {
+        if (STEPS[i].options[j].value === value) return STEPS[i].options[j].label;
+      }
+    }
+    return null;
+  }
+
+  function stripItem(icons, text, full) {
+    var li = el('li', 'pib-strip-item');
+    li.title = full;
+    var ic = el('span', 'pib-strip-icon', icons);
+    ic.setAttribute('aria-hidden', 'true');
+    li.appendChild(ic);
+    if (text) {
+      var t = el('span', null, text);
+      t.setAttribute('aria-hidden', 'true');
+      li.appendChild(t);
+    }
+    li.appendChild(el('span', 'pib-sr', full));
+    return li;
+  }
+
+  // Answers as a compact icon strip in the Bonding Report card, right under
+  // the score row. Replaces any earlier strip (e.g. just after saving).
+  function renderStrip(b) {
+    var scoreEl = document.getElementById('bondingScoreValue');
+    if (!b || !scoreEl || !scoreEl.parentElement) return;
+    var old = document.getElementById('pibStrip');
+    if (old) old.remove();
+
+    var ul = el('ul', 'pib-strip');
+    ul.id = 'pibStrip';
+    ul.setAttribute('aria-label', 'Your family’s starting point');
+
+    var days = Number(b.homework_days);
+    if (days >= 0 && days <= 7) {
+      var dayText = days + (days === 1 ? ' day' : ' days') + '/week';
+      ul.appendChild(stripItem('📚', dayText, 'Homework together ' + dayText.replace('/', ' a ')));
+    }
+    var meal = optionLabel('meal_frequency', b.meal_frequency);
+    if (meal) ul.appendChild(stripItem('🍽️', meal, 'Meals together: ' + meal.toLowerCase()));
+    var acts = (b.activities || []).filter(function (a) { return STRIP_ACTIVITY_ICONS[a]; });
+    if (acts.length) {
+      ul.appendChild(stripItem(
+        acts.map(function (a) { return STRIP_ACTIVITY_ICONS[a]; }).join(''), null,
+        'Together: ' + acts.map(function (a) { return optionLabel('activities', a); }).join(', ')
+      ));
+    }
+    var trip = STRIP_TRIP_LABELS[b.trip_days_bucket];
+    if (trip) ul.appendChild(stripItem('✈️', trip, 'Trips together: ' + trip.replace('/', ' a ')));
+
+    if (ul.children.length) scoreEl.parentElement.insertAdjacentElement('afterend', ul);
+  }
+
   function start() {
-    if (skippedThisSession()) return;
     fetch('/api/parent-involvement-baseline', { credentials: 'same-origin' })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        // Not logged in, viewer not resolvable, or already answered: stay silent.
-        if (!data || data.exists) return;
+        // Not logged in or viewer not resolvable: stay silent.
+        if (!data) return;
+        if (data.exists) { renderStrip(data.baseline); return; }
+        if (skippedThisSession()) return;
         setTimeout(showWhenClear, FIRST_DELAY_MS);
       })
       .catch(function () {});
