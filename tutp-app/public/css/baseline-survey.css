@@ -1,0 +1,156 @@
+/* baseline-survey.css — the one-time 5-page "Bonding baseline" storybook
+   popup on the mother / father / family-member dashboards (see
+   /js/baseline-survey.js). Plain CSS rather than Tailwind classes: the
+   Tailwind build only scans *.html, so classes that exist only in the JS-
+   rendered markup would never be generated.
+
+   Visual reference: the Stitch "Bonding Involvement Check-in" card — cream
+   paper, serif heading, pill chips — with the accent moving through a
+   colour per page: coral → marigold → green → teal → violet. Each page sets
+   --acc (dots, borders), --acc-soft (selected fill) and --acc-ink (text on
+   the soft fill, and the button fill; ≥4.5:1 against white). */
+.pib-overlay {
+  position: fixed; inset: 0; z-index: 70;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(24, 28, 32, 0.5);
+  animation: pib-fade 0.2s ease-out both;
+}
+@media (min-width: 768px) { .pib-overlay { align-items: center; padding: 24px; } }
+
+.pib-card {
+  --acc: #e07a5f; --acc-soft: #fce9e3; --acc-ink: #a4432a;
+  position: relative; width: 100%; max-width: 440px; max-height: 92vh; overflow-y: auto;
+  background: #faf8f4; color: #1c1b19;
+  border-radius: 32px 32px 0 0; padding: 16px 20px 20px;
+  box-shadow: 0 -8px 32px rgba(24, 28, 32, 0.14);
+  font-family: Inter, sans-serif;
+  animation: pib-rise 0.25s cubic-bezier(0.34, 1.3, 0.64, 1) both;
+}
+@media (min-width: 768px) { .pib-card { border-radius: 32px; padding: 20px 28px 24px; } }
+
+.pib-card[data-step="2"] { --acc: #e8a317; --acc-soft: #fdf1d6; --acc-ink: #85560a; }
+.pib-card[data-step="3"] { --acc: #4e9f5f; --acc-soft: #e3f2e6; --acc-ink: #2d6b3b; }
+.pib-card[data-step="4"] { --acc: #2a9d8f; --acc-soft: #ddf2ef; --acc-ink: #1b6b61; }
+.pib-card[data-step="5"], .pib-card[data-step="done"] { --acc: #8a6bd1; --acc-soft: #eee8fa; --acc-ink: #5b3fa3; }
+
+/* Header: progress dots + close */
+.pib-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.pib-dots { display: flex; gap: 8px; padding-left: 4px; }
+.pib-dot {
+  width: 10px; height: 10px; border-radius: 9999px; background: #e3ded5;
+  transition: background-color 0.3s ease, transform 0.3s ease;
+}
+.pib-dot.is-lit { transform: scale(1.15); }
+.pib-dot.pib-s1.is-lit { background: #e07a5f; }
+.pib-dot.pib-s2.is-lit { background: #e8a317; }
+.pib-dot.pib-s3.is-lit { background: #4e9f5f; }
+.pib-dot.pib-s4.is-lit { background: #2a9d8f; }
+.pib-dot.pib-s5.is-lit { background: #8a6bd1; }
+.pib-card[data-step="done"] .pib-dots { visibility: hidden; }
+
+.pib-close {
+  width: 40px; height: 40px; margin-right: -8px;
+  display: flex; align-items: center; justify-content: center;
+  border: 0; border-radius: 9999px; background: transparent; color: #6b6760; cursor: pointer;
+}
+.pib-close:hover { background: #efebe3; color: #1c1b19; }
+
+/* Page */
+.pib-body { animation: pib-page 0.3s ease-out both; }
+.pib-art { display: block; margin: 0 0 16px; }
+.pib-art img {
+  display: block; width: 100%; height: auto; max-height: 30vh; object-fit: cover;
+  border-radius: 20px; border: 3px solid var(--acc-soft); background: var(--acc-soft);
+  transition: border-color 0.3s ease;
+}
+.pib-eyebrow {
+  margin: 0 0 6px; color: var(--acc-ink);
+  font: 700 12px/16px Inter, sans-serif; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.pib-title {
+  margin: 0 0 16px; outline: none;
+  font: 700 22px/29px Georgia, 'Times New Roman', serif; letter-spacing: -0.005em; color: #1c1b19;
+}
+@media (min-width: 768px) { .pib-title { font-size: 24px; line-height: 32px; } }
+.pib-hint { margin: -8px 0 14px; font: 400 14px/20px Inter, sans-serif; color: #6b6760; }
+
+/* Sunbeam 0-7: rays on a half-circle round a "sun" showing the pick */
+.pib-sun { position: relative; width: 100%; max-width: 320px; aspect-ratio: 300 / 160; margin: 0 auto 12px; }
+.pib-sun-core {
+  position: absolute; left: 50%; bottom: 0; transform: translateX(-50%);
+  width: 132px; height: 66px; border-radius: 132px 132px 0 0;
+  background: radial-gradient(circle at 50% 100%, #fff4d6 0%, #fde7b0 70%, #fbd98a 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; padding-bottom: 6px;
+}
+.pib-sun-num { font: 700 28px/1 Georgia, 'Times New Roman', serif; color: #1c1b19; }
+.pib-sun-label { font: 600 11px/14px Inter, sans-serif; color: #6b6760; }
+.pib-ray {
+  position: absolute; transform: translate(-50%, -50%);
+  width: 44px; height: 44px; border-radius: 9999px;
+  border: 3px solid var(--ray); background: #ffffff; color: #1c1b19;
+  font: 700 16px/1 Inter, sans-serif; cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+.pib-ray:hover { transform: translate(-50%, -50%) scale(1.08); }
+.pib-ray[aria-checked="true"] {
+  background: var(--ray); color: var(--ray-ink);
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.9), 0 0 0 6px var(--ray);
+}
+
+/* Pill chips (single and multi select) */
+.pib-chips { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px; }
+.pib-chips--stacked { flex-direction: column; }
+.pib-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 44px; padding: 10px 18px; border-radius: 9999px;
+  border: 2px solid #ddd8ce; background: #ffffff; color: #1c1b19;
+  font: 500 15px/20px Inter, sans-serif; text-align: left; cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.pib-chips--stacked .pib-chip { width: 100%; border-radius: 20px; }
+.pib-chip:hover { border-color: var(--acc); }
+.pib-chip[aria-checked="true"] { border-color: var(--acc); background: var(--acc-soft); color: var(--acc-ink); font-weight: 700; }
+.pib-tick { display: none; font-size: 18px; }
+.pib-chip[aria-checked="true"] .pib-tick { display: inline; }
+
+.pib-error { margin: 8px 0 0; font: 500 14px/20px Inter, sans-serif; color: #ba1a1a; }
+
+/* Nav */
+.pib-nav { display: flex; gap: 8px; margin-top: 16px; }
+.pib-save {
+  flex: 1; height: 52px; border: 0; border-radius: 9999px; background: var(--acc-ink); color: #ffffff;
+  font: 700 16px/20px Inter, sans-serif; cursor: pointer; transition: background-color 0.3s ease;
+}
+.pib-save:disabled { background: #e6e2da; color: #8a857c; cursor: not-allowed; }
+.pib-back {
+  display: inline-flex; align-items: center; gap: 4px; height: 52px; padding: 0 16px 0 12px;
+  border: 2px solid #ddd8ce; border-radius: 9999px; background: #ffffff; color: #4a4741;
+  font: 600 15px/20px Inter, sans-serif; cursor: pointer;
+}
+.pib-back .material-symbols-outlined { font-size: 20px; }
+.pib-back:hover { border-color: var(--acc); }
+.pib-skip {
+  display: block; margin: 8px auto 0; min-height: 44px; padding: 0 16px;
+  border: 0; border-radius: 9999px; background: transparent; color: #6b6760;
+  font: 500 14px/18px Inter, sans-serif; cursor: pointer;
+}
+.pib-skip:hover { color: #1c1b19; text-decoration: underline; }
+.pib-note { margin: 8px 0 0; text-align: center; font: 400 12px/17px Inter, sans-serif; color: #8a857c; }
+
+.pib-ray:focus-visible, .pib-chip:focus-visible, .pib-close:focus-visible, .pib-save:focus-visible,
+.pib-back:focus-visible, .pib-skip:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }
+
+.pib-thanks { padding: 8px 0 4px; text-align: center; }
+.pib-thanks > .material-symbols-outlined { font-size: 48px; color: var(--acc); }
+.pib-thanks .pib-title { margin: 8px 0 12px; }
+.pib-thanks .pib-hint { margin: 0 0 20px; }
+.pib-thanks .pib-save { width: 100%; }
+
+@keyframes pib-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pib-rise { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes pib-page { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .pib-overlay, .pib-card, .pib-body { animation: none; }
+  .pib-dot, .pib-ray, .pib-chip, .pib-save, .pib-art img { transition: none; }
+}

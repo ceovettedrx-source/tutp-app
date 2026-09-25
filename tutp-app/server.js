@@ -320,15 +320,23 @@ function issueSessionCookie(res, payload) {
   });
 }
 
-// Returns { phone, familyId, teacherId } for a valid, unexpired cookie, or
-// null otherwise (missing, tampered, or expired) — callers treat null as
-// "not logged in" and reject, never as "logged in with no ids."
+// Returns { phone, familyId, teacherId, viewerKey } for a valid, unexpired
+// cookie, or null otherwise (missing, tampered, or expired) — callers treat
+// null as "not logged in" and reject, never as "logged in with no ids."
+//
+// viewerKey must be carried through here: it's only set by the shared-phone
+// select-account/set-password logins, and the sliding-refresh middleware
+// below reissues the cookie from this return value on every request.
+// Dropping it (as this function used to) stripped viewerKey from the cookie
+// on the very next request, leaving sessionOwnsViewerKey to fall back to
+// phone-based lookup — which is ambiguous for exactly those accounts, so
+// they got 403 on their own Bonding Score.
 function getSession(req) {
   const token = req.cookies?.[SESSION_COOKIE_NAME];
   if (!token || !process.env.SESSION_SECRET) return null;
   try {
-    const { phone, familyId, teacherId } = jwt.verify(token, process.env.SESSION_SECRET);
-    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null };
+    const { phone, familyId, teacherId, viewerKey } = jwt.verify(token, process.env.SESSION_SECRET);
+    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null };
   } catch (err) {
     return null;
   }
@@ -4683,6 +4691,96 @@ app.post('/api/bonding-score', async (req, res) => {
   } catch (err) {
     console.error('Set bonding score error:', err);
     res.status(500).json({ error: 'Could not save bonding score' });
+  }
+});
+
+// Works out which viewer ('mother', 'father', or a family_members.id) the
+// logged-in session is, for routes that must take viewer_key from the
+// session and never from the request. Picker-based logins carry viewerKey
+// directly; a plain single-match OTP login is re-derived from its phone,
+// and only when that phone holds exactly one role in the session's own
+// family. Anything else (ambiguous phone, no match, several roles) returns
+// null, and callers refuse rather than guess.
+async function resolveSessionViewerKey(session) {
+  if (session.viewerKey != null) return String(session.viewerKey);
+  const family = await findFamilyIdByPhone(session.phone);
+  if (!family || family.ambiguous || family.id !== session.familyId) return null;
+  if (family.roleMatches.length !== 1) return null;
+  const m = family.roleMatches[0];
+  return m.role === 'family_member' ? String(m.memberId) : m.role;
+}
+
+// ------------------------------------------------------------------
+// Parent involvement baseline — the one-time 5-page onboarding survey
+// (homework days, support style, shared activities, meal frequency, trip
+// days), one row per viewer per family. Collect-only for now (TUTP-4 §3.1
+// option 1): nothing here feeds the bonding_scores cron. family_id and
+// viewer_key both come from the session, never the request, so a viewer can
+// only read or write their own answer. The value lists must match the check
+// constraints in migration 024.
+// ------------------------------------------------------------------
+const BASELINE_SUPPORT_STYLES = ['explains_until_understood', 'guides_questions', 'checks_only', 'sits_through'];
+const BASELINE_ACTIVITIES = ['meals', 'game_night', 'story_time', 'outdoor', 'chores', 'celebrations'];
+const BASELINE_MEAL_FREQUENCIES = ['every_day', 'most_days', 'occasionally', 'rarely'];
+const BASELINE_TRIP_BUCKETS = ['none', '1_5', '6_15', '16_30', '30_plus'];
+
+app.get('/api/parent-involvement-baseline', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
+    const viewerKey = await resolveSessionViewerKey(session);
+    if (!viewerKey) return res.status(403).json({ error: 'Forbidden' });
+
+    const { data, error } = await supabase
+      .from('parent_involvement_baseline')
+      .select('homework_days, support_style, activities, meal_frequency, trip_days_bucket, updated_at')
+      .eq('family_id', session.familyId)
+      .eq('viewer_key', viewerKey)
+      .maybeSingle();
+    if (error) throw error;
+    res.json({ exists: !!data, baseline: data || null });
+  } catch (err) {
+    console.error('Get parent involvement baseline error:', err);
+    res.status(500).json({ error: 'Could not fetch baseline' });
+  }
+});
+
+app.post('/api/parent-involvement-baseline', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
+    const viewerKey = await resolveSessionViewerKey(session);
+    if (!viewerKey) return res.status(403).json({ error: 'Forbidden' });
+
+    const { homework_days, support_style, activities, meal_frequency, trip_days_bucket } = req.body || {};
+    const days = Number(homework_days);
+    if (!Number.isInteger(days) || days < 0 || days > 7
+        || !BASELINE_SUPPORT_STYLES.includes(support_style)
+        || !Array.isArray(activities) || !activities.every(a => BASELINE_ACTIVITIES.includes(a))
+        || !BASELINE_MEAL_FREQUENCIES.includes(meal_frequency)
+        || !BASELINE_TRIP_BUCKETS.includes(trip_days_bucket)) {
+      return res.status(400).json({ error: 'Invalid baseline answers' });
+    }
+
+    const { error } = await supabase
+      .from('parent_involvement_baseline')
+      .upsert({
+        family_id: session.familyId,
+        viewer_key: viewerKey,
+        homework_days: days,
+        support_style,
+        activities: [...new Set(activities)],
+        meal_frequency,
+        trip_days_bucket,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'family_id,viewer_key' });
+    if (error) throw error;
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Save parent involvement baseline error:', err);
+    res.status(500).json({ error: 'Could not save baseline' });
   }
 });
 
