@@ -737,7 +737,8 @@ app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
     const mtdRevenue = (mtdRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
 
     // By-plan breakdown — same tier keys payments.tier is written with
-    // (TIER_PRICE_PAISE above: pro/ultrapro/max). Supabase-js has no GROUP
+    // (pro/ultrapro/max; Pro monthly and Annual Pro both write 'pro', see
+    // PAID_PLANS). Supabase-js has no GROUP
     // BY, so grouped client-side same as dailyBreakdown below.
     const byTier = {};
     for (const row of totalRes.data || []) {
@@ -2107,10 +2108,68 @@ const RAZORPAY_PLAN_ID_BY_TIER = {
   max: process.env.RAZORPAY_PLAN_ID_MAX
 };
 
-// One-time payment (Razorpay Orders API) pricing for the paid tiers —
-// matches the ₹500/₹1,500/₹2,500 shown on the register page. Paise, since
-// that's the unit Razorpay's API takes and returns.
-const TIER_PRICE_PAISE = { pro: 50000, ultrapro: 150000, max: 250000 };
+// What can be bought today, per child. Each captured payment buys a period
+// of access (billing stopgap, 025_payment_periods.sql); renewing means paying
+// again through the same Orders flow. UltraPro and Max stay in the schema
+// and the admin reports but aren't sold until tier gating ships (see
+// docs/pricing-tiers-spec.md). Amounts in paise, Razorpay's unit.
+const PAID_PLANS = {
+  pro_monthly: { tier: 'pro', amountPaise: 50000, periodDays: 30, label: 'Pro · ₹500/month' },
+  pro_annual: { tier: 'pro', amountPaise: 500000, periodDays: 365, label: 'Annual Pro · ₹5,000/year' }
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Last millisecond of the IST calendar day containing `ms`, so access always
+// runs to the end of a day in the parent's own timezone.
+function endOfIstDay(ms) {
+  const istDayStart = Math.floor((ms + IST_OFFSET_MS) / DAY_MS) * DAY_MS;
+  return istDayStart + DAY_MS - 1 - IST_OFFSET_MS;
+}
+
+// paid_until for one child, from their captured payments only (refunded and
+// failed ones never reach here). Walked in capture order: each payment starts
+// at the later of its own capture time and the current paid_until, so an
+// early renewal extends the existing period instead of restarting from
+// today, and a payment after a lapse starts fresh. Returns ms, or null if the
+// child has never paid.
+function computePaidUntil(capturedPayments) {
+  let until = null;
+  const sorted = capturedPayments
+    .map(p => ({ at: Date.parse(p.captured_at), days: Number(p.period_days) || 30 }))
+    .filter(p => Number.isFinite(p.at))
+    .sort((a, b) => a.at - b.at);
+  for (const p of sorted) {
+    const start = until !== null && until > p.at ? until : p.at;
+    until = endOfIstDay(start + p.days * DAY_MS);
+  }
+  return until;
+}
+
+function formatIstDate(ms) {
+  return new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' });
+}
+
+// { [studentId]: { paidUntil, active } } for every id passed in, including
+// never-paid children (paidUntil null, active false).
+async function getPaidStatusForStudents(studentIds, now = Date.now()) {
+  const result = {};
+  for (const id of studentIds) result[id] = { paidUntil: null, active: false };
+  if (!studentIds.length) return result;
+  const { data, error } = await supabase
+    .from('payments')
+    .select('student_id, captured_at, period_days')
+    .in('student_id', studentIds)
+    .eq('status', 'captured');
+  if (error) throw error;
+  const byStudent = {};
+  for (const row of data || []) (byStudent[row.student_id] ||= []).push(row);
+  for (const id of studentIds) {
+    const paidUntil = computePaidUntil(byStudent[id] || []);
+    result[id] = { paidUntil, active: paidUntil !== null && now <= paidUntil };
+  }
+  return result;
+}
 
 // ------------------------------------------------------------------
 // Waitlist capture — powers the "Join waitlist" form on the homepage.
@@ -2398,11 +2457,21 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     for (let i = 0; i < childrenWithNames.length; i++) {
       const child = childrenWithNames[i];
       const student = insertedStudents[i];
-      const tier = ['pro', 'ultrapro', 'max'].includes(child.tier) ? child.tier : 'free';
+      // child.plan is what the register page sends now. child.tier is the
+      // older field: 'pro' from a register page still open in someone's tab
+      // maps to Pro monthly, and UltraPro/Max are no longer sold, so a child
+      // who picked one is reported as not started rather than silently
+      // charged for a plan we don't offer.
+      const planKey = PAID_PLANS[child.plan] ? child.plan
+        : child.tier === 'pro' ? 'pro_monthly'
+        : null;
+      const tier = planKey ? PAID_PLANS[planKey].tier : (['ultrapro', 'max'].includes(child.tier) ? child.tier : 'free');
       if (tier === 'free') continue;
+      if (!planKey) { console.error('Tier', tier, 'is not currently sold — child left unpaid:', child.name); paymentFailures.push({ studentName: child.name, tier }); continue; }
       if (!student) { console.error('No students row for', child.name, '— skipping Razorpay order.'); paymentFailures.push({ studentName: child.name, tier }); continue; }
       if (!razorpay) { console.error('Razorpay not configured for tier', tier, '— child left unpaid:', child.name); paymentFailures.push({ studentName: child.name, tier }); continue; }
-      const amount = TIER_PRICE_PAISE[tier];
+      const plan = PAID_PLANS[planKey];
+      const amount = plan.amountPaise;
       try {
         const order = await razorpay.orders.create({
           amount,
@@ -2413,14 +2482,14 @@ app.post('/api/register', registerLimiter, async (req, res) => {
           // failed every time (silently, since this is caught below and the
           // child is just left unpaid). notes carries the full identifiers.
           receipt: `reg_${data.id}_${student.id.slice(0, 8)}_${Date.now().toString(36)}`,
-          notes: { family_id: String(data.id), student_id: student.id, tier }
+          notes: { family_id: String(data.id), student_id: student.id, tier, plan: planKey }
         });
         const { error: paymentErr } = await supabase.from('payments').insert({
           family_id: data.id, student_id: student.id, tier, amount, currency: 'INR',
-          razorpay_order_id: order.id, status: 'created'
+          period_days: plan.periodDays, razorpay_order_id: order.id, status: 'created'
         });
         if (paymentErr) console.error('Could not save payments row for', child.name, '(registration itself still succeeded):', paymentErr.message);
-        paymentInfos.push({ studentId: student.id, studentName: child.name, orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tier });
+        paymentInfos.push({ studentId: student.id, studentName: child.name, orderId: order.id, amount, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, tier, planLabel: plan.label });
       } catch (rzpErr) {
         console.error('Could not create Razorpay order for', child.name, '(registration itself still succeeded, left unpaid):', rzpErr.message);
         paymentFailures.push({ studentName: child.name, tier });
@@ -3655,7 +3724,11 @@ app.get('/api/teacher/:id/referral-code', async (req, res) => {
 // question-paper route had no session check at all, and create-material
 // trusted whatever teacher_id the body carried. Both now need a real teacher
 // session (and, where the body names a teacher_id, it must be that session's
-// own), plus 10 calls/hour per teacher. The limiter's store is in-memory, so
+// own), plus 10 calls/hour per teacher. Only requests that got as far as
+// Claude count: skipFailedRequests drops every 4xx response (the auth check,
+// form validation), so a teacher fixing a form mistake doesn't use up tries.
+// A 5xx after a Claude error isn't counted either, which is the teacher's
+// gain, not a cost leak worth closing. The limiter's store is in-memory, so
 // the cap is per Cloud Run instance, not global. It's a cost brake, not an
 // exact quota.
 function requireTeacherSessionMw(req, res, next) {
@@ -3675,6 +3748,7 @@ function teacherAiLimiter() {
     max: 10,
     standardHeaders: true,
     legacyHeaders: false,
+    skipFailedRequests: true,
     keyGenerator: (req) => 'teacher:' + String(req.teacherSession.teacherId),
     message: { error: "You've reached 10 generations this hour. Please try again a little later." }
   });
@@ -3885,22 +3959,60 @@ app.post('/api/webhooks/razorpay', async (req, res) => {
 // verification pattern as above; matches by razorpay_order_id, which
 // /api/register creates and stores in the payments table up front.
 // ------------------------------------------------------------------
+// Shared by the webhook and /api/billing/verify, so whichever arrives first
+// grants access and the other is a no-op. captured_at is Razorpay's own
+// payment timestamp (unix seconds), never "now", so a late webhook can't
+// shift the paid period. Only moves a row out of 'created' or 'failed':
+// a repeat delivery can't reset captured_at, and a refunded row stays
+// refunded.
+async function markPaymentCaptured(orderId, paymentId, razorpayCreatedAtSec) {
+  const capturedAt = Number.isFinite(Number(razorpayCreatedAtSec))
+    ? new Date(Number(razorpayCreatedAtSec) * 1000).toISOString()
+    : new Date().toISOString();
+  const { error } = await supabase.from('payments')
+    .update({ razorpay_payment_id: paymentId, status: 'captured', captured_at: capturedAt, updated_at: new Date().toISOString() })
+    .eq('razorpay_order_id', orderId)
+    .in('status', ['created', 'failed']);
+  if (error) throw error;
+}
+
 async function handlePaymentCaptured(event) {
   const payment = event.payload?.payment?.entity;
   if (!payment || !payment.order_id) return;
-  const { error } = await supabase.from('payments')
-    .update({ razorpay_payment_id: payment.id, status: 'captured', updated_at: new Date().toISOString() })
-    .eq('razorpay_order_id', payment.order_id);
-  if (error) console.error('Could not mark payment captured:', error.message);
+  try {
+    await markPaymentCaptured(payment.order_id, payment.id, payment.created_at);
+  } catch (err) {
+    console.error('Could not mark payment captured:', err.message);
+  }
 }
 
+// One order can see several attempts (a failed card, then a UPI success),
+// and Razorpay doesn't guarantee delivery order. So 'failed' only ever
+// replaces 'created': a failure event arriving after the capture must not
+// take away access that was paid for.
 async function handlePaymentFailed(event) {
   const payment = event.payload?.payment?.entity;
   if (!payment || !payment.order_id) return;
   const { error } = await supabase.from('payments')
     .update({ status: 'failed', updated_at: new Date().toISOString() })
-    .eq('razorpay_order_id', payment.order_id);
+    .eq('razorpay_order_id', payment.order_id)
+    .eq('status', 'created');
   if (error) console.error('Could not mark payment failed:', error.message);
+}
+
+// Any refund, full or partial, ends the access that payment bought: the
+// row leaves 'captured', so computePaidUntil no longer counts it. Matches by
+// payment id. Tutor-contact refunds (issued by our own refund cron) come
+// through here too and simply match no payments row.
+async function handlePaymentRefunded(event) {
+  const refund = event.payload?.refund?.entity;
+  const paymentId = refund?.payment_id || event.payload?.payment?.entity?.id;
+  if (!paymentId) return;
+  const { error } = await supabase.from('payments')
+    .update({ status: 'refunded', refunded_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('razorpay_payment_id', paymentId)
+    .neq('status', 'refunded');
+  if (error) console.error('Could not mark payment refunded:', error.message);
 }
 
 // Same razorpay_order_id match as handlePaymentCaptured/handlePaymentFailed
@@ -3946,6 +4058,10 @@ app.post('/api/razorpay-webhook', async (req, res) => {
     switch (event.event) {
       case 'payment.captured': await handlePaymentCaptured(event); await handleTutorContactCaptured(event); break;
       case 'payment.failed': await handlePaymentFailed(event); await handleTutorContactFailed(event); break;
+      // Both fire for one refund; handling both is harmless (the second is a
+      // no-op) and revokes access as early as possible.
+      case 'refund.created':
+      case 'refund.processed': await handlePaymentRefunded(event); break;
       default: break; // unhandled event types are fine to ignore — ack so Razorpay stops retrying
     }
     res.json({ ok: true });
@@ -3955,6 +4071,105 @@ app.post('/api/razorpay-webhook', async (req, res) => {
     // here is assumed transient (e.g. a momentary Supabase hiccup), not a
     // reason to silently drop the event.
     res.status(500).json({ error: 'Webhook processing error' });
+  }
+});
+
+// ------------------------------------------------------------------
+// Billing stopgap: verify, checkout (new plan or renewal), status.
+//
+// /api/billing/verify is what the checkout page calls the moment Razorpay
+// reports success, so access doesn't wait on the webhook. No session
+// needed: Razorpay's signature (HMAC of order|payment with our key secret)
+// proves the pair is genuine, and the payment is then re-fetched from
+// Razorpay and only marked captured if Razorpay itself says so. Registration
+// uses it too, before the family has a session.
+// ------------------------------------------------------------------
+app.post('/api/billing/verify', async (req, res) => {
+  try {
+    if (!supabase || !razorpay) return res.status(500).json({ error: 'Payments are not configured' });
+    const { orderId, paymentId, signature } = req.body || {};
+    if (typeof orderId !== 'string' || typeof paymentId !== 'string' || typeof signature !== 'string') {
+      return res.status(400).json({ error: 'Missing payment details' });
+    }
+    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(orderId + '|' + paymentId).digest('hex');
+    const a = Buffer.from(expected);
+    const b = Buffer.from(signature);
+    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+      return res.status(400).json({ error: 'Invalid payment signature' });
+    }
+    const payment = await razorpay.payments.fetch(paymentId);
+    if (!payment || payment.order_id !== orderId) return res.status(400).json({ error: 'Payment does not match this order' });
+    if (payment.status !== 'captured') return res.json({ status: payment.status });
+    await markPaymentCaptured(orderId, paymentId, payment.created_at);
+    res.json({ status: 'captured' });
+  } catch (err) {
+    console.error('Billing verify error:', err);
+    res.status(500).json({ error: 'Could not verify the payment' });
+  }
+});
+
+// Creates one Razorpay order for one child and one plan, the same shape
+// /api/register uses. It serves a first purchase and a renewal alike: the
+// new payment's period stacks on top of any active one (computePaidUntil).
+app.post('/api/billing/checkout', async (req, res) => {
+  try {
+    if (!supabase || !razorpay) return res.status(500).json({ error: 'Payments are not configured' });
+    const { studentId, plan: planKey } = req.body || {};
+    const plan = PAID_PLANS[planKey];
+    if (!plan) return res.status(400).json({ error: 'Invalid plan' });
+    const session = await requireOwnStudent(req, res, studentId);
+    if (!session) return;
+    const order = await razorpay.orders.create({
+      amount: plan.amountPaise,
+      currency: 'INR',
+      receipt: `bill_${session.familyId}_${String(studentId).slice(0, 8)}_${Date.now().toString(36)}`,
+      notes: { family_id: String(session.familyId), student_id: String(studentId), tier: plan.tier, plan: planKey }
+    });
+    const { error } = await supabase.from('payments').insert({
+      family_id: session.familyId, student_id: studentId, tier: plan.tier, amount: plan.amountPaise, currency: 'INR',
+      period_days: plan.periodDays, razorpay_order_id: order.id, status: 'created'
+    });
+    if (error) throw error;
+    res.json({ orderId: order.id, amount: plan.amountPaise, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, planLabel: plan.label });
+  } catch (err) {
+    console.error('Billing checkout error:', err);
+    res.status(500).json({ error: 'Could not start the payment. Please try again.' });
+  }
+});
+
+// Per-child plan status for the dashboard header. showRenew: active and
+// within RENEW_WINDOW_DAYS of the end, or lapsed after having paid. Children
+// who never paid are listed with hasPaid false and nothing else to show.
+const RENEW_WINDOW_DAYS = 5;
+
+app.get('/api/billing/status/:familyId', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const familyId = parseInt(req.params.familyId, 10);
+    if (!requireOwnFamily(req, res, familyId)) return;
+    const { data: students, error } = await supabase.from('students').select('id, name').eq('family_id', familyId);
+    if (error) throw error;
+    const now = Date.now();
+    const status = await getPaidStatusForStudents((students || []).map(s => s.id), now);
+    const children = (students || []).map(s => {
+      const { paidUntil, active } = status[s.id];
+      const daysLeft = paidUntil !== null ? Math.ceil((paidUntil - now) / DAY_MS) : null;
+      return {
+        studentId: s.id,
+        name: s.name,
+        hasPaid: paidUntil !== null,
+        active,
+        paidUntil: paidUntil !== null ? new Date(paidUntil).toISOString() : null,
+        paidUntilLabel: paidUntil !== null ? formatIstDate(paidUntil) : null,
+        daysLeft,
+        showRenew: paidUntil !== null && (!active || daysLeft <= RENEW_WINDOW_DAYS)
+      };
+    });
+    res.set('Cache-Control', 'no-store');
+    res.json({ children, plans: Object.entries(PAID_PLANS).map(([key, p]) => ({ key, label: p.label, amount: p.amountPaise / 100 })) });
+  } catch (err) {
+    console.error('Billing status error:', err);
+    res.status(500).json({ error: 'Could not load plan status' });
   }
 });
 
@@ -5528,22 +5743,19 @@ app.post('/api/cron/tutor-contact-refund-check', async (req, res) => {
 });
 
 // Free-tier usage cap: 5 session.completed events per bucket per child,
-// unless that child has ever had a captured payment (any tier) — a paid
-// child is unlimited regardless of bucket. Two buckets rather than one
+// unless that child's paid period is active (computePaidUntil). Once it
+// lapses, the child is back on the free cap. Two buckets rather than one
 // shared cap since Homework Help and the other five features (quiz/
 // storytelling/experiential_learning/play_based_learning/exam_prep) are
-// each capped independently.
+// each capped independently. expiredPaidUntil is set when a child did pay
+// but the period has ended, so the 402 can say "renew" instead of the
+// first-time free-cap wording.
 const FREE_LIMIT_PER_BUCKET = 5;
 const OTHER_FEATURES_BUCKET = ['quiz', 'storytelling', 'experiential_learning', 'play_based_learning', 'exam_prep'];
 
 async function checkFreeLimit(studentId, bucket) {
-  const { count: capturedCount, error: paymentsErr } = await supabase
-    .from('payments')
-    .select('id', { count: 'exact', head: true })
-    .eq('student_id', studentId)
-    .eq('status', 'captured');
-  if (paymentsErr) throw paymentsErr;
-  if (capturedCount > 0) return { allowed: true };
+  const paid = (await getPaidStatusForStudents([studentId]))[studentId];
+  if (paid.active) return { allowed: true };
 
   const { data: events, error: eventsErr } = await supabase
     .from('usage_events')
@@ -5557,7 +5769,14 @@ async function checkFreeLimit(studentId, bucket) {
     return bucket === 'homework_help' ? feature === 'homework_help' : OTHER_FEATURES_BUCKET.includes(feature);
   }).length;
 
-  return { allowed: count < FREE_LIMIT_PER_BUCKET, count, remaining: Math.max(0, FREE_LIMIT_PER_BUCKET - count) };
+  return { allowed: count < FREE_LIMIT_PER_BUCKET, count, remaining: Math.max(0, FREE_LIMIT_PER_BUCKET - count), expiredPaidUntil: paid.paidUntil };
+}
+
+function freeLimitMessage(limit, bucket) {
+  if (limit.expiredPaidUntil) {
+    return `Your Pro plan for this child ended on ${formatIstDate(limit.expiredPaidUntil)}. Renew from your dashboard to continue.`;
+  }
+  return `You've used all 5 free ${bucket === 'homework_help' ? 'homework help sessions' : 'other feature sessions'} for this child. Upgrade to continue.`;
 }
 
 // Shape validation for the freeform userContent array this route forwards to
@@ -5601,7 +5820,7 @@ app.post('/api/homework', async (req, res) => {
       return res.status(402).json({
         error: 'free_limit_reached',
         bucket,
-        message: `You've used all 5 free ${bucket === 'homework_help' ? 'homework help sessions' : 'other feature sessions'} for this child. Upgrade to continue.`
+        message: freeLimitMessage(limit, bucket)
       });
     }
 
@@ -6450,22 +6669,18 @@ app.post('/api/game-sessions', async (req, res) => {
     // (checkFreeLimit, per-child), Play-Based Learning's session.completed
     // events carry no student_id (see trackSessionCompleted below — it's
     // tracked family-wide, not per-child), so the cap is 5 free games per
-    // family rather than per child. A family is exempt entirely once any
-    // participating student in THIS session has a captured payment — a
-    // paid family plays Play-Based Learning together unlimited.
+    // family rather than per child. The cap doesn't apply while any
+    // participating student in THIS session has an active paid period.
     const studentPlayerIds = (Array.isArray(players) ? players : [])
       .filter(p => p && p.type === 'student' && p.refId)
       .map(p => p.refId);
 
+    // Only a participating child whose paid period is still active counts;
+    // a lapsed payment no longer unlocks the family's games.
     let familyIsPaid = false;
     if (studentPlayerIds.length) {
-      const { count: capturedCount, error: paidErr } = await supabase
-        .from('payments')
-        .select('id', { count: 'exact', head: true })
-        .in('student_id', studentPlayerIds)
-        .eq('status', 'captured');
-      if (paidErr) throw paidErr;
-      familyIsPaid = capturedCount > 0;
+      const paidStatus = await getPaidStatusForStudents(studentPlayerIds);
+      familyIsPaid = Object.values(paidStatus).some(s => s.active);
     }
 
     if (!familyIsPaid) {

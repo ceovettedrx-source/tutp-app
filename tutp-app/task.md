@@ -86,16 +86,27 @@ Status legend: ✅ done · 🟡 in progress / partial · ⬜ not started · 🚫
 - Open decision (unresolved as of last note): ship as-is vs. build one
   high-value researched piece first
 
-## Phase 6 — Payments 🚫 (blocked)
+## Phase 6 — Payments 🟡
 
+- ✅ Razorpay live: live payments work (founder confirmed a ₹100 UPI
+  payment went through, 2026-09), and Cloud Run uses live keys
+  (`razorpay-key-id` in Secret Manager has the `rzp_live_` prefix,
+  checked 2026-09-26). The earlier "Razorpay rejected the VettedRx
+  account" block is resolved.
 - ✅ Razorpay webhook endpoint live (`/api/razorpay-webhook`, rejecting
-  unsigned requests)
-- 🚫 Subscription/checkout integration on hold — Razorpay rejected
-  using the VettedRx business account for Tut-P; a separate
-  Tut-P-specific Razorpay account is being pursued
-- ⬜ Migration `012_payments.sql` — written but must be confirmed
-  executed in Supabase SQL Editor before paid-tier signups work end to
-  end (re-verify current status)
+  unsigned requests); `refund.created` and `refund.processed` events
+  enabled (2026-09-26).
+- ✅ Migrations `012_payments.sql` and `025_payment_periods.sql` run.
+- 🟡 Billing stopgap (Pro ₹500/month and Annual Pro ₹5,000/year per
+  child, one-time Orders payments with a 30- or 365-day paid period,
+  renew from the dashboard, refunds revoke access): built, pending
+  preview test with a real payment and refund.
+- ✅ Refund policy page at `/refund-policy/`. ⬜ Terms of Service and
+  Privacy Policy pages don't exist yet: founder to supply the text.
+- ⬜ Razorpay Subscriptions (autopay): separate plan, after the parent
+  dashboard redesign.
+- ⬜ Tier gating (UltraPro/Max, per-mode daily limits): see
+  `docs/pricing-tiers-spec.md`.
 
 ## Phase 7 — Teacher Module 🟡
 

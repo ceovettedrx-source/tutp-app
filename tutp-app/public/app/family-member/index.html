@@ -140,7 +140,6 @@
 <div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">T</div>
 <span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
 </a>
-<span class="font-label text-[10px] font-bold px-2 py-0.5 rounded-full bg-secondary-container text-on-secondary-container">PRO</span>
 </div>
 <div class="hidden md:flex flex-1 justify-center px-4">
 <div class="relative w-full max-w-md">
@@ -197,8 +196,8 @@
 <span class="material-symbols-outlined">workspace_premium</span>
 <p class="font-label-md text-label-md font-semibold">Tut-P Pro Family</p>
 </div>
-<p class="font-body text-xs text-on-primary/90">Unlimited STEM labs &amp; 24/7 AI tutor co-pilot.</p>
-<button class="w-full py-2 rounded-full bg-on-primary text-primary font-label text-xs font-bold hover:shadow-md transition-shadow" onclick="alert('Tut-P Pro upgrade coming soon!')">Explore Pro</button>
+<p class="font-body text-xs text-on-primary/90">Homework Help for every subject, Quiz and Storytelling. ₹500/month per child.</p>
+<button class="w-full py-2 rounded-full bg-on-primary text-primary font-label text-xs font-bold hover:shadow-md transition-shadow" onclick="window.TutpBilling &amp;&amp; window.TutpBilling.openPlans()">Explore Pro</button>
 </div>
 </div>
 </nav>
@@ -206,6 +205,7 @@
 <main class="js-hidden max-w-5xl mx-auto px-6 pb-12 space-y-16" id="mainContent">
 
 <section>
+<div class="flex flex-wrap gap-2 mb-3 empty:hidden" id="billingStatus" data-can-pay="false"></div>
 <div class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/15 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
 <div class="space-y-3 flex-1">
 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-tertiary/10 text-tertiary font-label text-xs font-semibold">
@@ -1043,6 +1043,16 @@
                 <a href="${mailtoUrl}" style="display:inline-block;background:#005bbf;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Contact us to upgrade</a>
                 <button type="button" id="freeLimitDismiss" style="display:block;margin-top:8px;background:none;border:none;color:#666;font-size:12px;cursor:pointer;padding:0;">Not now</button>
             `;
+            // Where this viewer can pay (mother/father), lead with the plans
+            // themselves; the email link stays as the fallback.
+            if (window.TutpBilling && window.TutpBilling.canPay && studentId) {
+                const payBtn = document.createElement('button');
+                payBtn.type = 'button';
+                payBtn.textContent = 'See Pro plans';
+                payBtn.style.cssText = 'display:block;width:100%;margin:0 0 8px;background:#005bbf;color:#fff;border:none;padding:8px 12px;border-radius:6px;font-weight:600;cursor:pointer;';
+                payBtn.addEventListener('click', () => { box.remove(); window.TutpBilling.choosePlan(studentId); });
+                box.insertBefore(payBtn, box.querySelector('a'));
+            }
             document.body.appendChild(box);
             box.querySelector('#freeLimitDismiss').addEventListener('click', () => box.remove());
         }
@@ -2921,5 +2931,6 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
         })();
 </script>
 <script src="/js/weekly-goal.js" defer></script>
+<script src="/js/billing.js" defer></script>
 <script src="/js/baseline-survey.js" defer></script>
 </body></html>

@@ -259,7 +259,7 @@
 <section class="wizard-step step-hidden" data-step="8">
 <div class="text-center mb-lg">
 <h2 class="font-headline-md text-headline-md text-primary mb-xs">Choose Your Plan</h2>
-<p class="font-body-md text-body-md text-on-surface-variant">You can change or cancel your plan later — this doesn't lock you in.</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Plans don't renew automatically. See our <a class="text-primary underline" href="/refund-policy/" target="_blank" rel="noopener">refund policy</a>.</p>
 </div>
 <div class="space-y-md max-w-2xl mx-auto" id="planRows"></div>
 <p class="text-center font-label-lg text-label-lg text-on-surface mt-md" id="planTotal">Total: ₹0 — Free plan for all children</p>
@@ -558,12 +558,19 @@
   }
 
   // ---------------- Plan selection (Step 8) ----------------
-  // Each child gets an independent tier choice (childTiers, keyed by
+  // Each child gets an independent plan choice (childTiers, keyed by
   // index into the same primaryChild+extraChildren order used at
-  // submit) instead of one shared plan for the whole family.
-  const TIER_PRICE_RUPEES = { free: 0, pro: 500, ultrapro: 1500, max: 2500 };
-  const TIER_LABELS = { free: 'Free', pro: 'Pro', ultrapro: 'UltraPro', max: 'Max' };
-  const TIER_BLURBS = { free: 'Get started at no cost.', pro: 'For families who want more.', ultrapro: 'For families who want it all.', max: 'Our most complete plan.' };
+  // submit) instead of one shared plan for the whole family. Only Free,
+  // Pro monthly and Annual Pro are sold for now; UltraPro and Max come back
+  // with tier gating (docs/pricing-tiers-spec.md). Keys match the server's
+  // PAID_PLANS.
+  const PLAN_ORDER = ['free', 'pro_monthly', 'pro_annual'];
+  const TIER_PRICE_RUPEES = { free: 0, pro_monthly: 500, pro_annual: 5000 };
+  const PLAN_PERIOD = { free: '', pro_monthly: '/month per child', pro_annual: '/year per child' };
+  // pro/ultrapro/max: the tier names the server reports back in payment
+  // and failure lists (an old open tab may still have picked UltraPro/Max).
+  const TIER_LABELS = { free: 'Free', pro_monthly: 'Pro', pro_annual: 'Annual Pro', pro: 'Pro', ultrapro: 'UltraPro', max: 'Max' };
+  const TIER_BLURBS = { free: '5 Homework Help and 5 other sessions to start.', pro_monthly: 'Homework Help for every subject, Quiz and Storytelling for this child.', pro_annual: 'Homework Help for every subject, Quiz and Storytelling for this child, for 365 days.' };
   let planChildNames = [];
   let childTiers = {};
 
@@ -585,10 +592,10 @@
       <div class="glass-card rounded-xl p-md" data-child-row="${i}">
         <h3 class="font-label-lg text-label-lg text-on-surface mb-sm">${name}</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-sm">
-          ${['free', 'pro', 'ultrapro', 'max'].map(tier => `
+          ${PLAN_ORDER.map(tier => `
             <button type="button" class="plan-card text-left glass-card rounded-xl p-md border-2 ${tier === 'free' ? 'border-primary' : 'border-transparent'} hover:border-primary/40 transition-colors" data-tier="${tier}" onclick="selectPlan(${i}, '${tier}')">
               <h4 class="font-label-lg text-label-lg text-on-surface">${TIER_LABELS[tier]}</h4>
-              <p class="font-headline-md text-headline-md text-primary my-1">₹${TIER_PRICE_RUPEES[tier].toLocaleString('en-IN')}${tier === 'free' ? '' : '<span class="font-caption text-caption text-on-surface-variant">/month</span>'}</p>
+              <p class="font-headline-md text-headline-md text-primary my-1">₹${TIER_PRICE_RUPEES[tier].toLocaleString('en-IN')}${tier === 'free' ? '' : `<span class="font-caption text-caption text-on-surface-variant">${PLAN_PERIOD[tier]}</span>`}</p>
               <p class="font-caption text-caption text-on-surface-variant">${TIER_BLURBS[tier]}</p>
             </button>
           `).join('')}
@@ -608,10 +615,17 @@
     updatePlanTotal();
   }
 
+  // Monthly and annual are summed separately, since "₹5,500/month" would
+  // misstate a mix of the two.
   function updatePlanTotal(){
-    const total = Object.values(childTiers).reduce((sum, t) => sum + (TIER_PRICE_RUPEES[t] || 0), 0);
-    document.getElementById('planTotal').textContent = total > 0
-      ? `Total: ₹${total.toLocaleString('en-IN')}/month`
+    const sumOf = (plan) => Object.values(childTiers).filter(t => t === plan).reduce((sum, t) => sum + TIER_PRICE_RUPEES[t], 0);
+    const monthly = sumOf('pro_monthly');
+    const annual = sumOf('pro_annual');
+    const parts = [];
+    if (monthly) parts.push(`₹${monthly.toLocaleString('en-IN')}/month`);
+    if (annual) parts.push(`₹${annual.toLocaleString('en-IN')}/year`);
+    document.getElementById('planTotal').textContent = parts.length
+      ? `Total: ${parts.join(' + ')}`
       : 'Total: ₹0 — Free plan for all children';
   }
 
@@ -666,7 +680,7 @@
     function next(){
       if (idx >= payments.length) { finish(); return; }
       const payment = payments[idx];
-      statusEl.textContent = `Payment ${idx + 1} of ${payments.length} — ${payment.studentName}'s ${TIER_LABELS[payment.tier] || payment.tier} plan…`;
+      statusEl.textContent = `Payment ${idx + 1} of ${payments.length} — ${payment.studentName}'s ${payment.planLabel || TIER_LABELS[payment.tier] || payment.tier} plan…`;
       statusEl.className = 'form-status text-center mt-sm font-label-md text-sm';
       const rzp = new Razorpay({
         key: payment.razorpayKeyId,
@@ -674,13 +688,23 @@
         amount: payment.amount,
         currency: payment.currency,
         name: 'Tut-P',
-        description: `Tut-P ${payment.tier} plan — ${payment.studentName}`,
+        description: `Tut-P ${payment.planLabel || payment.tier} — ${payment.studentName}`,
         prefill: {
           name: document.getElementById('motherName').value || document.getElementById('fatherName').value || '',
           email: document.getElementById('motherEmail').value || document.getElementById('fatherEmail').value || '',
           contact: document.getElementById('motherPhone').value || document.getElementById('fatherPhone').value || ''
         },
-        handler: function(){ idx++; next(); },
+        // Confirms the payment straight away (signature-checked server-side)
+        // so the child's plan is active without waiting for the webhook. A
+        // failed verify isn't shown as an error: the webhook still completes it.
+        handler: function(resp){
+          fetch('/api/billing/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: resp.razorpay_order_id, paymentId: resp.razorpay_payment_id, signature: resp.razorpay_signature })
+          }).catch(err => console.error('Payment verify failed (webhook will complete it):', err))
+            .finally(() => { idx++; next(); });
+        },
         modal: {
           ondismiss: function(){ dismissedPayments.push({ studentName: payment.studentName, tier: payment.tier }); idx++; next(); }
         }
@@ -744,7 +768,7 @@
     })).filter(c => c.name);
     const children = [primaryChild, ...extraChildren].map((child, i) => ({
       ...child,
-      tier: childTiers[i] || 'free'
+      plan: childTiers[i] || 'free'
     }));
 
     const payload = {
