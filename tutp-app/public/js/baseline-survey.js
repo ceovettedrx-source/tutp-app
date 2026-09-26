@@ -403,6 +403,17 @@
     return group;
   }
 
+  // Which role's dashboard this is. A phone number on more than one role
+  // (the same number entered for mother and father) can't be pinned to one
+  // viewer from the session alone, so the page says which one it is; the
+  // server only accepts it if this login's phone really holds that role.
+  function viewerHint() {
+    var path = location.pathname;
+    if (path.indexOf('/app/mother/') === 0) return 'mother';
+    if (path.indexOf('/app/father/') === 0) return 'father';
+    try { return sessionStorage.getItem('tutp_family_member_id') || ''; } catch (e) { return ''; }
+  }
+
   function submit(save, err) {
     save.disabled = true;
     save.textContent = 'Saving…';
@@ -411,7 +422,7 @@
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify(answer)
+      body: JSON.stringify(Object.assign({ viewer: viewerHint() }, answer))
     }).then(function (res) {
       if (!res.ok) throw new Error('HTTP ' + res.status);
       renderStrip(answer);
@@ -505,11 +516,12 @@
   }
 
   function start() {
-    fetch('/api/parent-involvement-baseline', { credentials: 'same-origin' })
+    fetch('/api/parent-involvement-baseline?viewer=' + encodeURIComponent(viewerHint()), { credentials: 'same-origin' })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
-        // Not logged in or viewer not resolvable: stay silent.
-        if (!data) return;
+        // Not logged in, or the server couldn't tell which viewer this is
+        // (available: false): stay silent.
+        if (!data || data.available === false) return;
         if (data.exists) { renderStrip(data.baseline); return; }
         if (skippedThisSession()) return;
         setTimeout(showWhenClear, FIRST_DELAY_MS);

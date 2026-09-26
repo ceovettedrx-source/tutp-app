@@ -359,21 +359,30 @@ app.post('/api/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// 401 vs 403, which the pages act on differently: 401 means there's no
+// valid session (missing, expired, tampered), so the page sends the user to
+// log in again. 403 means a valid session asked for something it doesn't
+// own, so the page shows a message and keeps the user logged in. Every
+// session check below uses these two helpers, so the split stays consistent.
+function sendSessionExpired(res) {
+  res.status(401).json({ error: 'Your session has expired — please log in again.', code: 'session_expired' });
+}
+
+function sendForbidden(res) {
+  res.status(403).json({ error: 'Forbidden' });
+}
+
 function requireOwnFamily(req, res, familyId) {
   const session = getSession(req);
-  if (!session || !Number.isFinite(familyId) || session.familyId !== familyId) {
-    res.status(403).json({ error: 'Forbidden' });
-    return null;
-  }
+  if (!session) { sendSessionExpired(res); return null; }
+  if (!Number.isFinite(familyId) || session.familyId !== familyId) { sendForbidden(res); return null; }
   return session;
 }
 
 function requireOwnTeacher(req, res, teacherId) {
   const session = getSession(req);
-  if (!session || !teacherId || String(session.teacherId) !== String(teacherId)) {
-    res.status(403).json({ error: 'Forbidden' });
-    return null;
-  }
+  if (!session) { sendSessionExpired(res); return null; }
+  if (!teacherId || String(session.teacherId) !== String(teacherId)) { sendForbidden(res); return null; }
   return session;
 }
 
@@ -2080,10 +2089,8 @@ async function studentBelongsToSession(session, studentId) {
 
 async function requireOwnStudent(req, res, studentId) {
   const session = getSession(req);
-  if (!session || !(await studentBelongsToSession(session, studentId))) {
-    res.status(403).json({ error: 'Forbidden' });
-    return null;
-  }
+  if (!session) { sendSessionExpired(res); return null; }
+  if (!(await studentBelongsToSession(session, studentId))) { sendForbidden(res); return null; }
   return session;
 }
 
@@ -3739,9 +3746,10 @@ app.get('/api/teacher/:id/referral-code', async (req, res) => {
 function requireTeacherSessionMw(req, res, next) {
   const session = getSession(req);
   const bodyTeacherId = req.body?.teacher_id;
-  if (!session || !session.teacherId ||
+  if (!session) return sendSessionExpired(res);
+  if (!session.teacherId ||
       (bodyTeacherId !== undefined && String(bodyTeacherId) !== String(session.teacherId))) {
-    return res.status(403).json({ error: 'Forbidden' });
+    return sendForbidden(res);
   }
   req.teacherSession = session;
   next();
@@ -4952,8 +4960,19 @@ app.post('/api/bonding-score', async (req, res) => {
 // and only when that phone holds exactly one role in the session's own
 // family. Anything else (ambiguous phone, no match, several roles) returns
 // null, and callers refuse rather than guess.
-async function resolveSessionViewerKey(session) {
-  if (session.viewerKey != null) return String(session.viewerKey);
+//
+// `hint` covers the several-roles case: one phone on both the mother and
+// father entries (common in real families), where the parent picked a role
+// on the login grid. The dashboard page sends which role it is, and it's
+// accepted only if sessionOwnsViewerKey agrees this session's phone really
+// holds that role, the same test the bonding-score route already uses. A
+// session that already carries its own viewerKey ignores the hint unless it
+// names that same key.
+async function resolveSessionViewerKey(session, hint) {
+  if (session.viewerKey != null) {
+    return hint == null || String(hint) === String(session.viewerKey) ? String(session.viewerKey) : null;
+  }
+  if (hint != null && hint !== '' && await sessionOwnsViewerKey(session, String(hint))) return String(hint);
   const family = await findFamilyIdByPhone(session.phone);
   if (!family || family.ambiguous || family.id !== session.familyId) return null;
   if (family.roleMatches.length !== 1) return null;
@@ -4979,9 +4998,14 @@ app.get('/api/parent-involvement-baseline', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const session = getSession(req);
-    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
-    const viewerKey = await resolveSessionViewerKey(session);
-    if (!viewerKey) return res.status(403).json({ error: 'Forbidden' });
+    if (!session) return sendSessionExpired(res);
+    if (!session.familyId) return sendForbidden(res);
+    // The survey is optional, so a viewer we can't pin down just doesn't get
+    // it (available: false), rather than an error. This GET runs on every
+    // dashboard load; a 403 here is what used to log parents out whose phone
+    // number is on more than one role.
+    const viewerKey = await resolveSessionViewerKey(session, req.query.viewer);
+    if (!viewerKey) return res.json({ exists: false, baseline: null, available: false });
 
     const { data, error } = await supabase
       .from('parent_involvement_baseline')
@@ -5001,9 +5025,10 @@ app.post('/api/parent-involvement-baseline', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const session = getSession(req);
-    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
-    const viewerKey = await resolveSessionViewerKey(session);
-    if (!viewerKey) return res.status(403).json({ error: 'Forbidden' });
+    if (!session) return sendSessionExpired(res);
+    if (!session.familyId) return sendForbidden(res);
+    const viewerKey = await resolveSessionViewerKey(session, (req.body || {}).viewer);
+    if (!viewerKey) return sendForbidden(res);
 
     const { homework_days, support_style, activities, meal_frequency, trip_days_bucket } = req.body || {};
     const days = Number(homework_days);
@@ -5896,7 +5921,8 @@ const illustrateLimiter = rateLimit({
 app.post('/api/homework/illustrate', illustrateLimiter, async (req, res) => {
   try {
     const session = getSession(req);
-    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
+    if (!session) return sendSessionExpired(res);
+    if (!session.familyId) return sendForbidden(res);
 
     const { problemText, language } = req.body || {};
     if (typeof problemText !== 'string' || !problemText.trim() || problemText.length > 1000) {
@@ -6873,7 +6899,10 @@ async function resolveGameAccess(req, res, gameSessionId) {
     }
   }
 
-  res.status(403).json({ error: 'Forbidden' });
+  // Neither a family session nor any game token: a missing or expired login
+  // (401). A token that didn't check out, or another family's session: 403.
+  if (!session && !bearerToken) sendSessionExpired(res);
+  else sendForbidden(res);
   return null;
 }
 
@@ -6985,7 +7014,8 @@ app.post('/api/game-invite/consume', async (req, res) => {
     const { token } = req.body || {};
     if (!token) return res.status(400).json({ error: 'Missing token' });
     const session = getSession(req);
-    if (!session || !session.familyId) return res.status(403).json({ error: 'Forbidden' });
+    if (!session) return sendSessionExpired(res);
+    if (!session.familyId) return sendForbidden(res);
 
     const { data: tokenRow, error: tokenErr } = await supabase.from('game_access_tokens')
       .select('id, game_session_id, game_player_id, expires_at, revoked_at, holder_type')

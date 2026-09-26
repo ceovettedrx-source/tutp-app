@@ -61,3 +61,4 @@
 - **PowerShell:** call `gcloud.cmd`, not `gcloud` — `gcloud.ps1` is blocked by the execution policy.
 - **deploy.sh output piped through `tail`/`grep` shows nothing until it finishes** (and nothing at all if it hangs). Log to a file instead (`bash deploy.sh > deploy.log 2>&1`) and read that.
 - **`gcloud run services update-traffic` is blocked in Claude Code auto mode** (production deploy). Vet runs it manually; Claude verifies afterwards.
+- **Preview tag URLs must be in Firebase Authorized domains.** Phone-OTP login on a no-traffic tagged revision (e.g. `preview---tutp-demo-vs4743puka-uc.a.run.app`) fails with `auth/captcha-check-failed` unless that exact host is listed under Firebase Console → Authentication → Settings → Authorized domains. Each tag name gets its own host, so add the host for any new tag before testing logins on it.

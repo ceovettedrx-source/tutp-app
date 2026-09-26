@@ -79,11 +79,29 @@
     // without this it would just bounce the user right back to this same
     // broken page. Clear the stale markers and force a real login instead.
     (function(){
+        // 401 = no valid session (expired or missing): log in again.
+        // 403 = logged in, but this request isn't allowed for this account:
+        // say so and stay logged in. Treating every 403 as a logout used to
+        // drop parents back to an empty login page whenever one optional
+        // request was refused.
+        function tutpShowForbiddenNotice(){
+            const show = () => {
+                if (document.getElementById('tutpForbiddenNotice')) return;
+                const box = document.createElement('div');
+                box.id = 'tutpForbiddenNotice';
+                box.setAttribute('role', 'status');
+                box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;max-width:360px;width:calc(100% - 32px);background:#181c20;color:#fff;border-radius:12px;padding:12px 16px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);';
+                box.textContent = "Part of this page isn't available for this account. You're still logged in.";
+                document.body.appendChild(box);
+                setTimeout(() => box.remove(), 6000);
+            };
+            if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+        }
         const originalFetch = window.fetch;
         window.fetch = function(input, init){
             return originalFetch(input, init).then(res => {
                 const url = typeof input === 'string' ? input : (input && input.url) || '';
-                if (res.status === 403 && url.startsWith('/api/')) {
+                if (res.status === 401 && url.startsWith('/api/')) {
                     try {
                         sessionStorage.removeItem('tutp_family_id');
                         sessionStorage.removeItem('tutp_student_id');
@@ -93,10 +111,37 @@
                         sessionStorage.removeItem('tutp_last_dashboard');
                     } catch (e) {}
                     window.location.href = '/app/login/';
+                } else if (res.status === 403 && url.startsWith('/api/')) {
+                    tutpShowForbiddenNotice();
                 }
                 return res;
             });
         };
+    })();
+
+    // Child safety net: every request that needs a child must carry one of
+    // this family's children. If none is selected (a login where no child
+    // name was matched), or the stored one isn't in this family's own list
+    // (fetched with this session, so the server decides what "this family"
+    // is), the first child is selected. Code that sends a studentId awaits
+    // this promise first. The full device-remembered child picker comes with
+    // the login redesign.
+    window.tutpChildReady = (async function(){
+        let familyId = null, current = null;
+        try { familyId = sessionStorage.getItem('tutp_family_id'); current = sessionStorage.getItem('tutp_student_id'); } catch (e) {}
+        if (!familyId) return current;
+        try {
+            const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+            if (!res.ok) return current;
+            const ids = ((await res.json()).students || []).map(s => s.id);
+            if (current && ids.includes(current)) return current;
+            if (!ids.length) return null;
+            try { sessionStorage.setItem('tutp_student_id', ids[0]); } catch (e) {}
+            return ids[0];
+        } catch (err) {
+            console.error('[child] Could not confirm the selected child:', err);
+            return current;
+        }
     })();
 
     // Real logout — clears the httpOnly session cookie server-side (client
@@ -903,7 +948,7 @@
 
         async function loadHomeworkModalChildContext(){
             const el = document.getElementById('hwModalChildContext');
-            const studentId = sessionStorage.getItem('tutp_student_id');
+            const studentId = await window.tutpChildReady;
             const familyId = sessionStorage.getItem('tutp_family_id');
             el.textContent = 'Helping your child';
             try {
@@ -1128,6 +1173,7 @@ Parent's instruction: ${hwText || 'none given'}`;
             });
 
             try {
+                await window.tutpChildReady;
                 const res = await fetch('/api/homework', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1477,6 +1523,7 @@ Parent's instruction: ${hwText || 'none given'}`;
         }
 
         async function callHomeworkApi(systemPrompt, userContent, feature){
+            await window.tutpChildReady;
             const res = await fetch('/api/homework', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -2540,7 +2587,7 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
                 nameEls.forEach(el => { el.textContent = name; });
                 if (goalEl) goalEl.textContent = name;
             };
-            const studentId = sessionStorage.getItem('tutp_student_id');
+            const studentId = await window.tutpChildReady;
             if (!studentId) { showName('your child'); return; }
             try {
                 const res = await fetch('/api/student/' + encodeURIComponent(studentId));

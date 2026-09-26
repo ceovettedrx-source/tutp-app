@@ -115,11 +115,29 @@
   // (see father/mother/family-member/child/teacher, which all already have
   // this same handler).
   (function(){
-    const originalFetch = window.fetch;
+    // 401 = no valid session (expired or missing): log in again.
+        // 403 = logged in, but this request isn't allowed for this account:
+        // say so and stay logged in. Treating every 403 as a logout used to
+        // drop parents back to an empty login page whenever one optional
+        // request was refused.
+        function tutpShowForbiddenNotice(){
+            const show = () => {
+                if (document.getElementById('tutpForbiddenNotice')) return;
+                const box = document.createElement('div');
+                box.id = 'tutpForbiddenNotice';
+                box.setAttribute('role', 'status');
+                box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;max-width:360px;width:calc(100% - 32px);background:#181c20;color:#fff;border-radius:12px;padding:12px 16px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);';
+                box.textContent = "Part of this page isn't available for this account. You're still logged in.";
+                document.body.appendChild(box);
+                setTimeout(() => box.remove(), 6000);
+            };
+            if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+        }
+        const originalFetch = window.fetch;
     window.fetch = function(input, init){
       return originalFetch(input, init).then(res => {
         const url = typeof input === 'string' ? input : (input && input.url) || '';
-        if (res.status === 403 && url.startsWith('/api/')) {
+        if (res.status === 401 && url.startsWith('/api/')) {
           try {
             sessionStorage.removeItem('tutp_family_id');
             sessionStorage.removeItem('tutp_student_id');
@@ -129,7 +147,9 @@
             sessionStorage.removeItem('tutp_last_dashboard');
           } catch (e) {}
           window.location.href = '/app/login/';
-        }
+        } else if (res.status === 403 && url.startsWith('/api/')) {
+                    tutpShowForbiddenNotice();
+                }
         return res;
       });
     };
