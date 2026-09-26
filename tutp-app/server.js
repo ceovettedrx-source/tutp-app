@@ -3649,7 +3649,38 @@ app.get('/api/teacher/:id/referral-code', async (req, res) => {
 // means "became a paying subscriber" (>=1 'paid' row), not just
 // "registered via my link" like it did before payments existed — the
 // dashboard caption next to this tile spells that out for returning users.
-app.use('/api/teacher/create-material', createMaterialRouter);
+//
+// Teacher AI routes (create-material, question-paper-generate) each spend
+// several thousand Claude tokens per call and used to accept anyone: the
+// question-paper route had no session check at all, and create-material
+// trusted whatever teacher_id the body carried. Both now need a real teacher
+// session (and, where the body names a teacher_id, it must be that session's
+// own), plus 10 calls/hour per teacher. The limiter's store is in-memory, so
+// the cap is per Cloud Run instance, not global. It's a cost brake, not an
+// exact quota.
+function requireTeacherSessionMw(req, res, next) {
+  const session = getSession(req);
+  const bodyTeacherId = req.body?.teacher_id;
+  if (!session || !session.teacherId ||
+      (bodyTeacherId !== undefined && String(bodyTeacherId) !== String(session.teacherId))) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  req.teacherSession = session;
+  next();
+}
+
+function teacherAiLimiter() {
+  return rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    keyGenerator: (req) => 'teacher:' + String(req.teacherSession.teacherId),
+    message: { error: "You've reached 10 generations this hour. Please try again a little later." }
+  });
+}
+
+app.use('/api/teacher/create-material', requireTeacherSessionMw, teacherAiLimiter(), createMaterialRouter);
 
 app.get('/api/teacher/:id/referrals', async (req, res) => {
   try {
@@ -5750,24 +5781,138 @@ app.post('/api/feedback', async (req, res) => {
 // /api/homework itself used to have (see git history), split out once
 // /api/homework gained a real per-student auth gate + tracking, rather
 // than punching a studentId-less bypass hole back into the real route.
-// No tracking here — there's no family/student to attribute it to.
+//
+// Being login-free, it used to be an open Claude proxy: the browser sent
+// the whole system prompt. Now the prompt is a fixed server-side template
+// and the browser only picks from the demo form's own dropdowns. Two caps
+// keep it a teaser rather than a free service:
+//   - 3 tries per browser per IST day, counted in a signed cookie. Not per
+//     IP: Indian mobile carriers put many phones behind one shared IP.
+//   - 300 calls per IST day across everyone, counted as 'demo.call' rows in
+//     usage_events. That's the backstop for anyone clearing cookies. If the
+//     count can't be read or written, the demo fails closed.
+// The child's name never goes to Anthropic: the model writes {{CHILD}} and
+// the name is substituted into the response here.
 // ------------------------------------------------------------------
+const DEMO_LANGUAGES = ['Telugu', 'Hindi', 'English', 'Spanish', 'German', 'Arabic', 'French', 'Tamil', 'Marathi'];
+const DEMO_CLASSES = ['Class 3', 'Class 4', 'Class 5', 'Class 6', 'Class 7', 'Class 8', 'Class 9', 'Class 10', 'Grade 11 / Sixth Form', 'Grade 12 / A-Level'];
+const DEMO_CURRICULA = ['State Board (India)', 'CBSE (India)', 'ICSE (India)', 'Common Core (US)', 'National Curriculum (UK)', 'IB', 'German Gymnasium'];
+const DEMO_MEDIA_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'];
+const DEMO_MAX_TEXT_CHARS = 2000;
+const DEMO_MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+const DEMO_PER_BROWSER_PER_DAY = 3;
+const DEMO_GLOBAL_PER_DAY = 300;
+const DEMO_COOKIE_NAME = 'tutp_demo';
+const DEMO_LIMIT_MESSAGE = 'Demo limit reached for today, sign up to continue.';
+
+// Derived from SESSION_SECRET rather than SESSION_SECRET itself, so a demo
+// cookie can never be replayed as a valid tutp_session token.
+function demoCookieKey() {
+  return crypto.createHmac('sha256', process.env.SESSION_SECRET || '').update('tutp-demo-cookie').digest('hex');
+}
+
+function istDayKey(now = new Date()) {
+  return new Date(now.getTime() + IST_OFFSET_MS).toISOString().slice(0, 10);
+}
+
+function startOfTodayIST(now = new Date()) {
+  return new Date(Date.parse(istDayKey(now) + 'T00:00:00Z') - IST_OFFSET_MS);
+}
+
+function readDemoCount(req, today) {
+  const token = req.cookies?.[DEMO_COOKIE_NAME];
+  if (!token || !process.env.SESSION_SECRET) return 0;
+  try {
+    const p = jwt.verify(token, demoCookieKey());
+    return p.kind === 'demo' && p.d === today && Number.isInteger(p.n) ? p.n : 0;
+  } catch (err) {
+    return 0;
+  }
+}
+
+function buildDemoSystemPrompt(lang, childClass, curriculum) {
+  return `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
+Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${lang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[{"question":"short question in ${lang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${lang} on why the correct answer is right"}]}
+Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is in ${childClass}, curriculum: ${curriculum}. If you mention the child by name, write exactly {{CHILD}} in place of the name.`;
+}
+
 app.post('/api/homework-demo', async (req, res) => {
   try {
-    const { systemPrompt, userContent } = req.body;
-    if (!systemPrompt || !userContent) {
-      return res.status(400).json({ error: 'Missing systemPrompt or userContent' });
+    const { language, childClass, curriculum, childName, text, attachment } = req.body || {};
+    if (!DEMO_LANGUAGES.includes(language) || !DEMO_CLASSES.includes(childClass) || !DEMO_CURRICULA.includes(curriculum)) {
+      return res.status(400).json({ error: 'Invalid language, class or curriculum' });
     }
-    if (!Array.isArray(userContent) || !userContent.length || !userContent.every(isValidHomeworkContentBlock)) {
-      return res.status(400).json({ error: 'Invalid userContent' });
+    const hwText = typeof text === 'string' ? text.trim() : '';
+    if (hwText.length > DEMO_MAX_TEXT_CHARS) {
+      return res.status(400).json({ error: `Please keep the homework text under ${DEMO_MAX_TEXT_CHARS} characters.` });
     }
-    const attachmentCount = userContent.filter(b => b.type === 'image' || b.type === 'document').length;
-    if (attachmentCount > 2) {
-      return res.status(400).json({ error: 'At most 2 photo/PDF attachments are allowed per request.' });
+    let attachmentBlock = null;
+    if (attachment != null) {
+      const { mediaType, data } = attachment;
+      if (!DEMO_MEDIA_TYPES.includes(mediaType) || typeof data !== 'string' || !data) {
+        return res.status(400).json({ error: 'Please attach a photo (JPG/PNG/WebP) or a PDF.' });
+      }
+      if (Math.floor(data.length * 3 / 4) > DEMO_MAX_ATTACHMENT_BYTES) {
+        return res.status(400).json({ error: 'That file is too large — please attach one under 10 MB.' });
+      }
+      attachmentBlock = {
+        type: mediaType === 'application/pdf' ? 'document' : 'image',
+        source: { type: 'base64', media_type: mediaType, data }
+      };
     }
+    if (!hwText && !attachmentBlock) {
+      return res.status(400).json({ error: 'Please paste the homework text or attach a photo.' });
+    }
+    const safeName = (typeof childName === 'string' ? childName : '')
+      .replace(/[^\p{L}\p{M} .'-]/gu, '').trim().slice(0, 40) || 'your child';
+
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
+    if (!supabase || !process.env.SESSION_SECRET) {
+      return res.status(503).json({ error: 'The demo is unavailable right now. Please try again later.' });
+    }
+
+    const today = istDayKey();
+    const usedByBrowser = readDemoCount(req, today);
+    if (usedByBrowser >= DEMO_PER_BROWSER_PER_DAY) {
+      return res.status(429).json({ error: DEMO_LIMIT_MESSAGE });
+    }
+    const { count: usedToday, error: countErr } = await supabase
+      .from('usage_events')
+      .select('id', { count: 'exact', head: true })
+      .eq('event_name', 'demo.call')
+      .gte('created_at', startOfTodayIST().toISOString());
+    if (countErr) {
+      console.error('Demo budget count failed:', countErr.message);
+      return res.status(503).json({ error: 'The demo is unavailable right now. Please try again later.' });
+    }
+    if ((usedToday || 0) >= DEMO_GLOBAL_PER_DAY) {
+      return res.status(429).json({ error: DEMO_LIMIT_MESSAGE });
+    }
+    // Counted before the Claude call, so parallel requests can't all slip
+    // through on the same count.
+    const { error: insertErr } = await supabase.from('usage_events').insert({
+      event_name: 'demo.call', properties: { language, has_attachment: !!attachmentBlock }
+    });
+    if (insertErr) {
+      console.error('Demo budget insert failed:', insertErr.message);
+      return res.status(503).json({ error: 'The demo is unavailable right now. Please try again later.' });
+    }
+    res.cookie(DEMO_COOKIE_NAME, jwt.sign({ kind: 'demo', d: today, n: usedByBrowser + 1 }, demoCookieKey(), { expiresIn: '2d' }), {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      maxAge: 2 * 24 * 60 * 60 * 1000
+    });
+
+    const userContent = [];
+    if (attachmentBlock) userContent.push(attachmentBlock);
+    userContent.push({
+      type: 'text',
+      text: hwText ? `Homework: ${hwText}` : 'Read the homework in the attached photo or PDF and respond to it.'
+    });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -5780,7 +5925,7 @@ app.post('/api/homework-demo', async (req, res) => {
       body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: 3000,
-        system: systemPrompt,
+        system: buildDemoSystemPrompt(language, childClass, curriculum),
         messages: [{ role: 'user', content: userContent }]
       })
     });
@@ -5788,11 +5933,15 @@ app.post('/api/homework-demo', async (req, res) => {
     if (!response.ok) {
       const errText = await response.text();
       console.error('Anthropic API error (demo):', response.status, errText);
-      return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
+      return res.status(502).json({ error: 'The AI service is busy. Please try again in a moment.' });
     }
 
     const data = await response.json();
-    res.json(data);
+    const textBlock = (data.content || []).find(b => b.type === 'text');
+    if (!textBlock) return res.status(502).json({ error: 'The AI service is busy. Please try again in a moment.' });
+    // JSON-escaped, since the name lands inside the model's JSON strings.
+    const nameForJson = JSON.stringify(safeName).slice(1, -1);
+    res.json({ content: [{ type: 'text', text: textBlock.text.split('{{CHILD}}').join(nameForJson) }] });
   } catch (err) {
     console.error('Server error (demo):', err);
     res.status(500).json({ error: 'Server error calling Claude' });
@@ -6022,7 +6171,7 @@ function processQpSections(rawSections) {
     });
 }
 
-app.post('/api/question-paper-generate', async (req, res) => {
+app.post('/api/question-paper-generate', requireTeacherSessionMw, teacherAiLimiter(), async (req, res) => {
   try {
     if (!process.env.ANTHROPIC_API_KEY) {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });

@@ -254,23 +254,20 @@ goBtn.addEventListener('click', async () => {
   sessionStartTime = Date.now();
   correctCount = 0;
 
+  // Set only for messages the server means the parent to read (the daily
+  // demo limit, a too-large file), so everything else keeps the generic text.
+  let userFacingError = null;
   try {
-    const systemPrompt = `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
-Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","explanation":"2-4 short sentences in ${parentLang}, simple enough for a busy or rusty-on-the-subject parent to read in under a minute, explaining the underlying concept and how to guide the child to the answer (do not just give the final answer)","quiz":[{"question":"short question in ${parentLang}, testing understanding of the concept","options":["A","B","C","D"],"correct":0,"explain":"one short sentence in ${parentLang} on why the correct answer is right"}]}
-Generate exactly 5 quiz questions. Keep every string concise — this must fit a small token budget. The child is in ${childClass}, curriculum: ${curriculum}, name: ${childName}.`;
-
-    const userContent = [];
-    if (uploadedImageBase64) {
-      userContent.push({
-        type: uploadedImageMediaType === "application/pdf" ? "document" : "image",
-        source: { type: "base64", media_type: uploadedImageMediaType, data: uploadedImageBase64 }
-      });
-    }
-    userContent.push({
-      type: "text",
-      text: hwText ? `Homework: ${hwText}` : "Read the homework in the attached photo or PDF and respond to it."
-    });
+    // The prompt itself is built server-side; this page only sends the
+    // form's own choices.
+    const payload = {
+      language: parentLang,
+      childClass,
+      curriculum,
+      childName,
+      text: hwText,
+      attachment: uploadedImageBase64 ? { mediaType: uploadedImageMediaType, data: uploadedImageBase64 } : null
+    };
 
     // Always the standalone, no-login path — /demo/ is a no-account teaser
     // and must never authorize against a real session. It used to also read
@@ -284,10 +281,11 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
     const response = await fetch("/api/homework-demo", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ systemPrompt, userContent })
+      body: JSON.stringify(payload)
     });
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
+      if ((response.status === 429 || response.status === 400) && errData.error) userFacingError = errData.error;
       throw new Error(errData.error || `Server returned ${response.status}`);
     }
     const data = await response.json();
@@ -305,7 +303,7 @@ Generate exactly 5 quiz questions. Keep every string concise — this must fit a
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) {
     console.error(err);
-    errBox.textContent = 'Something went wrong reaching the AI. Please try again in a moment.';
+    errBox.textContent = userFacingError || 'Something went wrong reaching the AI. Please try again in a moment.';
     errBox.classList.remove('hidden');
   } finally {
     goBtn.disabled = false;

@@ -54,3 +54,10 @@
   ```
   gcloud run services update-traffic tutp-demo --region=us-central1 --to-revisions=<new-revision>=100 --set-tags=pdftest=<new-revision>
   ```
+
+## Infra known issues
+
+- **gcloud hangs but curl works → IPv6 is broken** (seen on Vet's iPhone hotspot). gcloud's Python tries Google's IPv6 addresses first and stalls; curl falls back to IPv4. Fixed by disabling IPv6 on the Wi-Fi 5 adapter; if on Ethernet later, apply the same fix to that adapter.
+- **PowerShell:** call `gcloud.cmd`, not `gcloud` — `gcloud.ps1` is blocked by the execution policy.
+- **deploy.sh output piped through `tail`/`grep` shows nothing until it finishes** (and nothing at all if it hangs). Log to a file instead (`bash deploy.sh > deploy.log 2>&1`) and read that.
+- **`gcloud run services update-traffic` is blocked in Claude Code auto mode** (production deploy). Vet runs it manually; Claude verifies afterwards.
