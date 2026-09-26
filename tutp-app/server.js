@@ -2133,10 +2133,15 @@ function endOfIstDay(ms) {
 // early renewal extends the existing period instead of restarting from
 // today, and a payment after a lapse starts fresh. Returns ms, or null if the
 // child has never paid.
+//
+// A captured row with no captured_at was captured by code older than
+// migration 025 (e.g. the webhook landing on the previous revision during a
+// rollout, which then makes /api/billing/verify a no-op). Its updated_at was
+// set at that capture, so it stands in rather than the payment being ignored.
 function computePaidUntil(capturedPayments) {
   let until = null;
   const sorted = capturedPayments
-    .map(p => ({ at: Date.parse(p.captured_at), days: Number(p.period_days) || 30 }))
+    .map(p => ({ at: Date.parse(p.captured_at || p.updated_at), days: Number(p.period_days) || 30 }))
     .filter(p => Number.isFinite(p.at))
     .sort((a, b) => a.at - b.at);
   for (const p of sorted) {
@@ -2158,7 +2163,7 @@ async function getPaidStatusForStudents(studentIds, now = Date.now()) {
   if (!studentIds.length) return result;
   const { data, error } = await supabase
     .from('payments')
-    .select('student_id, captured_at, period_days')
+    .select('student_id, captured_at, updated_at, period_days')
     .in('student_id', studentIds)
     .eq('status', 'captured');
   if (error) throw error;
