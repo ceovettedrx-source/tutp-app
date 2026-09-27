@@ -32,9 +32,10 @@
 //   g  member -> own dashboard; mother's/father's data 403, both pages redirect,
 //      a foreign member id in the tab is reset to the member's own
 //   h  parent dashboard -> child view loads without a redirect to login
-//   i  role guard fails closed: with no roles on record (cached empty in the
-//      tab, or /api/session/me answering roleMatches: []) a role dashboard
-//      sends the viewer to /app/login/ and the profile picker, never stays open
+//   i  role guard fails closed: with empty roles cached in the tab the page
+//      goes through /app/login/?pick=1 (which re-asks the server) instead of
+//      staying open; with /api/session/me answering roleMatches: [] it ends
+//      on /app/login/ and the profile picker
 //
 // Output: tests/e2e/output/ (results.json, FAIL_<test>.png). Exit code 1 if
 // any test fails.
@@ -239,12 +240,23 @@ function assertRole(me, role) {
         out.push(`${label}: /app/mother/ -> ${end}${picker ? ' (profile picker)' : ''}`);
         if (end !== '/app/login/' || !picker) throw new Error(`${label} did not fail closed (${out.join('; ')})`);
       };
-      // 1. Empty roles cached in the tab.
+      // 1. Empty roles cached in the tab: the page must not stay open. The
+      // guard sends it to /app/login/?pick=1, which asks the server again;
+      // this session really is the mother, so it comes back to /app/mother/
+      // with the roles re-fetched.
       const c1 = await newCtx(); await c1.addCookies(hostOnly(motherCookies));
       iPage = await c1.newPage();
       await settle(iPage, DASH.mother);
       await iPage.evaluate(() => sessionStorage.setItem('tutp_roles', '[]'));
-      await expectPicker(iPage, 'cached []');
+      const visited = [];
+      const onNav = (fr) => { if (fr === iPage.mainFrame()) visited.push(new URL(fr.url()).pathname + new URL(fr.url()).search); };
+      iPage.on('framenavigated', onNav);
+      const end1 = await settle(iPage, DASH.mother);
+      iPage.off('framenavigated', onNav);
+      const roles1 = await iPage.evaluate(() => sessionStorage.getItem('tutp_roles'));
+      out.push(`cached []: ${visited.join(' > ')}; roles now ${roles1}`);
+      if (!visited.includes('/app/login/?pick=1')) throw new Error(`cached [] did not go through /app/login/?pick=1 (${out.join('; ')})`);
+      if (end1 !== DASH.mother || !/"mother"/.test(roles1 || '')) throw new Error(`cached [] did not come back with the mother role (${out.join('; ')})`);
       await c1.close();
       // 2. The server reports no roles (as for a phone shared by two families).
       const c2 = await newCtx(); await c2.addCookies(hostOnly(motherCookies));

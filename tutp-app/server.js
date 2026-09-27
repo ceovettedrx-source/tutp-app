@@ -4304,6 +4304,29 @@ async function findFamilyIdByPhone(phone) {
   const matches = (data || []).filter(row =>
     norm(row.data?.mother?.phone) === digits || norm(row.data?.father?.phone) === digits
   );
+
+  // A family member signing in with their own phone: their number is in
+  // family_members, not in the family row, so find their families there too
+  // (same substring-then-exact matching). buildRoleMatches below already
+  // turns a matching member into a family_member role, and a phone found in
+  // more than one family is ambiguous exactly like a parent's.
+  const { data: memberRows, error: memberErr } = await supabase
+    .from('family_members')
+    .select('family_id, phone')
+    .ilike('phone', `%${digits}%`);
+  if (memberErr) throw memberErr;
+  const seen = new Set(matches.map(m => m.id));
+  const memberFamilyIds = [...new Set((memberRows || [])
+    .filter(m => norm(m.phone) === digits)
+    .map(m => m.family_id))]
+    .filter(id => !seen.has(id));
+  if (memberFamilyIds.length) {
+    const { data: memberFamilies, error: famErr } = await supabase
+      .from('family_registrations').select('id, data').in('id', memberFamilyIds);
+    if (famErr) throw famErr;
+    matches.push(...(memberFamilies || []));
+    matches.sort((a, b) => b.id - a.id);
+  }
   if (!matches.length) return null;
 
   if (matches.length > 1) {
