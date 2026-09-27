@@ -17,6 +17,11 @@
   #ask { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid #dde3ea; }
   #ask input { flex: 1; font: inherit; padding: 12px; border-radius: 10px; border: 1px solid #c9d3e0; }
   #speech { min-height: 24px; margin: 12px 0; color: #005bbf; font-weight: 600; }
+  .chip { border-radius: 999px; padding: 8px 14px; font-size: 14px; }
+  button:disabled { opacity: .5; cursor: default; }
+  #photo { font: inherit; font-size: 14px; }
+  #status { min-height: 18px; margin: 0 0 8px; font-size: 13px; color: #5b6573; }
+  #status.error { color: #d93025; }
 </style>
 </head>
 <body>
@@ -33,6 +38,15 @@
     <button>Storytelling</button>
     <button id="explain" class="primary">Explain in Telugu</button>
   </div>
+  <div class="row">
+    <input id="photo" type="file" accept="image/*" capture="environment" aria-label="Choose homework photo">
+  </div>
+  <div class="row" id="chips">
+    <button class="chip" type="button">Where are the mistakes?</button>
+    <button class="chip" type="button" lang="te">తప్పులు ఎక్కడ ఉన్నాయి?</button>
+    <button class="chip" type="button">What did my child do right?</button>
+  </div>
+  <p id="status" role="status"></p>
   <p id="speech" aria-live="polite"></p>
   <img id="hw" alt="Child's math homework" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='800' height='500'><rect width='800' height='500' fill='white'/><g font-family='Comic Sans MS, cursive' font-size='36' fill='%23222'><text x='60' y='110'>1)  24 + 13 = 37</text><text x='60' y='210'>2)  45 - 18 = 33</text><text x='60' y='310'>3)  7 x 6 = 42</text></g></svg>">
 </main>
@@ -48,11 +62,13 @@
   const MOCK = new URLSearchParams(location.search).has('mock');
   const imgEl = document.getElementById('hw');
 
-  async function askVisualTutor(question) {
+  async function askVisualTutor(question, forceMode) {
     // Pick mode: questions about the photo go to vision; everything else uses the DOM.
-    const aboutPhoto = /homework|mistake|wrong|తప్పు|హోంవర్క్|answer|sum/i.test(question);
+    const aboutPhoto = forceMode ? forceMode === 'image'
+                                 : /homework|mistake|wrong|తప్పు|హోంవర్క్|answer|sum/i.test(question);
     let body;
     if (aboutPhoto) {
+      await imgEl.decode().catch(() => {});        // a just-picked photo may still be loading
       body = { mode: 'image', question, image: TutPointer.prepareImage(imgEl) };
     } else {
       body = { mode: 'ui', question, viewport: { w: innerWidth, h: innerHeight }, elements: TutPointer.snapshotUI() };
@@ -61,7 +77,10 @@
       method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(body),
     }).then((r) => r.ok ? r.json() : Promise.reject(r.status));
+    return result;
+  }
 
+  async function show(result) {
     document.getElementById('speech').textContent = result.speech;
     await TutPointer.play(result, { imageEl: imgEl, autoClearMs: 12000 });
   }
@@ -80,10 +99,60 @@
       ] };
   }
 
+  // Status line + one request at a time; timing covers the request only,
+  // not the step-by-step drawing that follows.
+  const statusEl = document.getElementById('status');
+  const askButtons = () => document.querySelectorAll('#go, #chips button');
+  let busy = false;
+
+  async function run(question, forceMode) {
+    if (busy) return;
+    busy = true;
+    askButtons().forEach((b) => { b.disabled = true; });
+    statusEl.className = '';
+    statusEl.textContent = 'Sending…';
+    const t0 = performance.now();
+    try {
+      const result = await askVisualTutor(question, forceMode);
+      statusEl.textContent = `Done in ${((performance.now() - t0) / 1000).toFixed(1)} seconds` + (MOCK ? ' (mock)' : '');
+      await show(result);
+    } catch (e) {
+      statusEl.className = 'error';
+      statusEl.textContent = 'Error' + (e ? ' (' + e + ')' : '') + '. Try again.';
+      document.getElementById('speech').textContent = '';
+    } finally {
+      busy = false;
+      askButtons().forEach((b) => { b.disabled = false; });
+    }
+  }
+
   document.getElementById('go').addEventListener('click', () => {
     const q = document.getElementById('q').value.trim();
-    if (q) askVisualTutor(q).catch((e) => { document.getElementById('speech').textContent = 'Could not load help (' + e + '). Try again.'; });
+    if (q) run(q);
   });
+
+  // Quick questions always go to image mode.
+  document.querySelectorAll('#chips button').forEach((b) => {
+    b.addEventListener('click', () => run(b.textContent.trim(), 'image'));
+  });
+
+  // Chosen photo replaces #hw. Mock boxes are fixed to the sample sheet,
+  // so on a real photo they will land in arbitrary places.
+  const photoEl = document.getElementById('photo');
+  let photoUrl = null;
+  photoEl.addEventListener('change', () => {
+    const file = photoEl.files && photoEl.files[0];
+    if (!file) return;
+    TutPointer.clear();
+    if (photoUrl) URL.revokeObjectURL(photoUrl);
+    photoUrl = URL.createObjectURL(file);
+    imgEl.src = photoUrl;
+    imgEl.alt = 'Homework photo: ' + file.name;
+    document.getElementById('speech').textContent = '';
+    statusEl.className = '';
+    statusEl.textContent = 'Photo loaded.';
+  });
+  document.getElementById('upload').addEventListener('click', () => photoEl.click());
 </script>
 </body>
 </html>

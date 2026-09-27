@@ -161,6 +161,10 @@
         'marker-end': `url(#tutp-head-${step.tone in TONES ? step.tone : 'info'})`,
       });
       g.appendChild(nodes.line);
+      // Fallback when no arrow route is clear: a ring around the target.
+      nodes.ring = el('rect', { rx: 12, fill: 'none', stroke: tone.stroke, 'stroke-width': 3, display: 'none' });
+      Object.assign(nodes.ring.style, { transformBox: 'fill-box', transformOrigin: 'center' });
+      g.appendChild(nodes.ring);
     }
     if (step.label) {
       nodes.labelBg = el('rect', { rx: 8, fill: tone.stroke });
@@ -193,7 +197,7 @@
       ex = dx < 0 ? to.x - 6 : to.x + to.w + 6; ey = ty;
     }
     const cx = (fx + ex) / 2 + (fy - ey) * 0.25, cy = (fy + ey) / 2 - (fx - ex) * 0.25;
-    return { d: `M${fx},${fy} Q${cx},${cy} ${ex},${ey}`, start: { x: fx, y: fy } };
+    return { d: `M${fx},${fy} Q${cx},${cy} ${ex},${ey}`, start: { x: fx, y: fy }, end: { x: ex, y: ey } };
   }
 
   // ---------- label avoidance (local only) ----------
@@ -238,13 +242,106 @@
     return obstacles;
   }
 
+  // ---------- candidate label placement ----------
+  const GAP = 40;
+  const LINE_WEIGHT = 12;   // penalty per px of arrow crossing an obstacle
+  // [dx, dy]: -1 = left/above, 0 = centered, 1 = right/below. Order matters:
+  // the first overlap-free candidate wins.
+  const CANDIDATES = [[-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0]];
+
+  function candidateBox(r, [dx, dy], w, h) {
+    const x = dx < 0 ? r.x - GAP - w : dx > 0 ? r.x + r.w + GAP : r.x + r.w / 2 - w / 2;
+    const y = dy < 0 ? r.y - GAP - h : dy > 0 ? r.y + r.h + GAP : r.y + r.h / 2 - h / 2;
+    return {
+      x: Math.min(Math.max(8, x), window.innerWidth - w - 8),
+      y: Math.min(Math.max(8, y), window.innerHeight - h - 8),
+      w, h,
+    };
+  }
+
+  function overlapArea(b, [rx, ry, rw, rh]) {
+    const w = Math.min(b.x + b.w, rx + rw) - Math.max(b.x, rx);
+    const h = Math.min(b.y + b.h, ry + rh) - Math.max(b.y, ry);
+    return w > 0 && h > 0 ? w * h : 0;
+  }
+
+  // Length of segment p->q inside a rect (Liang-Barsky clip).
+  function segmentInside(p, q, [rx, ry, rw, rh]) {
+    const dx = q.x - p.x, dy = q.y - p.y;
+    let t0 = 0, t1 = 1;
+    for (const [pk, qk] of [[-dx, p.x - rx], [dx, rx + rw - p.x], [-dy, p.y - ry], [dy, ry + rh - p.y]]) {
+      if (pk === 0) { if (qk < 0) return 0; continue; }
+      const t = qk / pk;
+      if (pk < 0) { if (t > t1) return 0; if (t > t0) t0 = t; }
+      else { if (t < t0) return 0; if (t < t1) t1 = t; }
+    }
+    return (t1 - t0) * Math.hypot(dx, dy);
+  }
+
+  // Midpoint of the label edge closest to the target's center.
+  function nearestEdgePoint(b, r) {
+    const tx = r.x + r.w / 2, ty = r.y + r.h / 2;
+    const d = (p) => Math.hypot(p.x - tx, p.y - ty);
+    return [
+      { x: b.x + b.w / 2, y: b.y }, { x: b.x + b.w / 2, y: b.y + b.h },
+      { x: b.x, y: b.y + b.h / 2 }, { x: b.x + b.w, y: b.y + b.h / 2 },
+    ].reduce((a, p) => (d(p) < d(a) ? p : a));
+  }
+
+  // Scores all candidates; returns {i, box, start, overlap}. `prev` (the last
+  // pick) is kept while it stays clear so the label doesn't hop while scrolling.
+  function placeLabel(r, w, h, withArrow, prev) {
+    // Skip anything that fully contains the target (the homework photo, a
+    // wrapping container) — dodging it would push the label far from the
+    // target — and anything inside the target, which the padded target covers.
+    const around = ([x, y, ow, oh]) => x <= r.x && y <= r.y && x + ow >= r.x + r.w && y + oh >= r.y + r.h;
+    const inside = ([x, y, ow, oh]) => x >= r.x - 1 && y >= r.y - 1 && x + ow <= r.x + r.w + 1 && y + oh <= r.y + r.h + 1;
+    const rects = uiObstacles().filter((o) => !around(o) && !inside(o));
+    const labelRects = rects.concat([[r.x - 6, r.y - 6, r.w + 12, r.h + 12]]);
+    const tx = r.x + r.w / 2, ty = r.y + r.h / 2;
+
+    const scored = CANDIDATES.map((c, i) => {
+      const box = candidateBox(r, c, w, h);
+      let overlap = labelRects.reduce((s, o) => s + overlapArea(box, o), 0);
+      let start = null;
+      if (withArrow) {
+        start = nearestEdgePoint(box, r);
+        const end = arrowPath(r, { x: start.x, y: start.y, w: 0, h: 0 }).end;
+        overlap += LINE_WEIGHT * rects.reduce((s, o) => s + segmentInside(start, end, o), 0);
+      }
+      const dist = Math.hypot(box.x + w / 2 - tx, box.y + h / 2 - ty);
+      return { i, box, start, overlap, score: overlap + dist };
+    });
+    const clear = (s) => s.overlap < 1;
+    if (prev != null && clear(scored[prev])) return scored[prev];
+    return scored.find(clear) || scored.reduce((a, b) => (b.score < a.score ? b : a));
+  }
+
+  // Ring follows the target every frame; pulses twice when it first appears.
+  function setRing(nodes, r, on) {
+    const ring = nodes.ring;
+    const hidden = ring.getAttribute('display') === 'none';
+    if (!on) { if (!hidden) ring.setAttribute('display', 'none'); return; }
+    const pad = 10;
+    Object.entries({ x: r.x - pad, y: r.y - pad, width: r.w + pad * 2, height: r.h + pad * 2 })
+      .forEach(([k, v]) => ring.setAttribute(k, v));
+    if (!hidden) return;
+    ring.removeAttribute('display');
+    if (!reduceMotion && ring.animate) {
+      ring.animate([
+        { transform: 'scale(1)', opacity: 1 },
+        { transform: 'scale(1.15)', opacity: 0.3 },
+        { transform: 'scale(1)', opacity: 1 },
+      ], { duration: 700, iterations: 2, easing: 'ease-in-out' });
+    }
+  }
+
   function layout(item) {
     const { step, nodes, ctx } = item;
     const r = resolve(step.target, ctx);
     if (!r) { nodes.g.setAttribute('display', 'none'); return; }
     nodes.g.removeAttribute('display');
     const pad = 6;
-    let labelAt = { x: r.x, y: r.y - 12 };
 
     if (nodes.rect) {
       Object.entries({ x: r.x - pad, y: r.y - pad, width: r.w + pad * 2, height: r.h + pad * 2 })
@@ -253,44 +350,34 @@
     if (step.type === 'underline') {
       const y = r.y + r.h + 4;
       nodes.line.setAttribute('d', `M${r.x},${y} Q${r.x + r.w / 2},${y + 5} ${r.x + r.w},${y}`);
-      labelAt = { x: r.x, y: y + 28 };
     }
-    if (step.type === 'arrow' || step.type === 'point') {
+    const isArrow = step.type === 'arrow' || step.type === 'point';
+    if (isArrow) {
       const from = step.from ? resolve(step.from, ctx) : null;
-      const a = arrowPath(r, from);
-      nodes.line.setAttribute('d', a.d);
-      labelAt = { x: a.start.x - 10, y: a.start.y - 12 };
+      nodes.line.setAttribute('d', arrowPath(r, from).d);
     }
     if (nodes.label) {
       const bb = nodes.label.getBBox();
-      const x = Math.min(Math.max(8, labelAt.x), window.innerWidth - bb.width - 20);
-      let y = Math.min(Math.max(28, labelAt.y), window.innerHeight - 12);
-      // Box spans [y - bb.height + 2, y + 12]. Push it up above any UI element
-      // it overlaps; give up at the top of the viewport rather than go off-screen.
-      // Skip anything that fully contains the target (the homework photo in
-      // image mode, or a wrapping container) — dodging it would push the label
-      // clear of the whole photo, far from the box it describes.
-      const bw = bb.width + 20;
-      const rects = uiObstacles().filter(([rx, ry, rw, rh]) =>
-        !(rx <= r.x && ry <= r.y && rx + rw >= r.x + r.w && ry + rh >= r.y + r.h));
-      for (let i = 0; i < 20; i++) {
-        const top = y - bb.height + 2, bottom = y + 12;
-        const hit = rects.find(([rx, ry, rw, rh]) =>
-          x < rx + rw && x + bw > rx && top < ry + rh && bottom > ry);
-        if (!hit) break;
-        const next = hit[1] - 16;
-        if (next < 28) break;
-        y = next;
-      }
+      const bw = bb.width + 20, bh = bb.height + 10;
+      // An explicit step.from owns the arrow; otherwise it runs label -> target.
+      const autoArrow = isArrow && !step.from;
+      const pick = placeLabel(r, bw, bh, autoArrow, item.pick);
+      item.pick = pick.i;
+      const { x, y } = pick.box;
       nodes.label.setAttribute('x', x + 10);
-      nodes.label.setAttribute('y', y);
-      Object.entries({ x, y: y - bb.height + 2, width: bw, height: bb.height + 10 })
+      nodes.label.setAttribute('y', y + bb.height - 2);   // text baseline
+      Object.entries({ x, y, width: bw, height: bh })
         .forEach(([k, v]) => nodes.labelBg.setAttribute(k, v));
-      // The label may have moved to dodge UI; restart the arrow from its
-      // bottom-center so the two stay connected. An explicit step.from wins.
-      if ((step.type === 'arrow' || step.type === 'point') && !step.from) {
-        const a = arrowPath(r, { x: x + bw / 2, y: y + 12, w: 0, h: 0 });
-        nodes.line.setAttribute('d', a.d);
+      if (autoArrow) {
+        // No clear route: skip the arrow rather than cross other UI.
+        const blocked = pick.overlap >= 1;
+        if (blocked) {
+          nodes.line.setAttribute('display', 'none');
+        } else {
+          nodes.line.removeAttribute('display');
+          nodes.line.setAttribute('d', arrowPath(r, { x: pick.start.x, y: pick.start.y, w: 0, h: 0 }).d);
+        }
+        setRing(nodes, r, blocked);
       }
     }
   }
@@ -303,8 +390,14 @@
   function animateIn(nodes) {
     nodes.g.style.transition = reduceMotion ? 'none' : 'opacity 220ms ease-out';
     nodes.g.setAttribute('opacity', '1');
-    if (nodes.line && !reduceMotion) {
+    if (nodes.line && !reduceMotion && nodes.line.getAttribute('display') !== 'none') {
       const len = nodes.line.getTotalLength();
+      // The path changes as the label moves; drop the dash once drawn so a
+      // longer path later isn't clipped at the original length.
+      nodes.line.addEventListener('transitionend', () => {
+        nodes.line.style.strokeDasharray = '';
+        nodes.line.style.strokeDashoffset = '';
+      }, { once: true });
       nodes.line.style.strokeDasharray = len;
       nodes.line.style.strokeDashoffset = len;
       nodes.line.getBoundingClientRect();              // force reflow
