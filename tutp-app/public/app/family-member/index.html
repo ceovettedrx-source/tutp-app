@@ -56,6 +56,7 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
+<script src="/app/shared/session-guard.js" data-need="family"></script>
 <script>
     // A direct/anonymous visit with no session at all used to render this
     // whole page anyway — every data fetch below just no-ops to a generic
@@ -66,9 +67,8 @@
     // tutp_family_member_id — the "Which family member are you?" viewer
     // gate further down is a separate, legitimate step for an already-
     // family-scoped session that just hasn't picked a specific member yet.
-    if (!sessionStorage.getItem('tutp_family_id')) {
-        window.location.href = '/app/login/';
-    }
+    // The check itself is /app/shared/session-guard.js, loaded just above:
+    // it restores the ids from the session cookie, or sends to login.
 
     // Lets /app/login/ bounce straight back here on a session it recognizes
     // (back button) instead of forcing a fresh OTP.

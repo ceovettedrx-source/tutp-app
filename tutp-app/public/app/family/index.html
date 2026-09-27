@@ -15,6 +15,7 @@
 </style>
 </head>
 <body class="bg-background text-on-surface font-body min-h-screen">
+<script src="/app/shared/session-guard.js" data-need="family"></script>
 <header class="flex items-center justify-between px-6 py-4 bg-white shadow-sm">
 <a href="/app/mother/" id="backToDashboardLink" class="flex items-center gap-2 text-primary font-bold"><span class="material-symbols-outlined">arrow_back</span>Back to Dashboard</a>
 <h1 class="font-headline text-xl font-bold text-primary">Manage Family</h1>
@@ -97,9 +98,8 @@
 </main>
 <script>
   const familyId = sessionStorage.getItem('tutp_family_id');
-  if (!familyId) {
-    window.location.href = '/app/login/';
-  }
+  // No familyId: /app/shared/session-guard.js (top of <body>) is restoring
+  // it from the session cookie and will reload, or has sent to login.
 
   // Was hardcoded to /app/mother/ regardless of who actually got here —
   // a father or family_member landed back on the wrong dashboard. This page

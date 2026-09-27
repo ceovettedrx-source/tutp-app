@@ -24,6 +24,7 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md min-h-screen">
+<script src="/app/shared/session-guard.js" data-need="teacher"></script>
 <script>
     // A 403 from any /api/ call means the session cookie is missing or
     // doesn't match sessionStorage's tutp_teacher_id — most likely
@@ -266,7 +267,8 @@
 
 <script>
   const teacherId = sessionStorage.getItem('tutp_teacher_id');
-  if (!teacherId) window.location.href = '/app/login/';
+  // No teacherId: /app/shared/session-guard.js (top of <body>) is restoring
+  // it from the session cookie and will reload, or has sent to login.
 
   let attachmentUrl = null;
   let classSections = [];

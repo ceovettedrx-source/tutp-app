@@ -305,13 +305,15 @@ app.use(cookieParser());
 // cleared cookie) lets the token actually expire.
 // ------------------------------------------------------------------
 const SESSION_COOKIE_NAME = 'tutp_session';
-const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+// One setting for both the cookie and the token inside it, so they can't drift apart.
+const SESSION_TTL_DAYS = 30;
+const SESSION_MAX_AGE_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 if (!process.env.SESSION_SECRET) {
   console.warn('SESSION_SECRET not set — session cookies cannot be issued or verified; all family/student/teacher-scoped routes will reject every request.');
 }
 
 function issueSessionCookie(res, payload) {
-  const token = jwt.sign(payload, process.env.SESSION_SECRET, { expiresIn: '30d' });
+  const token = jwt.sign(payload, process.env.SESSION_SECRET, { expiresIn: SESSION_TTL_DAYS + 'd' });
   res.cookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,

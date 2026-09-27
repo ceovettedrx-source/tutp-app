@@ -19,6 +19,7 @@
 </style>
 </head>
 <body class="bg-background text-on-background min-h-screen relative overflow-hidden font-body-md selection:bg-primary-container selection:text-on-primary-container">
+<script src="/app/shared/auth-messages.js"></script>
 <script>
     // Landing here (back button, the bottom-nav "PROFILES" icon, or Home ->
     // Login) doesn't mean the session ended - sessionStorage from an earlier
@@ -38,9 +39,39 @@
             // lands on the corrected profile grid.
             if (hasSession && lastDashboard && lastDashboard !== '/app/child/') {
                 window.location.replace(lastDashboard);
+                return;
             }
         } catch (e) { /* sessionStorage unavailable - fall through to normal login */ }
+        // No tab state, but the session cookie may still be valid (closing
+        // the browser wipes sessionStorage, not the cookie). Show only the
+        // "Checking your login…" spinner until resumeCookieSession() below
+        // has asked the server; tutpEndLoginCheck() shows the page.
+        if (!new URLSearchParams(location.search).get('joinGame')) {
+            window.tutpResumePending = true;
+            document.documentElement.classList.add('tutp-checking');
+        }
     })();
+    window.tutpEndLoginCheck = function(){ document.documentElement.classList.remove('tutp-checking'); };
+    // Back button after a resumed redirect can restore this page from the
+    // back/forward cache with the spinner still up; start over instead.
+    window.addEventListener('pageshow', function(e){
+        if (e.persisted && document.documentElement.classList.contains('tutp-checking')) window.location.reload();
+    });
+</script>
+<style>
+    #tutpLoginCheck { display: none; }
+    html.tutp-checking body > *:not(#tutpLoginCheck) { visibility: hidden; }
+    html.tutp-checking #tutpLoginCheck { display: flex; position: fixed; inset: 0; z-index: 100; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font: 14px/1.4 system-ui, sans-serif; color: #414754; }
+    #tutpLoginCheck .spin { width: 28px; height: 28px; border: 3px solid rgba(0,91,191,.2); border-top-color: #005bbf; border-radius: 50%; animation: tutpSpin .8s linear infinite; }
+    @keyframes tutpSpin { to { transform: rotate(360deg); } }
+</style>
+<div id="tutpLoginCheck" role="status" aria-live="polite"><div class="spin"></div><span>Checking your login…</span></div>
+<script>
+    // Same language pick and text table as the sign-in errors (auth-messages.js).
+    try {
+        var tutpCheckText = window.TUTP_AUTH_MESSAGES[window.tutpAuthLang()].checkingLogin;
+        if (tutpCheckText) document.querySelector('#tutpLoginCheck span').textContent = tutpCheckText;
+    } catch (e) { /* keep the English text */ }
 </script>
 <main class="relative z-10 w-full min-h-screen flex flex-col items-center justify-center p-margin-mobile md:p-margin-desktop">
 <a href="/" class="font-headline-md text-headline-md text-primary font-bold mb-md hover:opacity-80 transition-opacity">Tut-P</a>
@@ -189,6 +220,8 @@
 </main>
 <script>
         function transitionTo(fromId, toId, focusSelector) {
+            // Any view change means the page is meant to be seen.
+            window.tutpEndLoginCheck();
             const from = document.getElementById(fromId);
             const to = document.getElementById(toId);
             from.classList.add('fade-out');
@@ -410,7 +443,11 @@
                     body: JSON.stringify({ token: joinToken })
                 });
                 const data = await res.json();
-                if (!res.ok) throw new Error(data.error || 'This invite link is invalid or has expired.');
+                if (!res.ok) {
+                    const inviteErr = new Error(data.error || 'This invite link is invalid or has expired.');
+                    inviteErr.tutpInvite = true;
+                    throw inviteErr;
+                }
 
                 // Normalized to the same '+91' + 10-digit shape every other
                 // call site in this file uses — data.phone's stored format
@@ -424,10 +461,69 @@
             } catch (err) {
                 // Leave the normal phone-entry form usable as a fallback
                 // rather than dead-ending someone whose link expired.
-                document.getElementById('loginSubtitle').textContent = err.message || 'This invite link is invalid or has expired — please log in below instead.';
+                // Our own invite message as-is; a failed code send gets the
+                // same plain-language text as a normal login.
+                document.getElementById('loginSubtitle').textContent = err.tutpInvite ? err.message : authMsg(err);
             }
         }
         document.addEventListener('DOMContentLoaded', initGameJoin);
+
+        // A still-valid session cookie skips the OTP: the same routing as
+        // right after a login (roles, then which child), from
+        // /api/session/me. 401 or anything unexpected shows the phone form.
+        function hideLoginForm(){
+            document.getElementById('login-view').classList.add('hidden');
+        }
+        async function resumeCookieSession(){
+            try {
+                const res = await fetch('/api/session/me', { cache: 'no-store' });
+                if (!res.ok) return false;
+                const me = await res.json();
+                if (me.familyId) {
+                    sessionStorage.setItem('tutp_family_id', me.familyId);
+                    loginChildren = me.children || [];
+                    hideLoginForm();
+                    routeAfterLogin(me.roleMatches || []);
+                    return true;
+                }
+                if (me.teacherId) {
+                    // Same approval check as the teacher branch of
+                    // continuePostLoginFlow.
+                    const tRes = await fetch('/api/teacher/' + encodeURIComponent(me.teacherId), { cache: 'no-store' });
+                    if (!tRes.ok) return false;
+                    const t = await tRes.json();
+                    hideLoginForm();
+                    if (!t.is_approved) {
+                        transitionTo(currentViewId(), 'teacher-pending-view');
+                        return true;
+                    }
+                    sessionStorage.setItem('tutp_teacher_id', me.teacherId);
+                    window.location.replace('/app/teacher/');
+                    return true;
+                }
+            } catch (e) {
+                console.error('[login] Could not check for an existing session:', e);
+            }
+            return false;
+        }
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (!window.tutpResumePending) return;
+            // Never leave the spinner up if the check hangs.
+            const failsafe = setTimeout(window.tutpEndLoginCheck, 3000);
+            const resumed = await resumeCookieSession();
+            clearTimeout(failsafe);
+            // Not resumed: show the phone form. Resumed: either a redirect
+            // is under way (keep the spinner until the next page loads) or
+            // a picker/pending view was shown, which already ended the
+            // check in transitionTo.
+            if (!resumed) window.tutpEndLoginCheck();
+        });
+
+        // Plain-language text for any sign-in error (never err.message);
+        // the fallback covers phone-auth.js itself failing to load.
+        function authMsg(err){
+            return window.tutpAuthErrorMessage ? window.tutpAuthErrorMessage(err) : 'Something went wrong. Please try again.';
+        }
 
         async function sendCodeAndShowOTP(){
             await window.tutpSendOTP('+91' + lastPhoneDigits);
@@ -448,7 +544,7 @@
                 resendEl.textContent = 'Code sent';
                 setTimeout(() => { resendEl.textContent = 'Resend Code'; }, 3000);
             } catch (err) {
-                errEl.textContent = err.message || 'Could not resend the code — please try again.';
+                errEl.textContent = authMsg(err);
                 errEl.classList.remove('hidden');
                 resendEl.textContent = 'Resend Code';
             } finally {
@@ -475,7 +571,7 @@
             try {
                 await sendCodeAndShowOTP();
             } catch(err){
-                errEl.textContent = err.message || 'Could not continue — please try again.';
+                errEl.textContent = authMsg(err);
                 errEl.classList.remove('hidden');
             } finally {
                 btn.disabled = false; btn.textContent = 'Continue';
@@ -684,7 +780,7 @@
             try {
                 idToken = await window.tutpVerifyOTP(code);
             } catch (err) {
-                errEl.textContent = 'Incorrect code — please try again.';
+                errEl.textContent = authMsg(err);
                 errEl.classList.remove('hidden');
                 btn.disabled = false; btn.textContent = 'Verify';
                 return;
@@ -711,7 +807,7 @@
             } catch(err){
                 // The code itself was right (checked above); this is the
                 // session or account step after it.
-                errEl.textContent = err.message || 'Something went wrong signing you in — please try again.';
+                errEl.textContent = authMsg(err);
                 errEl.classList.remove('hidden');
             } finally {
                 btn.disabled = false; btn.textContent = 'Verify';
@@ -720,40 +816,9 @@
 </script>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, setPersistence, browserLocalPersistence, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
-      authDomain: "tut-p-98978.firebaseapp.com",
-      projectId: "tut-p-98978",
-      storageBucket: "tut-p-98978.firebasestorage.app",
-      messagingSenderId: "706069048441",
-      appId: "1:706069048441:web:da5dd699fe431e48fe78a8",
-      measurementId: "G-02PZ2EFZVY"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    // Explicit, not relying on the SDK's undocumented-in-this-code default —
-    // keeps the Firebase session alive across browser restarts, not just tabs.
-    const persistenceReady = setPersistence(auth, browserLocalPersistence);
-
-    let confirmationResult = null;
-    let recaptchaVerifier = null;
-
-    window.tutpSendOTP = async function(fullPhoneNumber){
-        await persistenceReady;
-        if (!recaptchaVerifier){
-            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-login', { size: 'invisible' });
-        }
-        confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
-    };
-
-    window.tutpVerifyOTP = async function(code){
-        if (!confirmationResult) throw new Error('Please request a code first.');
-        const result = await confirmationResult.confirm(code);
-        return result.user.getIdToken();
-    };
+    // Firebase phone OTP, error text and reCAPTCHA reset: see /app/shared/phone-auth.js.
+    import { initPhoneAuth } from "/app/shared/phone-auth.js";
+    initPhoneAuth('recaptcha-container-login');
 
     // Exchanges the Firebase ID token for this app's own session cookie —
     // the server resolves the token's verified phone number to a

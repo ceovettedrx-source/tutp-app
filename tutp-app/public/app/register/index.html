@@ -818,6 +818,12 @@
     }
   }
   // ---------------- Firebase phone verification (Mother's number) ----------------
+  // Plain-language text for any sign-in error (never err.message); the
+  // fallback covers /app/shared/phone-auth.js itself failing to load.
+  function authMsg(err){
+    return window.tutpAuthErrorMessage ? window.tutpAuthErrorMessage(err) : 'Something went wrong. Please try again.';
+  }
+
   async function proceedToPhoneVerification(){
     const btn = document.getElementById('toStep3Btn');
     const digits = document.getElementById('motherPhone').value.replace(/\D/g,'').slice(-10);
@@ -831,7 +837,7 @@
       document.getElementById('regOtpSentTo').textContent = 'Enter the 6-digit code sent to +91 ' + digits.slice(0,5) + ' ' + digits.slice(5);
       goToStep(3);
     } catch(err){
-      alert('Could not send the verification code: ' + (err.message || 'please check the number and try again.'));
+      alert(authMsg(err));
     } finally {
       btn.disabled = false; btn.innerHTML = 'Continue <span class="material-symbols-outlined">arrow_forward</span>';
     }
@@ -857,7 +863,7 @@
       resendEl.textContent = 'Code sent';
       setTimeout(() => { resendEl.textContent = 'Resend Code'; }, 3000);
     } catch(err){
-      errEl.textContent = 'Could not resend the code: ' + (err.message || 'please try again.');
+      errEl.textContent = authMsg(err);
       errEl.classList.remove('hidden');
       resendEl.textContent = 'Resend Code';
     } finally {
@@ -880,7 +886,7 @@
       regIdToken = await window.tutpVerifyOTP(code);
       goToStep(4);
     } catch(err){
-      errEl.textContent = 'Incorrect code — please try again.';
+      errEl.textContent = authMsg(err);
       errEl.classList.remove('hidden');
     } finally {
       btn.disabled = false; btn.innerHTML = 'Verify &amp; Continue <span class="material-symbols-outlined">arrow_forward</span>';
@@ -899,40 +905,9 @@
 </script>
 
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, setPersistence, browserLocalPersistence, RecaptchaVerifier, signInWithPhoneNumber } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyDkG5BoDtR-RutVu98saq4q06qhKdrtXo4",
-      authDomain: "tut-p-98978.firebaseapp.com",
-      projectId: "tut-p-98978",
-      storageBucket: "tut-p-98978.firebasestorage.app",
-      messagingSenderId: "706069048441",
-      appId: "1:706069048441:web:da5dd699fe431e48fe78a8",
-      measurementId: "G-02PZ2EFZVY"
-    };
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    // Explicit, not relying on the SDK's undocumented-in-this-code default —
-    // keeps the Firebase session alive across browser restarts, not just tabs.
-    const persistenceReady = setPersistence(auth, browserLocalPersistence);
-
-    let confirmationResult = null;
-    let recaptchaVerifier = null;
-
-    window.tutpSendOTP = async function(fullPhoneNumber){
-        await persistenceReady;
-        if (!recaptchaVerifier){
-            recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container-register', { size: 'invisible' });
-        }
-        confirmationResult = await signInWithPhoneNumber(auth, fullPhoneNumber, recaptchaVerifier);
-    };
-
-    window.tutpVerifyOTP = async function(code){
-        if (!confirmationResult) throw new Error('Please request a code first.');
-        const result = await confirmationResult.confirm(code);
-        return result.user.getIdToken();
-    };
+    // Firebase phone OTP, error text and reCAPTCHA reset: see /app/shared/phone-auth.js.
+    import { initPhoneAuth } from "/app/shared/phone-auth.js";
+    initPhoneAuth('recaptcha-container-register');
 
     // Exchanges the Firebase ID token for this app's own session cookie —
     // called only after /api/register succeeds (the family row doesn't
