@@ -169,6 +169,21 @@ async function settle(page, p) {
   return last;
 }
 
+// page.evaluate that survives a navigation landing mid-call (the guard's
+// restore reload, or the login page's round trip back to a dashboard): wait
+// for the page to finish loading, and retry once if a navigation still
+// destroyed the context.
+async function evalAfterLoad(page, fn, arg) {
+  for (let attempt = 0; ; attempt++) {
+    await page.waitForLoadState('load').catch(() => {});
+    try {
+      return await page.evaluate(fn, arg);
+    } catch (err) {
+      if (attempt > 0 || !/Execution context was destroyed|navigation/i.test(err.message)) throw err;
+    }
+  }
+}
+
 async function sessionMe(page) {
   return page.evaluate(async () => {
     const r = await fetch('/api/session/me', { cache: 'no-store' });
@@ -273,13 +288,13 @@ function assertRole(me, role) {
       const c1 = await newCtx(); await c1.addCookies(hostOnly(motherCookies));
       iPage = await c1.newPage();
       await settle(iPage, DASH.mother);
-      await iPage.evaluate(() => sessionStorage.setItem('tutp_roles', '[]'));
+      await evalAfterLoad(iPage, () => sessionStorage.setItem('tutp_roles', '[]'));
       const visited = [];
       const onNav = (fr) => { if (fr === iPage.mainFrame()) visited.push(new URL(fr.url()).pathname + new URL(fr.url()).search); };
       iPage.on('framenavigated', onNav);
       const end1 = await settle(iPage, DASH.mother);
       iPage.off('framenavigated', onNav);
-      const roles1 = await iPage.evaluate(() => sessionStorage.getItem('tutp_roles'));
+      const roles1 = await evalAfterLoad(iPage, () => sessionStorage.getItem('tutp_roles'));
       out.push(`cached []: ${visited.join(' > ')}; roles now ${roles1}`);
       if (!visited.includes('/app/login/?pick=1')) throw new Error(`cached [] did not go through /app/login/?pick=1 (${out.join('; ')})`);
       if (end1 !== DASH.mother || !/"mother"/.test(roles1 || '')) throw new Error(`cached [] did not come back with the mother role (${out.join('; ')})`);
