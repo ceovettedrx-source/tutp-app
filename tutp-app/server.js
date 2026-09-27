@@ -312,8 +312,23 @@ if (!process.env.SESSION_SECRET) {
   console.warn('SESSION_SECRET not set — session cookies cannot be issued or verified; all family/student/teacher-scoped routes will reject every request.');
 }
 
+// Logout marker: the time this browser last logged out. getSession rejects
+// any session signed in (authAt) at or before it. Needed because the
+// sliding refresh below re-sets the session cookie on every response: a
+// dashboard request still in flight when Log out is tapped comes back after
+// the logout response and would otherwise put the session straight back.
+// authAt is the OTP/password sign-in time and is carried through every
+// refresh unchanged, so a refreshed old session is still rejected, while a
+// new sign-in (authAt = now) is not.
+const LOGGED_OUT_COOKIE_NAME = 'tutp_logged_out';
+
 function issueSessionCookie(res, payload) {
-  const token = jwt.sign(payload, process.env.SESSION_SECRET, { expiresIn: SESSION_TTL_DAYS + 'd' });
+  const freshSignIn = payload.authAt == null;
+  const claims = { ...payload, authAt: freshSignIn ? Date.now() : payload.authAt };
+  // A new sign-in supersedes the last logout; clearing the marker means a
+  // small clock difference between instances can't reject the new session.
+  if (freshSignIn) res.clearCookie(LOGGED_OUT_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+  const token = jwt.sign(claims, process.env.SESSION_SECRET, { expiresIn: SESSION_TTL_DAYS + 'd' });
   res.cookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,
@@ -337,8 +352,13 @@ function getSession(req) {
   const token = req.cookies?.[SESSION_COOKIE_NAME];
   if (!token || !process.env.SESSION_SECRET) return null;
   try {
-    const { phone, familyId, teacherId, viewerKey } = jwt.verify(token, process.env.SESSION_SECRET);
-    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null };
+    const { phone, familyId, teacherId, viewerKey, authAt, iat } = jwt.verify(token, process.env.SESSION_SECRET);
+    // Tokens minted before authAt existed: their issue time is the best
+    // available sign-in time.
+    const signedInAt = authAt ?? (iat ? iat * 1000 : 0);
+    const loggedOutAt = Number(req.cookies?.[LOGGED_OUT_COOKIE_NAME]) || 0;
+    if (loggedOutAt && signedInAt <= loggedOutAt) return null;
+    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null, authAt: signedInAt };
   } catch (err) {
     return null;
   }
@@ -358,6 +378,12 @@ app.use((req, res, next) => {
 // session first would just fail the exact request meant to end one.
 app.post('/api/logout', (req, res) => {
   res.clearCookie(SESSION_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+  res.cookie(LOGGED_OUT_COOKIE_NAME, String(Date.now()), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: SESSION_MAX_AGE_MS
+  });
   res.json({ ok: true });
 });
 
