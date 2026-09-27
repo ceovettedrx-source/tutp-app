@@ -292,7 +292,12 @@ function assertRole(me, role) {
       const visited = [];
       const onNav = (fr) => { if (fr === iPage.mainFrame()) visited.push(new URL(fr.url()).pathname + new URL(fr.url()).search); };
       iPage.on('framenavigated', onNav);
-      const end1 = await settle(iPage, DASH.mother);
+      await settle(iPage, DASH.mother);
+      // The login page may still be asking the server (slow on a freshly
+      // started revision), so wait for the way back instead of trusting
+      // "no change for 2s".
+      await iPage.waitForURL((u) => new URL(u).pathname === DASH.mother, { timeout: 15000 }).catch(() => {});
+      const end1 = new URL(iPage.url()).pathname;
       iPage.off('framenavigated', onNav);
       const roles1 = await evalAfterLoad(iPage, () => sessionStorage.getItem('tutp_roles'));
       out.push(`cached []: ${visited.join(' > ')}; roles now ${roles1}`);

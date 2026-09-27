@@ -10,7 +10,10 @@
 //   v1  fixtures/worksheet-blank.jpg     printed sheet, no answers
 //   v2  fixtures/worksheet-5-wrong.jpg   8 handwritten answers, 5 wrong
 // Each must return 200 with 1-4 steps, every box inside 0-1000 with
-// x1 < x2 and y1 < y2, in under 8 seconds (request only).
+// x1 < x2 and y1 < y2, and the server's own time (X-Server-Time-Ms) under
+// 8 seconds. The end-to-end time seen here is reported too, but only fails
+// above 20 seconds: it includes this machine's network, which the app
+// doesn't control (a 16 s upload stall turned a 3.3 s request red once).
 // Fixtures are made up; regenerate with fixtures/generate-worksheets.js.
 //
 // Each run makes 2 real model calls. Output: tests/e2e/output/ (FAIL_v*.png,
@@ -30,7 +33,8 @@ if (!BASE) {
 const HEADLESS = args.includes('--headless');
 const MOTHER = '+919999900001';
 const CODE = '123456';
-const MAX_MS = 8000;
+const MAX_SERVER_MS = 8000;
+const MAX_END_TO_END_MS = 20000;
 const QUESTION = 'Where did my child go wrong in this homework?';
 const OUT = path.join(__dirname, 'output');
 fs.mkdirSync(OUT, { recursive: true });
@@ -105,7 +109,7 @@ function checkSteps(json) {
     await page.waitForFunction(() => window.TutPointer && typeof window.TutPointer.prepareImage === 'function', null, { timeout: 20000 });
 
     for (const [id, file] of [['v1', 'worksheet-blank.jpg'], ['v2', 'worksheet-5-wrong.jpg']]) {
-      await record(id, `image mode: ${file} -> 200, 1-4 steps, boxes in 0-1000, < ${MAX_MS / 1000}s`, async () => {
+      await record(id, `image mode: ${file} -> 200, 1-4 steps, boxes in 0-1000, server < ${MAX_SERVER_MS / 1000}s`, async () => {
         const b64 = fs.readFileSync(path.join(__dirname, 'fixtures', file)).toString('base64');
         const r = await page.evaluate(async ({ b64, question }) => {
           const img = new Image();
@@ -118,13 +122,17 @@ function checkSteps(json) {
             body: JSON.stringify({ mode: 'image', question, image }),
           });
           const ms = Math.round(performance.now() - t0);
+          const serverMs = res.headers.get('x-server-time-ms');
           const json = await res.json().catch(() => null);
-          return { status: res.status, ms, json, sent: { w: image.width, h: image.height, kb: Math.round(image.base64.length * 3 / 4 / 1024) } };
+          return { status: res.status, ms, serverMs: serverMs === null ? null : Number(serverMs), json,
+            sent: { w: image.width, h: image.height, kb: Math.round(image.base64.length * 3 / 4 / 1024) } };
         }, { b64, question: QUESTION });
-        const where = `${r.status} in ${r.ms} ms (sent ${r.sent.w}x${r.sent.h}, ${r.sent.kb} KB)`;
+        const where = `${r.status}, server ${r.serverMs} ms, end-to-end ${r.ms} ms (sent ${r.sent.w}x${r.sent.h}, ${r.sent.kb} KB)`;
         if (r.status !== 200) throw new Error(`status ${where}: ${JSON.stringify(r.json)}`);
         const { steps, boxes } = checkSteps(r.json);
-        if (r.ms >= MAX_MS) throw new Error(`too slow: ${where}; ${steps} steps`);
+        if (!Number.isFinite(r.serverMs)) throw new Error(`no X-Server-Time-Ms header: ${where}`);
+        if (r.serverMs >= MAX_SERVER_MS) throw new Error(`server too slow: ${where}; ${steps} steps`);
+        if (r.ms >= MAX_END_TO_END_MS) throw new Error(`end-to-end too slow: ${where}; ${steps} steps`);
         const speech = (r.json.speech || '').slice(0, 120);
         return `${where}; ${steps} steps, ${boxes} boxes ok; speech: "${speech}"`;
       }, page);

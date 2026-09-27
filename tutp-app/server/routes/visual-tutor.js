@@ -19,6 +19,19 @@ const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
 // reply is reported as "truncated" instead of a parse error.
 const MAX_TOKENS = 1600;
 
+// X-Server-Time-Ms on every response: time spent in this server, from the
+// request reaching this router to the reply (the model call included). The
+// e2e suite holds this to the 8-second budget; the parent's own network time
+// comes on top and isn't ours to control.
+router.use((req, res, next) => {
+  const t0 = process.hrtime.bigint();
+  const json = res.json.bind(res);
+  res.json = (body) => {
+    res.set('X-Server-Time-Ms', String(Number((process.hrtime.bigint() - t0) / 1000000n)));
+    return json(body);
+  };
+  next();
+});
 router.use(express.json({ limit: '3mb' }));
 
 router.post('/', async (req, res) => {
