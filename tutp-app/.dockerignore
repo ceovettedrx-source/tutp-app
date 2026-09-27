@@ -5,3 +5,8 @@ data/
 .git/
 design-assets/
 docs/
+
+# e2e suite and its output: dev-only, never part of the Cloud Run image.
+# (Playwright itself is a devDependency, which `npm install --omit=dev`
+# in the Dockerfile already skips.)
+tests/

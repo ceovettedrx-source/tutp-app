@@ -20,6 +20,7 @@ import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
 import visualTutorRouter from './server/routes/visual-tutor.js';
 import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
+import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -306,13 +307,30 @@ app.use(cookieParser());
 // cleared cookie) lets the token actually expire.
 // ------------------------------------------------------------------
 const SESSION_COOKIE_NAME = 'tutp_session';
-const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+// One setting for both the cookie and the token inside it, so they can't drift apart.
+const SESSION_TTL_DAYS = 30;
+const SESSION_MAX_AGE_MS = SESSION_TTL_DAYS * 24 * 60 * 60 * 1000;
 if (!process.env.SESSION_SECRET) {
   console.warn('SESSION_SECRET not set — session cookies cannot be issued or verified; all family/student/teacher-scoped routes will reject every request.');
 }
 
+// Logout marker: the time this browser last logged out. getSession rejects
+// any session signed in (authAt) at or before it. Needed because the
+// sliding refresh below re-sets the session cookie on every response: a
+// dashboard request still in flight when Log out is tapped comes back after
+// the logout response and would otherwise put the session straight back.
+// authAt is the OTP/password sign-in time and is carried through every
+// refresh unchanged, so a refreshed old session is still rejected, while a
+// new sign-in (authAt = now) is not.
+const LOGGED_OUT_COOKIE_NAME = 'tutp_logged_out';
+
 function issueSessionCookie(res, payload) {
-  const token = jwt.sign(payload, process.env.SESSION_SECRET, { expiresIn: '30d' });
+  const freshSignIn = payload.authAt == null;
+  const claims = { ...payload, authAt: freshSignIn ? Date.now() : payload.authAt };
+  // A new sign-in supersedes the last logout; clearing the marker means a
+  // small clock difference between instances can't reject the new session.
+  if (freshSignIn) res.clearCookie(LOGGED_OUT_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+  const token = jwt.sign(claims, process.env.SESSION_SECRET, { expiresIn: SESSION_TTL_DAYS + 'd' });
   res.cookie(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
     secure: true,
@@ -336,8 +354,13 @@ function getSession(req) {
   const token = req.cookies?.[SESSION_COOKIE_NAME];
   if (!token || !process.env.SESSION_SECRET) return null;
   try {
-    const { phone, familyId, teacherId, viewerKey } = jwt.verify(token, process.env.SESSION_SECRET);
-    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null };
+    const { phone, familyId, teacherId, viewerKey, authAt, iat } = jwt.verify(token, process.env.SESSION_SECRET);
+    // Tokens minted before authAt existed: their issue time is the best
+    // available sign-in time.
+    const signedInAt = authAt ?? (iat ? iat * 1000 : 0);
+    const loggedOutAt = Number(req.cookies?.[LOGGED_OUT_COOKIE_NAME]) || 0;
+    if (loggedOutAt && signedInAt <= loggedOutAt) return null;
+    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null, authAt: signedInAt };
   } catch (err) {
     return null;
   }
@@ -357,6 +380,12 @@ app.use((req, res, next) => {
 // session first would just fail the exact request meant to end one.
 app.post('/api/logout', (req, res) => {
   res.clearCookie(SESSION_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+  res.cookie(LOGGED_OUT_COOKIE_NAME, String(Date.now()), {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: SESSION_MAX_AGE_MS
+  });
   res.json({ ok: true });
 });
 
@@ -856,6 +885,7 @@ app.post('/api/admin/tutors', requireAdmin, async (req, res) => {
     const { name, photoUrl, category, subjects, experienceYears, feeDisplay, area, bio, phone } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     if (!phone || !String(phone).trim()) return res.status(400).json({ error: 'phone is required' });
+    if (!normalizePhone(phone)) return res.status(400).json({ error: 'phone must have 10 digits' });
     if (!TUTOR_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'category must be one of ' + TUTOR_CATEGORIES.join(', ') });
     }
@@ -872,7 +902,7 @@ app.post('/api/admin/tutors', requireAdmin, async (req, res) => {
       fee_display: feeDisplay || null,
       area: area || null,
       bio: bio || null,
-      phone: String(phone).trim()
+      phone: normalizePhone(phone)
     }).select().single();
     if (error) throw error;
     res.json({ tutor: data });
@@ -903,7 +933,8 @@ app.patch('/api/admin/tutors/:id', requireAdmin, async (req, res) => {
     if (bio !== undefined) updates.bio = bio || null;
     if (phone !== undefined) {
       if (!String(phone).trim()) return res.status(400).json({ error: 'phone cannot be empty' });
-      updates.phone = String(phone).trim();
+      if (!normalizePhone(phone)) return res.status(400).json({ error: 'phone must have 10 digits' });
+      updates.phone = normalizePhone(phone);
     }
     if (verifiedBy !== undefined) updates.verified_by = verifiedBy || null;
     if (verificationStatus !== undefined) {
@@ -2321,6 +2352,8 @@ const registerLimiter = rateLimit({
 // as a single JSONB record (simple, fast to ship; can be normalized
 // into separate tables later once the schema is stable).
 // ------------------------------------------------------------------
+// Phones are stored through normalizePhone ("+91" + last 10 digits); see
+// server/services/phone.js.
 app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -2346,6 +2379,21 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     if (!children.length || !children[0]?.name) {
       return res.status(400).json({ error: "Missing child's name" });
     }
+    // Stored normalized (see normalizePhone). Checked before anything is
+    // saved, so a malformed number never leaves a half-created family.
+    for (const role of ['mother', 'father']) {
+      if (payload[role] && hasPhoneInput(payload[role].phone)) {
+        const normalized = normalizePhone(payload[role].phone);
+        if (!normalized) return res.status(400).json({ error: `Please enter a 10-digit phone number for the ${role}.` });
+        payload[role].phone = normalized;
+      }
+    }
+    const extendedFamilyInput = Array.isArray(payload.extendedFamily) ? payload.extendedFamily : [];
+    for (const m of extendedFamilyInput) {
+      if (m && m.name && hasPhoneInput(m.phone) && !normalizePhone(m.phone)) {
+        return res.status(400).json({ error: `Please enter a 10-digit phone number for ${m.name}, or leave it blank.` });
+      }
+    }
     const { data, error } = await supabase.from('family_registrations').insert({ data: payload }).select('id').single();
     if (error) throw error;
 
@@ -2367,8 +2415,11 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       name: String(c.name).trim(),
       school_name: c.schoolName ? String(c.schoolName).trim() : null,
       class: c.class || null,
+      // Section is asked later, in the Family page's teacher settings, but
+      // is still accepted here from a register page open in an older tab.
+      // Roll number is no longer collected (it only served the removed
+      // login name-matching); existing values stay in the column.
       section: c.section ? String(c.section).trim() : null,
-      roll_number: c.rollNumber ? String(c.rollNumber).trim() : null,
       state: locState,
       district: locDistrict,
       mandal: c.mandal ? String(c.mandal).trim() : null,
@@ -2402,7 +2453,7 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       family_id: data.id,
       name: m.name,
       relationship: m.role || null,
-      phone: m.phone || null
+      phone: normalizePhone(m.phone)
     }));
     if (memberRows.length) {
       const { error: membersErr } = await supabase.from('family_members').insert(memberRows);
@@ -2537,11 +2588,14 @@ app.post('/api/family/add-member', async (req, res) => {
       return res.status(400).json({ error: 'Missing family_id or member name' });
     }
     if (!requireOwnFamily(req, res, familyId)) return;
+    if (hasPhoneInput(member.phone) && !normalizePhone(member.phone)) {
+      return res.status(400).json({ error: 'Please enter a 10-digit phone number, or leave it blank.' });
+    }
     const { error } = await supabase.from('family_members').insert({
       family_id: familyId,
       name: member.name,
       relationship: member.role || null,
-      phone: member.phone || null
+      phone: normalizePhone(member.phone)
     });
     if (error) throw error;
     res.json({ ok: true });
@@ -2818,6 +2872,8 @@ app.post('/api/register-teacher', async (req, res) => {
     // sneak into the matching key regardless of caller — an ilike() match
     // against another table's value is exact-but-case-insensitive, so a
     // trailing space alone is enough to silently break homework matching.
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) return res.status(400).json({ error: 'Please enter a 10-digit phone number.' });
     const trimmedSchoolName = String(schoolName).trim();
     const trimmedState = String(state).trim();
     const trimmedDistrict = String(district).trim();
@@ -2825,7 +2881,7 @@ app.post('/api/register-teacher', async (req, res) => {
     const trimmedVillage = String(village).trim();
     const { data, error } = await supabase.from('teachers').insert({
       name: String(name).trim().slice(0, 120),
-      phone: String(phone).slice(0, 20),
+      phone: normalizedPhone,
       subjects: subjectList.map(s => String(s).trim().slice(0, 60)),
       school_name: trimmedSchoolName.slice(0, 200),
       state: trimmedState.slice(0, 100),
@@ -2885,12 +2941,15 @@ app.post('/api/teacher-registrations', async (req, res) => {
       return res.status(400).json({ error: 'Employment type is required for government school teachers' });
     }
 
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) return res.status(400).json({ error: 'Please enter a 10-digit phone number.' });
+
     const registrationId = crypto.randomUUID();
     const nowEpoch = Math.floor(Date.now() / 1000);
     const { error: insertErr } = await supabase.from('teacher_registrations').insert({
       registration_id: registrationId,
       full_name: String(fullName).trim().slice(0, 120),
-      phone: String(phone).slice(0, 20),
+      phone: normalizedPhone,
       school_type: schoolType,
       employment_type: schoolType === 'government' ? employmentType : null,
       school_name: String(schoolName).trim().slice(0, 200),
@@ -4214,44 +4273,6 @@ app.get('/api/billing/status/:familyId', async (req, res) => {
   }
 });
 
-// ------------------------------------------------------------------
-// Check whether a phone number already belongs to a registered family.
-// Phone numbers inside family_registrations.data aren't normalized
-// (free-typed at registration), so we compare only the last 10 digits
-// in JS rather than relying on an exact JSONB match.
-// ------------------------------------------------------------------
-app.post('/api/check-family', async (req, res) => {
-  try {
-    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const family = await findFamilyIdByPhone((req.body || {}).phone);
-    if (family && family.ambiguous) {
-      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
-    }
-    res.json({ registered: !!family, family_id: family ? family.id : null, roleMatches: family ? family.roleMatches : [] });
-  } catch (err) {
-    console.error('Check-family error:', err);
-    res.status(500).json({ error: 'Could not check family status' });
-  }
-});
-
-// ------------------------------------------------------------------
-// Resolve which student a "Child Name + phone" (and, on a second pass,
-// roll number / section) combination refers to. Rate-limited — this is
-// effectively a lookup keyed on guessable info (a name + a phone), so it
-// shouldn't be brute-forceable.
-// ------------------------------------------------------------------
-const resolveStudentLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts — please wait a minute and try again.' }
-});
-
-function normalizeName(s) {
-  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
   if (m === 0) return n;
@@ -4267,17 +4288,6 @@ function levenshtein(a, b) {
     }
   }
   return dp[m][n];
-}
-
-// "Close" match: exact, or a small edit distance relative to name length —
-// catches typos like "Ishika" vs "Ishka" without matching unrelated names.
-function isCloseNameMatch(input, candidate) {
-  const a = normalizeName(input), b = normalizeName(candidate);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  const maxLen = Math.max(a.length, b.length);
-  const threshold = maxLen <= 4 ? 1 : Math.min(3, Math.ceil(maxLen * 0.25));
-  return levenshtein(a, b) <= threshold;
 }
 
 // Returns { id, motherName, fatherName, roleMatches } for the family owning
@@ -4350,6 +4360,29 @@ async function findFamilyIdByPhone(phone) {
   const matches = (data || []).filter(row =>
     norm(row.data?.mother?.phone) === digits || norm(row.data?.father?.phone) === digits
   );
+
+  // A family member signing in with their own phone: their number is in
+  // family_members, not in the family row, so find their families there too
+  // (same substring-then-exact matching). buildRoleMatches below already
+  // turns a matching member into a family_member role, and a phone found in
+  // more than one family is ambiguous exactly like a parent's.
+  const { data: memberRows, error: memberErr } = await supabase
+    .from('family_members')
+    .select('family_id, phone')
+    .ilike('phone', `%${digits}%`);
+  if (memberErr) throw memberErr;
+  const seen = new Set(matches.map(m => m.id));
+  const memberFamilyIds = [...new Set((memberRows || [])
+    .filter(m => norm(m.phone) === digits)
+    .map(m => m.family_id))]
+    .filter(id => !seen.has(id));
+  if (memberFamilyIds.length) {
+    const { data: memberFamilies, error: famErr } = await supabase
+      .from('family_registrations').select('id, data').in('id', memberFamilyIds);
+    if (famErr) throw famErr;
+    matches.push(...(memberFamilies || []));
+    matches.sort((a, b) => b.id - a.id);
+  }
   if (!matches.length) return null;
 
   if (matches.length > 1) {
@@ -4586,6 +4619,50 @@ app.post('/api/session', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// Where a just-logged-in parent should land. Replaces the old pre-login
+// /api/check-family and /api/resolve-student, which answered for any phone
+// number without an OTP (registration status, family id, parents' names).
+// Everything here comes from the session cookie, so it only ever describes
+// the caller's own verified phone and family.
+//
+// roleMatches: the roles this phone holds in the family (a picker/password
+// login already knows its one viewerKey). children: the family's children,
+// for the login page's "one child: go straight in, several: tap to pick".
+// ------------------------------------------------------------------
+app.get('/api/session/me', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session) return sendSessionExpired(res);
+    if (!session.familyId) return res.json({ familyId: null, teacherId: session.teacherId, roleMatches: [], children: [] });
+
+    let roleMatches;
+    if (session.viewerKey != null) {
+      const key = String(session.viewerKey);
+      roleMatches = key === 'mother' || key === 'father'
+        ? [{ role: key }]
+        : [{ role: 'family_member', memberId: key }];
+    } else {
+      const family = await findFamilyIdByPhone(session.phone);
+      roleMatches = family && !family.ambiguous && family.id === session.familyId ? family.roleMatches : [];
+    }
+    const { data: students, error } = await supabase
+      .from('students').select('id, name, class').eq('family_id', session.familyId).order('created_at', { ascending: true });
+    if (error) throw error;
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      familyId: session.familyId,
+      teacherId: session.teacherId,
+      roleMatches,
+      children: (students || []).map(s => ({ id: s.id, name: s.name, class: s.class || null }))
+    });
+  } catch (err) {
+    console.error('Session me error:', err);
+    res.status(500).json({ error: 'Could not load your account' });
+  }
+});
+
 const selectAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -4733,53 +4810,6 @@ app.post('/api/session/set-password', selectAccountLimiter, async (req, res) => 
   }
 });
 
-app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
-  try {
-    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const { phone, name, roll_number, section } = req.body || {};
-    if (!phone || !name) return res.status(400).json({ error: 'Missing phone or name' });
-
-    const family = await findFamilyIdByPhone(phone);
-    if (family && family.ambiguous) {
-      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
-    }
-    if (!family) return res.json({ familyFound: false, found: false });
-
-    const { data: siblings, error } = await supabase.from('students').select('*').eq('family_id', family.id);
-    if (error) throw error;
-    const students = siblings || [];
-    const roleMatches = family.roleMatches;
-
-    if (roll_number || section) {
-      // Pass 2: roll_number/section decides it — the user is here precisely
-      // because their typed name didn't confidently match, so re-requiring
-      // a name match would defeat the point. Name is only used as a
-      // tiebreaker if roll_number/section alone matches more than one sibling.
-      let candidates = students.filter(s =>
-        (roll_number && s.roll_number && String(s.roll_number).trim().toLowerCase() === String(roll_number).trim().toLowerCase()) ||
-        (section && s.section && String(s.section).trim().toLowerCase() === String(section).trim().toLowerCase())
-      );
-      if (candidates.length > 1) {
-        const nameNarrowed = candidates.filter(s => isCloseNameMatch(name, s.name));
-        if (nameNarrowed.length >= 1) candidates = nameNarrowed;
-      }
-      if (candidates.length === 1) return res.json({ familyFound: true, found: true, student_id: candidates[0].id, family_id: family.id, roleMatches });
-      return res.json({ familyFound: true, found: false, family_id: family.id, roleMatches });
-    }
-
-    // Pass 1: name + phone only.
-    const matches = students.filter(s => isCloseNameMatch(name, s.name));
-    if (matches.length === 1) {
-      return res.json({ familyFound: true, found: true, student_id: matches[0].id, family_id: family.id, roleMatches });
-    }
-    // Zero matches, or more than one equally-plausible match — both need disambiguation.
-    return res.json({ familyFound: true, found: false, needsDisambiguation: true, family_id: family.id, roleMatches });
-  } catch (err) {
-    console.error('Resolve-student error:', err);
-    res.status(500).json({ error: 'Could not resolve student' });
-  }
-});
-
 // ------------------------------------------------------------------
 // Fetch a single student/family by id, so app/child, app/mother and app/father
 // can personalize their static "Leo"/"Alexandria" placeholders once a
@@ -4858,7 +4888,7 @@ app.get('/api/family/:id/students', async (req, res) => {
     if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('students')
-      .select('id, name, class, class_teacher_name, share_homework_status_with_teacher')
+      .select('id, name, class, section, class_teacher_name, share_homework_status_with_teacher')
       .eq('family_id', familyId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -4877,13 +4907,19 @@ app.patch('/api/students/:id/teacher-settings', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const studentId = req.params.id;
     if (!(await requireOwnStudent(req, res, studentId))) return;
-    const { classTeacherName, shareHomeworkStatusWithTeacher } = req.body || {};
+    const { classTeacherName, shareHomeworkStatusWithTeacher, section } = req.body || {};
+    const update = {
+      class_teacher_name: classTeacherName ? String(classTeacherName).trim().slice(0, 120) : null,
+      share_homework_status_with_teacher: !!shareHomeworkStatusWithTeacher
+    };
+    // Section is asked here, not at registration: it's only needed once a
+    // child is linked to a class teacher, whose roster matches students by
+    // class + section (studentsForTeacherClassSection). Left untouched when
+    // the request doesn't send it.
+    if (section !== undefined) update.section = section ? String(section).trim().slice(0, 20) : null;
     const { error } = await supabase
       .from('students')
-      .update({
-        class_teacher_name: classTeacherName ? String(classTeacherName).trim().slice(0, 120) : null,
-        share_homework_status_with_teacher: !!shareHomeworkStatusWithTeacher
-      })
+      .update(update)
       .eq('id', studentId);
     if (error) throw error;
     res.json({ ok: true });
@@ -6973,9 +7009,9 @@ app.get('/api/game-sessions/:id/state', async (req, res) => {
 });
 
 // A game-join token is unguessable (32 random bytes) so this isn't brute-
-// force-critical the way resolveStudentLimiter's name+phone lookup is, but
-// it's still a public, unauthenticated endpoint worth capping against
-// basic abuse.
+// force-critical the way a guessable name+phone lookup would be, but it's
+// still a public, unauthenticated endpoint worth capping against basic
+// abuse.
 const gameInviteLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,

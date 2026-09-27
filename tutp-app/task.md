@@ -99,8 +99,13 @@ Status legend: ✅ done · 🟡 in progress / partial · ⬜ not started · 🚫
 - ✅ Migrations `012_payments.sql` and `025_payment_periods.sql` run.
 - 🟡 Billing stopgap (Pro ₹500/month and Annual Pro ₹5,000/year per
   child, one-time Orders payments with a 30- or 365-day paid period,
-  renew from the dashboard, refunds revoke access): built, pending
-  preview test with a real payment and refund.
+  renew from the dashboard, refunds revoke access): live since revision
+  `tutp-demo-00270-yif` (2026-09-26). End-to-end payment verification is
+  **parked**: the live-key ₹500 test on the preview host failed with
+  `payment_risk_check_failed` (preview hosts aren't registered websites on
+  the Razorpay account; no fee charged). ⬜ Plan a Razorpay Test Mode
+  verification on a preview revision: pay, see status and Renew, refund,
+  and confirm access ends.
 - ✅ Refund policy page at `/refund-policy/`. ⬜ Terms of Service and
   Privacy Policy pages don't exist yet: founder to supply the text.
 - ⬜ Razorpay Subscriptions (autopay): separate plan, after the parent

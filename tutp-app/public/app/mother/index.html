@@ -55,6 +55,7 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
+<script src="/app/shared/session-guard.js" data-need="family" data-role="mother"></script>
 <script>
     // A direct/anonymous visit with no session at all used to render this
     // whole page anyway — every data fetch below just no-ops to a generic
@@ -62,9 +63,8 @@
     // so an anonymous visitor saw a plausible-looking dashboard instead of
     // being told to log in. /app/family/ and /app/teacher/ already guard
     // this way; this page and father/family-member's never did.
-    if (!sessionStorage.getItem('tutp_family_id')) {
-        window.location.href = '/app/login/';
-    }
+    // The check itself is /app/shared/session-guard.js, loaded just above:
+    // it restores the ids from the session cookie, or sends to login.
 
     // Lets /app/login/ bounce straight back here on a session it recognizes
     // (back button) instead of forcing a fresh OTP.
@@ -123,9 +123,8 @@
     // this family's children. If none is selected (a login where no child
     // name was matched), or the stored one isn't in this family's own list
     // (fetched with this session, so the server decides what "this family"
-    // is), the first child is selected. Code that sends a studentId awaits
-    // this promise first. The full device-remembered child picker comes with
-    // the login redesign.
+    // is), the child remembered on this device is selected, else the first.
+    // Code that sends a studentId awaits this promise first.
     window.tutpChildReady = (async function(){
         let familyId = null, current = null;
         try { familyId = sessionStorage.getItem('tutp_family_id'); current = sessionStorage.getItem('tutp_student_id'); } catch (e) {}
@@ -136,8 +135,15 @@
             const ids = ((await res.json()).students || []).map(s => s.id);
             if (current && ids.includes(current)) return current;
             if (!ids.length) return null;
-            try { sessionStorage.setItem('tutp_student_id', ids[0]); } catch (e) {}
-            return ids[0];
+            // The child last picked on this device (login page or the
+            // child switcher), else the first child.
+            let pick = ids[0];
+            try {
+                const remembered = localStorage.getItem('tutp_last_student_' + familyId);
+                if (remembered && ids.includes(remembered)) pick = remembered;
+            } catch (e) {}
+            try { sessionStorage.setItem('tutp_student_id', pick); } catch (e) {}
+            return pick;
         } catch (err) {
             console.error('[child] Could not confirm the selected child:', err);
             return current;
@@ -2600,28 +2606,38 @@ Generate 4-8 note steps. Output the JSON as a single compact line with no extra 
             }
         })();
 
-        // Greeting card's per-child chip row — only shown when there's more
-        // than one child, per the design spec ("if multiple children exist").
+        // Greeting card's child switcher — only shown when there's more than
+        // one child. Tapping a child makes it this tab's selected child and
+        // remembers it on this device (the same key the login page reads),
+        // then reloads so every card shows that child.
         (async function loadChildChips(){
             const rowEl = document.getElementById('childChipsRow');
             const familyId = sessionStorage.getItem('tutp_family_id');
             if (!familyId) return;
-            const escapeHtml = (str) => {
-                const div = document.createElement('div');
-                div.textContent = str;
-                return div.innerHTML;
-            };
             try {
                 const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
                 if (!res.ok) return;
-                const data = await res.json();
-                const students = data.students || [];
+                const students = (await res.json()).students || [];
                 if (students.length <= 1) return;
-                rowEl.innerHTML = students.map(s => `
-                    <span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-surface-container-lowest border border-outline-variant/20 font-label text-xs text-on-surface whitespace-nowrap">
-                        ${escapeHtml(s.name)}${s.class ? ` (${escapeHtml(s.class)})` : ''}
-                    </span>
-                `).join('');
+                const currentId = await window.tutpChildReady;
+                rowEl.replaceChildren(...students.map(s => {
+                    const isCurrent = s.id === currentId;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'inline-flex items-center gap-1 px-3 py-1.5 rounded-full border font-label text-xs whitespace-nowrap transition-colors ' +
+                        (isCurrent ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-lowest text-on-surface border-outline-variant/20 hover:border-primary');
+                    btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+                    btn.textContent = s.name + (s.class ? ' · ' + s.class : '');
+                    btn.addEventListener('click', () => {
+                        if (isCurrent) return;
+                        try {
+                            sessionStorage.setItem('tutp_student_id', s.id);
+                            localStorage.setItem('tutp_last_student_' + familyId, s.id);
+                        } catch (e) {}
+                        location.reload();
+                    });
+                    return btn;
+                }));
             } catch (err) {
                 console.error('[mother] Could not load child chips:', err);
             }

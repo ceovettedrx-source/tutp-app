@@ -43,6 +43,7 @@
 </style>
 </head>
 <body class="bg-background text-on-background font-body-md antialiased min-h-screen pb-32">
+<script src="/app/shared/session-guard.js" data-need="family"></script>
 <script>
     // Lets /app/login/ bounce straight back here on a session it recognizes
     // (back button, PROFILES icon) instead of forcing a fresh OTP.
@@ -99,9 +100,8 @@
     // this family's children. If none is selected (a login where no child
     // name was matched), or the stored one isn't in this family's own list
     // (fetched with this session, so the server decides what "this family"
-    // is), the first child is selected. Code that sends a studentId awaits
-    // this promise first. The full device-remembered child picker comes with
-    // the login redesign.
+    // is), the child remembered on this device is selected, else the first.
+    // Code that sends a studentId awaits this promise first.
     window.tutpChildReady = (async function(){
         let familyId = null, current = null;
         try { familyId = sessionStorage.getItem('tutp_family_id'); current = sessionStorage.getItem('tutp_student_id'); } catch (e) {}
@@ -112,8 +112,15 @@
             const ids = ((await res.json()).students || []).map(s => s.id);
             if (current && ids.includes(current)) return current;
             if (!ids.length) return null;
-            try { sessionStorage.setItem('tutp_student_id', ids[0]); } catch (e) {}
-            return ids[0];
+            // The child last picked on this device (login page or the
+            // child switcher), else the first child.
+            let pick = ids[0];
+            try {
+                const remembered = localStorage.getItem('tutp_last_student_' + familyId);
+                if (remembered && ids.includes(remembered)) pick = remembered;
+            } catch (e) {}
+            try { sessionStorage.setItem('tutp_student_id', pick); } catch (e) {}
+            return pick;
         } catch (err) {
             console.error('[child] Could not confirm the selected child:', err);
             return current;

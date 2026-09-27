@@ -4,6 +4,7 @@
 - Small, low-risk decisions (exact class names, styling details, minor wording, which existing pattern to reuse) — use your own judgment and proceed, don't ask.
 - Large-scope changes (new pages, rewriting a file's structure/framework, anything touching many files, deploys, deletions) — show a short plan first and wait for confirmation before editing.
 - After finishing a task, give a short summary (3-4 lines) of what was done — not a full diff or file dump.
+- Never write or edit code through shell heredoc, sed or node -e string replacement; use the file edit tool, so escapes like \D survive.
 
 ## Review discipline
 
@@ -28,6 +29,17 @@
   communication — it's a live production product with real users.
   (The literal file/route `public/demo/index.html` is exempt — that's
   its actual name, not a characterization of the product.)
+- Definition of done for every feature or fix:
+  1. Before code: read the repo and write a one-page spec (files touched,
+     edge cases, test list). Founder approves before any edit.
+  2. Done = the automated e2e suite passes on a no-traffic preview
+     revision. A claim of done without a passing run is not done.
+  3. Founder's time goes to approval and a final look only. Test numbers,
+     branches, deploy and verification are Claude's job.
+- The e2e suite lives in `tests/e2e/` (Playwright, devDependency only, kept
+  out of the Cloud Run image by `.dockerignore`). Run it against a preview
+  with `npm run test:e2e -- <base-url>`; see the header of
+  `tests/e2e/login.spec.js` for the test numbers and options.
 
 # Backlog
 
@@ -40,6 +52,9 @@
 - Homework Help: a parent can type a bare meta-instruction ("generate 10 questions with answers") with no actual topic and no attachment. The existing empty/empty guard (`hwModalText` + `hwUploadedBase64` both empty) doesn't catch this since the text field is non-empty — the model then invents unrelated general-knowledge trivia instead of anything tied to the child's real schoolwork. Founder decision 2026-09-05: not worth a heuristic (regex/keyword detection of "bare instruction" text) given false-positive risk — left as-is. Revisit only if this turns out to be a real recurring pattern, not just a test-scenario edge case.
 - **Parent Engagement Score / "Bonding Score" is not what it's marketed as.** The live `bonding_scores` table / `/api/bonding-score` computes only a 14-day homework-completion rate — a deliberate, explicit V1 scope-down under launch pressure, not the researched design. The actual researched model (Epstein's Six Types of Involvement, a 4-factor PIS composite weighting Consistency/Quality-of-Support/Communication/Emotional-Tone, supportive-vs-intrusive involvement distinction, BKT-based child mastery tracking, Growth-Involvement Correlation Card) is entirely unbuilt. Founder's "world's first parent-engagement-scored EdTech" positioning is not yet backed by what's live. Full detail preserved in the assistant's memory (`pes-pis-mastery-research-gap`) since this has previously gone missing between sessions — read that before touching PES/bonding-score code or marketing copy. Open decision as of 2026-09-05: ship Monday as-is (Option A) vs. build one high-value researched piece first (Option B) — not yet resolved.
 - **Secret rotation complete (started 2026-09-05, confirmed done 2026-09-14).** All 5 secrets flagged after the incident are now rotated and migrated to Secret Manager with `secretKeyRef` on the Cloud Run service: `ADMIN_TOKEN` → `admin-token`, `CRON_TOKEN` → `cron-token`, `SUPABASE_SERVICE_ROLE_KEY` → `supabase-service-role-key`, `GMAIL_APP_PASSWORD` → `gmail-app-password`, `RESEND_API_KEY` → `resend-api-key`. Confirmed 2026-09-14 via a metadata-only `gcloud run services describe` query (env var name → `secretKeyRef` secret name only, no values fetched or printed). Reason for the original rotation: a `gcloud run services describe --format=json` dump accidentally printed all 5 plaintext values into a chat transcript on 2026-09-05.
+- **No way to add a father after registration** (found 2026-09-27 while setting up login tests). The father's name/phone live only in `family_registrations.data.father`, written once by `/app/register/`; the Family page (`/app/family/`, `POST /api/family/add-member`) only adds extended members. A family registered without a father (or with a wrong father phone) can only be fixed by editing the row in Supabase. Needs a design: who may add/change the father (mother only? OTP of the new number?), where in the UI, and how it interacts with phone-based login and the role guard.
+- **Invite father / co-parent after registration — no flow exists; separate registrations create duplicate families and children.** Seen 2026-09-27: registering the father on his own made a second `family_registrations` row (and a second copy of the child) sharing the mother's phone, which makes that phone ambiguous at login ("Multiple accounts found"). Needs an invite flow into the existing family, and registration should detect an already-registered phone instead of creating a duplicate.
+- **Removing a family member must revoke their login immediately — needs an e2e test.** Since 2026-09-27 a member can sign in with their own phone (`findFamilyIdByPhone` also searches `family_members`). A removed member's existing session cookie is a stateless JWT carrying the familyId, so it stays valid until it expires unless something checks membership on each request. Decide the mechanism (per-request membership check for family_member sessions, or a revocation marker), then add a test to `tests/e2e/`: remove the member as the mother, and the member's open session must get 401 on its next request.
 
 # Deploying
 
@@ -62,3 +77,4 @@
 - **deploy.sh output piped through `tail`/`grep` shows nothing until it finishes** (and nothing at all if it hangs). Log to a file instead (`bash deploy.sh > deploy.log 2>&1`) and read that.
 - **`gcloud run services update-traffic` is blocked in Claude Code auto mode** (production deploy). Vet runs it manually; Claude verifies afterwards.
 - **Preview tag URLs must be in Firebase Authorized domains.** Phone-OTP login on a no-traffic tagged revision (e.g. `preview---tutp-demo-vs4743puka-uc.a.run.app`) fails with `auth/captcha-check-failed` unless that exact host is listed under Firebase Console → Authentication → Settings → Authorized domains. Each tag name gets its own host, so add the host for any new tag before testing logins on it.
+- **Razorpay only accepts payments from websites registered on the merchant account** (MID in the name of Ramana Chary Sreepada, proprietor). Preview/`run.app` hosts aren't registered, so live-key checkout there fails as an unregistered website (`payment_risk_check_failed`, no fee charged; seen 2026-09-26). Test real payments only on `tutp.online`, or use Razorpay Test Mode keys on a preview revision.
