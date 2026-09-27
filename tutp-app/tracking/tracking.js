@@ -30,3 +30,10 @@ export function trackFeedbackEscalated(familyId, studentId, { category, patternC
 export function trackShareClicked(familyId) {
   trackEvent(EVENTS.SHARE_CLICKED, { familyId });
 }
+// feature is fixed to 'visual_tutor' rather than added to FEATURES: FEATURES
+// is also /api/homework's allow-list, which shouldn't accept this value.
+export function trackVisualTutorCall(familyId, { mode, outcome, steps, model, inputTokens, outputTokens }) {
+  trackEvent(EVENTS.VISUAL_TUTOR_CALL, { familyId, properties: {
+    feature: 'visual_tutor', mode, outcome, steps, model, input_tokens: inputTokens, output_tokens: outputTokens,
+  } });
+}

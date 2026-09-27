@@ -6,6 +6,7 @@ export const EVENTS = {
   FEEDBACK_AUTO_RESOLVED: 'feedback.auto_resolved',
   FEEDBACK_ESCALATED: 'feedback.escalated',
   SHARE_CLICKED: 'share.clicked',
+  VISUAL_TUTOR_CALL: 'visual_tutor.call',
 };
 export const FEATURES = {
   HOMEWORK_HELP: 'homework_help',

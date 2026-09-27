@@ -18,6 +18,7 @@ import bcrypt from 'bcrypt';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
+import visualTutorRouter from './server/routes/visual-tutor.js';
 import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
@@ -3768,6 +3769,33 @@ function teacherAiLimiter() {
 }
 
 app.use('/api/teacher/create-material', requireTeacherSessionMw, teacherAiLimiter(), createMaterialRouter);
+
+// Visual tutor ("point and explain"): needs a family session, and 20 calls
+// per 10 minutes per family. Unlike teacherAiLimiter, every request counts
+// (no skipFailedRequests), so repeated bad calls can't probe for free. The
+// in-memory store makes the cap per-instance.
+//
+// Self-contained on purpose: this only relies on getSession()'s familyId.
+// Re-verify it after the login redesign (phone-only login + child picker)
+// merges, since that changes how sessions and familyId get set.
+function requireFamilySessionMw(req, res, next) {
+  const session = getSession(req);
+  if (!session) return sendSessionExpired(res);
+  if (!session.familyId) return sendForbidden(res);
+  req.familySession = session;
+  next();
+}
+
+const visualTutorLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => 'family:' + String(req.familySession.familyId),
+  message: { error: 'Too many requests — please wait a few minutes and try again.' }
+});
+
+app.use('/api/visual-tutor', requireFamilySessionMw, visualTutorLimiter, visualTutorRouter);
 
 app.get('/api/teacher/:id/referrals', async (req, res) => {
   try {
