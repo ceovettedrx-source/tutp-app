@@ -82,6 +82,7 @@
 </div>
 <div id="tcsFields" class="space-y-4 hidden">
 <div><label class="block text-sm font-semibold mb-1">Class Teacher పేరు</label><input id="tcsTeacherName" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="Class teacher's name" type="text"/></div>
+<div><label class="block text-sm font-semibold mb-1">Section</label><input id="tcsSection" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="e.g. A" maxlength="20" type="text"/><p class="text-xs text-on-surface-variant mt-1">Helps your child's class teacher find them on their class list.</p></div>
 <label class="flex items-center justify-between gap-4 p-3 rounded-lg border border-outline-variant/30">
 <span class="font-body text-sm">మీ పిల్లవాడి homework completion status ని school teacher తో పంచుకోవడానికి అనుమతిస్తారా?</span>
 <input type="checkbox" id="tcsShareToggle" class="w-5 h-5"/>
@@ -300,6 +301,7 @@
     }
     const student = tcsStudents.find(s => s.id === studentId);
     document.getElementById('tcsTeacherName').value = (student && student.class_teacher_name) || '';
+    document.getElementById('tcsSection').value = (student && student.section) || '';
     // Default OFF — only ever checked when the saved value is explicitly true.
     document.getElementById('tcsShareToggle').checked = !!(student && student.share_homework_status_with_teacher);
     fieldsEl.classList.remove('hidden');
@@ -318,6 +320,7 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           classTeacherName: document.getElementById('tcsTeacherName').value.trim(),
+          section: document.getElementById('tcsSection').value.trim(),
           shareHomeworkStatusWithTeacher: document.getElementById('tcsShareToggle').checked
         })
       });
@@ -326,6 +329,7 @@
       const student = tcsStudents.find(s => s.id === studentId);
       if (student) {
         student.class_teacher_name = document.getElementById('tcsTeacherName').value.trim();
+        student.section = document.getElementById('tcsSection').value.trim();
         student.share_homework_status_with_teacher = document.getElementById('tcsShareToggle').checked;
       }
       statusEl.textContent = 'Saved.';

@@ -2366,8 +2366,11 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       name: String(c.name).trim(),
       school_name: c.schoolName ? String(c.schoolName).trim() : null,
       class: c.class || null,
+      // Section is asked later, in the Family page's teacher settings, but
+      // is still accepted here from a register page open in an older tab.
+      // Roll number is no longer collected (it only served the removed
+      // login name-matching); existing values stay in the column.
       section: c.section ? String(c.section).trim() : null,
-      roll_number: c.rollNumber ? String(c.rollNumber).trim() : null,
       state: locState,
       district: locDistrict,
       mandal: c.mandal ? String(c.mandal).trim() : null,
@@ -4186,44 +4189,6 @@ app.get('/api/billing/status/:familyId', async (req, res) => {
   }
 });
 
-// ------------------------------------------------------------------
-// Check whether a phone number already belongs to a registered family.
-// Phone numbers inside family_registrations.data aren't normalized
-// (free-typed at registration), so we compare only the last 10 digits
-// in JS rather than relying on an exact JSONB match.
-// ------------------------------------------------------------------
-app.post('/api/check-family', async (req, res) => {
-  try {
-    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const family = await findFamilyIdByPhone((req.body || {}).phone);
-    if (family && family.ambiguous) {
-      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
-    }
-    res.json({ registered: !!family, family_id: family ? family.id : null, roleMatches: family ? family.roleMatches : [] });
-  } catch (err) {
-    console.error('Check-family error:', err);
-    res.status(500).json({ error: 'Could not check family status' });
-  }
-});
-
-// ------------------------------------------------------------------
-// Resolve which student a "Child Name + phone" (and, on a second pass,
-// roll number / section) combination refers to. Rate-limited — this is
-// effectively a lookup keyed on guessable info (a name + a phone), so it
-// shouldn't be brute-forceable.
-// ------------------------------------------------------------------
-const resolveStudentLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 5,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'Too many attempts — please wait a minute and try again.' }
-});
-
-function normalizeName(s) {
-  return String(s || '').trim().toLowerCase().replace(/\s+/g, ' ');
-}
-
 function levenshtein(a, b) {
   const m = a.length, n = b.length;
   if (m === 0) return n;
@@ -4239,17 +4204,6 @@ function levenshtein(a, b) {
     }
   }
   return dp[m][n];
-}
-
-// "Close" match: exact, or a small edit distance relative to name length —
-// catches typos like "Ishika" vs "Ishka" without matching unrelated names.
-function isCloseNameMatch(input, candidate) {
-  const a = normalizeName(input), b = normalizeName(candidate);
-  if (!a || !b) return false;
-  if (a === b) return true;
-  const maxLen = Math.max(a.length, b.length);
-  const threshold = maxLen <= 4 ? 1 : Math.min(3, Math.ceil(maxLen * 0.25));
-  return levenshtein(a, b) <= threshold;
 }
 
 // Returns { id, motherName, fatherName, roleMatches } for the family owning
@@ -4558,6 +4512,50 @@ app.post('/api/session', async (req, res) => {
   }
 });
 
+// ------------------------------------------------------------------
+// Where a just-logged-in parent should land. Replaces the old pre-login
+// /api/check-family and /api/resolve-student, which answered for any phone
+// number without an OTP (registration status, family id, parents' names).
+// Everything here comes from the session cookie, so it only ever describes
+// the caller's own verified phone and family.
+//
+// roleMatches: the roles this phone holds in the family (a picker/password
+// login already knows its one viewerKey). children: the family's children,
+// for the login page's "one child: go straight in, several: tap to pick".
+// ------------------------------------------------------------------
+app.get('/api/session/me', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session) return sendSessionExpired(res);
+    if (!session.familyId) return res.json({ familyId: null, teacherId: session.teacherId, roleMatches: [], children: [] });
+
+    let roleMatches;
+    if (session.viewerKey != null) {
+      const key = String(session.viewerKey);
+      roleMatches = key === 'mother' || key === 'father'
+        ? [{ role: key }]
+        : [{ role: 'family_member', memberId: key }];
+    } else {
+      const family = await findFamilyIdByPhone(session.phone);
+      roleMatches = family && !family.ambiguous && family.id === session.familyId ? family.roleMatches : [];
+    }
+    const { data: students, error } = await supabase
+      .from('students').select('id, name, class').eq('family_id', session.familyId).order('created_at', { ascending: true });
+    if (error) throw error;
+    res.set('Cache-Control', 'no-store');
+    res.json({
+      familyId: session.familyId,
+      teacherId: session.teacherId,
+      roleMatches,
+      children: (students || []).map(s => ({ id: s.id, name: s.name, class: s.class || null }))
+    });
+  } catch (err) {
+    console.error('Session me error:', err);
+    res.status(500).json({ error: 'Could not load your account' });
+  }
+});
+
 const selectAccountLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -4705,53 +4703,6 @@ app.post('/api/session/set-password', selectAccountLimiter, async (req, res) => 
   }
 });
 
-app.post('/api/resolve-student', resolveStudentLimiter, async (req, res) => {
-  try {
-    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const { phone, name, roll_number, section } = req.body || {};
-    if (!phone || !name) return res.status(400).json({ error: 'Missing phone or name' });
-
-    const family = await findFamilyIdByPhone(phone);
-    if (family && family.ambiguous) {
-      return res.status(409).json({ error: 'Multiple accounts found for this number — please contact support to resolve this.' });
-    }
-    if (!family) return res.json({ familyFound: false, found: false });
-
-    const { data: siblings, error } = await supabase.from('students').select('*').eq('family_id', family.id);
-    if (error) throw error;
-    const students = siblings || [];
-    const roleMatches = family.roleMatches;
-
-    if (roll_number || section) {
-      // Pass 2: roll_number/section decides it — the user is here precisely
-      // because their typed name didn't confidently match, so re-requiring
-      // a name match would defeat the point. Name is only used as a
-      // tiebreaker if roll_number/section alone matches more than one sibling.
-      let candidates = students.filter(s =>
-        (roll_number && s.roll_number && String(s.roll_number).trim().toLowerCase() === String(roll_number).trim().toLowerCase()) ||
-        (section && s.section && String(s.section).trim().toLowerCase() === String(section).trim().toLowerCase())
-      );
-      if (candidates.length > 1) {
-        const nameNarrowed = candidates.filter(s => isCloseNameMatch(name, s.name));
-        if (nameNarrowed.length >= 1) candidates = nameNarrowed;
-      }
-      if (candidates.length === 1) return res.json({ familyFound: true, found: true, student_id: candidates[0].id, family_id: family.id, roleMatches });
-      return res.json({ familyFound: true, found: false, family_id: family.id, roleMatches });
-    }
-
-    // Pass 1: name + phone only.
-    const matches = students.filter(s => isCloseNameMatch(name, s.name));
-    if (matches.length === 1) {
-      return res.json({ familyFound: true, found: true, student_id: matches[0].id, family_id: family.id, roleMatches });
-    }
-    // Zero matches, or more than one equally-plausible match — both need disambiguation.
-    return res.json({ familyFound: true, found: false, needsDisambiguation: true, family_id: family.id, roleMatches });
-  } catch (err) {
-    console.error('Resolve-student error:', err);
-    res.status(500).json({ error: 'Could not resolve student' });
-  }
-});
-
 // ------------------------------------------------------------------
 // Fetch a single student/family by id, so app/child, app/mother and app/father
 // can personalize their static "Leo"/"Alexandria" placeholders once a
@@ -4830,7 +4781,7 @@ app.get('/api/family/:id/students', async (req, res) => {
     if (!requireOwnFamily(req, res, familyId)) return;
     const { data, error } = await supabase
       .from('students')
-      .select('id, name, class, class_teacher_name, share_homework_status_with_teacher')
+      .select('id, name, class, section, class_teacher_name, share_homework_status_with_teacher')
       .eq('family_id', familyId)
       .order('created_at', { ascending: true });
     if (error) throw error;
@@ -4849,13 +4800,19 @@ app.patch('/api/students/:id/teacher-settings', async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
     const studentId = req.params.id;
     if (!(await requireOwnStudent(req, res, studentId))) return;
-    const { classTeacherName, shareHomeworkStatusWithTeacher } = req.body || {};
+    const { classTeacherName, shareHomeworkStatusWithTeacher, section } = req.body || {};
+    const update = {
+      class_teacher_name: classTeacherName ? String(classTeacherName).trim().slice(0, 120) : null,
+      share_homework_status_with_teacher: !!shareHomeworkStatusWithTeacher
+    };
+    // Section is asked here, not at registration: it's only needed once a
+    // child is linked to a class teacher, whose roster matches students by
+    // class + section (studentsForTeacherClassSection). Left untouched when
+    // the request doesn't send it.
+    if (section !== undefined) update.section = section ? String(section).trim().slice(0, 20) : null;
     const { error } = await supabase
       .from('students')
-      .update({
-        class_teacher_name: classTeacherName ? String(classTeacherName).trim().slice(0, 120) : null,
-        share_homework_status_with_teacher: !!shareHomeworkStatusWithTeacher
-      })
+      .update(update)
       .eq('id', studentId);
     if (error) throw error;
     res.json({ ok: true });
@@ -6945,9 +6902,9 @@ app.get('/api/game-sessions/:id/state', async (req, res) => {
 });
 
 // A game-join token is unguessable (32 random bytes) so this isn't brute-
-// force-critical the way resolveStudentLimiter's name+phone lookup is, but
-// it's still a public, unauthenticated endpoint worth capping against
-// basic abuse.
+// force-critical the way a guessable name+phone lookup would be, but it's
+// still a public, unauthenticated endpoint worth capping against basic
+// abuse.
 const gameInviteLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 10,

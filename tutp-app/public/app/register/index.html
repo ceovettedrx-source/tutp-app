@@ -162,11 +162,6 @@
 <datalist id="childVillageList"></datalist>
 <div><label class="font-label-md text-label-md text-on-surface mb-xs block">Full Address <span class="font-caption text-caption text-on-surface-variant">(optional, for reference)</span></label><input id="childAddress" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="Street, landmark, etc." type="text"/></div>
 <p class="font-caption text-caption text-on-surface-variant">School Name and Mandal together help match your child to their teacher's homework (using the State/District from Step 1) — please pick from the list or add your school/mandal if it's not there yet.</p>
-<div class="grid grid-cols-2 gap-md">
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Section</label><input id="childSection" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. A" type="text"/></div>
-<div><label class="font-label-md text-label-md text-on-surface mb-xs block">Roll Number</label><input id="childRollNumber" class="w-full h-11 px-3 rounded-lg soft-input bg-surface-container-lowest font-body-md" placeholder="e.g. 23" type="text"/></div>
-</div>
-<p class="font-caption text-caption text-on-surface-variant">School/Section/Roll Number help us tell your children apart if two have similar names when logging in.</p>
 </div>
 
 <div class="mt-md glass-card rounded-xl p-md max-w-2xl mx-auto">
@@ -412,9 +407,7 @@
       <div class="w-full md:w-32"><select class="child-class w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm"><option value="">Grade</option>${gradeOptionsFull.map(g=>`<option>${g}</option>`).join('')}</select></div>
       <div class="flex-1 w-full"><input class="child-school w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="schoolNamesListReg" autocomplete="off" placeholder="School name" type="text"/></div>
       <div class="w-full md:w-36"><input class="child-mandal w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="childMandalList" autocomplete="off" placeholder="Mandal" type="text" onchange="onChildMandalChange(this)"/></div>
-      <div class="w-full md:w-36"><input class="child-village w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="childVillageList" autocomplete="off" placeholder="Village" type="text"/></div>
-      <div class="w-full md:w-24"><input class="child-section w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Section" type="text"/></div>
-      <div class="w-full md:w-28"><input class="child-roll w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" placeholder="Roll no." type="text"/></div>`;
+      <div class="w-full md:w-36"><input class="child-village w-full h-10 px-2 rounded-lg soft-input bg-surface-container-lowest font-body-md text-sm" list="childVillageList" autocomplete="off" placeholder="Village" type="text"/></div>`;
     wrap.appendChild(row);
   }
 
@@ -750,8 +743,6 @@
       mandal: document.getElementById('childMandal').value.trim(),
       village: document.getElementById('childVillage').value.trim(),
       address: document.getElementById('childAddress').value.trim() || null,
-      section: document.getElementById('childSection').value.trim(),
-      rollNumber: document.getElementById('childRollNumber').value.trim(),
       photoUrl: uploadedPhotos['child'] || null,
       favoriteSubject: document.getElementById('favSubject').value,
       favoriteGame: document.getElementById('favGame').value,
@@ -762,9 +753,7 @@
       class: row.querySelector('.child-class').value,
       schoolName: row.querySelector('.child-school').value.trim(),
       mandal: row.querySelector('.child-mandal').value.trim(),
-      village: row.querySelector('.child-village').value.trim(),
-      section: row.querySelector('.child-section').value.trim(),
-      rollNumber: row.querySelector('.child-roll').value.trim()
+      village: row.querySelector('.child-village').value.trim()
     })).filter(c => c.name);
     const children = [primaryChild, ...extraChildren].map((child, i) => ({
       ...child,

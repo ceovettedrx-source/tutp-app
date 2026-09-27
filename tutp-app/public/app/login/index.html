@@ -48,16 +48,13 @@
 <section class="w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg transition-all duration-300" id="login-view">
 <header class="text-center">
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Welcome Back</h1>
-<p class="font-body-md text-body-md text-on-surface-variant" id="loginSubtitle">Enter your child's name and your phone number to continue</p>
+<p class="font-body-md text-body-md text-on-surface-variant" id="loginSubtitle">Enter your phone number to continue</p>
 </header>
 <div class="flex rounded-full bg-surface-container p-1" role="tablist">
 <button type="button" id="roleTabParent" class="flex-1 h-10 rounded-full font-label-md text-label-md transition-colors bg-primary text-on-primary" onclick="setLoginRole('parent')">Parent</button>
 <button type="button" id="roleTabTeacher" class="flex-1 h-10 rounded-full font-label-md text-label-md transition-colors text-on-surface-variant" onclick="setLoginRole('teacher')">Teacher / Tutor</button>
 </div>
-<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); handleNamePhoneSubmit();">
-<div class="glass-input rounded-xl p-xs transition-all" id="loginChildNameWrap">
-<input id="loginChildName" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Child's name (optional)" type="text"/>
-</div>
+<form class="flex flex-col gap-md" id="phone-form" onsubmit="event.preventDefault(); handlePhoneSubmit();">
 <div class="glass-input rounded-xl flex items-center p-xs transition-all">
 <div class="flex items-center gap-xs px-sm py-sm border-r border-outline-variant">
 <span class="font-label-lg text-label-lg text-on-surface">+91</span>
@@ -71,24 +68,15 @@
 <p class="text-center font-label-md text-label-md text-on-surface-variant" id="registerLinkRow">New here? <a class="text-primary hover:underline" href="/app/register/">Register</a></p>
 </section>
 
-<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="disambiguate-view">
-<header class="text-center relative">
-<button class="absolute left-0 top-1/2 -translate-y-1/2 text-on-surface-variant hover:text-primary transition-colors" onclick="showLogin()">
-<span class="material-symbols-outlined">arrow_back</span>
-</button>
+<!-- Several children in the family and none remembered on this device:
+     tap one to continue. Switching later happens from the dashboard's
+     child chips. -->
+<section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="child-picker-view">
+<header class="text-center">
 <h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-primary mb-sm">Which child?</h1>
-<p class="font-body-md text-body-md text-on-surface-variant">We couldn't match that name exactly — enter a Roll Number or Section to help us find the right profile.</p>
+<p class="font-body-md text-body-md text-on-surface-variant">Tap to continue. You can switch any time from the dashboard.</p>
 </header>
-<form class="flex flex-col gap-md" id="disambiguate-form" onsubmit="event.preventDefault(); handleDisambiguate();">
-<div class="glass-input rounded-xl p-xs transition-all">
-<input id="disambigRollNumber" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Roll Number" type="text"/>
-</div>
-<div class="glass-input rounded-xl p-xs transition-all">
-<input id="disambigSection" class="w-full bg-transparent border-none focus:ring-0 font-body-lg text-body-lg text-on-surface px-sm py-sm" placeholder="Section" type="text"/>
-</div>
-<p id="disambigError" class="text-center text-sm text-red-600 hidden"></p>
-<button class="w-full min-h-[56px] bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors shadow-[0_12px_30px_rgba(0,91,192,0.1)]" type="submit" id="disambigBtn">Continue</button>
-</form>
+<div class="flex flex-col gap-sm" id="childPickerList"></div>
 </section>
 
 <section class="hidden w-full max-w-[480px] glass-card rounded-lg p-md md:p-lg flex flex-col gap-lg" id="otp-view">
@@ -118,7 +106,6 @@
 <header class="text-center">
 <h1 class="font-display-lg text-display-lg text-primary mb-sm">Who's logging in?</h1>
 <p class="font-body-lg text-body-lg text-on-surface-variant">Select your profile to continue learning</p>
-<p class="hidden font-label-md text-label-md text-error mt-sm" id="profileNotFoundNote">We couldn't confidently match the name you entered to one of your children — please pick your profile below.</p>
 </header>
 <div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-md" id="profileGrid">
 <p class="col-span-full text-center font-body-md text-body-md text-on-surface-variant" id="profileGridStatus">Loading your family…</p>
@@ -211,17 +198,17 @@
                 if (focusSelector) { const el = to.querySelector(focusSelector); if (el) el.focus(); }
             }, 300);
         }
-        function showLogin() {
-            // "Back" is reachable from either otp-view or disambiguate-view.
-            const otp = document.getElementById('otp-view');
-            const from = otp.classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
-            transitionTo(from, 'login-view');
+        // Whichever view is showing right now, so every transition starts
+        // from the real current screen (OTP, account picker, password setup…).
+        function currentViewId() {
+            const visible = Array.from(document.querySelectorAll('main > section')).find(s => !s.classList.contains('hidden'));
+            return visible ? visible.id : 'login-view';
         }
-        function showProfiles(notFound) {
-            document.getElementById('profileNotFoundNote').classList.toggle('hidden', !notFound);
-            const otp = document.getElementById('otp-view');
-            const from = otp.classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
-            transitionTo(from, 'profile-view');
+        function showLogin() {
+            transitionTo(currentViewId(), 'login-view');
+        }
+        function showProfiles() {
+            transitionTo(currentViewId(), 'profile-view');
             loadProfileGrid();
         }
 
@@ -232,10 +219,11 @@
                 .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
-        function profileTile(name, role, href, color, memberId) {
+        function profileTile(name, role, href, color, memberId, studentId) {
             const initial = escapeAttr((name || '?').trim().charAt(0).toUpperCase() || '?');
             const memberAttrs = memberId ? ` data-member-id="${escapeAttr(memberId)}" data-member-name="${escapeAttr(name)}"` : '';
-            return `<a href="${href}"${memberAttrs} class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
+            const studentAttr = studentId ? ` data-student-id="${escapeAttr(studentId)}"` : '';
+            return `<a href="${href}" data-profile-tile="1"${memberAttrs}${studentAttr} class="group flex flex-col items-center gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all hover:shadow-[0_12px_30px_rgba(0,91,192,0.1)] hover:-translate-y-1">
 <div class="w-24 h-24 rounded-full overflow-hidden border-4 border-surface-container-high group-hover:border-primary transition-colors avatar-ph" style="background:${color};">${initial}</div>
 <div class="text-center"><h3 class="font-headline-md text-headline-md text-on-surface group-hover:text-primary">${escapeAttr(name)}</h3><span class="font-label-md text-label-md text-on-surface-variant bg-surface-container px-sm py-xs rounded-full inline-block mt-xs">${escapeAttr(role)}</span></div>
 </a>`;
@@ -264,7 +252,7 @@
 
                 let tiles = '';
                 (studentsData.students || []).forEach(s => {
-                    tiles += profileTile(s.name, 'Student', '/app/child/', '#005bbf');
+                    tiles += profileTile(s.name, 'Student', '/app/child/', '#005bbf', null, s.id);
                 });
                 if (fam.motherName) tiles += profileTile(fam.motherName, 'Mother', '/app/mother/', '#805600');
                 if (fam.fatherName) tiles += profileTile(fam.fatherName, 'Father', '/app/father/', '#008939');
@@ -273,12 +261,24 @@
                 });
 
                 gridEl.innerHTML = tiles || '<p class="col-span-full text-center font-body-md text-body-md text-on-surface-variant">No family members yet — use "Add Profile" below.</p>';
-                // Record which family_members row was tapped so /app/family-member/
-                // can personalize immediately instead of showing its own picker gate.
-                gridEl.querySelectorAll('[data-member-id]').forEach(a => {
-                    a.addEventListener('click', () => {
-                        sessionStorage.setItem('tutp_family_member_id', a.dataset.memberId);
-                        sessionStorage.setItem('tutp_family_member_name', a.dataset.memberName);
+                // A tapped tile goes through the same child step as a direct
+                // login. A family_members tile also records which member it
+                // was, so /app/family-member/ can personalize immediately
+                // instead of showing its own picker gate. A child's own tile
+                // selects that child.
+                gridEl.querySelectorAll('[data-profile-tile]').forEach(a => {
+                    a.addEventListener('click', (e) => {
+                        e.preventDefault();
+                        if (a.dataset.memberId) {
+                            sessionStorage.setItem('tutp_family_member_id', a.dataset.memberId);
+                            sessionStorage.setItem('tutp_family_member_name', a.dataset.memberName);
+                        }
+                        if (a.dataset.studentId) {
+                            selectChild(a.dataset.studentId);
+                            window.location.href = a.getAttribute('href');
+                            return;
+                        }
+                        goToDashboard(a.getAttribute('href'));
                     });
                 });
             } catch (err) {
@@ -287,33 +287,78 @@
             }
         }
         function showRegisterPrompt() {
-            transitionTo('login-view', 'register-prompt-view');
+            transitionTo(currentViewId(), 'register-prompt-view');
         }
 
         // Everyone having their own phone today (not one household phone
         // shared by mother/father/family members, the old assumption behind
         // the profile-tile grid) means the verified phone number usually
         // identifies exactly one role on its own. roleMatches (from
-        // findFamilyIdByPhone on the server) lists every role that actually
-        // has this exact phone on file — skip the grid and go straight to
-        // that dashboard when there's only one, since there's nothing left
-        // to disambiguate; fall back to the grid exactly as before whenever
+        // /api/session/me, after the OTP) lists every role that actually has
+        // this exact phone on file — skip the grid and go straight to that
+        // dashboard when there's only one; fall back to the grid whenever
         // more than one role still shares a number, so a genuine tie is
         // never silently guessed.
-        function routeAfterLogin(notConfident) {
-            if (pendingRoleMatches.length === 1) {
-                const m = pendingRoleMatches[0];
+        function routeAfterLogin(roleMatches) {
+            if (roleMatches.length === 1) {
+                const m = roleMatches[0];
                 const dashboardPath = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' }[m.role];
                 if (dashboardPath) {
                     if (m.role === 'family_member') {
                         sessionStorage.setItem('tutp_family_member_id', m.memberId);
                         sessionStorage.setItem('tutp_family_member_name', m.name || '');
                     }
-                    window.location.href = dashboardPath;
+                    goToDashboard(dashboardPath);
                     return;
                 }
             }
-            showProfiles(notConfident);
+            showProfiles();
+        }
+
+        // ---------------- Which child ----------------
+        // Replaces typing the child's name before the OTP (which fuzzy-
+        // matched it against the family, and sent anyone it couldn't match
+        // to a roll-number/section page). The family's children now come
+        // from /api/session/me after the OTP:
+        //   no child or one child: straight to the dashboard;
+        //   several: the child last picked on this device, else tap to pick.
+        // The device remembers only the child's id, per family, so a shared
+        // phone never mixes families; the server still checks it belongs to
+        // the logged-in family on every request.
+        function rememberedChildKey() {
+            return 'tutp_last_student_' + (sessionStorage.getItem('tutp_family_id') || '');
+        }
+        function selectChild(studentId) {
+            sessionStorage.setItem('tutp_student_id', studentId);
+            try { localStorage.setItem(rememberedChildKey(), studentId); } catch (e) {}
+        }
+        function goToDashboard(path) {
+            const ids = loginChildren.map(c => c.id);
+            if (ids.length === 0) { window.location.href = path; return; }
+            if (ids.length === 1) { selectChild(ids[0]); window.location.href = path; return; }
+            let remembered = null;
+            try { remembered = localStorage.getItem(rememberedChildKey()); } catch (e) {}
+            if (remembered && ids.includes(remembered)) { selectChild(remembered); window.location.href = path; return; }
+            showChildPicker(path);
+        }
+        function showChildPicker(path) {
+            const list = document.getElementById('childPickerList');
+            list.innerHTML = '';
+            loginChildren.forEach(c => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full flex items-center justify-between gap-sm p-md rounded-lg glass-card hover:border-primary border-2 border-transparent transition-all text-left';
+                const nameEl = document.createElement('span');
+                nameEl.className = 'font-headline-md text-headline-md text-on-surface';
+                nameEl.textContent = c.name + (c.class ? ' · ' + c.class : '');
+                const arrow = document.createElement('span');
+                arrow.className = 'material-symbols-outlined text-primary';
+                arrow.textContent = 'arrow_forward';
+                btn.append(nameEl, arrow);
+                btn.addEventListener('click', () => { selectChild(c.id); window.location.href = path; });
+                list.appendChild(btn);
+            });
+            transitionTo(currentViewId(), 'child-picker-view');
         }
         const otpInputs = document.querySelectorAll('.otp-digit');
         otpInputs.forEach((input, index) => {
@@ -326,11 +371,7 @@
         });
 
         let lastPhoneDigits = '';
-        let lastChildName = '';
-        let pendingStudentId = null;   // set once resolve-student confidently identifies a child
-        let pendingFamilyId = null;    // set whenever we know which family this phone belongs to
-        let pendingRoleMatches = [];   // every role (mother/father/family_member) that has this exact phone on file — see routeAfterLogin
-        let resolveFailed = false;     // family found, but couldn't identify which child
+        let loginChildren = [];        // this family's children, from /api/session/me after the OTP — see goToDashboard
         let loginRole = 'parent';      // 'parent' or 'teacher' — set by the tabs on login-view
         let pendingJoinGame = null;    // {token, playerType} — set by initGameJoin() when this login came from a Play-Based Learning invite link; read by handleVerifyCode to redirect straight into the game instead of the usual post-login routing
 
@@ -344,10 +385,6 @@
             teacherTab.classList.toggle('bg-primary', role === 'teacher');
             teacherTab.classList.toggle('text-on-primary', role === 'teacher');
             teacherTab.classList.toggle('text-on-surface-variant', role !== 'teacher');
-            document.getElementById('loginChildNameWrap').classList.toggle('hidden', role === 'teacher');
-            document.getElementById('loginSubtitle').textContent = role === 'teacher'
-                ? 'Enter your phone number to continue'
-                : "Enter your child's name and your phone number to continue";
             document.getElementById('registerLinkRow').innerHTML = role === 'teacher'
                 ? 'New here? <a class="text-primary hover:underline" href="/app/register-teacher/">Register as Teacher/Tutor</a>'
                 : 'New here? <a class="text-primary hover:underline" href="/app/register/">Register</a>';
@@ -383,7 +420,7 @@
                 pendingJoinGame = { token: joinToken, playerType: data.playerType, familyId: data.familyId };
                 // sendCodeAndShowOTP formats otpSentTo from lastPhoneDigits
                 // itself (set above), same as a normal login.
-                await sendCodeAndShowOTP(window.tutpSendOTP('+91' + lastPhoneDigits));
+                await sendCodeAndShowOTP();
             } catch (err) {
                 // Leave the normal phone-entry form usable as a fallback
                 // rather than dead-ending someone whose link expired.
@@ -392,14 +429,10 @@
         }
         document.addEventListener('DOMContentLoaded', initGameJoin);
 
-        // otpPromise lets a caller start the actual Firebase send earlier
-        // (in parallel with other work, e.g. /api/resolve-student below)
-        // instead of only ever starting it here — see handleNamePhoneSubmit.
-        async function sendCodeAndShowOTP(otpPromise){
-            await (otpPromise || window.tutpSendOTP('+91' + lastPhoneDigits));
+        async function sendCodeAndShowOTP(){
+            await window.tutpSendOTP('+91' + lastPhoneDigits);
             document.getElementById('otpSentTo').textContent = 'Sent to +91 ' + lastPhoneDigits.slice(0,5) + ' ' + lastPhoneDigits.slice(5);
-            const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'login-view' : 'disambiguate-view';
-            transitionTo(fromId, 'otp-view', 'input');
+            transitionTo(currentViewId(), 'otp-view', 'input');
         }
 
         let resendInFlight = false;
@@ -423,7 +456,11 @@
             }
         }
 
-        async function handleNamePhoneSubmit(){
+        // Phone only, for parents and teachers alike. Nothing about the
+        // family is looked up until the OTP is verified: the old child-name
+        // lookup here (/api/resolve-student) answered for any phone number
+        // without an OTP, and has been removed.
+        async function handlePhoneSubmit(){
             const errEl = document.getElementById('phoneError');
             const btn = document.getElementById('sendCodeBtn');
             errEl.classList.add('hidden');
@@ -434,95 +471,8 @@
                 return;
             }
             lastPhoneDigits = digits;
-            lastChildName = document.getElementById('loginChildName').value.trim();
-            pendingStudentId = null;
-            pendingFamilyId = null;
-            pendingRoleMatches = [];
-            resolveFailed = false;
-
-            btn.disabled = true; btn.textContent = 'Checking…';
+            btn.disabled = true; btn.textContent = 'Sending…';
             try {
-                if (loginRole === 'teacher') {
-                    btn.textContent = 'Sending…';
-                    await sendCodeAndShowOTP();
-                    return;
-                }
-                if (lastChildName) {
-                    // Firebase's OTP send doesn't depend on resolve-student's
-                    // result (it only needs the phone number, known
-                    // already), so start it now instead of waiting for
-                    // resolve-student first — measured at ~1-3s of real,
-                    // otherwise-sequential wait saved on every login where a
-                    // child name is given. Trade-off: in the familyFound
-                    // === false / needsDisambiguation branches below, this
-                    // OTP may already be in flight even though it's never
-                    // shown/used here — accepted since the "found" branch is
-                    // the common case, and a resend is always available.
-                    const otpPromise = window.tutpSendOTP('+91' + digits);
-                    otpPromise.catch(() => {}); // avoid a spurious unhandled-rejection warning; the real error still surfaces via the await below
-                    const resolveRes = await fetch('/api/resolve-student', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ phone: '+91' + digits, name: lastChildName })
-                    });
-                    const resolveData = await resolveRes.json();
-                    pendingFamilyId = resolveData.family_id || null;
-                    pendingRoleMatches = resolveData.roleMatches || [];
-
-                    if (resolveData.familyFound === false) {
-                        sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
-                        showRegisterPrompt();
-                        return;
-                    }
-                    if (resolveData.found) {
-                        pendingStudentId = resolveData.student_id;
-                    } else if (resolveData.needsDisambiguation) {
-                        transitionTo('login-view', 'disambiguate-view', 'input');
-                        return;
-                    } else {
-                        resolveFailed = true; // family real, but no confident match and no disambiguation offered
-                    }
-                    btn.textContent = 'Sending…';
-                    await sendCodeAndShowOTP(otpPromise);
-                    return;
-                }
-                btn.textContent = 'Sending…';
-                await sendCodeAndShowOTP();
-            } catch(err){
-                errEl.textContent = err.message || 'Could not continue — please try again.';
-                errEl.classList.remove('hidden');
-            } finally {
-                btn.disabled = false; btn.textContent = 'Continue';
-            }
-        }
-
-        async function handleDisambiguate(){
-            const errEl = document.getElementById('disambigError');
-            const btn = document.getElementById('disambigBtn');
-            errEl.classList.add('hidden');
-            const roll_number = document.getElementById('disambigRollNumber').value.trim();
-            const section = document.getElementById('disambigSection').value.trim();
-            if (!roll_number && !section){
-                errEl.textContent = 'Please enter a Roll Number or Section.';
-                errEl.classList.remove('hidden');
-                return;
-            }
-            btn.disabled = true; btn.textContent = 'Checking…';
-            try {
-                const resolveRes = await fetch('/api/resolve-student', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: '+91' + lastPhoneDigits, name: lastChildName, roll_number, section })
-                });
-                const resolveData = await resolveRes.json();
-                pendingFamilyId = resolveData.family_id || pendingFamilyId;
-                pendingRoleMatches = resolveData.roleMatches || pendingRoleMatches;
-                if (resolveData.found) {
-                    pendingStudentId = resolveData.student_id;
-                } else {
-                    resolveFailed = true; // still not found — fall back to the profile grid after OTP
-                }
-                btn.textContent = 'Sending…';
                 await sendCodeAndShowOTP();
             } catch(err){
                 errEl.textContent = err.message || 'Could not continue — please try again.';
@@ -533,16 +483,15 @@
         }
 
         // Everything that decides where a successfully-authenticated login
-        // lands — Play-Based Learning invite, teacher status, child-name
-        // resolution, or the plain registered/new-family fallback. Pulled
-        // out of handleVerifyCode so the account-picker and password-setup
-        // success paths below can both re-enter it once a real session
-        // cookie is actually established, instead of duplicating this
-        // whole routing tree.
+        // lands — Play-Based Learning invite, teacher status, or the family's
+        // own dashboard. Pulled out of handleVerifyCode so the account-picker
+        // and password-setup success paths below can both re-enter it once a
+        // real session cookie is actually established, instead of
+        // duplicating this whole routing tree.
         async function continuePostLoginFlow(){
             // Came here from a Play-Based Learning invite link — skip
             // every other post-login branch below (teacher status,
-            // pending homework, child-name resolution, profile grid):
+            // pending homework, child selection, profile grid):
             // this login's only purpose was joining that specific game,
             // so go straight to the matching dashboard, which detects
             // ?joinGame= itself and opens the Play modal directly into
@@ -561,11 +510,10 @@
             if (loginRole === 'teacher') {
                 const statusRes = await fetch('/api/teacher-status?phone=' + encodeURIComponent('+91' + lastPhoneDigits));
                 const statusData = await statusRes.json();
-                const fromId = document.getElementById('disambiguate-view').classList.contains('hidden') ? 'otp-view' : 'disambiguate-view';
                 if (!statusData.found) {
-                    transitionTo(fromId, 'teacher-register-prompt-view');
+                    transitionTo(currentViewId(), 'teacher-register-prompt-view');
                 } else if (!statusData.is_approved) {
-                    transitionTo(fromId, 'teacher-pending-view');
+                    transitionTo(currentViewId(), 'teacher-pending-view');
                 } else {
                     sessionStorage.setItem('tutp_teacher_id', statusData.id);
                     window.location.href = '/app/teacher/';
@@ -575,60 +523,24 @@
 
             // A homepage attach flow (index.html) may have set
             // tutp_pending_attach_url/_mode/_ts just before sending the
-            // parent here — this used to short-circuit straight to
-            // /demo/ instead of a real dashboard, regardless of who the
-            // parent actually was. That's gone: this login now routes
-            // exactly like any other (below), and whichever dashboard
-            // the parent lands on picks the pending attachment up itself
-            // (checking the same 15-minute freshness window) to pre-fill
-            // whichever mode was chosen on the homepage.
+            // parent here. This login routes exactly like any other
+            // (below), and whichever dashboard the parent lands on picks
+            // the pending attachment up itself (checking the same 15-minute
+            // freshness window) to pre-fill whichever mode was chosen.
 
-            if (pendingStudentId) {
-                // Was an unconditional redirect straight to /app/child/ —
-                // launch-blocking bug (2026-09-06): a parent who typed
-                // their child's name (which the subtitle above literally
-                // instructs them to do) got silently routed past
-                // Mother/Father with no way back, since /app/child/ isn't
-                // ready for launch. Show the same profile grid as the
-                // "couldn't confidently match" case instead — Mother/
-                // Father are always reachable now, and the resolved
-                // student_id/family_id are still recorded, so tapping
-                // the child's tile in the grid still works correctly.
-                sessionStorage.setItem('tutp_student_id', pendingStudentId);
-                if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                routeAfterLogin(false);
-                return;
-            }
-            if (resolveFailed) {
-                if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                routeAfterLogin(true);
-                return;
-            }
-
-            // No child name was entered at all (old-style login) — fall back to the
-            // original registered/new-family check.
-            let registered = false;
-            try {
-                const checkRes = await fetch('/api/check-family', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ phone: '+91' + lastPhoneDigits })
-                });
-                const checkData = await checkRes.json();
-                registered = !!checkData.registered;
-                pendingFamilyId = checkData.family_id || null;
-                pendingRoleMatches = checkData.roleMatches || [];
-            } catch (checkErr) {
-                registered = false; // fail toward the register prompt, not the fake profile grid
-            }
-
-            if (registered) {
-                if (pendingFamilyId) sessionStorage.setItem('tutp_family_id', pendingFamilyId);
-                routeAfterLogin(false);
-            } else {
+            // The family, this phone's roles in it, and its children, all
+            // from the session cookie the OTP just established.
+            const meRes = await fetch('/api/session/me');
+            if (!meRes.ok) throw new Error('Could not load your account — please try again.');
+            const me = await meRes.json();
+            if (!me.familyId) {
                 sessionStorage.setItem('tutp_prefill_phone', lastPhoneDigits);
-                transitionTo('otp-view', 'register-prompt-view');
+                transitionTo(currentViewId(), 'register-prompt-view');
+                return;
             }
+            sessionStorage.setItem('tutp_family_id', me.familyId);
+            loginChildren = me.children || [];
+            routeAfterLogin(me.roleMatches || []);
         }
 
         // --------- Account picker (ambiguous phone, all candidates have passwords) ---------
@@ -651,8 +563,7 @@
             ).join('');
             document.getElementById('pickerSelectStep').classList.remove('hidden');
             document.getElementById('pickerPasswordStep').classList.add('hidden');
-            const from = document.getElementById('otp-view').classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
-            transitionTo(from, 'account-picker-view');
+            transitionTo(currentViewId(), 'account-picker-view');
         }
 
         function showPickerSelectStep() {
@@ -716,8 +627,7 @@
             document.getElementById('setupPasswordInput').value = '';
             document.getElementById('setupPasswordConfirmInput').value = '';
             document.getElementById('setupPasswordError').classList.add('hidden');
-            const from = document.getElementById('otp-view').classList.contains('hidden') ? 'disambiguate-view' : 'otp-view';
-            transitionTo(from, 'password-setup-view');
+            transitionTo(currentViewId(), 'password-setup-view');
         }
 
         async function handlePasswordSetupSubmit() {
@@ -770,8 +680,16 @@
                 return;
             }
             btn.disabled = true; btn.textContent = 'Verifying…';
+            let idToken;
+            try {
+                idToken = await window.tutpVerifyOTP(code);
+            } catch (err) {
+                errEl.textContent = 'Incorrect code — please try again.';
+                errEl.classList.remove('hidden');
+                btn.disabled = false; btn.textContent = 'Verify';
+                return;
+            }
             try{
-                const idToken = await window.tutpVerifyOTP(code);
                 const sessionResult = await window.tutpEstablishSession(idToken);
                 const sessionData = sessionResult && sessionResult.data;
 
@@ -791,7 +709,9 @@
 
                 await continuePostLoginFlow();
             } catch(err){
-                errEl.textContent = 'Incorrect code — please try again.';
+                // The code itself was right (checked above); this is the
+                // session or account step after it.
+                errEl.textContent = err.message || 'Something went wrong signing you in — please try again.';
                 errEl.classList.remove('hidden');
             } finally {
                 btn.disabled = false; btn.textContent = 'Verify';
