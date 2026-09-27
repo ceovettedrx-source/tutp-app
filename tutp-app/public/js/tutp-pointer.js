@@ -174,16 +174,68 @@
     return nodes;
   }
 
-  // Curved arrow: starts off to the side of the target so it never covers it.
+  // Curved arrow: starts just above the target (slightly to the side) so it
+  // never covers it, and lands on the middle of the facing edge — ending on a
+  // corner made it look like it pointed at the neighbouring button.
   function arrowPath(to, from) {
     const tx = to.x + to.w / 2, ty = to.y + to.h / 2;
-    const fx = from ? from.x + from.w / 2 : (tx > window.innerWidth / 2 ? tx - 140 : tx + 140);
-    const fy = from ? from.y + from.h / 2 : Math.max(24, ty - 110);
-    // Stop at the target edge, not its center.
-    const ex = tx + Math.sign(fx - tx) * Math.min(to.w / 2 + 6, Math.abs(fx - tx));
-    const ey = ty + Math.sign(fy - ty) * Math.min(to.h / 2 + 6, Math.abs(fy - ty));
+    const fx = from ? from.x + from.w / 2 : (tx > window.innerWidth / 2 ? tx - 40 : tx + 40);
+    // No room above (target near the top) -> start below instead.
+    const fy = from ? from.y + from.h / 2
+                    : (to.y - 100 >= 24 ? to.y - 100 : to.y + to.h + 100);
+    const dx = fx - tx, dy = fy - ty;
+    // Compare offsets relative to the target's size, so a wide button is
+    // approached from above/below unless the start is far off to the side.
+    let ex, ey;
+    if (Math.abs(dy) * to.w > Math.abs(dx) * to.h) {
+      ex = tx; ey = dy < 0 ? to.y - 6 : to.y + to.h + 6;
+    } else {
+      ex = dx < 0 ? to.x - 6 : to.x + to.w + 6; ey = ty;
+    }
     const cx = (fx + ex) / 2 + (fy - ey) * 0.25, cy = (fy + ey) / 2 - (fx - ex) * 0.25;
     return { d: `M${fx},${fy} Q${cx},${cy} ${ex},${ey}`, start: { x: fx, y: fy } };
+  }
+
+  // ---------- label avoidance (local only) ----------
+  // Rects of anything visible the label shouldn't cover. Unlike snapshotUI()
+  // this includes plain text and [data-tutp-private] content, assigns no refs,
+  // and only ever returns geometry — it is never sent to the server.
+  const OBSTACLE_SELECTOR = 'p, span, div, label, a, h1, h2, h3, h4, h5, h6, li, td, th, ' +
+                            'button, [role="button"], input, select, textarea, img';
+  const TEXT_ONLY = new Set(['P', 'SPAN', 'DIV']);
+
+  function hasDirectText(node) {
+    for (const c of node.childNodes) {
+      if (c.nodeType === Node.TEXT_NODE && c.nodeValue.trim()) return true;
+    }
+    return false;
+  }
+
+  function obstacleRects() {
+    const out = [];
+    const vw = window.innerWidth, vh = window.innerHeight;
+    for (const node of document.body.querySelectorAll(OBSTACLE_SELECTOR)) {
+      if (TEXT_ONLY.has(node.tagName) && !hasDirectText(node)) continue;
+      const r = node.getBoundingClientRect();
+      if (r.width < 4 || r.height < 4) continue;
+      if (r.bottom < 0 || r.top > vh || r.right < 0 || r.left > vw) continue;
+      const style = getComputedStyle(node);
+      if (style.visibility === 'hidden' || style.display === 'none') continue;
+      out.push([r.left, r.top, r.width, r.height]);
+      if (out.length >= 500) break;
+    }
+    return out;
+  }
+
+  // layout() runs every frame, so re-collect at most every 250ms.
+  let obstacles = [], obstaclesAt = 0;
+  function uiObstacles() {
+    const now = performance.now();
+    if (now - obstaclesAt > 250) {
+      obstacles = obstacleRects();
+      obstaclesAt = now;
+    }
+    return obstacles;
   }
 
   function layout(item) {
@@ -212,11 +264,34 @@
     if (nodes.label) {
       const bb = nodes.label.getBBox();
       const x = Math.min(Math.max(8, labelAt.x), window.innerWidth - bb.width - 20);
-      const y = Math.min(Math.max(28, labelAt.y), window.innerHeight - 12);
+      let y = Math.min(Math.max(28, labelAt.y), window.innerHeight - 12);
+      // Box spans [y - bb.height + 2, y + 12]. Push it up above any UI element
+      // it overlaps; give up at the top of the viewport rather than go off-screen.
+      // Skip anything that fully contains the target (the homework photo in
+      // image mode, or a wrapping container) — dodging it would push the label
+      // clear of the whole photo, far from the box it describes.
+      const bw = bb.width + 20;
+      const rects = uiObstacles().filter(([rx, ry, rw, rh]) =>
+        !(rx <= r.x && ry <= r.y && rx + rw >= r.x + r.w && ry + rh >= r.y + r.h));
+      for (let i = 0; i < 20; i++) {
+        const top = y - bb.height + 2, bottom = y + 12;
+        const hit = rects.find(([rx, ry, rw, rh]) =>
+          x < rx + rw && x + bw > rx && top < ry + rh && bottom > ry);
+        if (!hit) break;
+        const next = hit[1] - 16;
+        if (next < 28) break;
+        y = next;
+      }
       nodes.label.setAttribute('x', x + 10);
       nodes.label.setAttribute('y', y);
-      Object.entries({ x, y: y - bb.height + 2, width: bb.width + 20, height: bb.height + 10 })
+      Object.entries({ x, y: y - bb.height + 2, width: bw, height: bb.height + 10 })
         .forEach(([k, v]) => nodes.labelBg.setAttribute(k, v));
+      // The label may have moved to dodge UI; restart the arrow from its
+      // bottom-center so the two stay connected. An explicit step.from wins.
+      if ((step.type === 'arrow' || step.type === 'point') && !step.from) {
+        const a = arrowPath(r, { x: x + bw / 2, y: y + 12, w: 0, h: 0 });
+        nodes.line.setAttribute('d', a.d);
+      }
     }
   }
 
