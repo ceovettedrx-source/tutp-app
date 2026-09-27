@@ -10,10 +10,12 @@
 //   v1  fixtures/worksheet-blank.jpg     printed sheet, no answers
 //   v2  fixtures/worksheet-5-wrong.jpg   8 handwritten answers, 5 wrong
 // Each must return 200 with 1-4 steps, every box inside 0-1000 with
-// x1 < x2 and y1 < y2, and the server's own time (X-Server-Time-Ms) under
-// 8 seconds. The end-to-end time seen here is reported too, but only fails
-// above 20 seconds: it includes this machine's network, which the app
-// doesn't control (a 16 s upload stall turned a 3.3 s request red once).
+// x1 < x2 and y1 < y2, the server's own time (X-Server-Time-Ms) under
+// 8 seconds, and speech that never states how many more mistakes there are
+// ("3 more", "two more to check": the model miscounted, which misleads the
+// parent). The end-to-end time seen here is reported only, never a failure:
+// it includes this machine's network, which stalled for 16-28 s on
+// 2026-09-27 while the server answered in 3-6 s.
 // Fixtures are made up; regenerate with fixtures/generate-worksheets.js.
 //
 // Each run makes 2 real model calls. Output: tests/e2e/output/ (FAIL_v*.png,
@@ -34,7 +36,9 @@ const HEADLESS = args.includes('--headless');
 const MOTHER = '+919999900001';
 const CODE = '123456';
 const MAX_SERVER_MS = 8000;
-const MAX_END_TO_END_MS = 20000;
+// "3 more", "two more", "3 more mistakes", "3 others": a count of what is
+// left. Problem numbers ("problems 2 and 3") are fine.
+const REMAINING_COUNT = /\b(\d+|one|two|three|four|five|six|seven|eight|nine|ten)\s+(more|others?)\b/i;
 const QUESTION = 'Where did my child go wrong in this homework?';
 const OUT = path.join(__dirname, 'output');
 fs.mkdirSync(OUT, { recursive: true });
@@ -132,7 +136,9 @@ function checkSteps(json) {
         const { steps, boxes } = checkSteps(r.json);
         if (!Number.isFinite(r.serverMs)) throw new Error(`no X-Server-Time-Ms header: ${where}`);
         if (r.serverMs >= MAX_SERVER_MS) throw new Error(`server too slow: ${where}; ${steps} steps`);
-        if (r.ms >= MAX_END_TO_END_MS) throw new Error(`end-to-end too slow: ${where}; ${steps} steps`);
+        const allText = [r.json.speech, ...(r.json.steps || []).map(s => s.say)].filter(Boolean).join(' ');
+        const counted = allText.match(REMAINING_COUNT);
+        if (counted) throw new Error(`speech states a count of remaining mistakes ("${counted[0]}"): "${allText.slice(0, 200)}"`);
         const speech = (r.json.speech || '').slice(0, 120);
         return `${where}; ${steps} steps, ${boxes} boxes ok; speech: "${speech}"`;
       }, page);
