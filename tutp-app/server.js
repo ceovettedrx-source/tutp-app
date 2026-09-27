@@ -19,6 +19,7 @@ import cookieParser from 'cookie-parser';
 import 'dotenv/config';
 import createMaterialRouter from './server/routes/teacher/create-material.js';
 import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
+import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -883,6 +884,7 @@ app.post('/api/admin/tutors', requireAdmin, async (req, res) => {
     const { name, photoUrl, category, subjects, experienceYears, feeDisplay, area, bio, phone } = req.body || {};
     if (!name || !String(name).trim()) return res.status(400).json({ error: 'name is required' });
     if (!phone || !String(phone).trim()) return res.status(400).json({ error: 'phone is required' });
+    if (!normalizePhone(phone)) return res.status(400).json({ error: 'phone must have 10 digits' });
     if (!TUTOR_CATEGORIES.includes(category)) {
       return res.status(400).json({ error: 'category must be one of ' + TUTOR_CATEGORIES.join(', ') });
     }
@@ -899,7 +901,7 @@ app.post('/api/admin/tutors', requireAdmin, async (req, res) => {
       fee_display: feeDisplay || null,
       area: area || null,
       bio: bio || null,
-      phone: String(phone).trim()
+      phone: normalizePhone(phone)
     }).select().single();
     if (error) throw error;
     res.json({ tutor: data });
@@ -930,7 +932,8 @@ app.patch('/api/admin/tutors/:id', requireAdmin, async (req, res) => {
     if (bio !== undefined) updates.bio = bio || null;
     if (phone !== undefined) {
       if (!String(phone).trim()) return res.status(400).json({ error: 'phone cannot be empty' });
-      updates.phone = String(phone).trim();
+      if (!normalizePhone(phone)) return res.status(400).json({ error: 'phone must have 10 digits' });
+      updates.phone = normalizePhone(phone);
     }
     if (verifiedBy !== undefined) updates.verified_by = verifiedBy || null;
     if (verificationStatus !== undefined) {
@@ -2348,6 +2351,8 @@ const registerLimiter = rateLimit({
 // as a single JSONB record (simple, fast to ship; can be normalized
 // into separate tables later once the schema is stable).
 // ------------------------------------------------------------------
+// Phones are stored through normalizePhone ("+91" + last 10 digits); see
+// server/services/phone.js.
 app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -2372,6 +2377,21 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     const children = Array.isArray(payload.children) ? payload.children : [];
     if (!children.length || !children[0]?.name) {
       return res.status(400).json({ error: "Missing child's name" });
+    }
+    // Stored normalized (see normalizePhone). Checked before anything is
+    // saved, so a malformed number never leaves a half-created family.
+    for (const role of ['mother', 'father']) {
+      if (payload[role] && hasPhoneInput(payload[role].phone)) {
+        const normalized = normalizePhone(payload[role].phone);
+        if (!normalized) return res.status(400).json({ error: `Please enter a 10-digit phone number for the ${role}.` });
+        payload[role].phone = normalized;
+      }
+    }
+    const extendedFamilyInput = Array.isArray(payload.extendedFamily) ? payload.extendedFamily : [];
+    for (const m of extendedFamilyInput) {
+      if (m && m.name && hasPhoneInput(m.phone) && !normalizePhone(m.phone)) {
+        return res.status(400).json({ error: `Please enter a 10-digit phone number for ${m.name}, or leave it blank.` });
+      }
     }
     const { data, error } = await supabase.from('family_registrations').insert({ data: payload }).select('id').single();
     if (error) throw error;
@@ -2432,7 +2452,7 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       family_id: data.id,
       name: m.name,
       relationship: m.role || null,
-      phone: m.phone || null
+      phone: normalizePhone(m.phone)
     }));
     if (memberRows.length) {
       const { error: membersErr } = await supabase.from('family_members').insert(memberRows);
@@ -2567,11 +2587,14 @@ app.post('/api/family/add-member', async (req, res) => {
       return res.status(400).json({ error: 'Missing family_id or member name' });
     }
     if (!requireOwnFamily(req, res, familyId)) return;
+    if (hasPhoneInput(member.phone) && !normalizePhone(member.phone)) {
+      return res.status(400).json({ error: 'Please enter a 10-digit phone number, or leave it blank.' });
+    }
     const { error } = await supabase.from('family_members').insert({
       family_id: familyId,
       name: member.name,
       relationship: member.role || null,
-      phone: member.phone || null
+      phone: normalizePhone(member.phone)
     });
     if (error) throw error;
     res.json({ ok: true });
@@ -2848,6 +2871,8 @@ app.post('/api/register-teacher', async (req, res) => {
     // sneak into the matching key regardless of caller — an ilike() match
     // against another table's value is exact-but-case-insensitive, so a
     // trailing space alone is enough to silently break homework matching.
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) return res.status(400).json({ error: 'Please enter a 10-digit phone number.' });
     const trimmedSchoolName = String(schoolName).trim();
     const trimmedState = String(state).trim();
     const trimmedDistrict = String(district).trim();
@@ -2855,7 +2880,7 @@ app.post('/api/register-teacher', async (req, res) => {
     const trimmedVillage = String(village).trim();
     const { data, error } = await supabase.from('teachers').insert({
       name: String(name).trim().slice(0, 120),
-      phone: String(phone).slice(0, 20),
+      phone: normalizedPhone,
       subjects: subjectList.map(s => String(s).trim().slice(0, 60)),
       school_name: trimmedSchoolName.slice(0, 200),
       state: trimmedState.slice(0, 100),
@@ -2915,12 +2940,15 @@ app.post('/api/teacher-registrations', async (req, res) => {
       return res.status(400).json({ error: 'Employment type is required for government school teachers' });
     }
 
+    const normalizedPhone = normalizePhone(phone);
+    if (!normalizedPhone) return res.status(400).json({ error: 'Please enter a 10-digit phone number.' });
+
     const registrationId = crypto.randomUUID();
     const nowEpoch = Math.floor(Date.now() / 1000);
     const { error: insertErr } = await supabase.from('teacher_registrations').insert({
       registration_id: registrationId,
       full_name: String(fullName).trim().slice(0, 120),
-      phone: String(phone).slice(0, 20),
+      phone: normalizedPhone,
       school_type: schoolType,
       employment_type: schoolType === 'government' ? employmentType : null,
       school_name: String(schoolName).trim().slice(0, 200),

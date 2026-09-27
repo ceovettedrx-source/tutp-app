@@ -2,7 +2,7 @@
 //
 //   npm run test:e2e -- <base-url> [tests] [--headless]
 //   e.g. npm run test:e2e -- https://preview---tutp-demo-vs4743puka-uc.a.run.app
-//        npm run test:e2e -- https://preview---tutp-demo-vs4743puka-uc.a.run.app fgi
+//        npm run test:e2e -- https://preview---tutp-demo-vs4743puka-uc.a.run.app fgij
 //
 // Run it against a no-traffic preview revision (Definition of done in
 // CLAUDE.md). Needs Google Chrome installed; headed by default.
@@ -23,6 +23,8 @@
 // check a failed send / resend by hand on a real device.
 //
 // Tests:
+//   u  unit check, always run first: normalizePhone("+91 99999 00003") ===
+//      "+919999900003" (plus dashes, plain digits, blank, too short)
 //   a  mother login -> mother dashboard (and the session has the mother role)
 //   b  cookies only (no tab state) -> /app/login/ lands on the dashboard, no OTP
 //   c  logout -> a fresh browser with the remaining cookies sees the phone form
@@ -36,6 +38,10 @@
 //      goes through /app/login/?pick=1 (which re-asks the server) instead of
 //      staying open; with /api/session/me answering roleMatches: [] it ends
 //      on /app/login/ and the profile picker
+//   j  phone normalization: the family member entered as "+91 99999 00003" is
+//      stored as "+919999900003" and signs in to their own dashboard. If
+//      family 16 has no member with that number, the test adds one through
+//      the Family page first (this exercises the add-member write path)
 //
 // Output: tests/e2e/output/ (results.json, FAIL_<test>.png). Exit code 1 if
 // any test fails.
@@ -43,6 +49,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { normalizePhone } from '../../server/services/phone.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -52,7 +59,7 @@ if (!BASE) {
   console.error('Usage: npm run test:e2e -- <base-url> [tests] [--headless]');
   process.exit(2);
 }
-const only = (args.find(a => /^[a-i]+$/.test(a)) || 'abcdefghi').split('');
+const only = (args.find(a => /^[a-j]+$/.test(a)) || 'abcdefghij').split('');
 const HEADLESS = args.includes('--headless');
 
 const PHONES = { mother: '9999900001', father: '9999900002', member: '9999900003' };
@@ -185,6 +192,22 @@ function assertRole(me, role) {
 
 (async () => {
   log('base', BASE, 'tests', only.join(''));
+
+  // Unit check, always run: the stored phone format (server/services/phone.js).
+  await record('u', 'normalizePhone("+91 99999 00003") === "+919999900003"', async () => {
+    const cases = [
+      ['+91 99999 00003', '+919999900003'],
+      ['99999-00003', '+919999900003'],
+      ['9999900003', '+919999900003'],
+      ['', null],
+      ['12345', null]
+    ];
+    for (const [input, want] of cases) {
+      const got = normalizePhone(input);
+      if (got !== want) throw new Error(`normalizePhone(${JSON.stringify(input)}) = ${JSON.stringify(got)}, expected ${JSON.stringify(want)}`);
+    }
+    return cases.length + ' cases';
+  });
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS, slowMo: HEADLESS ? 0 : 50 });
   const newCtx = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
@@ -202,7 +225,7 @@ function assertRole(me, role) {
   let motherCookies = null;
   let motherPage = null;
 
-  if (only.some(t => 'abchi'.includes(t))) {
+  if (only.some(t => 'abchij'.includes(t))) {
     const ctx = await newCtx();
     motherPage = await ctx.newPage();
     await record('a', 'mother login -> mother dashboard', async () => {
@@ -235,8 +258,11 @@ function assertRole(me, role) {
       if (!motherCookies) throw new Error('no mother cookies (test a failed or skipped)');
       const out = [];
       const expectPicker = async (page, label) => {
-        const end = await settle(page, DASH.mother);
-        const picker = await page.locator('#profile-view').isVisible().catch(() => false);
+        await settle(page, DASH.mother);
+        // The login page shows "Checking your login…" while it asks the
+        // server, so give the picker up to 10s to appear.
+        const picker = await page.locator('#profile-view').waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
+        const end = new URL(page.url()).pathname;
         out.push(`${label}: /app/mother/ -> ${end}${picker ? ' (profile picker)' : ''}`);
         if (end !== '/app/login/' || !picker) throw new Error(`${label} did not fail closed (${out.join('; ')})`);
       };
@@ -272,6 +298,49 @@ function assertRole(me, role) {
       iPage = null;
       return out.join('; ');
     }, () => iPage);
+  }
+
+  if (only.includes('j')) {
+    let jPage = null;
+    await record('j', 'member entered as "+91 99999 00003" is stored normalized and signs in', async () => {
+      if (!motherPage || !motherCookies) throw new Error('no mother session (test a failed or skipped)');
+      jPage = motherPage;
+      const out = [];
+      const members = async () => jPage.evaluate(async () => {
+        const fid = sessionStorage.getItem('tutp_family_id');
+        return ((await (await fetch('/api/family/' + fid + '/members')).json()).members || []).map(m => m.phone || '');
+      });
+      await settle(jPage, DASH.mother);
+      let phones = await members();
+      let stored = phones.find(p => p.replace(/\D/g, '').endsWith(PHONES.member));
+      if (!stored) {
+        await jPage.goto(BASE + '/app/family/');
+        await jPage.locator('#memberName').waitFor({ state: 'visible', timeout: 20000 });
+        await jPage.selectOption('#memberRole', 'Other');
+        await jPage.fill('#memberName', 'Test Member');
+        await jPage.fill('#memberPhone', '+91 99999 00003');
+        const [resp] = await Promise.all([
+          jPage.waitForResponse(r => r.url().includes('/api/family/add-member'), { timeout: 20000 }),
+          jPage.click('#addBtn')
+        ]);
+        if (resp.status() !== 200) throw new Error('add-member returned ' + resp.status());
+        out.push('added via Family page as "+91 99999 00003"');
+        phones = await members();
+        stored = phones.find(p => p.replace(/\D/g, '').endsWith(PHONES.member));
+      } else {
+        out.push('member already present');
+      }
+      out.push(`stored as ${stored}`);
+      if (stored !== '+91' + PHONES.member) throw new Error(`member phone not normalized (${out.join('; ')})`);
+      const c = await newCtx();
+      jPage = await c.newPage();
+      const landed = await login(jPage, 'member');
+      out.push(`member sign-in -> ${landed}`);
+      if (landed !== DASH.member) throw new Error(`member sign-in ended on ${landed} (${out.join('; ')})`);
+      await c.close();
+      jPage = null;
+      return out.join('; ');
+    }, () => jPage);
   }
 
   let bPage = null, bCtx = null;
