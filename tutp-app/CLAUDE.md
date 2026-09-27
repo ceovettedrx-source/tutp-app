@@ -67,8 +67,10 @@
   If the revision name shown isn't the one just built, move traffic (and the `pdftest` tag, to keep them unified) to it:
 
   ```
-  gcloud run services update-traffic tutp-demo --region=us-central1 --to-revisions=<new-revision>=100 --set-tags=pdftest=<new-revision>
+  gcloud run services update-traffic tutp-demo --region=us-central1 --to-revisions=<new-revision>=100 --update-tags=pdftest=<new-revision>
   ```
+
+  Always `--update-tags`, never `--set-tags`: `--set-tags` replaces the whole tag list, so every other tag (`preview`, `vtutor`, …) is deleted along with its URL (happened 2026-09-27).
 
 ## Infra known issues
 

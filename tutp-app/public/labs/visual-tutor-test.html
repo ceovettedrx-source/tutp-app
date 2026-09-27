@@ -76,8 +76,23 @@
     const result = MOCK ? mockFor(body) : await fetch('/api/visual-tutor', {
       method: 'POST', headers: { 'content-type': 'application/json' }, credentials: 'include',
       body: JSON.stringify(body),
-    }).then((r) => r.ok ? r.json() : Promise.reject(r.status));
+    }).then(async (r) => {
+      if (r.ok) return r.json();
+      const err = await r.json().catch(() => ({}));
+      return Promise.reject({ status: r.status, code: err.error });
+    });
     return result;
+  }
+
+  // What the parent reads in the status line when a request fails: plain
+  // words, never a status code.
+  function failureText(e) {
+    const code = e && e.code;
+    if (code === 'truncated') return 'This page has a lot on it. Try a photo of fewer sums, or ask about one sum.';
+    if (code === 'bad_image') return 'We could not use this photo. Please take a clearer photo of the page.';
+    if (e && e.status === 429) return 'Too many questions just now. Please wait a few minutes and try again.';
+    if (e && e.status === 401) return 'Please log in again, then ask your question.';
+    return 'Something went wrong. Please try again.';
   }
 
   async function show(result) {
@@ -118,7 +133,7 @@
       await show(result);
     } catch (e) {
       statusEl.className = 'error';
-      statusEl.textContent = 'Error' + (e ? ' (' + e + ')' : '') + '. Try again.';
+      statusEl.textContent = failureText(e);
       document.getElementById('speech').textContent = '';
     } finally {
       busy = false;

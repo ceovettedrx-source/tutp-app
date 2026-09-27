@@ -46,7 +46,9 @@ if [ -z "$NEW_REVISION" ] || [ "$NEW_REVISION_STATUS" != "True" ]; then
 fi
 
 echo "New revision ready: $NEW_REVISION. Pinning traffic to it..."
-gcloud run services update-traffic "$SERVICE" --region="$REGION" --to-revisions="$NEW_REVISION=100" --set-tags="pdftest=$NEW_REVISION"
+# --update-tags, not --set-tags: --set-tags would delete every other tag
+# (preview, vtutor, ...) along with its URL.
+gcloud run services update-traffic "$SERVICE" --region="$REGION" --to-revisions="$NEW_REVISION=100" --update-tags="pdftest=$NEW_REVISION"
 
 # Independent re-verification — a fresh describe call, not an assumption
 # that the update-traffic command above did what it claims.

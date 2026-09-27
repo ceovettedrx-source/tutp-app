@@ -13,6 +13,11 @@ const MODEL = process.env.VISUAL_TUTOR_MODEL || 'claude-sonnet-5';
 const TYPES = new Set(['point', 'box', 'highlight', 'underline', 'arrow']);
 const TONES = new Set(['info', 'mistake', 'correct']);
 const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
+// 900 was too few: a worksheet with 5 mistakes ran past it and the reply was
+// cut off mid-JSON (500 parse_error, 2026-09-27). The image prompt now asks
+// for at most 3 steps (2 mistakes + 1 correct) with short text, and a cut-off
+// reply is reported as "truncated" instead of a parse error.
+const MAX_TOKENS = 1600;
 
 router.use(express.json({ limit: '3mb' }));
 
@@ -55,8 +60,8 @@ router.post('/', async (req, res) => {
 
   // One usage_events row per Claude call, whatever the outcome. A parse
   // failure still spent tokens, so it's logged with them.
-  const log = (outcome, { steps = null, usage } = {}) => trackVisualTutorCall(req.familySession.familyId, {
-    mode, outcome, steps, model: MODEL,
+  const log = (outcome, { steps = null, usage, stopReason = null } = {}) => trackVisualTutorCall(req.familySession.familyId, {
+    mode, outcome, steps, model: MODEL, stopReason,
     inputTokens: usage?.input_tokens ?? null, outputTokens: usage?.output_tokens ?? null,
   });
 
@@ -70,7 +75,7 @@ router.post('/', async (req, res) => {
         'anthropic-version': '2023-06-01',
         'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID,
       },
-      body: JSON.stringify({ model: MODEL, max_tokens: 900, system, messages: [{ role: 'user', content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content }] }),
     });
     if (!r.ok) {
       console.error('visual-tutor upstream', r.status, await r.text());
@@ -86,16 +91,40 @@ router.post('/', async (req, res) => {
   let data;
   try {
     data = await r.json();
+  } catch (err) {
+    console.error('visual-tutor upstream body', err);
+    log('upstream_error');
+    return res.status(502).json({ error: 'upstream' });
+  }
+  const stopReason = data.stop_reason || null;
+
+  // Hit the token limit: the JSON is incomplete, so don't try to parse it.
+  if (stopReason === 'max_tokens') {
+    console.warn('visual-tutor truncated', { mode, outputTokens: data.usage?.output_tokens ?? null, maxTokens: MAX_TOKENS });
+    log('truncated', { usage: data.usage, stopReason });
+    return res.status(502).json({ error: 'truncated' });
+  }
+
+  try {
     const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
-    const clean = sanitize(JSON.parse(raw.replace(/```json|```/g, '').trim()), { validRefs, img });
-    log('success', { steps: clean.steps.length, usage: data.usage });
+    const clean = sanitize(JSON.parse(extractJson(raw)), { validRefs, img });
+    log('success', { steps: clean.steps.length, usage: data.usage, stopReason });
     return res.json(clean);
   } catch (err) {
-    console.error('visual-tutor parse', err);
-    log('parse_error', { usage: data?.usage });
+    console.error('visual-tutor parse', err.message, { stopReason });
+    log('parse_error', { usage: data.usage, stopReason });
     return res.status(500).json({ error: 'parse_error' });
   }
 });
+
+// The JSON object is everything from the first "{" to the last "}", which
+// also drops code fences or a stray sentence around it.
+function extractJson(raw) {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start === -1 || end <= start) throw new Error('no JSON object in reply');
+  return raw.slice(start, end + 1);
+}
 
 // Never trust model output: drop hallucinated refs, clamp boxes,
 // convert image pixels -> 0..1000 so the client is resolution-independent.
