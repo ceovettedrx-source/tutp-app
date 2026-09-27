@@ -6,3 +6,6 @@ node_modules/
 # during the image build, so it shouldn't be committed/drift from source.
 /public/css/tailwind.css
 design-assets/
+
+# e2e run output (screenshots, results.json)
+/tests/e2e/output/

@@ -37,7 +37,11 @@
             // in the same broken page, never seeing the fix below. Falling
             // through to the normal login form is harmless; a fresh OTP now
             // lands on the corrected profile grid.
-            if (hasSession && lastDashboard && lastDashboard !== '/app/child/') {
+            // ?pick=1: a dashboard's role guard sent the viewer here because
+            // the session has no role it could check. Going back to that
+            // same dashboard would bounce forever; show the profile picker.
+            var pick = new URLSearchParams(location.search).get('pick') === '1';
+            if (hasSession && lastDashboard && lastDashboard !== '/app/child/' && !pick) {
                 window.location.replace(lastDashboard);
                 return;
             }
@@ -481,6 +485,7 @@
                 const me = await res.json();
                 if (me.familyId) {
                     sessionStorage.setItem('tutp_family_id', me.familyId);
+                    sessionStorage.setItem('tutp_roles', JSON.stringify(me.roleMatches || []));
                     loginChildren = me.children || [];
                     hideLoginForm();
                     routeAfterLogin(me.roleMatches || []);
@@ -585,6 +590,8 @@
         // real session cookie is actually established, instead of
         // duplicating this whole routing tree.
         async function continuePostLoginFlow(){
+            // Roles of whoever signed in last in this tab are no longer valid.
+            try { sessionStorage.removeItem('tutp_roles'); } catch (e) {}
             // Came here from a Play-Based Learning invite link — skip
             // every other post-login branch below (teacher status,
             // pending homework, child selection, profile grid):
@@ -635,6 +642,8 @@
                 return;
             }
             sessionStorage.setItem('tutp_family_id', me.familyId);
+            // Read by the dashboards' role guard (/app/shared/session-guard.js).
+            sessionStorage.setItem('tutp_roles', JSON.stringify(me.roleMatches || []));
             loginChildren = me.children || [];
             routeAfterLogin(me.roleMatches || []);
         }
