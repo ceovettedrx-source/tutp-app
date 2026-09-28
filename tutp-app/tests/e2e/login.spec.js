@@ -37,7 +37,16 @@
 //   i  role guard fails closed: with empty roles cached in the tab the page
 //      goes through /app/login/?pick=1 (which re-asks the server) instead of
 //      staying open; with /api/session/me answering roleMatches: [] it ends
-//      on /app/login/ and the profile picker
+//      on /app/login/ with the phone form (a fresh sign-in), never an empty
+//      profile picker
+//   l  a sign-in that no longer matches a family (2026-09-28: a session for
+//      deleted family 8 showed an empty picker offering only "New Family"),
+//      with /api/session/me and /api/family/:id answered in the browser:
+//      401 family_gone / no_role -> phone form with the plain message;
+//      two roles but the family lookup 404s -> "Sign in again", never
+//      "No family members yet"; the picker never links to registration, and
+//      "Add a family member" shows for a mother/father only; the server lets
+//      the mother add members (f: the father too; g: a member gets 403)
 //   j  phone normalization: the family member entered as "+91 99999 00003" is
 //      stored as "+919999900003" and signs in to their own dashboard. If
 //      family 16 has no member with that number, the test adds one through
@@ -59,7 +68,7 @@ if (!BASE) {
   console.error('Usage: npm run test:e2e -- <base-url> [tests] [--headless]');
   process.exit(2);
 }
-const only = (args.find(a => /^[a-j]+$/.test(a)) || 'abcdefghij').split('');
+const only = (args.find(a => /^[a-l]+$/.test(a)) || 'abcdefghijl').split('');
 const HEADLESS = args.includes('--headless');
 
 const PHONES = { mother: '9999900001', father: '9999900002', member: '9999900003' };
@@ -222,6 +231,16 @@ async function apiStatus(page, url) {
   return page.evaluate(async (u) => (await fetch(u, { cache: 'no-store' })).status, url);
 }
 
+// POST /api/family/add-member with a phone that fails validation: a parent
+// gets 400 (allowed, but nothing is written), anyone else 403. Never adds
+// a row.
+async function addMemberProbe(page, familyId) {
+  return page.evaluate(async (fid) => (await fetch('/api/family/add-member', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ family_id: fid, member: { name: 'e2e probe (not saved)', phone: '123' } }),
+  })).status, familyId);
+}
+
 // The session must carry this role; a test number shared by two families
 // shows up here as no roles at all.
 function assertRole(me, role) {
@@ -296,17 +315,18 @@ function assertRole(me, role) {
 
   if (only.includes('i')) {
     let iPage = null;
-    await record('i', 'role guard fails closed with no roles -> /app/login/ profile picker', async () => {
+    await record('i', 'role guard fails closed with no roles -> /app/login/, fresh sign-in', async () => {
       if (!motherCookies) throw new Error('no mother cookies (test a failed or skipped)');
       const out = [];
-      const expectPicker = async (page, label) => {
+      const expectPhoneForm = async (page, label) => {
         await settle(page, DASH.mother);
         // The login page shows "Checking your login…" while it asks the
-        // server, so give the picker up to 10s to appear.
-        const picker = await page.locator('#profile-view').waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
+        // server, so give the phone form up to 10s to appear.
+        const form = await page.locator('#login-view').waitFor({ state: 'visible', timeout: 10000 }).then(() => true, () => false);
+        const picker = await page.locator('#profile-view').isVisible();
         const end = new URL(page.url()).pathname;
-        out.push(`${label}: /app/mother/ -> ${end}${picker ? ' (profile picker)' : ''}`);
-        if (end !== '/app/login/' || !picker) throw new Error(`${label} did not fail closed (${out.join('; ')})`);
+        out.push(`${label}: /app/mother/ -> ${end}${form ? ' (phone form)' : ''}${picker ? ' (PICKER)' : ''}`);
+        if (end !== '/app/login/' || !form || picker) throw new Error(`${label} did not fail closed to the phone form (${out.join('; ')})`);
       };
       // 1. Empty roles cached in the tab: the page must not stay open. The
       // guard sends it to /app/login/?pick=1, which asks the server again;
@@ -340,11 +360,95 @@ function assertRole(me, role) {
         await route.fulfill({ response: resp, json: { ...body, roleMatches: [] } });
       });
       iPage = await c2.newPage();
-      await expectPicker(iPage, 'server []');
+      await expectPhoneForm(iPage, 'server []');
       await c2.close();
       iPage = null;
       return out.join('; ');
     }, () => iPage);
+  }
+
+  if (only.includes('l')) {
+    let lPage = null;
+    await record('l', 'a sign-in with no family behind it -> phone form or "Sign in again", never an empty "New Family" picker', async () => {
+      if (!motherCookies) throw new Error('no mother cookies (test a failed or skipped)');
+      const out = [];
+      // Opens /app/login/ with the mother's cookies and the given answers for
+      // /api/session/me (and /api/family/16, if given), then reads the page.
+      const open = async ({ me, family }) => {
+        const ctx = await newCtx(); await ctx.addCookies(hostOnly(motherCookies));
+        await ctx.route('**/api/session/me', (route) => route.fulfill(me));
+        if (family) await ctx.route('**/api/family/16', (route) => route.fulfill(family));
+        lPage = await ctx.newPage();
+        await lPage.goto(BASE + '/app/login/');
+        await lPage.waitForFunction(() => {
+          if (document.documentElement.classList.contains('tutp-checking')) return false;
+          const shown = (id) => !document.getElementById(id).classList.contains('hidden');
+          if (shown('login-view')) return true;
+          return shown('profile-view') && !/Loading your family/.test(document.getElementById('profileGrid').innerText);
+        }, null, { timeout: 20000 });
+        const s = await lPage.evaluate(() => ({
+          form: !document.getElementById('login-view').classList.contains('hidden'),
+          picker: !document.getElementById('profile-view').classList.contains('hidden'),
+          notice: document.getElementById('loginSubtitle').dataset.notice || '',
+          noMembersText: /No family members yet/.test(document.body.innerText),
+          registerLinks: document.querySelectorAll('#profile-view a[href="/app/register/"]').length,
+          failed: !!document.querySelector('[data-role="family-load-failed"]'),
+          tiles: document.querySelectorAll('#profileGrid [data-profile-tile]').length,
+          addMember: !document.getElementById('profileAddMember').classList.contains('hidden'),
+        }));
+        return { ctx, s };
+      };
+      const expired = (reason) => ({ status: 401, json: { error: 'Your sign-in has ended — please sign in again.', code: 'session_expired', reason } });
+      const me = (roleMatches) => ({ json: { familyId: 16, teacherId: null, roleMatches, children: [] } });
+      const mother = { role: 'mother', name: 'M' }, father = { role: 'father', name: 'F' };
+
+      // 1-2. The server ended the sign-in: phone form with the right words.
+      for (const [reason, notice] of [['family_gone', 'sessionEnded'], ['no_role', 'numberNotLinked']]) {
+        const { ctx, s } = await open({ me: expired(reason) });
+        out.push(`401 ${reason}: ${s.form ? 'phone form' : 'NO FORM'}${s.picker ? ' PICKER' : ''}, notice ${s.notice || '-'}`);
+        if (!s.form || s.picker || s.notice !== notice) throw new Error(out.join('; '));
+        await ctx.close();
+      }
+      // 3. Two roles, but the family lookup 404s (a deleted family).
+      {
+        const { ctx, s } = await open({ me: me([mother, father]), family: { status: 404, json: { error: 'Family not found' } } });
+        out.push(`two roles + 404: ${s.failed ? 'sign in again' : 'NOT failed'}${s.noMembersText ? ' EMPTY-PICKER TEXT' : ''}, add member ${s.addMember ? 'SHOWN' : 'hidden'}`);
+        if (!s.failed || s.noMembersText || s.addMember || s.registerLinks) throw new Error(out.join('; '));
+        await lPage.click('[data-role="sign-in-again"]');
+        await lPage.locator('#login-view').waitFor({ state: 'visible', timeout: 10000 });
+        out.push('"Sign in again" -> phone form');
+        await ctx.close();
+      }
+      // 4. Two parent roles with the real family: tiles, "Add a family
+      // member" to /app/family/, no registration link.
+      {
+        const { ctx, s } = await open({ me: me([mother, father]) });
+        const href = await lPage.getAttribute('#profileAddMember', 'href');
+        out.push(`two parents: ${s.tiles} tiles, add member ${s.addMember ? href : 'hidden'}, register links ${s.registerLinks}`);
+        if (!s.tiles || !s.addMember || href !== '/app/family/' || s.registerLinks) throw new Error(out.join('; '));
+        await ctx.close();
+      }
+      // 5. Two family-member roles: no "Add a family member".
+      {
+        const { ctx, s } = await open({ me: me([{ role: 'family_member', memberId: 1, name: 'A' }, { role: 'family_member', memberId: 2, name: 'B' }]) });
+        out.push(`two members: add member ${s.addMember ? 'SHOWN' : 'hidden'}`);
+        if (s.addMember || s.registerLinks) throw new Error(out.join('; '));
+        await ctx.close();
+      }
+      // 6. The server rule behind the button: the real mother session may
+      // add members (400 on the probe's bad phone; nothing is written).
+      {
+        const ctx = await newCtx(); await ctx.addCookies(hostOnly(motherCookies));
+        lPage = await ctx.newPage();
+        await lPage.goto(BASE + '/health');   // same origin, no redirects
+        const add = await addMemberProbe(lPage, 16);
+        out.push(`mother add-member=${add}`);
+        if (add !== 400) throw new Error(out.join('; '));
+        await ctx.close();
+      }
+      lPage = null;
+      return out.join('; ');
+    }, () => lPage);
   }
 
   if (only.includes('j')) {
@@ -492,6 +596,14 @@ function assertRole(me, role) {
       const fid = me.body.familyId;
       const out = [];
       for (const other of forbidden) {
+        if (other === forbidden[0]) {
+          // Adding members is for parents only: father allowed (400 on the
+          // bad phone), member refused (403).
+          const add = await addMemberProbe(page, fid);
+          const want = role === 'father' ? 400 : 403;
+          out.push(`add-member=${add}`);
+          if (add !== want) throw new Error(`add-member returned ${add}, expected ${want} (${out.join('; ')})`);
+        }
         const s = await apiStatus(page, `/api/bonding-score/${fid}/${other}`);
         out.push(`${other} bonding-score=${s}`);
         if (s !== 403) throw new Error(`${other} data returned ${s}, expected 403 (${out.join('; ')})`);

@@ -7,8 +7,10 @@
 
 // All user-facing auth error text, in one place for review.
 // en is the fallback for a missing language or a missing key.
-// te: reviewed 2026-09-27 (all keys). en and hi follow the same meaning;
-// hi is still a draft: have a native speaker check it before release.
+// te: reviewed 2026-09-27 (all keys up to generic). en and hi follow the same
+// meaning; hi is still a draft: have a native speaker check it before release.
+// sessionEnded, numberNotLinked, familyLoadFailed, signInAgain (2026-09-28,
+// a sign-in that no longer matches a family): te and hi are drafts.
 window.TUTP_AUTH_MESSAGES = {
   en: {
     checkingLogin:   "Checking your login…",
@@ -22,7 +24,11 @@ window.TUTP_AUTH_MESSAGES = {
     expired:         "This code has expired. Tap Resend to get a new one.",
     disabled:        "This account has been turned off. For help, email contact@tutp.online.",
     noCodeRequested: "Please tap Continue first to get a code.",
-    generic:         "Something went wrong. Please try again."
+    generic:         "Something went wrong. Please try again.",
+    sessionEnded:    "Your earlier sign-in has ended. Please sign in again with your phone number.",
+    numberNotLinked: "This number isn't linked to a Tut-P family any more. Please sign in with the number you registered with.",
+    familyLoadFailed: "We couldn't load your family. Please sign in again.",
+    signInAgain:     "Sign in again"
   },
   te: {
     checkingLogin:   "మీ లాగిన్ తనిఖీ చేస్తున్నాం…",
@@ -36,7 +42,11 @@ window.TUTP_AUTH_MESSAGES = {
     expired:         "ఈ కోడ్ గడువు ముగిసింది. కొత్త కోడ్ కోసం Resend నొక్కండి.",
     disabled:        "ఈ ఖాతా నిలిపివేయబడింది. సహాయం కోసం contact@tutp.online కు మెయిల్ చేయండి.",
     noCodeRequested: "ముందుగా Continue నొక్కి కోడ్ పొందండి.",
-    generic:         "ఏదో పొరపాటు జరిగింది. దయచేసి మళ్ళీ ప్రయత్నించండి."
+    generic:         "ఏదో పొరపాటు జరిగింది. దయచేసి మళ్ళీ ప్రయత్నించండి.",
+    sessionEnded:    "మీ పాత లాగిన్ ముగిసింది. దయచేసి మీ ఫోన్ నంబర్‌తో మళ్ళీ లాగిన్ అవ్వండి.",
+    numberNotLinked: "ఈ నంబర్ ఇప్పుడు ఏ Tut-P కుటుంబానికీ లింక్ అయి లేదు. మీరు నమోదు చేసుకున్న నంబర్‌తో లాగిన్ అవ్వండి.",
+    familyLoadFailed: "మీ కుటుంబ వివరాలు లోడ్ కాలేదు. దయచేసి మళ్ళీ లాగిన్ అవ్వండి.",
+    signInAgain:     "మళ్ళీ లాగిన్ అవ్వండి"
   },
   hi: {
     checkingLogin:   "आपका लॉगिन जाँचा जा रहा है…",
@@ -50,7 +60,11 @@ window.TUTP_AUTH_MESSAGES = {
     expired:         "इस कोड की समय-सीमा खत्म हो गई है। नया कोड पाने के लिए Resend दबाएँ।",
     disabled:        "यह खाता बंद कर दिया गया है। मदद के लिए contact@tutp.online पर ईमेल करें।",
     noCodeRequested: "कृपया पहले Continue दबाकर कोड पाएँ।",
-    generic:         "कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।"
+    generic:         "कुछ गड़बड़ हो गई। कृपया फिर से कोशिश करें।",
+    sessionEnded:    "आपका पिछला लॉगिन समाप्त हो गया है। कृपया अपने फ़ोन नंबर से फिर से लॉगिन करें।",
+    numberNotLinked: "यह नंबर अब किसी Tut-P परिवार से जुड़ा नहीं है। कृपया उस नंबर से लॉगिन करें जिससे आपने पंजीकरण किया था।",
+    familyLoadFailed: "आपके परिवार की जानकारी लोड नहीं हो सकी। कृपया फिर से लॉगिन करें।",
+    signInAgain:     "फिर से लॉगिन करें"
   }
 };
 

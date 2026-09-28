@@ -145,9 +145,12 @@
 <div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-md" id="profileGrid">
 <p class="col-span-full text-center font-body-md text-body-md text-on-surface-variant" id="profileGridStatus">Loading your family…</p>
 </div>
+<!-- Adds a member to this family (/app/family/), shown only to a mother or
+     father (see loadProfileGrid). Never registration: from a signed-in
+     picker that would create a second, duplicate family. -->
 <div class="flex justify-center mt-md">
-<a href="/app/register/" class="flex items-center gap-sm px-lg py-sm rounded-full border-2 border-outline-variant hover:border-primary hover:bg-surface-container text-on-surface-variant hover:text-primary font-label-lg text-label-lg transition-all">
-<span class="material-symbols-outlined">add</span> Add Profile / New Family
+<a id="profileAddMember" href="/app/family/" class="hidden flex items-center gap-sm px-lg py-sm rounded-full border-2 border-outline-variant hover:border-primary hover:bg-surface-container text-on-surface-variant hover:text-primary font-label-lg text-label-lg transition-all">
+<span class="material-symbols-outlined">add</span> Add a family member
 </a>
 </div>
 </section>
@@ -269,11 +272,27 @@
         // Pulls the real family — same /api/family/:id (+/members, +/students)
         // data mother/father/family-member pages already use — instead of the
         // hardcoded Leo/Amma/Appa/Thatha placeholders this grid used to show.
+        // The picker can't show the family (a lookup failed, or it came back
+        // empty): say so and offer a fresh sign-in, never an empty grid
+        // with only a way to add people.
+        function showFamilyLoadFailed(gridEl) {
+            gridEl.innerHTML = `<div class="col-span-full flex flex-col items-center gap-sm text-center" data-role="family-load-failed">
+<p class="font-body-md text-body-md text-error">${escapeAttr(loginText('familyLoadFailed'))}</p>
+<button type="button" data-role="sign-in-again" class="min-h-[48px] px-lg bg-primary text-on-primary font-label-lg text-label-lg rounded-xl hover:bg-primary/90 transition-colors">${escapeAttr(loginText('signInAgain'))}</button>
+</div>`;
+            gridEl.querySelector('[data-role="sign-in-again"]').addEventListener('click', async () => {
+                await endSignIn('');
+                showLogin();
+            });
+        }
+
         async function loadProfileGrid() {
             const gridEl = document.getElementById('profileGrid');
             const familyId = sessionStorage.getItem('tutp_family_id');
+            const addMember = document.getElementById('profileAddMember');
+            addMember.classList.add('hidden');
             if (!familyId) {
-                gridEl.innerHTML = '<p class="col-span-full text-center font-body-md text-body-md text-error">Could not load your family — please try logging in again.</p>';
+                showFamilyLoadFailed(gridEl);
                 return;
             }
             try {
@@ -282,9 +301,16 @@
                     fetch('/api/family/' + encodeURIComponent(familyId) + '/members'),
                     fetch('/api/family/' + encodeURIComponent(familyId) + '/students')
                 ]);
-                const fam = famRes.ok ? await famRes.json() : {};
-                const membersData = membersRes.ok ? await membersRes.json() : { members: [] };
-                const studentsData = studentsRes.ok ? await studentsRes.json() : { students: [] };
+                // Any failed lookup (e.g. 404: the family no longer exists)
+                // means this isn't the family's real picture.
+                if (!famRes.ok || !membersRes.ok || !studentsRes.ok) {
+                    console.error('[login] Family lookups failed:', famRes.status, membersRes.status, studentsRes.status);
+                    showFamilyLoadFailed(gridEl);
+                    return;
+                }
+                const fam = await famRes.json();
+                const membersData = await membersRes.json();
+                const studentsData = await studentsRes.json();
                 const memberColors = ['#414754', '#8c2f8c', '#b5541a', '#0f6f6f'];
 
                 let tiles = '';
@@ -297,7 +323,12 @@
                     tiles += profileTile(m.name, m.relationship || 'Family', '/app/family-member/', memberColors[i % memberColors.length], m.id);
                 });
 
-                gridEl.innerHTML = tiles || '<p class="col-span-full text-center font-body-md text-body-md text-on-surface-variant">No family members yet — use "Add Profile" below.</p>';
+                if (!tiles) { showFamilyLoadFailed(gridEl); return; }
+                gridEl.innerHTML = tiles;
+                // Adding a member: only for a mother or father signed in here.
+                let roles = [];
+                try { roles = JSON.parse(sessionStorage.getItem('tutp_roles') || '[]'); } catch (e) {}
+                if (roles.some(r => r && (r.role === 'mother' || r.role === 'father'))) addMember.classList.remove('hidden');
                 // A tapped tile goes through the same child step as a direct
                 // login. A family_members tile also records which member it
                 // was, so /app/family-member/ can personalize immediately
@@ -337,6 +368,12 @@
         // more than one role still shares a number, so a genuine tie is
         // never silently guessed.
         function routeAfterLogin(roleMatches) {
+            // No role at all: never the picker (it would be empty, offering
+            // only to add people). End this sign-in and ask for a fresh one.
+            if (!roleMatches.length) {
+                endSignIn('sessionEnded').then(showLogin);
+                return;
+            }
             if (roleMatches.length === 1) {
                 const m = roleMatches[0];
                 const dashboardPath = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' }[m.role];
@@ -475,14 +512,55 @@
         // A still-valid session cookie skips the OTP: the same routing as
         // right after a login (roles, then which child), from
         // /api/session/me. 401 or anything unexpected shows the phone form.
+        // A 401 with a `reason` is a sign-in the server ended because it no
+        // longer matches a family (server/session-state.js); the phone form
+        // then says so in plain words.
         function hideLoginForm(){
             document.getElementById('login-view').classList.add('hidden');
         }
+        // Sign-in text from /app/shared/auth-messages.js, in the page's
+        // language, English if missing.
+        function loginText(key){
+            const all = window.TUTP_AUTH_MESSAGES || {};
+            let lang = 'en';
+            try { lang = window.tutpAuthLang(); } catch (e) {}
+            return (all[lang] && all[lang][key]) || (all.en && all.en[key]) || '';
+        }
+        // A plain-language line above the phone form (data-notice for tests).
+        function showSignInNotice(key){
+            const el = document.getElementById('loginSubtitle');
+            const text = loginText(key);
+            if (!text) return;
+            el.textContent = text;
+            el.dataset.notice = key;
+            el.classList.add('text-error');
+        }
+        // Ends this browser's sign-in (cookie and tab state, like a
+        // dashboard's logout) and, with a key, explains why.
+        async function endSignIn(noticeKey){
+            try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+            try {
+                ['tutp_family_id', 'tutp_student_id', 'tutp_teacher_id', 'tutp_family_member_id',
+                 'tutp_family_member_name', 'tutp_last_dashboard', 'tutp_roles'].forEach(k => sessionStorage.removeItem(k));
+            } catch (e) {}
+            if (noticeKey) showSignInNotice(noticeKey);
+        }
+        const SESSION_END_NOTICE = { no_role: 'numberNotLinked', family_gone: 'sessionEnded', moved: 'sessionEnded', ambiguous: 'sessionEnded' };
         async function resumeCookieSession(){
             try {
                 const res = await fetch('/api/session/me', { cache: 'no-store' });
+                if (res.status === 401) {
+                    const body = await res.json().catch(() => ({}));
+                    if (body.reason) await endSignIn(SESSION_END_NOTICE[body.reason] || 'sessionEnded');
+                    return false;
+                }
                 if (!res.ok) return false;
                 const me = await res.json();
+                if (me.familyId && !(me.roleMatches || []).length) {
+                    // A family but no role for it: not a sign-in to resume.
+                    await endSignIn('sessionEnded');
+                    return false;
+                }
                 if (me.familyId) {
                     sessionStorage.setItem('tutp_family_id', me.familyId);
                     sessionStorage.setItem('tutp_roles', JSON.stringify(me.roleMatches || []));

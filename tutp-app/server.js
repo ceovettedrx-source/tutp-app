@@ -23,6 +23,7 @@ import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './server/prompts/homework-prompts.js';
 import { callWithJsonRetry } from './server/homework-reply.js';
+import { classifySession } from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 
 // Homework Help with a boxable photo (see /api/homework): the same model the
@@ -414,6 +415,19 @@ function requireOwnFamily(req, res, familyId) {
   if (!session) { sendSessionExpired(res); return null; }
   if (!Number.isFinite(familyId) || session.familyId !== familyId) { sendForbidden(res); return null; }
   return session;
+}
+
+// The session's roles in its own family ('mother' | 'father' |
+// 'family_member'): from its viewerKey, else from what its phone matches now
+// (the same rule as /api/session/me). [] when the phone has no role there.
+async function sessionFamilyRoles(session) {
+  if (session.viewerKey != null) {
+    const key = String(session.viewerKey);
+    return [key === 'mother' || key === 'father' ? key : 'family_member'];
+  }
+  const family = await findFamilyIdByPhone(session.phone);
+  if (!family || family.ambiguous || family.id !== session.familyId) return [];
+  return family.roleMatches.map(r => r.role);
 }
 
 function requireOwnTeacher(req, res, teacherId) {
@@ -2621,7 +2635,14 @@ app.post('/api/family/add-member', async (req, res) => {
     if (!Number.isFinite(familyId) || !member || !member.name) {
       return res.status(400).json({ error: 'Missing family_id or member name' });
     }
-    if (!requireOwnFamily(req, res, familyId)) return;
+    const session = requireOwnFamily(req, res, familyId);
+    if (!session) return;
+    // Only a mother or father adds members (founder decision 2026-09-28).
+    // Checked before the fields, so a refused caller learns nothing more.
+    const roles = await sessionFamilyRoles(session);
+    if (!roles.includes('mother') && !roles.includes('father')) {
+      return res.status(403).json({ error: 'Only a parent can add family members.' });
+    }
     if (hasPhoneInput(member.phone) && !normalizePhone(member.phone)) {
       return res.status(400).json({ error: 'Please enter a 10-digit phone number, or leave it blank.' });
     }
@@ -4663,6 +4684,12 @@ app.post('/api/session', async (req, res) => {
 // roleMatches: the roles this phone holds in the family (a picker/password
 // login already knows its one viewerKey). children: the family's children,
 // for the login page's "one child: go straight in, several: tap to pick".
+//
+// A family session that no longer stands (server/session-state.js: family
+// deleted, phone moved to another family, in two families, or in none) is
+// ended here: 401 session_expired with a `reason`, and the cookie cleared,
+// so the login page asks for a fresh sign-in instead of an empty profile
+// picker. A session that is also a teacher's keeps the teacher part.
 // ------------------------------------------------------------------
 app.get('/api/session/me', async (req, res) => {
   try {
@@ -4671,20 +4698,26 @@ app.get('/api/session/me', async (req, res) => {
     if (!session) return sendSessionExpired(res);
     if (!session.familyId) return res.json({ familyId: null, teacherId: session.teacherId, roleMatches: [], children: [] });
 
-    let roleMatches;
-    if (session.viewerKey != null) {
-      const key = String(session.viewerKey);
-      roleMatches = key === 'mother' || key === 'father'
-        ? [{ role: key }]
-        : [{ role: 'family_member', memberId: key }];
-    } else {
-      const family = await findFamilyIdByPhone(session.phone);
-      roleMatches = family && !family.ambiguous && family.id === session.familyId ? family.roleMatches : [];
-    }
-    const { data: students, error } = await supabase
-      .from('students').select('id, name, class').eq('family_id', session.familyId).order('created_at', { ascending: true });
-    if (error) throw error;
+    const [familyRes, studentsRes, phoneFamily] = await Promise.all([
+      supabase.from('family_registrations').select('id').eq('id', session.familyId).maybeSingle(),
+      supabase.from('students').select('id, name, class').eq('family_id', session.familyId).order('created_at', { ascending: true }),
+      session.viewerKey != null ? null : findFamilyIdByPhone(session.phone),
+    ]);
+    if (familyRes.error) throw familyRes.error;
+    if (studentsRes.error) throw studentsRes.error;
+    const verdict = classifySession({ session, familyExists: !!familyRes.data, phoneFamily });
     res.set('Cache-Control', 'no-store');
+    if (verdict.state !== 'ok') {
+      console.warn('session/me: family session ended', { reason: verdict.state, familyId: session.familyId, teacher: !!session.teacherId });
+      if (session.teacherId) {
+        issueSessionCookie(res, { ...session, familyId: null, viewerKey: null });
+        return res.json({ familyId: null, teacherId: session.teacherId, roleMatches: [], children: [] });
+      }
+      res.clearCookie(SESSION_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+      return res.status(401).json({ error: 'Your sign-in has ended — please sign in again.', code: 'session_expired', reason: verdict.state });
+    }
+    const roleMatches = verdict.roleMatches;
+    const students = studentsRes.data;
     res.json({
       familyId: session.familyId,
       teacherId: session.teacherId,
