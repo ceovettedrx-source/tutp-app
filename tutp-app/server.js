@@ -22,6 +22,7 @@ import visualTutorRouter from './server/routes/visual-tutor.js';
 import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './server/prompts/homework-prompts.js';
+import { callWithJsonRetry } from './server/homework-reply.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -508,7 +509,28 @@ function requireAdmin(req, res, next) {
 // real payment, whose note is null.
 const REAL_PAYMENTS_ONLY = 'note.is.null,note.neq.TEST';
 
-app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
+// Checked once at startup (migration 027 once went unapplied): without the
+// column the payment queries below fail, so the routes that use them refuse
+// with a clear message instead. Only "column does not exist" (42703) counts;
+// any other error (e.g. network) is logged and the routes stay open.
+let paymentsNoteMissing = false;
+if (supabase) {
+  supabase.from('payments').select('note').limit(0).then(({ error }) => {
+    if (!error) return;
+    if (error.code === '42703') {
+      paymentsNoteMissing = true;
+      console.error('FATAL: column payments.note is missing. Run supabase/migrations/027_payments_note.sql, then restart. /api/admin/kpis and /api/admin/revenue return 500 until then.');
+    } else {
+      console.warn('payments.note startup check could not run:', error.message);
+    }
+  });
+}
+function requirePaymentsNote(req, res, next) {
+  if (paymentsNoteMissing) return res.status(500).json({ error: 'Column payments.note is missing: run migration 027.' });
+  next();
+}
+
+app.get('/api/admin/kpis', requireAdmin, requirePaymentsNote, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
 
@@ -760,7 +782,7 @@ app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
 // first), zero-filled for days with no captured/failed activity — Supabase-js
 // has no GROUP BY, so grouping by the UTC date portion of created_at happens
 // client-side over the (small, 14-day) row set.
-app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
+app.get('/api/admin/revenue', requireAdmin, requirePaymentsNote, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
 
@@ -5979,42 +6001,54 @@ app.post('/api/homework', async (req, res) => {
 
     trackSessionStarted(session.familyId, studentId, { feature, language: lang });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        // A broad/unspecific attachment (e.g. a whole textbook chapter page
-        // with no single stated question) combined with a token-inefficient
-        // output language (Telugu and other Indic scripts use far more
-        // tokens per character than English) measured up to ~1220 output
-        // tokens for a full 5-question quiz — comfortably over the previous
-        // 1000 cap, which silently truncated mid-JSON. Raised again to 3000
-        // after Homework Help's extracted_questions mode (unlike Quiz's
-        // fixed 5 questions) hit this cap mid-JSON on a real multi-question
-        // exam paper — the prompt now also caps extraction at 8 questions,
-        // but 3000 keeps a safety margin on top of that cap rather than
-        // relying on the prompt limit alone.
-        max_tokens: 3000,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }]
-      })
+    const callModel = async () => {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+          'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          // A broad/unspecific attachment (e.g. a whole textbook chapter page
+          // with no single stated question) combined with a token-inefficient
+          // output language (Telugu and other Indic scripts use far more
+          // tokens per character than English) measured up to ~1220 output
+          // tokens for a full 5-question quiz — comfortably over the previous
+          // 1000 cap, which silently truncated mid-JSON. Raised again to 3000
+          // after Homework Help's extracted_questions mode (unlike Quiz's
+          // fixed 5 questions) hit this cap mid-JSON on a real multi-question
+          // exam paper — the prompt now also caps extraction at 8 questions,
+          // but 3000 keeps a safety margin on top of that cap rather than
+          // relying on the prompt limit alone.
+          max_tokens: 3000,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userContent }]
+        })
+      });
+      if (!response.ok) return { ok: false, status: response.status, errText: await response.text() };
+      return { ok: true, data: await response.json() };
+    };
+
+    // A reply without parseable JSON is asked for once more (see
+    // server/homework-reply.js). Logged without the prompt or the reply.
+    const result = await callWithJsonRetry(callModel, (info) => {
+      console.warn('homework: unparseable model reply', { feature, language: lang, ...info });
     });
 
-    if (!response.ok) {
-      const errText = await response.text();
-      console.error('Anthropic API error:', response.status, errText);
-      return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
+    if (result.kind === 'upstream') {
+      console.error('Anthropic API error:', result.status, result.errText);
+      return res.status(502).json({ error: 'Claude API returned an error', detail: result.errText });
+    }
+    if (result.kind === 'unparseable') {
+      console.error('homework: model reply unparseable twice, gave up', { feature, language: lang, error: result.error });
+      return res.status(502).json({ error: 'The answer came back incomplete. Please try again.' });
     }
 
-    const data = await response.json();
     trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
-    res.json(data);
+    res.json(result.data);
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Server error calling Claude' });
