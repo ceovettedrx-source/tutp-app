@@ -25,6 +25,15 @@
   terminal attached (agent, CI, GUI client) the commit fails closed. Bypass
   consciously with `git commit --no-verify`, which also skips the syntax and
   secret checks. Checklist content lives in the hook file itself.
+  `TUTP_AGENT_COMMIT=1` skips ONLY the y/n checklist (for Claude's own
+  commits); the syntax and secret checks still run and still block.
+- Full cycle, run by Claude (founder decision 2026-09-28): spec → founder
+  approval → build → e2e twice in a row on a no-traffic preview → commit
+  with `TUTP_AGENT_COMMIT=1` (messages all lowercase, one command per line,
+  no `&&`) → push the branch → founder runs the one-line traffic command →
+  Claude verifies `status.traffic` → fast-forward main to the deployed
+  commit and push. Claude stops only for spec approval and the traffic
+  command. Never `--no-verify`, never force-push, never move traffic.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
   communication — it's a live production product with real users.
   (The literal file/route `public/demo/index.html` is exempt — that's
