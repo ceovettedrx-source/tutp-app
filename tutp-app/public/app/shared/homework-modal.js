@@ -453,16 +453,17 @@
                     if (Number.isInteger(q.photo) && Array.isArray(q.box) && q.box.length === 4 && hwSentPhotos[q.photo]) {
                         const btn = document.createElement('button');
                         btn.type = 'button';
-                        btn.dataset.role = 'show-photo';
+                        btn.dataset.role = 'explain-photo';
                         btn.dataset.photo = String(q.photo);
                         btn.dataset.box = q.box.join(',');
                         btn.className = 'font-label-md text-xs text-primary border-2 border-outline-variant hover:border-primary rounded-lg px-3 py-1.5 mt-2 transition-colors';
-                        btn.textContent = '📍 Show on photo';
-                        btn.addEventListener('click', () => showHwPhotoBox(q.photo, q.box, 'Q' + (qi + 1)));
+                        btn.textContent = '🔎 Explain on photo';
+                        btn.addEventListener('click', () => explainOnPhoto(card, q, btn));
                         card.appendChild(btn);
                     }
                     questionsArea.appendChild(card);
                 });
+                renderHwPhotoActions();
             } else {
                 questionsArea.classList.add('hidden');
                 questionsArea.innerHTML = '';
@@ -479,14 +480,17 @@
             }
             document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
         }
-        // ---------------- "Show on photo" and "Check mistakes" (2026-09-28) ----------------
+        // ---------------- "Explain on photo" and "Check mistakes" (2026-09-28) ----------------
         // Homework Help answers carry, per question, the photo it was read
-        // from and a box around it (0..1000 of that photo, checked by the
-        // server). "Show on photo" opens the photo above the answers and
-        // draws the box with /js/tutp-pointer.js (the visual tutor's
-        // overlay); "Check mistakes" sends the shown photo to the visual
-        // tutor's image mode, which marks up to 2 mistakes (red) and one
-        // correct answer (green). The page's Tailwind build only sees the
+        // from and a box around its line (0..1000 of that photo, checked by
+        // the server). "Explain on photo" (round B2) zooms into that line
+        // inside the card and walks through the explanation one step at a
+        // time, each step highlighting its own part of the line
+        // (/api/visual-tutor mode explain_line; drawn with
+        // /js/tutp-pointer.js, the visual tutor's overlay). "Check mistakes"
+        // (buttons above the cards) opens the whole photo and sends it to the
+        // visual tutor's image mode, which marks up to 2 mistakes (red) and
+        // one correct answer (green). The page's Tailwind build only sees the
         // HTML files, so the new elements reuse classes the pages already
         // have and set anything else inline.
         const HW_PHOTO_MAX_EDGE = 1568;   // = BOX_MAX_EDGE in server/homework-boxes.js
@@ -568,6 +572,35 @@
             hwShownPhoto = null;
         }
 
+        // "Check mistakes" buttons above the cards, one per photo sent.
+        function renderHwPhotoActions(){
+            let bar = document.getElementById('hwPhotoActions');
+            const photos = hwSentPhotos.map((p, i) => (p ? i : null)).filter(i => i !== null);
+            if (!photos.length) { if (bar) bar.remove(); return; }
+            if (!bar) {
+                bar = document.createElement('div');
+                bar.id = 'hwPhotoActions';
+                bar.className = 'mt-2';
+                const questionsArea = document.getElementById('hwModalQuestionsArea');
+                questionsArea.parentNode.insertBefore(bar, hwPhotoPanel());
+            }
+            bar.replaceChildren(...photos.map(i => {
+                const b = document.createElement('button');
+                b.type = 'button';
+                b.dataset.role = 'check-mistakes';
+                b.dataset.photo = String(i);
+                b.className = 'font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors mt-2';
+                b.style.width = '100%';
+                b.textContent = photos.length > 1 ? `🔍 Check mistakes on photo ${i + 1}` : '🔍 Check mistakes on the photo';
+                b.addEventListener('click', async () => {
+                    closeHwExplain();
+                    await showHwPhoto(i);
+                    checkHwMistakes();
+                });
+                return b;
+            }));
+        }
+
         async function showHwPhoto(photo){
             const panel = hwPhotoPanel();
             const img = panel.querySelector('#hwPhotoImg');
@@ -582,13 +615,169 @@
             return img;
         }
 
-        async function showHwPhotoBox(photo, box, label){
+        // ---- Explain on photo ----
+        const hwExplainCache = new WeakMap();   // card -> { boxKey, crop, steps, relocated }
+        let hwExplainOpen = null;               // the card whose explanation is showing
+
+        async function hwVisualTutor(body){
+            const res = await fetch('/api/visual-tutor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) throw Object.assign(new Error('visual-tutor returned ' + res.status), { status: res.status });
+            return res.json();
+        }
+
+        function hwLoadImage(dataUrl){
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = () => reject(new Error('Could not decode the photo'));
+                img.src = dataUrl;
+            });
+        }
+
+        // The zoomed line: a JPEG cut from the sent photo around a 0..1000
+        // box (padding: TutPointer.cropRect), at most 1000 px wide.
+        async function hwCropPhoto(dataUrl, box, pointer){
+            const img = await hwLoadImage(dataUrl);
+            const W = img.naturalWidth, H = img.naturalHeight;
+            const r = pointer.cropRect(box, W, H);
+            const s = Math.min(1, 1000 / r.w);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(r.w * s));
+            canvas.height = Math.max(1, Math.round(r.h * s));
+            canvas.getContext('2d').drawImage(img, r.x, r.y, r.w, r.h, 0, 0, canvas.width, canvas.height);
+            const out = canvas.toDataURL('image/jpeg', 0.9);
+            const n = (v, max) => Math.round((v / max) * 1000);
+            return {
+                dataUrl: out,
+                image: { base64: out.split(',')[1], mediaType: 'image/jpeg', width: canvas.width, height: canvas.height },
+                norm: [n(r.x, W), n(r.y, H), n(r.x + r.w, W), n(r.y + r.h, H)]
+            };
+        }
+
+        // The explanation area inside a card; built on first use.
+        function hwExplainPanel(card){
+            let panel = card.querySelector('[data-role="explain"]');
+            if (panel) return panel;
+            panel = document.createElement('div');
+            panel.dataset.role = 'explain';
+            panel.className = 'hidden mt-2';
+            panel.innerHTML = `
+                <img data-role="crop" alt="The homework line this answer is about" class="rounded-lg" style="display:block;width:100%;height:auto;background:#f1f3f8;">
+                <p data-role="status" class="text-[13.5px] text-on-surface-variant leading-relaxed mt-2 mb-0"></p>
+                <p data-role="say" class="hidden text-[15px] text-on-surface leading-relaxed mt-2 mb-0"></p>
+                <div data-role="nav" class="hidden flex items-center justify-between gap-2 mt-2">
+                    <button type="button" data-role="back" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3 py-1.5 rounded-lg transition-colors">← Back</button>
+                    <span data-role="count" class="font-label-md text-xs text-on-surface-variant"></span>
+                    <button type="button" data-role="next" class="font-label-md text-xs border-2 border-outline-variant text-primary hover:border-primary px-3 py-1.5 rounded-lg transition-colors">Next →</button>
+                </div>
+                <button type="button" data-role="close" class="font-label-md text-xs text-on-surface-variant hover:text-on-surface mt-2">Close</button>
+            `;
+            panel.querySelector('[data-role="close"]').addEventListener('click', closeHwExplain);
+            card.appendChild(panel);
+            return panel;
+        }
+
+        function closeHwExplain(){
+            clearHwPointer();
+            if (hwExplainOpen) {
+                const panel = hwExplainOpen.querySelector('[data-role="explain"]');
+                if (panel) panel.classList.add('hidden');
+                hwExplainOpen = null;
+            }
+        }
+
+        async function hwShowCrop(panel, crop){
+            const img = panel.querySelector('[data-role="crop"]');
+            img.src = crop.dataUrl;
+            panel.dataset.crop = crop.norm.join(',');
+            try { await img.decode(); } catch (e) {}
+            return img;
+        }
+
+        async function explainOnPhoto(card, q, btn){
             const token = hwSessionToken;
-            const img = await showHwPhoto(photo);
-            let pointer;
-            try { pointer = await loadTutPointer(); } catch (err) { console.error('[hwModal] Show on photo:', err); return; }
-            if (token !== hwSessionToken) return;
-            pointer.play({ steps: [{ type: 'box', target: { kind: 'image', box }, tone: 'info', label }] }, { imageEl: img });
+            closeHwExplain();
+            hidePhotoPanel();
+            const panel = hwExplainPanel(card);
+            const status = panel.querySelector('[data-role="status"]');
+            const say = panel.querySelector('[data-role="say"]');
+            const nav = panel.querySelector('[data-role="nav"]');
+            const setStatus = (text) => { status.textContent = text; status.classList.toggle('hidden', !text); };
+            say.classList.add('hidden');
+            nav.classList.add('hidden');
+            panel.classList.remove('hidden');
+            hwExplainOpen = card;
+            btn.disabled = true;
+            try {
+                const pointer = await loadTutPointer();
+                const photo = Number(btn.dataset.photo);
+                const lang = document.getElementById('hwModalLang').value;
+                let cached = hwExplainCache.get(card);
+                if (!cached || cached.boxKey !== btn.dataset.box || cached.lang !== lang) {
+                    setStatus('Explaining…');
+                    const box = btn.dataset.box.split(',').map(Number);
+                    let crop = await hwCropPhoto(hwSentPhotos[photo], box, pointer);
+                    await hwShowCrop(panel, crop);
+                    const explain = (c) => hwVisualTutor({ mode: 'explain_line', question: q.question || '', answer: q.answer || '', language: lang, image: c.image });
+                    let data = await explain(crop);
+                    let relocated = false;
+                    // The line box missed its question: find the line on the
+                    // whole photo, zoom there and ask again, once.
+                    if (!data.found && token === hwSessionToken) {
+                        setStatus('Finding this question on the photo…');
+                        const whole = await hwLoadImage(hwSentPhotos[photo]);
+                        const loc = await hwVisualTutor({
+                            mode: 'locate_line', question: q.question || '',
+                            image: { base64: hwSentPhotos[photo].split(',')[1], mediaType: 'image/jpeg', width: whole.naturalWidth, height: whole.naturalHeight }
+                        });
+                        if (loc.found) {
+                            crop = await hwCropPhoto(hwSentPhotos[photo], loc.box, pointer);
+                            await hwShowCrop(panel, crop);
+                            data = await explain(crop);
+                            relocated = true;
+                        }
+                    }
+                    if (token !== hwSessionToken) return;
+                    if (!data.found || !data.steps.length) throw Object.assign(new Error('question not found on the photo'), { notFound: true });
+                    cached = { boxKey: btn.dataset.box, lang, crop, steps: data.steps, relocated };
+                    hwExplainCache.set(card, cached);
+                }
+                if (token !== hwSessionToken || hwExplainOpen !== card) return;
+                const cropImg = await hwShowCrop(panel, cached.crop);
+                panel.dataset.relocated = cached.relocated ? '1' : '';
+                setStatus('');
+                panel.scrollIntoView({ block: 'nearest' });
+                const count = panel.querySelector('[data-role="count"]');
+                const back = panel.querySelector('[data-role="back"]');
+                const next = panel.querySelector('[data-role="next"]');
+                const controller = pointer.step({ steps: cached.steps }, {
+                    imageEl: cropImg,
+                    onStep: (s, i, n) => {
+                        say.textContent = s.say || s.label || '';
+                        say.classList.toggle('hidden', !say.textContent);
+                        count.textContent = `Step ${i + 1} of ${n}`;
+                        back.disabled = i === 0;
+                        next.disabled = i === n - 1;
+                    }
+                });
+                back.onclick = () => controller.back();
+                next.onclick = () => controller.next();
+                nav.classList.remove('hidden');
+            } catch (err) {
+                if (token !== hwSessionToken) return;
+                console.error('[hwModal] Explain on photo failed:', err);
+                setStatus(err.status === 429
+                    ? 'Too many explanations in a short time. Please wait a few minutes and try again.'
+                    : err.notFound
+                        ? "Couldn't find this question on the photo. The answer above still applies."
+                        : "Couldn't explain this on the photo right now. Please try again.");
+            } finally {
+                btn.disabled = false;
+            }
         }
 
         async function checkHwMistakes(){
@@ -633,8 +822,11 @@
         }
 
         function resetHomeworkModal(){
+            closeHwExplain();
             hidePhotoPanel();
             hwSentPhotos = [];
+            const actions = document.getElementById('hwPhotoActions');
+            if (actions) actions.remove();
             document.getElementById('hwModalForm').classList.remove('hidden');
             document.getElementById('hwModalResults').classList.add('hidden');
             document.getElementById('hwModalText').value = '';
