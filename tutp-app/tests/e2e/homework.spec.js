@@ -84,7 +84,7 @@ function parseReply(data) {
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS });
   const newCtx = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    await ctx.route('**/app/shared/phone-auth.js', async (route) => {
+    await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
       const resp = await route.fetch();
       let body = await resp.text();
       const hook = 'const auth = getAuth(app);';

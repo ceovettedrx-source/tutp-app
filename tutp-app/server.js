@@ -25,6 +25,7 @@ import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './ser
 import { callWithJsonRetry } from './server/homework-reply.js';
 import { classifySession } from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
+import { staticAssets } from './server/static-assets.js';
 
 // Homework Help with a boxable photo (see /api/homework): the same model the
 // visual tutor points with (server/routes/visual-tutor.js).
@@ -277,25 +278,14 @@ app.use(express.json({
     if (req.originalUrl === '/api/webhooks/razorpay' || req.originalUrl === '/api/razorpay-webhook') req.rawBody = buf;
   }
 }));
+// HTML, JS and CSS: served with content-hashed ?v= URLs (see
+// server/static-assets.js). Versioned JS/CSS is cached for a year; HTML and
+// anything unversioned is "no-cache". express.static's default "public,
+// max-age=0" let phones keep a stale /app/shared/*.js after a deploy.
+app.use(staticAssets(path.join(__dirname, 'public')));
 app.use(express.static(path.join(__dirname, 'public'), {
-  // express.static's default Cache-Control is "public, max-age=0" — "public"
-  // still permits an intermediate cache (e.g. a mobile carrier's compressing/
-  // accelerating proxy) to store the response and, if it misbehaves, serve it
-  // without revalidating, which is how one device can end up on a stale app
-  // shell while another sees the current deploy. "no-cache" removes that
-  // ambiguity: any compliant cache must revalidate (via ETag) before reuse.
   setHeaders: (res, filePath) => {
-    if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache');
-    } else if (filePath.endsWith('.css')) {
-      // /css/tailwind.css is a fixed filename rebuilt on every deploy (no
-      // content hash), so a long max-age risks a returning browser holding
-      // stale CSS past a redeploy. "must-revalidate" keeps that safe: a
-      // fresh copy is served immediately from cache for a day, then the
-      // browser must check back with the server (a cheap 304 if unchanged)
-      // rather than silently reusing a possibly-stale copy indefinitely.
-      res.setHeader('Cache-Control', 'public, max-age=86400, must-revalidate');
-    }
+    if (/\.(?:html|m?js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
   }
 }));
 app.use(cookieParser());

@@ -272,7 +272,8 @@ function assertRole(me, role) {
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS, slowMo: HEADLESS ? 0 : 50 });
   const newCtx = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
-    await ctx.route('**/app/shared/phone-auth.js', async (route) => {
+    // Trailing * : the page loads phone-auth.js?v=<hash> (server/static-assets.js).
+    await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
       const resp = await route.fetch();
       let body = await resp.text();
       const hook = 'const auth = getAuth(app);';

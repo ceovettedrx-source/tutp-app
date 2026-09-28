@@ -83,7 +83,7 @@ function checkSteps(json) {
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
   // Test-only reCAPTCHA switch, as in login.spec.js.
-  await ctx.route('**/app/shared/phone-auth.js', async (route) => {
+  await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
     const resp = await route.fetch();
     let body = await resp.text();
     const hook = 'const auth = getAuth(app);';
