@@ -2,7 +2,7 @@
 //   npm run test:unit
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { imageSize, boxablePhotos, checkBox, checkQuestionBoxes, applyQuestionBoxes, BOX_MAX_EDGE } from '../../server/homework-boxes.js';
+import { imageSize, boxablePhotos, checkBox, checkQuestionBoxes, applyQuestionBoxes, BOX_MAX_EDGE, MAX_QUESTIONS } from '../../server/homework-boxes.js';
 import { checkReplyJson } from '../../server/homework-reply.js';
 
 // Minimal JPEG header: SOI, an APP0 segment, then SOF0 with the size.
@@ -120,6 +120,16 @@ test('applyQuestionBoxes: rewrites the reply text; the page can still parse it',
   const json = JSON.parse(out.content[0].text);
   assert.deepEqual(json.extracted_questions[0].box, [100, 100, 500, 200]);
   assert.equal(json.subject, 'Math');
+});
+
+test('checkQuestionBoxes: 12 questions -> first 8 kept, more_questions 4; 8 -> no field', () => {
+  const qs = (n) => Array.from({ length: n }, (_, i) => ({ question: `${i + 1}. q` }));
+  const { json, boxes } = checkQuestionBoxes({ mode: 'questions', extracted_questions: qs(12) }, []);
+  assert.equal(json.extracted_questions.length, MAX_QUESTIONS);
+  assert.equal(json.extracted_questions[7].question, '8. q');
+  assert.equal(json.more_questions, 4);
+  assert.equal(boxes.length, 8);
+  assert.equal(checkQuestionBoxes({ extracted_questions: qs(8) }, []).json.more_questions, undefined);
 });
 
 test('applyQuestionBoxes: no text block or unparseable text -> data unchanged', () => {

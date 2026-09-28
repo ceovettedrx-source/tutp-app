@@ -26,6 +26,7 @@ import { callWithJsonRetry } from './server/homework-reply.js';
 import { classifySession } from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 import { staticAssets } from './server/static-assets.js';
+import { stepTimer } from './server/step-timer.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 
 // True when each photo's boxes go down the page in card order (tops
@@ -5983,6 +5984,7 @@ function readHomeworkInput(body) {
 // The prompt is built here (server/prompts/homework-prompts.js); a prompt
 // sent by the caller is ignored.
 app.post('/api/homework', async (req, res) => {
+  const timer = stepTimer();
   try {
     const body = req.body || {};
     const { studentId } = body;
@@ -6006,6 +6008,7 @@ app.post('/api/homework', async (req, res) => {
     }
     const session = await requireOwnStudent(req, res, studentId);
     if (!session) return;
+    timer.mark('auth');
 
     const feature = body.feature === undefined ? FEATURES.HOMEWORK_HELP : body.feature;
     if (!PROMPT_FEATURES.includes(feature)) {
@@ -6015,11 +6018,17 @@ app.post('/api/homework', async (req, res) => {
     const { data: studentRow, error: studentErr } = await supabase
       .from('students').select('name, class').eq('id', studentId).maybeSingle();
     if (studentErr) throw studentErr;
+    timer.mark('student');
     const childContext = studentRow && studentRow.name
       ? studentRow.name + (studentRow.class ? ' · ' + studentRow.class : '')
       : 'your child';
     // Homework Help only: photos that can get "Show on photo" boxes.
     const photos = feature === FEATURES.HOMEWORK_HELP ? boxablePhotos(attachments) : [];
+    // Step times in the log and in a Server-Timing header (read by the e2e).
+    const sendTiming = (status) => {
+      res.set('Server-Timing', timer.header());
+      console.log('homework: timing', { feature, photos: photos.length, status, steps: timer.summary() });
+    };
     const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos });
     if (!userContent.every(isValidHomeworkContentBlock)) {
       return res.status(400).json({ error: 'Invalid attachment' });
@@ -6027,6 +6036,7 @@ app.post('/api/homework', async (req, res) => {
 
     const bucket = feature === FEATURES.HOMEWORK_HELP ? 'homework_help' : 'other_features';
     const limit = await checkFreeLimit(studentId, bucket);
+    timer.mark('limit');
     if (!limit.allowed) {
       return res.status(402).json({
         error: 'free_limit_reached',
@@ -6041,7 +6051,15 @@ app.post('/api/homework', async (req, res) => {
 
     trackSessionStarted(session.familyId, studentId, { feature, language: lang });
 
+    let modelCalls = 0;
     const callModel = async () => {
+      try {
+        return await callModelOnce();
+      } finally {
+        timer.mark('model' + (++modelCalls));
+      }
+    };
+    const callModelOnce = async () => {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -6085,18 +6103,24 @@ app.post('/api/homework', async (req, res) => {
 
     if (result.kind === 'upstream') {
       console.error('Anthropic API error:', result.status, result.errText);
+      sendTiming(502);
       return res.status(502).json({ error: 'Claude API returned an error', detail: result.errText });
     }
     if (result.kind === 'unparseable') {
       console.error('homework: model reply unparseable twice, gave up', { feature, language: lang, error: result.error });
+      sendTiming(502);
       return res.status(502).json({ error: 'The answer came back incomplete. Please try again.' });
     }
 
     trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
-    if (feature !== FEATURES.HOMEWORK_HELP) return res.json(result.data);
+    if (feature !== FEATURES.HOMEWORK_HELP) {
+      sendTiming(200);
+      return res.json(result.data);
+    }
     // Every photo/box pair is checked (server/homework-boxes.js); anything
     // invalid, or a box with no photo that may carry one, is dropped.
     const { data, boxed, boxes } = applyQuestionBoxes(result.data, photos);
+    timer.mark('boxes');
     // Box positions only (0..1000), never text or images: enough to see a
     // box on the wrong line, or boxes out of reading order, on real photos.
     if (photos.length) {
@@ -6108,6 +6132,7 @@ app.post('/api/homework', async (req, res) => {
         outputTokens: result.data.usage?.output_tokens ?? null,
       });
     }
+    sendTiming(200);
     res.json(data);
   } catch (err) {
     console.error('Server error:', err);

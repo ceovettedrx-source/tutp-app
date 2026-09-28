@@ -153,6 +153,9 @@ function parseReply(data) {
       await page.setInputFiles('#hwModalAttachInput', path.join(__dirname, 'fixtures', file));
       await page.locator('#hwModalThumb').waitFor({ state: 'visible', timeout: 10000 });
     }
+    // The server's step times (Server-Timing, server/step-timer.js).
+    const timing = page.waitForResponse((r) => r.url().endsWith('/api/homework') && r.request().method() === 'POST', { timeout: 180000 })
+      .then((r) => r.headers()['server-timing'] || '').catch(() => '');
     await page.click('#hwModalSubmitBtn');
     // 180 s: the server asks the model a second time when the first reply
     // has no parseable JSON (server/homework-reply.js), doubling the wait.
@@ -162,10 +165,14 @@ function parseReply(data) {
         throw new Error('modal error: ' + (await page.textContent('#hwModalErrBox')));
       }),
     ]);
-    return page.evaluate(() => ({
+    const r = await page.evaluate(() => ({
       cards: document.querySelectorAll('#hwModalQuestionsArea > div').length,
       text: document.getElementById('hwModalResults').innerText,
     }));
+    // "auth;dur=40, model1;dur=7020, total;dur=7061" -> { auth: 40, model1: 7020, total: 7061 }
+    r.steps = Object.fromEntries((await timing).split(',').map((s) => s.trim().match(/^(\w+);dur=(\d+)/)).filter(Boolean).map((m) => [m[1], +m[2]]));
+    r.stepText = Object.entries(r.steps).map(([k, v]) => `${k} ${v}`).join(' | ') || 'no Server-Timing';
+    return r;
   }
 
   let mother = null;
@@ -198,7 +205,7 @@ function parseReply(data) {
       const r = await runModal(page, { file: 'worksheet-5-wrong.jpg' });
       if (r.cards !== 8) throw new Error(`expected 8 question cards, got ${r.cards}: ${r.text.slice(0, 200)}`);
       k2ok = true;
-      return `8 cards, end-to-end ${Date.now() - t0} ms`;
+      return `8 cards, end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
     }, page);
 
     // The cards' buttons: question text, photo, box (0..1000).
@@ -354,10 +361,14 @@ function parseReply(data) {
       }, page);
     }
 
-    await record('p6', 'worksheet-12.jpg (dense, tilted): 8 cards, each box on its own row', async () => {
+    await record('p6', 'worksheet-12.jpg (dense, tilted): 8 cards, each box on its own row, one model call', async () => {
       const t0 = Date.now();
       const r = await runModal(page, { file: 'worksheet-12.jpg' });
       if (r.cards !== 8) throw new Error(`expected 8 question cards, got ${r.cards}: ${r.text.slice(0, 200)}`);
+      // A second model call means the first reply was unusable: with thinking
+      // on, both replies ran into max_tokens (2 x 35 s, then a 502; 00298,
+      // 2026-09-28), the slow dense-sheet run.
+      if (!r.steps.model1 || r.steps.model2 !== undefined) throw new Error(`expected exactly one model call, server ${r.stepText}`);
       const cards = await cardBoxes();
       const out = [];
       let good = 0;
@@ -369,7 +380,7 @@ function parseReply(data) {
         out.push(`row ${row.n}${got === row.n ? '' : ' -> ' + got}`);
       }
       if (good !== cards.length) throw new Error(`${good} of ${cards.length} on their own row (${out.join('; ')})`);
-      return `${good} of ${cards.length} on their own row; end-to-end ${Date.now() - t0} ms`;
+      return `${good} of ${cards.length} on their own row; end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
     }, page);
 
     await record('k3', 'a caller-sent systemPrompt is ignored (new and old request shape)', async () => {

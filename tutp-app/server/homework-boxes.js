@@ -74,11 +74,20 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 // becomes { photo, box (0..1000) }, anything else is removed. Returns
 // { json, boxed, boxes }: boxed = questions left with a box; boxes = per
 // question, { photo, box } or null (for the server log).
+//
+// At most MAX_QUESTIONS questions are kept, as the prompt asks
+// (server/prompts/homework-prompts.js): with thinking off, the model
+// returned all 12 of a 12-question sheet (e2e p6, 2026-09-28). The number
+// cut off goes into more_questions.
+export const MAX_QUESTIONS = 8;
+
 export function checkQuestionBoxes(json, photos) {
   const byIndex = new Map((photos || []).map((p) => [p.index, p]));
   const boxes = [];
-  const questions = Array.isArray(json && json.extracted_questions) ? json.extracted_questions : null;
-  if (!questions) return { json, boxed: 0, boxes };
+  const all = Array.isArray(json && json.extracted_questions) ? json.extracted_questions : null;
+  if (!all) return { json, boxed: 0, boxes };
+  const questions = all.slice(0, MAX_QUESTIONS);
+  if (all.length > MAX_QUESTIONS) json = { ...json, more_questions: all.length - MAX_QUESTIONS };
   const extracted = questions.map((q) => {
     if (!q || typeof q !== 'object') { boxes.push(null); return q; }
     const { photo, box, ...rest } = q;

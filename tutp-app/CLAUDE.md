@@ -73,6 +73,8 @@
 - **Visual tutor v2 server time 7956 ms on 2026-09-28, just under the 8 s budget** — look at trimming the image prompt or image size before it goes red.
 - **Founder Dashboard counts test activity:** family 16 (e2e) and other test families inflate DAU, engagement, activation and signups. Mark test families (e.g. a `family_registrations` `is_test` flag) and exclude them from every `/api/admin/*` metric, not just payments. Needed before launch metrics or YC numbers are trusted.
 - **Removing a family member must revoke their login immediately — needs an e2e test.** Since 2026-09-27 a member can sign in with their own phone (`findFamilyIdByPhone` also searches `family_members`). A removed member's existing session cookie is a stateless JWT carrying the familyId, so it stays valid until it expires unless something checks membership on each request. Decide the mechanism (per-request membership check for family_member sessions, or a revocation marker), then add a test to `tests/e2e/`: remove the member as the mother, and the member's open session must get 401 on its next request.
+- **`/api/parent-involvement-baseline?viewer=mother` returns 200 to a family_member session** (seen 2026-09-28 in the preview logs of login test g: a member's cold open of `/app/mother/` fetched it before the guard redirected). `bonding-score` correctly returns 403. Restrict it by role like `bonding-score` in the round 3 access work, and add it to tests f/g.
+- **CRON_TOKEN travels in the URL query string**, so every Cloud Run request log line for `/api/cron/*` holds it in plain text (and it was printed into a chat transcript on 2026-09-28 by a log query). Rotate it in Secret Manager and move it to a header; redact `token=` in any log query until then.
 
 # Deploying
 

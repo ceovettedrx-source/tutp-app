@@ -15,6 +15,7 @@ import { uiSystemPrompt, imageSystemPrompt, explainLineSystemPrompt, locateLineS
 import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from '../pointing-model.js';
 import { trackVisualTutorCall } from '../../tracking/tracking.js';
+import { stepTimer } from '../step-timer.js';
 
 const router = express.Router();
 const MODEL = POINTING_MODEL;
@@ -32,11 +33,19 @@ const MAX_TOKENS = 1600;
 // request reaching this router to the reply (the model call included). The
 // e2e suite holds this to the 8-second budget; the parent's own network time
 // comes on top and isn't ours to control.
+// Server-Timing splits it into steps (the model call, then the rest), and
+// calls that reached the model log the same split.
 router.use((req, res, next) => {
   const t0 = process.hrtime.bigint();
+  req.timer = stepTimer();
   const json = res.json.bind(res);
   res.json = (body) => {
     res.set('X-Server-Time-Ms', String(Number((process.hrtime.bigint() - t0) / 1000000n)));
+    if (req.modelCalled) {
+      req.timer.mark('reply');
+      res.set('Server-Timing', req.timer.header());
+      console.log('visual-tutor: timing', { mode: req.body && req.body.mode, status: res.statusCode, steps: req.timer.summary() });
+    }
     return json(body);
   };
   next();
@@ -95,6 +104,8 @@ router.post('/', async (req, res) => {
     inputTokens: usage?.input_tokens ?? null, outputTokens: usage?.output_tokens ?? null,
   });
 
+  req.timer.mark('prepare');
+  req.modelCalled = true;
   let r;
   try {
     r = await fetch('https://api.anthropic.com/v1/messages', {
@@ -126,6 +137,7 @@ router.post('/', async (req, res) => {
     log('upstream_error');
     return res.status(502).json({ error: 'upstream' });
   }
+  req.timer.mark('model');
   const stopReason = data.stop_reason || null;
 
   // Hit the token limit: the JSON is incomplete, so don't try to parse it.
