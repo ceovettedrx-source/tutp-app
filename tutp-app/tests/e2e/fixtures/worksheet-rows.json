@@ -1,0 +1,113 @@
+{
+  "image": "worksheet-5-wrong.jpg",
+  "size": [
+    1200,
+    1600
+  ],
+  "rows": [
+    {
+      "n": 1,
+      "question": "24 + 13 =",
+      "written": "37",
+      "correct": "37",
+      "wrong": false,
+      "box": [
+        147,
+        205,
+        833,
+        304
+      ]
+    },
+    {
+      "n": 2,
+      "question": "45 − 18 =",
+      "written": "33",
+      "correct": "27",
+      "wrong": true,
+      "box": [
+        150,
+        288,
+        837,
+        387
+      ]
+    },
+    {
+      "n": 3,
+      "question": "56 + 27 =",
+      "written": "73",
+      "correct": "83",
+      "wrong": true,
+      "box": [
+        154,
+        371,
+        840,
+        471
+      ]
+    },
+    {
+      "n": 4,
+      "question": "90 − 42 =",
+      "written": "48",
+      "correct": "48",
+      "wrong": false,
+      "box": [
+        157,
+        454,
+        844,
+        554
+      ]
+    },
+    {
+      "n": 5,
+      "question": "7 × 8 =",
+      "written": "54",
+      "correct": "56",
+      "wrong": true,
+      "box": [
+        161,
+        538,
+        847,
+        637
+      ]
+    },
+    {
+      "n": 6,
+      "question": "63 − 29 =",
+      "written": "46",
+      "correct": "34",
+      "wrong": true,
+      "box": [
+        164,
+        621,
+        851,
+        720
+      ]
+    },
+    {
+      "n": 7,
+      "question": "15 + 38 =",
+      "written": "53",
+      "correct": "53",
+      "wrong": false,
+      "box": [
+        168,
+        704,
+        854,
+        803
+      ]
+    },
+    {
+      "n": 8,
+      "question": "72 ÷ 8 =",
+      "written": "8",
+      "correct": "9",
+      "wrong": true,
+      "box": [
+        171,
+        787,
+        858,
+        886
+      ]
+    }
+  ]
+}

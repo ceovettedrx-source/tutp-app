@@ -19,8 +19,16 @@ export const PROMPT_FEATURES = ['homework_help', 'quiz', 'storytelling', 'experi
 // how the parent phrases their request, so NEP-2020's facilitator framing
 // survives even a parent asking for "just the answers" — the UI (not the
 // model) decides whether to show it upfront or behind a toggle.
-function homeworkHelpPrompt({ lang, childContext, text }) {
+//   photos        attachments that may get "Show on photo" boxes
+//                 ([{ index, width, height }], server/homework-boxes.js);
+//                 with none, the prompt has no box rule or box fields.
+function homeworkHelpPrompt({ lang, childContext, text, photos = [] }) {
   const hwText = text;
+  const photoList = photos.map(p => `attachment ${p.index} is ${p.width} x ${p.height} pixels`).join('; ');
+  const boxRule = photos.length ? `
+
+5. Show on photo: for every extracted question that you read from a photo, also give "photo" (the attachment number, counting every attachment from 0 in the order given: ${photoList}) and "box" [x1, y1, x2, y2]: integer PIXELS in that photo, origin (0,0) at top-left, x1<x2, y1<y2, drawn tightly around that question's whole line, including the child's written answer if there is one. Leave out "photo" and "box" for a question that is not on one of these photos.` : '';
+  const boxFields = photos.length ? `,"photo":0,"box":[x1,y1,x2,y2]` : '';
   const hwGroundingNote = `Ground this in NCF-SE 2023's Panchpadi teaching sequence. The explanation/reasoning you write is always doing Bodha (conceptual understanding) work: where this homework genuinely allows for guided discovery, phrase it so the parent can prompt their child's thinking (e.g. a guiding question or hint to ask) rather than only stating the concept outright. For homework that is pure factual recall (e.g. spelling, a date, a definition), a direct clear explanation is correct — do not force a facilitator framing where it does not genuinely fit. This is a quick homework-help tool, not a full lesson plan, so do not force Abhyasa/Prayoga/Prasara here.`;
   return `You are Tut-P, an assistant that helps a parent who is not fluent in the subject or the school's language help their child with homework.
 ${hwGroundingNote}
@@ -37,10 +45,10 @@ CRITICAL RULES — follow in order:
 
 3. If the homework is a broad topic or concept with no specific questions attached, explain the underlying concept in ${lang} instead — 2-4 short sentences, simple enough for a busy parent, focused on how to guide the child rather than just stating facts. Before writing it, decide honestly whether a Panchpadi Aditi (introduction/hook) genuinely fits this specific topic: a short, relatable hook connecting it to something the child likely already knows or has experienced, phrased as a genuine engaging hook — not a dry statement. Only set aditiApplicable to true and write aditiHook when one naturally fits; otherwise aditiApplicable is false and aditiHook is null. Aditi never applies in "questions" mode (mode "questions" always has aditiApplicable: false, aditiHook: null) — the child already has specific assigned questions in front of them, so there is no fresh-topic hook moment.
 
-4. Never let ${lang} cause you to translate or rewrite the original homework content — the question and answer fields always stay in the source language. ${lang} applies ONLY to your own commentary to the parent: the reasoning field (mode "questions"), the concept_explanation field, and the aditiHook field (mode "concept") must ALWAYS be written in ${lang}, regardless of what language the source homework is in.
+4. Never let ${lang} cause you to translate or rewrite the original homework content — the question and answer fields always stay in the source language. ${lang} applies ONLY to your own commentary to the parent: the reasoning field (mode "questions"), the concept_explanation field, and the aditiHook field (mode "concept") must ALWAYS be written in ${lang}, regardless of what language the source homework is in.${boxRule}
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","mode":"questions" or "concept","extracted_questions":[{"question":"original-language question text, or null if mode is concept","answer":"original-language answer, or null if mode is concept","reasoning":"one short guided-discovery-style sentence, ALWAYS in ${lang} even though the question/answer above are in the source language"}],"concept_explanation":"2-4 short sentences in ${lang}, or null if mode is questions","aditiApplicable":boolean,"aditiHook":"short hook in ${lang} connecting to something the child already knows, only present when aditiApplicable is true and mode is concept — otherwise null"}
+{"subject":"one short English subject label, e.g. Math, Science, English, Social Studies","mode":"questions" or "concept","extracted_questions":[{"question":"original-language question text, or null if mode is concept","answer":"original-language answer, or null if mode is concept","reasoning":"one short guided-discovery-style sentence, ALWAYS in ${lang} even though the question/answer above are in the source language"${boxFields}}],"concept_explanation":"2-4 short sentences in ${lang}, or null if mode is questions","aditiApplicable":boolean,"aditiHook":"short hook in ${lang} connecting to something the child already knows, only present when aditiApplicable is true and mode is concept — otherwise null"}
 
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit the token budget. The child is: ${childContext}.
 
@@ -114,8 +122,8 @@ function userTextFor(feature, text, attachmentCount) {
 
 // { system, content } for the Messages API: attachments first, then the
 // text block, the same order the pages used.
-export function buildHomeworkRequest({ feature, lang, childContext, text, attachments }) {
-  const system = SYSTEM_PROMPTS[feature]({ lang, childContext, text });
+export function buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos = [] }) {
+  const system = SYSTEM_PROMPTS[feature]({ lang, childContext, text, photos });
   const content = attachments.map(a => ({
     type: a.mediaType === 'application/pdf' ? 'document' : 'image',
     source: { type: 'base64', media_type: a.mediaType, data: a.base64 },

@@ -91,6 +91,7 @@
             loadHomeworkModalChildContext();
         }
         function closeHomeworkModal(){
+            clearHwPointer();
             document.getElementById('homeworkExplainModal').classList.add('hidden');
         }
 
@@ -258,6 +259,22 @@
                 await window.tutpChildReady;
                 // The server builds the prompt (Homework Help or Quiz) from
                 // these; see server/prompts/homework-prompts.js.
+                let attachments = hwAttachState.items.map(item => ({ mediaType: item.mediaType, base64: item.base64 }));
+                // Homework Help: photos go up at HW_PHOTO_MAX_EDGE as JPEG, the
+                // size the server's "Show on photo" boxes refer to; the same
+                // images are kept to show those boxes on (see below).
+                let sentPhotos = [];
+                if (hwCurrentMode === 'homework') {
+                    const prepared = await Promise.all(attachments.map(a => a.mediaType === 'application/pdf'
+                        ? null
+                        : hwDownscaleToJpeg('data:' + a.mediaType + ';base64,' + a.base64, HW_PHOTO_MAX_EDGE).catch(err => {
+                            console.error('[hwModal] Could not resize photo, sending it as is:', err);
+                            return null;
+                        })));
+                    attachments = attachments.map((a, i) => prepared[i] ? { mediaType: prepared[i].mediaType, base64: prepared[i].base64 } : a);
+                    sentPhotos = prepared.map(p => p ? p.dataUrl : null);
+                    if (sentPhotos.some(Boolean)) loadTutPointer().catch(() => {});
+                }
                 const res = await fetch('/api/homework', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -266,7 +283,7 @@
                         text: hwText,
                         language: lang,
                         studentId: sessionStorage.getItem('tutp_student_id'),
-                        attachments: hwAttachState.items.map(item => ({ mediaType: item.mediaType, base64: item.base64 }))
+                        attachments
                     })
                 });
                 if (!res.ok) {
@@ -297,6 +314,7 @@
                 // since this request went out — its own fresh state must
                 // not be clobbered by this now-stale response.
                 if (requestToken !== hwSessionToken) return;
+                hwSentPhotos = sentPhotos;
 
                 document.getElementById('hwModalForm').classList.add('hidden');
                 document.getElementById('hwModalResults').classList.remove('hidden');
@@ -412,6 +430,7 @@
         function renderHwModalHomeworkResult(parsed){
             const conceptBlock = document.getElementById('hwModalConceptBlock');
             const questionsArea = document.getElementById('hwModalQuestionsArea');
+            hidePhotoPanel();
             if (parsed.mode === 'questions') {
                 conceptBlock.classList.add('hidden');
                 questionsArea.classList.remove('hidden');
@@ -428,6 +447,20 @@
                             <p class="text-[13.5px] text-on-surface-variant mt-1.5 leading-relaxed">${hwEscapeHtml(q.reasoning || '')}</p>
                         </details>
                     `;
+                    // The server sends photo/box only after checking them
+                    // (server/homework-boxes.js); the photo must be one this
+                    // page sent, so there is something to draw on.
+                    if (Number.isInteger(q.photo) && Array.isArray(q.box) && q.box.length === 4 && hwSentPhotos[q.photo]) {
+                        const btn = document.createElement('button');
+                        btn.type = 'button';
+                        btn.dataset.role = 'show-photo';
+                        btn.dataset.photo = String(q.photo);
+                        btn.dataset.box = q.box.join(',');
+                        btn.className = 'font-label-md text-xs text-primary border-2 border-outline-variant hover:border-primary rounded-lg px-3 py-1.5 mt-2 transition-colors';
+                        btn.textContent = '📍 Show on photo';
+                        btn.addEventListener('click', () => showHwPhotoBox(q.photo, q.box, 'Q' + (qi + 1)));
+                        card.appendChild(btn);
+                    }
                     questionsArea.appendChild(card);
                 });
             } else {
@@ -446,7 +479,162 @@
             }
             document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
         }
+        // ---------------- "Show on photo" and "Check mistakes" (2026-09-28) ----------------
+        // Homework Help answers carry, per question, the photo it was read
+        // from and a box around it (0..1000 of that photo, checked by the
+        // server). "Show on photo" opens the photo above the answers and
+        // draws the box with /js/tutp-pointer.js (the visual tutor's
+        // overlay); "Check mistakes" sends the shown photo to the visual
+        // tutor's image mode, which marks up to 2 mistakes (red) and one
+        // correct answer (green). The page's Tailwind build only sees the
+        // HTML files, so the new elements reuse classes the pages already
+        // have and set anything else inline.
+        const HW_PHOTO_MAX_EDGE = 1568;   // = BOX_MAX_EDGE in server/homework-boxes.js
+        const HW_CHECK_MAX_EDGE = 1280;   // the size the visual tutor reads
+        let hwSentPhotos = [];            // data URL per sent attachment (null for PDFs)
+        let hwShownPhoto = null;
+        let hwPointerLoad = null;
+
+        function loadTutPointer(){
+            if (window.TutPointer) return Promise.resolve(window.TutPointer);
+            if (!hwPointerLoad) {
+                hwPointerLoad = new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = '/js/tutp-pointer.js';
+                    s.onload = () => resolve(window.TutPointer);
+                    s.onerror = () => { hwPointerLoad = null; reject(new Error('Could not load tutp-pointer.js')); };
+                    document.head.appendChild(s);
+                });
+            }
+            return hwPointerLoad;
+        }
+        function clearHwPointer(){
+            if (window.TutPointer) window.TutPointer.clear();
+        }
+
+        // Any image data URL -> JPEG no larger than maxEdge on its longest
+        // side: { mediaType, base64, dataUrl }.
+        function hwDownscaleToJpeg(dataUrl, maxEdge){
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const s = Math.min(1, maxEdge / Math.max(img.naturalWidth, img.naturalHeight));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = Math.round(img.naturalWidth * s);
+                        canvas.height = Math.round(img.naturalHeight * s);
+                        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+                        const out = canvas.toDataURL('image/jpeg', 0.9);
+                        resolve({ mediaType: 'image/jpeg', base64: out.split(',')[1], dataUrl: out });
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.onerror = () => reject(new Error('Could not decode the photo'));
+                img.src = dataUrl;
+            });
+        }
+
+        // The photo panel sits above the answer cards; built on first use.
+        function hwPhotoPanel(){
+            let panel = document.getElementById('hwPhotoPanel');
+            if (panel) return panel;
+            panel = document.createElement('div');
+            panel.id = 'hwPhotoPanel';
+            panel.className = 'hidden bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-3 mt-2';
+            panel.innerHTML = `
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                    <div class="font-label-md text-[11px] text-on-surface-variant">Your photo</div>
+                    <button type="button" id="hwPhotoHideBtn" class="font-label-md text-xs text-on-surface-variant hover:text-on-surface">Hide photo</button>
+                </div>
+                <img id="hwPhotoImg" alt="The homework photo you attached" class="rounded-lg" style="display:block;width:100%;max-height:60vh;object-fit:contain;background:#f1f3f8;">
+                <button type="button" id="hwCheckMistakesBtn" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors mt-2" style="width:100%;">🔍 Check mistakes</button>
+                <p id="hwCheckMistakesMsg" class="hidden text-[13.5px] text-on-surface leading-relaxed mt-2 mb-0"></p>
+            `;
+            const questionsArea = document.getElementById('hwModalQuestionsArea');
+            questionsArea.parentNode.insertBefore(panel, questionsArea);
+            panel.querySelector('#hwPhotoHideBtn').addEventListener('click', hidePhotoPanel);
+            panel.querySelector('#hwCheckMistakesBtn').addEventListener('click', checkHwMistakes);
+            return panel;
+        }
+        function hidePhotoPanel(){
+            clearHwPointer();
+            const panel = document.getElementById('hwPhotoPanel');
+            if (!panel) return;
+            panel.classList.add('hidden');
+            const msg = panel.querySelector('#hwCheckMistakesMsg');
+            msg.textContent = '';
+            msg.classList.add('hidden');
+            hwShownPhoto = null;
+        }
+
+        async function showHwPhoto(photo){
+            const panel = hwPhotoPanel();
+            const img = panel.querySelector('#hwPhotoImg');
+            if (hwShownPhoto !== photo) {
+                hidePhotoPanel();
+                img.src = hwSentPhotos[photo];
+                hwShownPhoto = photo;
+            }
+            panel.classList.remove('hidden');
+            try { await img.decode(); } catch (e) {}
+            img.scrollIntoView({ block: 'center' });
+            return img;
+        }
+
+        async function showHwPhotoBox(photo, box, label){
+            const token = hwSessionToken;
+            const img = await showHwPhoto(photo);
+            let pointer;
+            try { pointer = await loadTutPointer(); } catch (err) { console.error('[hwModal] Show on photo:', err); return; }
+            if (token !== hwSessionToken) return;
+            pointer.play({ steps: [{ type: 'box', target: { kind: 'image', box }, tone: 'info', label }] }, { imageEl: img });
+        }
+
+        async function checkHwMistakes(){
+            const token = hwSessionToken;
+            const btn = document.getElementById('hwCheckMistakesBtn');
+            const msg = document.getElementById('hwCheckMistakesMsg');
+            const img = document.getElementById('hwPhotoImg');
+            btn.disabled = true;
+            btn.textContent = 'Checking…';
+            msg.classList.add('hidden');
+            clearHwPointer();
+            try {
+                const pointer = await loadTutPointer();
+                try { await img.decode(); } catch (e) {}
+                const image = pointer.prepareImage(img, HW_CHECK_MAX_EDGE);
+                const lang = document.getElementById('hwModalLang').value;
+                const res = await fetch('/api/visual-tutor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ mode: 'image', question: `Check my child's answers on this page. Reply in ${lang}.`, image })
+                });
+                if (token !== hwSessionToken) return;
+                if (!res.ok) throw Object.assign(new Error('visual-tutor returned ' + res.status), { status: res.status });
+                const data = await res.json();
+                msg.textContent = data.speech || '';
+                msg.classList.toggle('hidden', !data.speech);
+                img.scrollIntoView({ block: 'center' });
+                pointer.play(data, { imageEl: img });
+            } catch (err) {
+                if (token !== hwSessionToken) return;
+                console.error('[hwModal] Check mistakes failed:', err);
+                msg.textContent = err.status === 429
+                    ? 'Too many checks in a short time. Please wait a few minutes and try again.'
+                    : "Couldn't check this photo right now. Please try again.";
+                msg.classList.remove('hidden');
+            } finally {
+                if (token === hwSessionToken) {
+                    btn.disabled = false;
+                    btn.textContent = '🔍 Check mistakes';
+                }
+            }
+        }
+
         function resetHomeworkModal(){
+            hidePhotoPanel();
+            hwSentPhotos = [];
             document.getElementById('hwModalForm').classList.remove('hidden');
             document.getElementById('hwModalResults').classList.add('hidden');
             document.getElementById('hwModalText').value = '';

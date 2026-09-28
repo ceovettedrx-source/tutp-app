@@ -9,7 +9,14 @@
 // seeded pixel noise (same noise every run).
 //
 //   node tests/e2e/fixtures/generate-worksheets.js
+//   node tests/e2e/fixtures/generate-worksheets.js --rows
+// --rows writes only worksheet-rows.json (the images are left alone): where
+// each problem row sits on the sheet, in 0..1000 of the image, for the
+// "Show on photo" and "Check mistakes" tests in homework.spec.js. The rows
+// are rotated with the paper, so each entry is the axis-aligned box around
+// the rotated row.
 import { chromium } from 'playwright';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -83,6 +90,26 @@ function html({ withAnswers }) {
 }
 
 const browser = await chromium.launch({ channel: 'chrome' });
+if (process.argv.includes('--rows')) {
+  const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });
+  await page.setContent(html({ withAnswers: true }));
+  await page.evaluate(() => document.fonts.ready);
+  const rects = await page.evaluate(() => [...document.querySelectorAll('.row')].map((r) => {
+    const b = r.getBoundingClientRect();
+    return [b.left, b.top, b.right, b.bottom];
+  }));
+  const rows = PROBLEMS.map(([q, written, correct], i) => {
+    const [x1, y1, x2, y2] = rects[i];
+    return {
+      n: i + 1, question: q, written, correct, wrong: written !== correct,
+      box: [Math.round(x1 / 1.2), Math.round(y1 / 1.6), Math.round(x2 / 1.2), Math.round(y2 / 1.6)],
+    };
+  });
+  fs.writeFileSync(path.join(__dirname, 'worksheet-rows.json'), JSON.stringify({ image: 'worksheet-5-wrong.jpg', size: [1200, 1600], rows }, null, 2) + '\n');
+  console.log('wrote worksheet-rows.json');
+  await browser.close();
+  process.exit(0);
+}
 for (const [file, withAnswers] of [['worksheet-blank.jpg', false], ['worksheet-5-wrong.jpg', true]]) {
   // A fresh page per image, and wait for the fonts and the noise layer.
   const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });

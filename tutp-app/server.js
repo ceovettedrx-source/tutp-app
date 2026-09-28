@@ -23,6 +23,11 @@ import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './server/prompts/homework-prompts.js';
 import { callWithJsonRetry } from './server/homework-reply.js';
+import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
+
+// Homework Help with a boxable photo (see /api/homework): the same model the
+// visual tutor points with (server/routes/visual-tutor.js).
+const HOMEWORK_PHOTO_MODEL = process.env.VISUAL_TUTOR_MODEL || 'claude-sonnet-5';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -5980,7 +5985,9 @@ app.post('/api/homework', async (req, res) => {
     const childContext = studentRow && studentRow.name
       ? studentRow.name + (studentRow.class ? ' · ' + studentRow.class : '')
       : 'your child';
-    const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments });
+    // Homework Help only: photos that can get "Show on photo" boxes.
+    const photos = feature === FEATURES.HOMEWORK_HELP ? boxablePhotos(attachments) : [];
+    const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos });
     if (!userContent.every(isValidHomeworkContentBlock)) {
       return res.status(400).json({ error: 'Invalid attachment' });
     }
@@ -6011,7 +6018,11 @@ app.post('/api/homework', async (req, res) => {
           'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
+          // With a photo that gets "Show on photo" boxes, the visual tutor's
+          // model: claude-sonnet-4-6 returned evenly spaced guesses (rows 1-2
+          // off on the e2e worksheet, 2026-09-28) while sonnet-5 points at
+          // the right lines. Everything else stays on sonnet-4-6.
+          model: photos.length ? HOMEWORK_PHOTO_MODEL : 'claude-sonnet-4-6',
           // A broad/unspecific attachment (e.g. a whole textbook chapter page
           // with no single stated question) combined with a token-inefficient
           // output language (Telugu and other Indic scripts use far more
@@ -6048,7 +6059,12 @@ app.post('/api/homework', async (req, res) => {
     }
 
     trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
-    res.json(result.data);
+    if (feature !== FEATURES.HOMEWORK_HELP) return res.json(result.data);
+    // Every photo/box pair is checked (server/homework-boxes.js); anything
+    // invalid, or a box with no photo that may carry one, is dropped.
+    const { data, boxed } = applyQuestionBoxes(result.data, photos);
+    if (photos.length) console.log('homework: show-on-photo boxes', { photos: photos.length, boxed });
+    res.json(data);
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Server error calling Claude' });
