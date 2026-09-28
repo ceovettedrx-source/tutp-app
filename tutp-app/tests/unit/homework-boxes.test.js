@@ -92,6 +92,8 @@ test('checkQuestionBoxes: keeps valid pairs, drops bad photo index, PDF index, b
   }, photos);
   assert.equal(boxed, 1);
   assert.deepEqual(json.extracted_questions[0], { question: 'a', answer: '1', reasoning: 'r', photo: 1, box: [100, 100, 500, 200] });
+  assert.deepEqual(checkQuestionBoxes({ extracted_questions: [{ photo: 1, box: [100, 200, 500, 400] }, {}] }, photos).boxes,
+    [{ photo: 1, box: [100, 100, 500, 200] }, null]);
   for (const q of json.extracted_questions.slice(1)) {
     assert.equal('photo' in q, false);
     assert.equal('box' in q, false);

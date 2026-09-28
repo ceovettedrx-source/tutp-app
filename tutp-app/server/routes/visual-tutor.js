@@ -1,15 +1,24 @@
 // POST /api/visual-tutor
 // Body (mode "ui"):    { mode: "ui", question, viewport: {w, h}, elements: [...] }
 // Body (mode "image"): { mode: "image", question, image: {base64, mediaType, width, height} }
+// Homework Help "Explain on photo" (round B2):
+// Body (mode "explain_line"): { mode, question (the card's question), answer
+//   (the card's answer), language, image (a crop around that question's line) }
+//   -> { found, steps }
+// Body (mode "locate_line"): { mode, question, image (the whole photo) }
+//   -> { found, box (0..1000) }, when the crop missed its question.
 // Mounted in server.js behind requireFamilySessionMw + visualTutorLimiter,
 // which sets req.familySession.
 
 import express from 'express';
-import { uiSystemPrompt, imageSystemPrompt } from '../prompts/visual-tutor-prompts.js';
+import { uiSystemPrompt, imageSystemPrompt, explainLineSystemPrompt, locateLineSystemPrompt } from '../prompts/visual-tutor-prompts.js';
+import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
+import { POINTING_MODEL, POINTING_SETTINGS } from '../pointing-model.js';
 import { trackVisualTutorCall } from '../../tracking/tracking.js';
 
 const router = express.Router();
-const MODEL = process.env.VISUAL_TUTOR_MODEL || 'claude-sonnet-5';
+const MODEL = POINTING_MODEL;
+const IMAGE_MODES = new Set(['image', 'explain_line', 'locate_line']);
 const TYPES = new Set(['point', 'box', 'highlight', 'underline', 'arrow']);
 const TONES = new Set(['info', 'mistake', 'correct']);
 const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
@@ -51,18 +60,26 @@ router.post('/', async (req, res) => {
       type: 'text',
       text: `Screen elements:\n${JSON.stringify(elements)}\n\nParent's question: ${question}`,
     }];
-  } else if (mode === 'image') {
+  } else if (IMAGE_MODES.has(mode)) {
     img = req.body.image || {};
     const okType = ['image/jpeg', 'image/png', 'image/webp'].includes(img.mediaType);
     const bytes = img.base64 ? Buffer.byteLength(img.base64, 'base64') : 0;
     if (!okType || !bytes || bytes > MAX_IMAGE_BYTES || !(img.width > 0) || !(img.height > 0)) {
       return res.status(400).json({ error: 'bad_image' });
     }
-    system = imageSystemPrompt(img);
-    content = [
-      { type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } },
-      { type: 'text', text: `Parent's question: ${question}` },
-    ];
+    const imageBlock = { type: 'image', source: { type: 'base64', media_type: img.mediaType, data: img.base64 } };
+    if (mode === 'image') {
+      system = imageSystemPrompt(img);
+      content = [imageBlock, { type: 'text', text: `Parent's question: ${question}` }];
+    } else if (mode === 'explain_line') {
+      const answer = typeof req.body.answer === 'string' ? req.body.answer.slice(0, 300) : '';
+      const language = HOMEWORK_LANGUAGES.includes(req.body.language) ? req.body.language : 'English';
+      system = explainLineSystemPrompt({ width: img.width, height: img.height, language });
+      content = [imageBlock, { type: 'text', text: `Tapped question: ${question}\nCorrect answer: ${answer || 'not given'}` }];
+    } else {
+      system = locateLineSystemPrompt(img);
+      content = [imageBlock, { type: 'text', text: `Question to find: ${question}` }];
+    }
   } else {
     return res.status(400).json({ error: 'bad_mode' });
   }
@@ -88,7 +105,7 @@ router.post('/', async (req, res) => {
         'anthropic-version': '2023-06-01',
         'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID,
       },
-      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, system, messages: [{ role: 'user', content }] }),
+      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, ...POINTING_SETTINGS, system, messages: [{ role: 'user', content }] }),
     });
     if (!r.ok) {
       console.error('visual-tutor upstream', r.status, await r.text());
@@ -120,8 +137,11 @@ router.post('/', async (req, res) => {
 
   try {
     const raw = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('');
-    const clean = sanitize(JSON.parse(extractJson(raw)), { validRefs, img });
-    log('success', { steps: clean.steps.length, usage: data.usage, stopReason });
+    const parsed = JSON.parse(extractJson(raw));
+    const clean = mode === 'explain_line' ? sanitizeExplain(parsed, img)
+      : mode === 'locate_line' ? sanitizeLocate(parsed, img)
+      : sanitize(parsed, { validRefs, img });
+    log('success', { steps: clean.steps ? clean.steps.length : null, usage: data.usage, stopReason });
     return res.json(clean);
   } catch (err) {
     console.error('visual-tutor parse', err.message, { stopReason });
@@ -141,10 +161,10 @@ function extractJson(raw) {
 
 // Never trust model output: drop hallucinated refs, clamp boxes,
 // convert image pixels -> 0..1000 so the client is resolution-independent.
-function sanitize(out, { validRefs, img }) {
+function sanitize(out, { validRefs, img, maxSteps = 4 }) {
   const speech = typeof out.speech === 'string' ? out.speech.slice(0, 600) : '';
   const steps = (Array.isArray(out.steps) ? out.steps : [])
-    .slice(0, 4)
+    .slice(0, maxSteps)
     .map((s) => {
       if (!s || !TYPES.has(s.type)) return null;
       const target = fixTarget(s.target, { validRefs, img });
@@ -182,4 +202,19 @@ function fixTarget(t, { validRefs, img }) {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+// explain_line: { found, steps } with up to 5 checked steps (boxes 0..1000 of
+// the crop). found is false when the model says so or no step survives.
+function sanitizeExplain(out, img) {
+  if (!out || out.found === false) return { found: false, steps: [] };
+  const { steps } = sanitize(out, { validRefs: null, img, maxSteps: 5 });
+  return steps.length ? { found: true, steps } : { found: false, steps: [] };
+}
+
+// locate_line: { found, box } with the box 0..1000 of the whole photo.
+function sanitizeLocate(out, img) {
+  const target = out && out.found !== false ? fixTarget({ kind: 'image', box: out.box }, { validRefs: null, img }) : null;
+  return target ? { found: true, box: target.box } : { found: false, box: null };
+}
+
+export { sanitize, sanitizeExplain, sanitizeLocate };
 export default router;

@@ -24,10 +24,20 @@ import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './server/prompts/homework-prompts.js';
 import { callWithJsonRetry } from './server/homework-reply.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
+import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 
-// Homework Help with a boxable photo (see /api/homework): the same model the
-// visual tutor points with (server/routes/visual-tutor.js).
-const HOMEWORK_PHOTO_MODEL = process.env.VISUAL_TUTOR_MODEL || 'claude-sonnet-5';
+// True when each photo's boxes go down the page in card order (tops
+// non-decreasing, 1% slack). False on a two-column sheet too, so a signal in
+// the log, not an error.
+function inReadingOrder(boxes) {
+  const lastTop = {};
+  for (const b of boxes) {
+    if (!b) continue;
+    if (lastTop[b.photo] !== undefined && b.box[1] < lastTop[b.photo] - 10) return false;
+    lastTop[b.photo] = b.box[1];
+  }
+  return true;
+}
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -6022,7 +6032,8 @@ app.post('/api/homework', async (req, res) => {
           // model: claude-sonnet-4-6 returned evenly spaced guesses (rows 1-2
           // off on the e2e worksheet, 2026-09-28) while sonnet-5 points at
           // the right lines. Everything else stays on sonnet-4-6.
-          model: photos.length ? HOMEWORK_PHOTO_MODEL : 'claude-sonnet-4-6',
+          model: photos.length ? POINTING_MODEL : 'claude-sonnet-4-6',
+          ...(photos.length ? POINTING_SETTINGS : {}),
           // A broad/unspecific attachment (e.g. a whole textbook chapter page
           // with no single stated question) combined with a token-inefficient
           // output language (Telugu and other Indic scripts use far more
@@ -6062,8 +6073,18 @@ app.post('/api/homework', async (req, res) => {
     if (feature !== FEATURES.HOMEWORK_HELP) return res.json(result.data);
     // Every photo/box pair is checked (server/homework-boxes.js); anything
     // invalid, or a box with no photo that may carry one, is dropped.
-    const { data, boxed } = applyQuestionBoxes(result.data, photos);
-    if (photos.length) console.log('homework: show-on-photo boxes', { photos: photos.length, boxed });
+    const { data, boxed, boxes } = applyQuestionBoxes(result.data, photos);
+    // Box positions only (0..1000), never text or images: enough to see a
+    // box on the wrong line, or boxes out of reading order, on real photos.
+    if (photos.length) {
+      console.log('homework: show-on-photo boxes', {
+        photos: photos.map(p => `${p.index}:${p.width}x${p.height}`).join(' '),
+        boxed,
+        boxes: boxes.map(b => (b ? `${b.photo}:${b.box.join(',')}` : '-')).join(' '),
+        inReadingOrder: inReadingOrder(boxes),
+        outputTokens: result.data.usage?.output_tokens ?? null,
+      });
+    }
     res.json(data);
   } catch (err) {
     console.error('Server error:', err);

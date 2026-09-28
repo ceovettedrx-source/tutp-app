@@ -1,0 +1,165 @@
+{
+  "image": "worksheet-12.jpg",
+  "size": [
+    1200,
+    1600
+  ],
+  "rows": [
+    {
+      "n": 1,
+      "question": "36 + 25 =",
+      "written": "61",
+      "correct": "61",
+      "wrong": false,
+      "box": [
+        184,
+        201,
+        503,
+        236
+      ]
+    },
+    {
+      "n": 2,
+      "question": "84 − 37 =",
+      "written": "53",
+      "correct": "47",
+      "wrong": true,
+      "box": [
+        180,
+        252,
+        510,
+        288
+      ]
+    },
+    {
+      "n": 3,
+      "question": "9 × 6 =",
+      "written": "54",
+      "correct": "54",
+      "wrong": false,
+      "box": [
+        177,
+        304,
+        508,
+        341
+      ]
+    },
+    {
+      "n": 4,
+      "question": "63 + 18 =",
+      "written": "71",
+      "correct": "81",
+      "wrong": true,
+      "box": [
+        173,
+        357,
+        498,
+        393
+      ]
+    },
+    {
+      "n": 5,
+      "question": "100 − 45 =",
+      "written": "55",
+      "correct": "55",
+      "wrong": false,
+      "box": [
+        169,
+        410,
+        499,
+        447
+      ]
+    },
+    {
+      "n": 6,
+      "question": "7 × 7 =",
+      "written": "42",
+      "correct": "49",
+      "wrong": true,
+      "box": [
+        165,
+        464,
+        508,
+        502
+      ]
+    },
+    {
+      "n": 7,
+      "question": "48 ÷ 6 =",
+      "written": "8",
+      "correct": "8",
+      "wrong": false,
+      "box": [
+        162,
+        519,
+        480,
+        556
+      ]
+    },
+    {
+      "n": 8,
+      "question": "29 + 44 =",
+      "written": "73",
+      "correct": "73",
+      "wrong": false,
+      "box": [
+        158,
+        574,
+        500,
+        612
+      ]
+    },
+    {
+      "n": 9,
+      "question": "72 − 38 =",
+      "written": "46",
+      "correct": "34",
+      "wrong": true,
+      "box": [
+        154,
+        630,
+        498,
+        669
+      ]
+    },
+    {
+      "n": 10,
+      "question": "8 × 9 =",
+      "written": "72",
+      "correct": "72",
+      "wrong": false,
+      "box": [
+        150,
+        686,
+        496,
+        726
+      ]
+    },
+    {
+      "n": 11,
+      "question": "56 ÷ 7 =",
+      "written": "9",
+      "correct": "8",
+      "wrong": true,
+      "box": [
+        146,
+        744,
+        469,
+        783
+      ]
+    },
+    {
+      "n": 12,
+      "question": "45 + 39 =",
+      "written": "84",
+      "correct": "84",
+      "wrong": false,
+      "box": [
+        142,
+        802,
+        497,
+        842
+      ]
+    }
+  ]
+}

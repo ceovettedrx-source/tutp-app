@@ -12,6 +12,11 @@
  *   snapshotUI(root?)            -> [{ref, role, text, rect}]  (for mode "ui")
  *   prepareImage(imgEl, maxEdge) -> {base64, mediaType, width, height} (mode "image")
  *   play(instructions, ctx)      -> Promise, draws steps in sequence
+ *   step(instructions, ctx)      -> {next, back, index, count}: one step at
+ *                                   a time, moved by the caller (Next/Back);
+ *                                   ctx.onStep(step, i, count) on each move
+ *   cropRect(box, width, height) -> {x, y, w, h} pixels: a 0..1000 line box
+ *                                   padded by about a line above and below
  *   clear()
  */
 (function () {
@@ -438,6 +443,56 @@
     if (ctx.autoClearMs) setTimeout(clear, ctx.autoClearMs);
   }
 
+  // Manual stepping ("Explain on photo"): one step on screen at a time, so
+  // each sentence goes with its own highlight.
+  function step(instructions, ctx = {}) {
+    clear();
+    ensureOverlay();
+    const steps = (instructions && instructions.steps) || [];
+    let index = -1;
+    function show(i) {
+      if (i < 0 || i >= steps.length || i === index) return index;
+      clear();
+      index = i;
+      const nodes = buildNodes(steps[i]);
+      svg.appendChild(nodes.g);
+      const item = { step: steps[i], nodes, ctx };
+      live.push(item);
+      layout(item);
+      rafId = requestAnimationFrame(tick);
+      animateIn(nodes);
+      if (typeof ctx.onStep === 'function') ctx.onStep(steps[i], i, steps.length);
+      return index;
+    }
+    show(0);
+    return {
+      next: () => show(index + 1),
+      back: () => show(index - 1),
+      get index() { return index; },
+      count: steps.length,
+    };
+  }
+
+  // The part of a photo to zoom into for one line: the line's 0..1000 box,
+  // padded by one line height (at least 2% of the photo) above and below and
+  // 4% of the width at each side, at least 30% of the photo wide, clamped to
+  // the photo. Pixels.
+  function cropRect(box, width, height) {
+    const [x1, y1, x2, y2] = box.map((v, i) => (v / 1000) * (i % 2 ? height : width));
+    const padY = Math.max(y2 - y1, height * 0.02);
+    const padX = width * 0.04;
+    let left = x1 - padX, right = x2 + padX;
+    const minW = width * 0.3;
+    if (right - left < minW) {
+      const mid = (left + right) / 2;
+      left = mid - minW / 2; right = mid + minW / 2;
+    }
+    const cl = (v, max) => Math.max(0, Math.min(max, v));
+    left = cl(left, width); right = cl(right, width);
+    const top = cl(y1 - padY, height), bottom = cl(y2 + padY, height);
+    return { x: Math.round(left), y: Math.round(top), w: Math.round(right - left), h: Math.round(bottom - top) };
+  }
+
   function clear() {
     live = [];
     if (rafId) cancelAnimationFrame(rafId);
@@ -445,5 +500,5 @@
     if (svg) svg.querySelectorAll('.tutp-step').forEach((n) => n.remove());
   }
 
-  window.TutPointer = { snapshotUI, prepareImage, play, clear };
+  window.TutPointer = { snapshotUI, prepareImage, play, step, cropRect, clear };
 })();

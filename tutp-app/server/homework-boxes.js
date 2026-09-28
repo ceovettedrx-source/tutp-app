@@ -72,37 +72,39 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 // The homework JSON with every question's photo/box checked: a valid pair
 // becomes { photo, box (0..1000) }, anything else is removed. Returns
-// { json, boxed } (boxed = questions left with a box).
+// { json, boxed, boxes }: boxed = questions left with a box; boxes = per
+// question, { photo, box } or null (for the server log).
 export function checkQuestionBoxes(json, photos) {
   const byIndex = new Map((photos || []).map((p) => [p.index, p]));
-  let boxed = 0;
+  const boxes = [];
   const questions = Array.isArray(json && json.extracted_questions) ? json.extracted_questions : null;
-  if (!questions) return { json, boxed };
+  if (!questions) return { json, boxed: 0, boxes };
   const extracted = questions.map((q) => {
-    if (!q || typeof q !== 'object') return q;
+    if (!q || typeof q !== 'object') { boxes.push(null); return q; }
     const { photo, box, ...rest } = q;
     const target = Number.isInteger(photo) ? byIndex.get(photo) : null;
     const checked = checkBox(box, target);
-    if (!checked) return rest;
-    boxed++;
+    if (!checked) { boxes.push(null); return rest; }
+    boxes.push({ photo, box: checked });
     return { ...rest, photo, box: checked };
   });
-  return { json: { ...json, extracted_questions: extracted }, boxed };
+  return { json: { ...json, extracted_questions: extracted }, boxed: boxes.filter(Boolean).length, boxes };
 }
 
 // Anthropic reply -> the same reply with its first text block replaced by
 // the checked homework JSON (compact). The page parses it exactly as before.
-// Returns { data, boxed }; data is unchanged when there is nothing to check.
+// Returns { data, boxed, boxes }; data is unchanged when there is nothing to
+// check.
 export function applyQuestionBoxes(data, photos) {
   const blocks = (data && data.content) || [];
   const i = blocks.findIndex((b) => b && b.type === 'text');
-  if (i < 0) return { data, boxed: 0 };
+  if (i < 0) return { data, boxed: 0, boxes: [] };
   const text = blocks[i].text || '';
   const a = text.indexOf('{'), b = text.lastIndexOf('}');
   let json;
-  try { json = JSON.parse(text.slice(a, b + 1)); } catch { return { data, boxed: 0 }; }
-  const { json: checked, boxed } = checkQuestionBoxes(json, photos);
+  try { json = JSON.parse(text.slice(a, b + 1)); } catch { return { data, boxed: 0, boxes: [] }; }
+  const { json: checked, boxed, boxes } = checkQuestionBoxes(json, photos);
   const content = blocks.slice();
   content[i] = { ...blocks[i], text: JSON.stringify(checked) };
-  return { data: { ...data, content }, boxed };
+  return { data: { ...data, content }, boxed, boxes };
 }
