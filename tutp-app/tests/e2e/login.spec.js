@@ -169,6 +169,33 @@ async function settle(page, p) {
   return last;
 }
 
+// Opens a dashboard the role may not see and waits (up to 20 s) until the tab
+// has finished loading, visible, on `expected`. The guard hides the page
+// while /api/session/me runs (2-4 s on a cold open), so "URL unchanged for
+// 2 s" isn't an end state. Polls every 100 ms; `shown` is true if `forbidden`
+// was ever visible with content, which is a privacy failure on its own.
+async function openForbidden(page, forbidden, expected) {
+  page.goto(BASE + forbidden).catch(() => {});
+  let end = '', shown = false;
+  const deadline = Date.now() + 20000;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(100);
+    let st;
+    try {
+      st = await page.evaluate(() => ({
+        path: location.pathname,
+        visible: document.documentElement.style.visibility !== 'hidden',
+        ready: document.readyState,
+        text: document.body ? document.body.innerText.length : 0
+      }));
+    } catch (e) { continue; } // a navigation replaced the page mid-call
+    end = st.path;
+    if (st.path === forbidden && st.visible && st.text > 0) shown = true;
+    if (st.path === expected && st.visible && st.ready === 'complete') break;
+  }
+  return { end, shown };
+}
+
 // page.evaluate that survives a navigation landing mid-call (the guard's
 // restore reload, or the login page's round trip back to a dashboard): wait
 // for the page to finish loading, and retry once if a navigation still
@@ -468,17 +495,19 @@ function assertRole(me, role) {
         const s = await apiStatus(page, `/api/bonding-score/${fid}/${other}`);
         out.push(`${other} bonding-score=${s}`);
         if (s !== 403) throw new Error(`${other} data returned ${s}, expected 403 (${out.join('; ')})`);
-        const endedOn = await settle(page, DASH[other]);
-        out.push(`open ${DASH[other]} -> ${endedOn}`);
-        if (endedOn !== DASH[role]) throw new Error(`opening ${DASH[other]} ended on ${endedOn}, expected ${DASH[role]} (${out.join('; ')})`);
+        const opened = await openForbidden(page, DASH[other], DASH[role]);
+        out.push(`open ${DASH[other]} -> ${opened.end}${opened.shown ? ' (SHOWN)' : ''}`);
+        if (opened.shown) throw new Error(`${DASH[other]} was visible (${out.join('; ')})`);
+        if (opened.end !== DASH[role]) throw new Error(`opening ${DASH[other]} ended on ${opened.end}, expected ${DASH[role]} (${out.join('; ')})`);
       }
       // Same check with cookies only (no tab state): restore, then role guard.
       const c2 = await newCtx(); await c2.addCookies(hostOnly(await ctx.cookies()));
       const p2 = await c2.newPage();
-      const coldEnd = await settle(p2, DASH[forbidden[0]]);
+      const cold = await openForbidden(p2, DASH[forbidden[0]], DASH[role]);
       await c2.close();
-      out.push(`cold open ${DASH[forbidden[0]]} -> ${coldEnd}`);
-      if (coldEnd !== DASH[role]) throw new Error(`cold open ended on ${coldEnd} (${out.join('; ')})`);
+      out.push(`cold open ${DASH[forbidden[0]]} -> ${cold.end}${cold.shown ? ' (SHOWN)' : ''}`);
+      if (cold.shown) throw new Error(`cold open showed ${DASH[forbidden[0]]} (${out.join('; ')})`);
+      if (cold.end !== DASH[role]) throw new Error(`cold open ended on ${cold.end} (${out.join('; ')})`);
       if (role === 'member') {
         // Another member id in the tab must be replaced by the own one.
         const own = await page.evaluate(() => sessionStorage.getItem('tutp_family_member_id'));

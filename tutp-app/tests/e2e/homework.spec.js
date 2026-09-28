@@ -89,7 +89,15 @@ function parseReply(data) {
     const status = await page.evaluate(async ({ phone, code }) => {
       await window.tutpSendOTP(phone);
       const idToken = await window.tutpVerifyOTP(code);
-      return (await window.tutpEstablishSession(idToken)).status;
+      const status = (await window.tutpEstablishSession(idToken)).status;
+      if (status !== 200) return status;
+      // What the login page does next (public/app/login/index.html): the
+      // dashboards read the family and roles from sessionStorage, and
+      // tutpChildReady resolves to null without tutp_family_id.
+      const me = await (await fetch('/api/session/me')).json();
+      sessionStorage.setItem('tutp_family_id', me.familyId);
+      sessionStorage.setItem('tutp_roles', JSON.stringify(me.roleMatches || []));
+      return status;
     }, { phone: PHONES[role], code: CODE });
     if (status !== 200) throw new Error(`${role}: /api/session returned ${status}`);
     await page.goto(BASE + DASH[role]);
@@ -115,9 +123,11 @@ function parseReply(data) {
       await page.locator('#hwModalThumb').waitFor({ state: 'visible', timeout: 10000 });
     }
     await page.click('#hwModalSubmitBtn');
+    // 180 s: the server asks the model a second time when the first reply
+    // has no parseable JSON (server/homework-reply.js), doubling the wait.
     await Promise.race([
-      page.locator('#hwModalResults').waitFor({ state: 'visible', timeout: 90000 }),
-      page.locator('#hwModalErrBox:not(.hidden)').waitFor({ state: 'visible', timeout: 90000 }).then(async () => {
+      page.locator('#hwModalResults').waitFor({ state: 'visible', timeout: 180000 }),
+      page.locator('#hwModalErrBox:not(.hidden)').waitFor({ state: 'visible', timeout: 180000 }).then(async () => {
         throw new Error('modal error: ' + (await page.textContent('#hwModalErrBox')));
       }),
     ]);
