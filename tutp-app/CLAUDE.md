@@ -40,6 +40,11 @@
   out of the Cloud Run image by `.dockerignore`). Run it against a preview
   with `npm run test:e2e -- <base-url>`; see the header of
   `tests/e2e/login.spec.js` for the test numbers and options.
+- The e2e test family 16 stays paid through a TEST payment row (student
+  `cdfb427e-d579-44a9-b7d2-a01cbee207eb`, captured 2026-09-28,
+  `period_days` 365, `note` = 'TEST'). Renew it before it expires on
+  2027-09-28: without it the homework suite hits the free limit (402)
+  after 5 sessions.
 
 # Backlog
 
@@ -55,6 +60,8 @@
 - **No way to add a father after registration** (found 2026-09-27 while setting up login tests). The father's name/phone live only in `family_registrations.data.father`, written once by `/app/register/`; the Family page (`/app/family/`, `POST /api/family/add-member`) only adds extended members. A family registered without a father (or with a wrong father phone) can only be fixed by editing the row in Supabase. Needs a design: who may add/change the father (mother only? OTP of the new number?), where in the UI, and how it interacts with phone-based login and the role guard.
 - **Visual tutor: mark every mistake with small numbered markers so the parent sees the true total; needs the model to return all mistake boxes.** Since 2026-09-27 image mode shows at most 2 mistakes + 1 correct step (to stay under the 8 s server budget) and says only "there are more to check" with no number, because the model miscounted the rest. A full list of mistake boxes, drawn as numbered dots and counted by the server, would give the real total.
 - **Invite father / co-parent after registration — no flow exists; separate registrations create duplicate families and children.** Seen 2026-09-27: registering the father on his own made a second `family_registrations` row (and a second copy of the child) sharing the mother's phone, which makes that phone ambiguous at login ("Multiple accounts found"). Needs an invite flow into the existing family, and registration should detect an already-registered phone instead of creating a duplicate.
+- **Cold open shows a blank screen ~3.5 s while /api/session/me runs** (findFamilyIdByPhone + students). Spec a faster /me and a visible loading state. (Measured 2026-09-28: the role guard keeps the page hidden throughout, so nothing leaks; it's speed only.)
+- **Visual tutor v2 server time 7956 ms on 2026-09-28, just under the 8 s budget** — look at trimming the image prompt or image size before it goes red.
 - **Removing a family member must revoke their login immediately — needs an e2e test.** Since 2026-09-27 a member can sign in with their own phone (`findFamilyIdByPhone` also searches `family_members`). A removed member's existing session cookie is a stateless JWT carrying the familyId, so it stays valid until it expires unless something checks membership on each request. Decide the mechanism (per-request membership check for family_member sessions, or a revocation marker), then add a test to `tests/e2e/`: remove the member as the mother, and the member's open session must get 401 on its next request.
 
 # Deploying
