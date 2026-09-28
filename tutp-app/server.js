@@ -21,6 +21,7 @@ import createMaterialRouter from './server/routes/teacher/create-material.js';
 import visualTutorRouter from './server/routes/visual-tutor.js';
 import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
+import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './server/prompts/homework-prompts.js';
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
@@ -501,6 +502,12 @@ function requireAdmin(req, res, next) {
   return res.status(403).json({ error: 'Forbidden' });
 }
 
+// Founder Dashboard payment figures leave out rows marked note = 'TEST'
+// (migration 027; e.g. the e2e test family's amount-0 paid period). Written
+// as "no note, or a note other than TEST": a bare neq would also drop every
+// real payment, whose note is null.
+const REAL_PAYMENTS_ONLY = 'note.is.null,note.neq.TEST';
+
 app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -512,11 +519,11 @@ app.get('/api/admin/kpis', requireAdmin, async (req, res) => {
     const [signupsRes, dauRes, revenueRes, failedPaymentsRes, activePaidRes] = await Promise.all([
       supabase.from('family_registrations').select('*', { count: 'exact', head: true }),
       supabase.from('usage_events').select('family_id').eq('event_name', 'session.started').gte('created_at', startOfTodayUTC),
-      supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', startOfMonthUTC),
-      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', startOfMonthUTC),
+      supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
       // Lifetime, not just this month — every family_registrations row that
       // has ever had a captured payment, regardless of when.
-      supabase.from('payments').select('student_id').eq('status', 'captured')
+      supabase.from('payments').select('student_id').eq('status', 'captured').or(REAL_PAYMENTS_ONLY)
     ]);
     if (signupsRes.error) throw signupsRes.error;
     if (dauRes.error) throw dauRes.error;
@@ -764,9 +771,9 @@ app.get('/api/admin/revenue', requireAdmin, async (req, res) => {
     const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
 
     const [totalRes, mtdRes, recentRes] = await Promise.all([
-      supabase.from('payments').select('amount, tier').eq('status', 'captured'),
-      supabase.from('payments').select('amount, tier').eq('status', 'captured').gte('created_at', startOfMonthUTC),
-      supabase.from('payments').select('amount, status, created_at').gte('created_at', windowStartUTC).in('status', ['captured', 'failed'])
+      supabase.from('payments').select('amount, tier').eq('status', 'captured').or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('amount, tier').eq('status', 'captured').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('amount, status, created_at').gte('created_at', windowStartUTC).in('status', ['captured', 'failed']).or(REAL_PAYMENTS_ONLY)
     ]);
     if (totalRes.error) throw totalRes.error;
     if (mtdRes.error) throw mtdRes.error;
@@ -5887,27 +5894,75 @@ function isValidHomeworkContentBlock(block) {
   return false;
 }
 
+const HOMEWORK_ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+const HOMEWORK_MAX_TEXT = 4000;
+
+// What the parent typed and attached. Current pages send
+// { text, attachments: [{ mediaType, base64 }] }. A page opened before
+// 2026-09-27 still sends the old { systemPrompt, userContent } shape: its
+// image/document blocks and its "Homework: …" / "Lesson: …" text are read
+// as data only, and its systemPrompt is never used.
+function readHomeworkInput(body) {
+  if (Array.isArray(body.attachments) || typeof body.text === 'string') {
+    const attachments = (Array.isArray(body.attachments) ? body.attachments : [])
+      .map(a => ({ mediaType: a && a.mediaType, base64: a && a.base64 }));
+    return { text: typeof body.text === 'string' ? body.text.trim() : '', attachments };
+  }
+  if (Array.isArray(body.userContent)) {
+    const attachments = body.userContent
+      .filter(b => b && (b.type === 'image' || b.type === 'document') && b.source)
+      .map(b => ({ mediaType: b.source.media_type, base64: b.source.data }));
+    const textBlock = body.userContent.find(b => b && b.type === 'text' && typeof b.text === 'string');
+    const typed = textBlock && textBlock.text.match(/^(?:Homework|Lesson): ([\s\S]*)$/);
+    return { text: typed ? typed[1].trim() : '', attachments };
+  }
+  return { text: '', attachments: [] };
+}
+
 // The browser never sees the API key — it only ever talks to this route.
+// The prompt is built here (server/prompts/homework-prompts.js); a prompt
+// sent by the caller is ignored.
 app.post('/api/homework', async (req, res) => {
   try {
-    const { systemPrompt, userContent, studentId } = req.body;
-    if (!systemPrompt || !userContent) {
-      return res.status(400).json({ error: 'Missing systemPrompt or userContent' });
+    const body = req.body || {};
+    const { studentId } = body;
+    if (body.systemPrompt !== undefined) {
+      console.warn('homework: ignored a caller-sent systemPrompt', { studentId: studentId || null, feature: body.feature || null });
     }
-    if (!Array.isArray(userContent) || !userContent.length || !userContent.every(isValidHomeworkContentBlock)) {
-      return res.status(400).json({ error: 'Invalid userContent' });
+    const { text, attachments } = readHomeworkInput(body);
+    if (!text && !attachments.length) {
+      return res.status(400).json({ error: 'Please type the question or attach a photo/PDF first.' });
+    }
+    if (text.length > HOMEWORK_MAX_TEXT) {
+      return res.status(400).json({ error: `Please keep the typed text under ${HOMEWORK_MAX_TEXT} characters.` });
     }
     // Client UI caps this at 2 (multi-page homework); enforced here too so
     // the cap can't be bypassed by calling this route directly.
-    const attachmentCount = userContent.filter(b => b.type === 'image' || b.type === 'document').length;
-    if (attachmentCount > 2) {
+    if (attachments.length > 2) {
       return res.status(400).json({ error: 'At most 2 photo/PDF attachments are allowed per request.' });
+    }
+    if (!attachments.every(a => HOMEWORK_ATTACHMENT_TYPES.includes(a.mediaType) && typeof a.base64 === 'string' && a.base64.length > 0)) {
+      return res.status(400).json({ error: 'Invalid attachment' });
     }
     const session = await requireOwnStudent(req, res, studentId);
     if (!session) return;
 
-    const VALID_FEATURES = Object.values(FEATURES);
-    const feature = VALID_FEATURES.includes(req.body.feature) ? req.body.feature : FEATURES.HOMEWORK_HELP;
+    const feature = body.feature === undefined ? FEATURES.HOMEWORK_HELP : body.feature;
+    if (!PROMPT_FEATURES.includes(feature)) {
+      return res.status(400).json({ error: 'unsupported_feature' });
+    }
+    const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+    const { data: studentRow, error: studentErr } = await supabase
+      .from('students').select('name, class').eq('id', studentId).maybeSingle();
+    if (studentErr) throw studentErr;
+    const childContext = studentRow && studentRow.name
+      ? studentRow.name + (studentRow.class ? ' · ' + studentRow.class : '')
+      : 'your child';
+    const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments });
+    if (!userContent.every(isValidHomeworkContentBlock)) {
+      return res.status(400).json({ error: 'Invalid attachment' });
+    }
+
     const bucket = feature === FEATURES.HOMEWORK_HELP ? 'homework_help' : 'other_features';
     const limit = await checkFreeLimit(studentId, bucket);
     if (!limit.allowed) {
@@ -5922,7 +5977,7 @@ app.post('/api/homework', async (req, res) => {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
 
-    trackSessionStarted(session.familyId, studentId, { feature, language: req.body.language });
+    trackSessionStarted(session.familyId, studentId, { feature, language: lang });
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

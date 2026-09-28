@@ -7,7 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SPECS = ['login.spec.js', 'visual-tutor.spec.js'];
+const SPECS = ['login.spec.js', 'visual-tutor.spec.js', 'homework.spec.js'];
 const args = process.argv.slice(2);
 
 let failed = [];
