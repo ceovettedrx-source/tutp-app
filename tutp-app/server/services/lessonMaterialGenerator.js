@@ -6,6 +6,8 @@
 import { readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { callClaude } from '../anthropic.js';
+import { MODELS, modelSettings } from '../models.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REFERENCES_ROOT = path.join(__dirname, '..', 'references');
@@ -127,28 +129,22 @@ async function callClaudeForLessonJson({ systemPrompt, userContent, maxTokens, t
 
   let firstParseErr = null;
   for (let attempt = 1; attempt <= 2; attempt++) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+    const response = await callClaude({
+      feature: 'lesson_material',
+      body: {
+        model: MODELS.lesson_material,
+        ...modelSettings(MODELS.lesson_material),
         max_tokens: maxTokens,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
-      })
+      }
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`Claude API returned an error (${response.status}): ${errText}`);
+      throw new Error(`Claude API returned an error (${response.status}): ${response.errText}`);
     }
 
-    const data = await response.json();
+    const data = response.data;
 
     // A truncated response is cut-off JSON at best and silently-missing
     // sections at worst — never return partial data.

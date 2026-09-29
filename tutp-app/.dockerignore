@@ -8,5 +8,8 @@ docs/
 
 # e2e suite and its output: dev-only, never part of the Cloud Run image.
 # (Playwright itself is a devDependency, which `npm install --omit=dev`
-# in the Dockerfile already skips.)
-tests/
+# in the Dockerfile already skips.) Except the recorded model replies: a
+# preview with E2E_REPLAY=1 answers test families from them
+# (server/model-replay.js); without that env (production) they're never read.
+tests/**
+!tests/e2e/recordings/**

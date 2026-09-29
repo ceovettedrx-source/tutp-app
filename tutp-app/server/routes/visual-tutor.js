@@ -16,6 +16,9 @@ import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from '../pointing-model.js';
 import { trackVisualTutorCall } from '../../tracking/tracking.js';
 import { stepTimer } from '../step-timer.js';
+import { callClaude } from '../anthropic.js';
+import { replayMode } from '../model-replay.js';
+import { isTestFamily } from '../test-families.js';
 
 const router = express.Router();
 const MODEL = POINTING_MODEL;
@@ -106,37 +109,31 @@ router.post('/', async (req, res) => {
 
   req.timer.mark('prepare');
   req.modelCalled = true;
+  // e2e replay/record and X-Model-Usd for test families only
+  // (server/model-replay.js, server/anthropic.js).
+  const familyId = req.familySession.familyId;
+  const testFamily = await isTestFamily(familyId);
+  const mode2 = replayMode(testFamily, req.get('x-e2e-mode'));
+  const recordings = [];
   let r;
   try {
-    r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID,
-      },
-      body: JSON.stringify({ model: MODEL, max_tokens: MAX_TOKENS, ...POINTING_SETTINGS, system, messages: [{ role: 'user', content }] }),
+    r = await callClaude({
+      feature: 'visual_tutor_' + mode, variant: mode === 'explain_line' ? String(req.body.language || '') : '',
+      familyId, mode: mode2, recordings,
+      body: { model: MODEL, max_tokens: MAX_TOKENS, ...POINTING_SETTINGS, system, messages: [{ role: 'user', content }] },
     });
-    if (!r.ok) {
-      console.error('visual-tutor upstream', r.status, await r.text());
-      log('upstream_error');
-      return res.status(502).json({ error: 'upstream' });
-    }
   } catch (err) {
     console.error('visual-tutor network', err);
     log('upstream_error');
     return res.status(502).json({ error: 'upstream' });
   }
-
-  let data;
-  try {
-    data = await r.json();
-  } catch (err) {
-    console.error('visual-tutor upstream body', err);
+  if (testFamily) res.set('X-Model-Usd', String(r.usd || 0));
+  if (!r.ok) {
+    console.error('visual-tutor upstream', r.status, r.errText);
     log('upstream_error');
     return res.status(502).json({ error: 'upstream' });
   }
+  const data = r.data;
   req.timer.mark('model');
   const stopReason = data.stop_reason || null;
 
@@ -154,7 +151,7 @@ router.post('/', async (req, res) => {
       : mode === 'locate_line' ? sanitizeLocate(parsed, img)
       : sanitize(parsed, { validRefs, img });
     log('success', { steps: clean.steps ? clean.steps.length : null, usage: data.usage, stopReason });
-    return res.json(clean);
+    return res.json(mode2 === 'record' ? { ...clean, _recordings: recordings } : clean);
   } catch (err) {
     console.error('visual-tutor parse', err.message, { stopReason });
     log('parse_error', { usage: data.usage, stopReason });

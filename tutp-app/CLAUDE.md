@@ -49,6 +49,13 @@
   out of the Cloud Run image by `.dockerignore`). Run it against a preview
   with `npm run test:e2e -- <base-url>`; see the header of
   `tests/e2e/login.spec.js` for the test numbers and options.
+- Model spend in tests (round 2, `tests/e2e/run.js`): every run replays
+  recorded model replies (`tests/e2e/recordings`, preview with
+  `E2E_REPLAY=1`), and only a change to `server/prompts/`,
+  `server/pointing-model.js` or `server/models.js` since the last live run
+  triggers the 4-test live smoke set. The runner prints the model spend of
+  every spec; put those figures in the release summary. `--record-all`
+  re-records everything (about $0.10).
 - The e2e test family 16 stays paid through a TEST payment row (student
   `cdfb427e-d579-44a9-b7d2-a01cbee207eb`, captured 2026-09-28,
   `period_days` 365, `note` = 'TEST'). Renew it before it expires on
@@ -71,7 +78,8 @@
 - **Invite father / co-parent after registration — no flow exists; separate registrations create duplicate families and children.** Seen 2026-09-27: registering the father on his own made a second `family_registrations` row (and a second copy of the child) sharing the mother's phone, which makes that phone ambiguous at login ("Multiple accounts found"). Needs an invite flow into the existing family, and registration should detect an already-registered phone instead of creating a duplicate.
 - **Cold open shows a blank screen ~3.5 s while /api/session/me runs** (findFamilyIdByPhone + students). Spec a faster /me and a visible loading state. (Measured 2026-09-28: the role guard keeps the page hidden throughout, so nothing leaks; it's speed only.)
 - **Visual tutor v2 server time 7956 ms on 2026-09-28, just under the 8 s budget** — look at trimming the image prompt or image size before it goes red.
-- **Founder Dashboard counts test activity:** family 16 (e2e) and other test families inflate DAU, engagement, activation and signups. Mark test families (e.g. a `family_registrations` `is_test` flag) and exclude them from every `/api/admin/*` metric, not just payments. Needed before launch metrics or YC numbers are trusted.
+- **Done (round 2, 2026-09-29):** test families are marked with `family_registrations.data.is_test = true` (family 16 so far; `server/test-families.js`) and left out of every `/api/admin/*` metric. Mark any new test family the same way.
+- **Teacher features have no e2e coverage** (question paper, lesson material, lesson verifier). Round 2 moved them from sonnet-4-6 to sonnet-5 at effort low without a live check. Add at least one e2e smoke test per teacher feature (needs a teacher test login).
 - **Removing a family member must revoke their login immediately — needs an e2e test.** Since 2026-09-27 a member can sign in with their own phone (`findFamilyIdByPhone` also searches `family_members`). A removed member's existing session cookie is a stateless JWT carrying the familyId, so it stays valid until it expires unless something checks membership on each request. Decide the mechanism (per-request membership check for family_member sessions, or a revocation marker), then add a test to `tests/e2e/`: remove the member as the mother, and the member's open session must get 401 on its next request.
 - **Done (2026-09-29, branch `cron-header-baseline-role`):** `/api/parent-involvement-baseline` refuses (403) a viewer the session doesn't hold, tested in login f/g; CRON_TOKEN rotated to the new secret `cron-token-v2` and read only from the `X-Cron-Token` header (Cloud Scheduler jobs send it). Spec: `docs/specs/small-release-cron-header-baseline-role.md`. The old `cron-token` secret stays enabled only so a rollback to an older revision still starts.
 - **ADMIN_TOKEN also travels in the URL query string** (`?token=` on admin routes, `server.js` admin auth), so it lands in Cloud Run request logs the same way CRON_TOKEN did. Move it to a header and rotate it; redact `token=` in any log query until then.
@@ -89,6 +97,17 @@
   ```
   gcloud run services update-traffic tutp-demo --region=us-central1 --to-revisions=<new-revision>=100 --update-tags=pdftest=<new-revision>
   ```
+
+  **Previews run with `E2E_REPLAY=1`** (e2e record/replay, round 2,
+  `server/model-replay.js`); the revision that gets traffic must not. Before
+  the traffic command, redeploy the tested image without it (same digest,
+  no rebuild) and give the founder that revision's name:
+
+  ```
+  gcloud run deploy tutp-demo --region=us-central1 --image=<image@sha256 of the tested revision> --remove-env-vars=E2E_REPLAY --no-traffic --tag=preview --quiet
+  ```
+
+  Even if one slipped through, replay only ever answers test families.
 
   Always `--update-tags`, never `--set-tags`: `--set-tags` replaces the whole tag list, so every other tag (`preview`, `vtutor`, …) is deleted along with its URL (happened 2026-09-27).
 

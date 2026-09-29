@@ -1,0 +1,61 @@
+{
+  "image": "worksheet-4.jpg",
+  "size": [
+    1200,
+    1600
+  ],
+  "rows": [
+    {
+      "n": 1,
+      "question": "24 + 13 =",
+      "written": "37",
+      "correct": "37",
+      "wrong": false,
+      "box": [
+        147,
+        213,
+        543,
+        260
+      ]
+    },
+    {
+      "n": 2,
+      "question": "45 − 18 =",
+      "written": "33",
+      "correct": "27",
+      "wrong": true,
+      "box": [
+        151,
+        296,
+        552,
+        343
+      ]
+    },
+    {
+      "n": 3,
+      "question": "56 + 27 =",
+      "written": "73",
+      "correct": "83",
+      "wrong": true,
+      "box": [
+        154,
+        380,
+        550,
+        426
+      ]
+    },
+    {
+      "n": 4,
+      "question": "90 − 42 =",
+      "written": "48",
+      "correct": "48",
+      "wrong": false,
+      "box": [
+        158,
+        462,
+        559,
+        510
+      ]
+    }
+  ]
+}

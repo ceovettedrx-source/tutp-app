@@ -42,15 +42,23 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { e2eMode } from './e2e-mode.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
+const e2e = e2eMode(args.includes('--smoke') ? 'homework-smoke' : 'homework');
 const BASE = (args.find(a => /^https?:\/\//.test(a)) || '').replace(/\/+$/, '');
 if (!BASE) {
   console.error('Usage: node tests/e2e/homework.spec.js <base-url> [--headless]');
   process.exit(2);
 }
 const HEADLESS = args.includes('--headless');
+// --smoke: the live smoke set only (round 2, tests/e2e/run.js): k0, k1
+// (typed), k2 (photo) on the 4-question worksheet-4.jpg, p3 (explain on a
+// wrong row), p4 (check mistakes).
+const SMOKE = args.includes('--smoke');
+const SMOKE_SET = new Set(['k0', 'k1', 'k2', 'p3', 'p4']);
+const SHEET = SMOKE ? { file: 'worksheet-4.jpg', rows: 'worksheet-4-rows.json', n: 4 } : { file: 'worksheet-5-wrong.jpg', rows: 'worksheet-rows.json', n: 8 };
 const PHONES = { mother: '+919999900001', father: '+919999900002' };
 const DASH = { mother: '/app/mother/', father: '/app/father/' };
 const CODE = '123456';
@@ -59,7 +67,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const results = [];
 const TELUGU = /[ఀ-౿]/;
 const rowsOf = (file) => JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', file), 'utf8')).rows;
-const ROWS = rowsOf('worksheet-rows.json');
+const ROWS = rowsOf(SHEET.rows);
 const ROWS_12 = rowsOf('worksheet-12-rows.json');
 const numbers = (s) => (String(s).match(/\d+/g) || []).join(' ');
 const centreY = (box) => (box[1] + box[3]) / 2;
@@ -76,6 +84,7 @@ const rowOfQuestion = (question, rows = ROWS) =>
 function log(...a) { console.log('[e2e:hw]', ...a); }
 
 async function record(id, name, fn, page) {
+  if (SMOKE && !SMOKE_SET.has(id)) return;
   try {
     const detail = await fn();
     results.push({ id, name, status: 'PASS', detail: detail || '' });
@@ -102,6 +111,7 @@ function parseReply(data) {
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS });
   const newCtx = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await e2e.attach(ctx);
     await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
       const resp = await route.fetch();
       let body = await resp.text();
@@ -206,10 +216,10 @@ function parseReply(data) {
     }, page);
 
     let k2ok = false;
-    await record('k2', 'Homework Help modal with worksheet-5-wrong.jpg -> 8 cards', async () => {
+    await record('k2', `Homework Help modal with ${SHEET.file} -> ${SHEET.n} cards`, async () => {
       const t0 = Date.now();
-      const r = await runModal(page, { file: 'worksheet-5-wrong.jpg' });
-      if (r.cards !== 8) throw new Error(`expected 8 question cards, got ${r.cards}: ${r.text.slice(0, 200)}`);
+      const r = await runModal(page, { file: SHEET.file });
+      if (r.cards !== SHEET.n) throw new Error(`expected ${SHEET.n} question cards, got ${r.cards}: ${r.text.slice(0, 200)}`);
       k2ok = true;
       // Each wrongly answered row's card gives the right answer, never the
       // child's (2026-09-29: card 2 said "Answer: 33" for 45 - 18).
@@ -222,7 +232,7 @@ function parseReply(data) {
         if (ans == null || numbers(ans).split(' ').pop() !== row.correct) copied.push(`row ${row.n}: "${ans}"`);
       }
       if (copied.length) throw new Error(`card answers not the correct ones (${copied.join('; ')})`);
-      return `8 cards, wrong rows answered correctly (${r.arith}), end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
+      return `${SHEET.n} cards, wrong rows answered correctly (${r.arith}), end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
     }, page);
 
     // The cards' buttons: question text, photo, box (0..1000).
@@ -466,6 +476,7 @@ function parseReply(data) {
     return `${r.cards} card(s); result mentions 37`;
   }, () => father && father.page);
 
+  await e2e.finish();
   await browser.close();
   console.log('\nRESULTS (homework)');
   for (const r of results) console.log(`${r.id}\t${r.status}\t${r.name}\t${r.detail}${r.shot ? '\t' + r.shot : ''}`);

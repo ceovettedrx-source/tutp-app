@@ -18,15 +18,18 @@
 // 2026-09-27 while the server answered in 3-6 s.
 // Fixtures are made up; regenerate with fixtures/generate-worksheets.js.
 //
-// Each run makes 2 real model calls. Output: tests/e2e/output/ (FAIL_v*.png,
+// A live run makes 2 real model calls; by default the preview replays them
+// (tests/e2e/e2e-mode.js). Output: tests/e2e/output/ (FAIL_v*.png,
 // visual-tutor-results.json). Exit code 1 if any check fails.
 import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { e2eMode } from './e2e-mode.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
+const e2e = e2eMode('visual-tutor');
 const BASE = (args.find(a => /^https?:\/\//.test(a)) || '').replace(/\/+$/, '');
 if (!BASE) {
   console.error('Usage: node tests/e2e/visual-tutor.spec.js <base-url> [--headless]');
@@ -82,6 +85,7 @@ function checkSteps(json) {
   log('base', BASE);
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  await e2e.attach(ctx);
   // Test-only reCAPTCHA switch, as in login.spec.js.
   await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
     const resp = await route.fetch();
@@ -145,6 +149,7 @@ function checkSteps(json) {
     }
   }
 
+  await e2e.finish();
   await browser.close();
   console.log('\nRESULTS (visual tutor)');
   for (const r of results) console.log(`${r.id}\t${r.status}\t${r.name}\t${r.detail}${r.shot ? '\t' + r.shot : ''}`);

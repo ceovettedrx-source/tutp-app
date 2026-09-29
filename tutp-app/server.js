@@ -29,6 +29,11 @@ import { staticAssets } from './server/static-assets.js';
 import { stepTimer } from './server/step-timer.js';
 import { cronAuthorized } from './server/cron-auth.js';
 import { applyArithmeticCheck } from './server/arith-check.js';
+import { callClaude } from './server/anthropic.js';
+import { MODELS, modelSettings } from './server/models.js';
+import { initModelCost } from './server/model-cost.js';
+import { replayMode } from './server/model-replay.js';
+import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies } from './server/test-families.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 
 // True when each photo's boxes go down the page in card order (tops
@@ -270,6 +275,8 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
     global: { fetch: createRetryFetch() }
   });
   initTracking(supabase);
+  initModelCost(supabase);
+  initTestFamilies(supabase);
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
 }
@@ -560,14 +567,16 @@ app.get('/api/admin/kpis', requireAdmin, requirePaymentsNote, async (req, res) =
     const startOfTodayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
     const startOfMonthUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
+    // Test families (server/test-families.js) are left out of every figure.
+    const testIds = await testFamilyIds();
     const [signupsRes, dauRes, revenueRes, failedPaymentsRes, activePaidRes] = await Promise.all([
-      supabase.from('family_registrations').select('*', { count: 'exact', head: true }),
+      supabase.from('family_registrations').select('id'),
       supabase.from('usage_events').select('family_id').eq('event_name', 'session.started').gte('created_at', startOfTodayUTC),
-      supabase.from('payments').select('amount').eq('status', 'captured').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
-      supabase.from('payments').select('*', { count: 'exact', head: true }).eq('status', 'failed').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('amount, family_id').eq('status', 'captured').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('family_id').eq('status', 'failed').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
       // Lifetime, not just this month — every family_registrations row that
       // has ever had a captured payment, regardless of when.
-      supabase.from('payments').select('student_id').eq('status', 'captured').or(REAL_PAYMENTS_ONLY)
+      supabase.from('payments').select('student_id, family_id').eq('status', 'captured').or(REAL_PAYMENTS_ONLY)
     ]);
     if (signupsRes.error) throw signupsRes.error;
     if (dauRes.error) throw dauRes.error;
@@ -580,15 +589,15 @@ app.get('/api/admin/kpis', requireAdmin, requirePaymentsNote, async (req, res) =
     // match SQL's COUNT(DISTINCT) semantics (student_id is nullable —
     // 017_payments_student_id.sql — for payments made before per-child
     // billing started populating it).
-    const todayDau = new Set((dauRes.data || []).map(r => r.family_id)).size;
-    const activePaidUsers = new Set((activePaidRes.data || []).map(r => r.student_id).filter(Boolean)).size;
-    const mtdRevenue = (revenueRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
+    const todayDau = new Set(withoutTestFamilies(dauRes.data, testIds).map(r => r.family_id)).size;
+    const activePaidUsers = new Set(withoutTestFamilies(activePaidRes.data, testIds).map(r => r.student_id).filter(Boolean)).size;
+    const mtdRevenue = withoutTestFamilies(revenueRes.data, testIds).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
 
     res.json({
-      totalSignups: signupsRes.count,
+      totalSignups: withoutTestFamilies(signupsRes.data, testIds, 'id').length,
       todayDau,
       mtdRevenue,
-      failedPayments: failedPaymentsRes.count,
+      failedPayments: withoutTestFamilies(failedPaymentsRes.data, testIds).length,
       activePaidUsers
     });
   } catch (err) {
@@ -612,16 +621,17 @@ app.get('/api/admin/signups', requireAdmin, async (req, res) => {
     const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
     const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
 
+    const testIds = await testFamilyIds();
     const [recentRes, allRes] = await Promise.all([
-      supabase.from('family_registrations').select('created_at').gte('created_at', windowStartUTC),
-      supabase.from('family_registrations').select('data')
+      supabase.from('family_registrations').select('id, created_at').gte('created_at', windowStartUTC),
+      supabase.from('family_registrations').select('id, data')
     ]);
     if (recentRes.error) throw recentRes.error;
     if (allRes.error) throw allRes.error;
 
     const byDate = {};
     for (const date of days) byDate[date] = 0;
-    for (const row of recentRes.data || []) {
+    for (const row of withoutTestFamilies(recentRes.data, testIds, 'id')) {
       const date = row.created_at.slice(0, 10);
       if (date in byDate) byDate[date] += 1;
     }
@@ -630,7 +640,7 @@ app.get('/api/admin/signups', requireAdmin, async (req, res) => {
     const sourceCounts = {};
     const mediumCounts = {};
     const campaignCounts = {};
-    for (const row of allRes.data || []) {
+    for (const row of withoutTestFamilies(allRes.data, testIds, 'id')) {
       const utm = row.data?.utm || {};
       const source = utm.source || 'direct';
       const medium = utm.medium || 'none';
@@ -671,11 +681,12 @@ app.get('/api/admin/activation', requireAdmin, async (req, res) => {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
 
     const thirtyDaysAgoUTC = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: families, error: familiesErr } = await supabase
+    const { data: allFamilies, error: familiesErr } = await supabase
       .from('family_registrations')
       .select('id, created_at')
       .gte('created_at', thirtyDaysAgoUTC);
     if (familiesErr) throw familiesErr;
+    const families = withoutTestFamilies(allFamilies, await testFamilyIds(), 'id');
 
     const total = (families || []).length;
     if (!total) return res.json({ rate: 0, activated: 0, total: 0 });
@@ -723,23 +734,24 @@ app.get('/api/admin/engagement', requireAdmin, async (req, res) => {
     const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
     const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
 
+    const testIds = await testFamilyIds();
     const [dauRes, featureRes] = await Promise.all([
       supabase.from('usage_events').select('family_id, created_at').eq('event_name', 'session.started').gte('created_at', windowStartUTC),
-      supabase.from('usage_events').select('properties').eq('event_name', 'session.started')
+      supabase.from('usage_events').select('properties, family_id').eq('event_name', 'session.started')
     ]);
     if (dauRes.error) throw dauRes.error;
     if (featureRes.error) throw featureRes.error;
 
     const byDate = {};
     for (const date of days) byDate[date] = new Set();
-    for (const row of dauRes.data || []) {
+    for (const row of withoutTestFamilies(dauRes.data, testIds)) {
       const families = byDate[row.created_at.slice(0, 10)];
       if (families && row.family_id != null) families.add(row.family_id);
     }
     const dailyActiveUsers = days.map(date => ({ date, dau: byDate[date].size }));
 
     const counts = Object.fromEntries(Object.values(FEATURES).map(f => [f, 0]));
-    for (const row of featureRes.data || []) {
+    for (const row of withoutTestFamilies(featureRes.data, testIds)) {
       const feature = row.properties?.feature;
       if (feature && Object.prototype.hasOwnProperty.call(counts, feature)) counts[feature] += 1;
     }
@@ -752,6 +764,72 @@ app.get('/api/admin/engagement', requireAdmin, async (req, res) => {
   }
 });
 
+// Model cost for the admin dashboard's "Model cost" card (round 2): from the
+// model.call usage_events (server/model-cost.js), last 14 days, test
+// families left out. Replayed calls cost 0. Paged, since PostgREST returns
+// at most 1000 rows per request.
+app.get('/api/admin/costs', requireAdmin, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const now = new Date();
+    const startOfTodayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+    const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
+    const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
+    const testIds = await testFamilyIds();
+
+    const rows = [];
+    for (let from = 0; from < 50000; from += 1000) {
+      const { data, error } = await supabase.from('usage_events')
+        .select('family_id, properties, created_at')
+        .eq('event_name', 'model.call').gte('created_at', windowStartUTC)
+        .order('created_at', { ascending: true }).range(from, from + 999);
+      if (error) throw error;
+      rows.push(...(data || []));
+      if (!data || data.length < 1000) break;
+    }
+    const calls = withoutTestFamilies(rows, testIds);
+
+    const round = (v) => Math.round(v * 10000) / 10000;
+    const byDate = Object.fromEntries(days.map(d => [d, { date: d, usd: 0, calls: 0 }]));
+    const byFeature = {}, byModel = {};
+    let unpriced = 0;
+    for (const c of calls) {
+      const p = c.properties || {};
+      const usd = Number(p.usd) || 0;
+      if (p.usd == null) unpriced++;
+      const day = byDate[c.created_at.slice(0, 10)];
+      if (day) { day.usd += usd; day.calls++; }
+      for (const [map, k] of [[byFeature, p.feature || 'unknown'], [byModel, p.model || 'unknown']]) {
+        map[k] = map[k] || { name: k, usd: 0, calls: 0 };
+        map[k].usd += usd; map[k].calls++;
+      }
+    }
+    const list = (m) => Object.values(m).map(x => ({ ...x, usd: round(x.usd) })).sort((a, b) => b.usd - a.usd);
+    const today = byDate[days[0]];
+
+    // Cost per active family today: families with a session.started today.
+    const { data: dauRows, error: dauErr } = await supabase.from('usage_events')
+      .select('family_id').eq('event_name', 'session.started').gte('created_at', new Date(startOfTodayUTC).toISOString());
+    if (dauErr) throw dauErr;
+    const activeToday = new Set(withoutTestFamilies(dauRows, testIds).map(r => r.family_id)).size;
+
+    res.json({
+      todayUsd: round(today.usd),
+      todayCalls: today.calls,
+      last14Usd: round(Object.values(byDate).reduce((s, d) => s + d.usd, 0)),
+      perActiveFamilyToday: activeToday ? round(today.usd / activeToday) : null,
+      activeFamiliesToday: activeToday,
+      unpricedCalls: unpriced,
+      daily: days.map(d => ({ ...byDate[d], usd: round(byDate[d].usd) })),
+      byFeature: list(byFeature),
+      byModel: list(byModel)
+    });
+  } catch (err) {
+    console.error('Admin costs error:', err);
+    res.status(500).json({ error: 'Could not load model cost' });
+  }
+});
+
 // Recent feedback escalations + 30-day funnel counts for the admin
 // dashboard's "Parent Feedback" section — mother's name wins over father's
 // when both are present, same fallback pattern as Failed Payments.
@@ -761,21 +839,22 @@ app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
 
     const thirtyDaysAgoUTC = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
+    const testIds = await testFamilyIds();
     const [escalationsRes, summaryRes] = await Promise.all([
       supabase.from('usage_events')
-        .select('properties, created_at, students(name), family_registrations(data)')
+        .select('family_id, properties, created_at, students(name), family_registrations(data)')
         .eq('event_name', 'feedback.escalated')
         .order('created_at', { ascending: false })
         .limit(20),
       supabase.from('usage_events')
-        .select('event_name')
+        .select('event_name, family_id')
         .in('event_name', ['feedback.submitted', 'feedback.auto_resolved', 'feedback.escalated'])
         .gte('created_at', thirtyDaysAgoUTC)
     ]);
     if (escalationsRes.error) throw escalationsRes.error;
     if (summaryRes.error) throw summaryRes.error;
 
-    const recentEscalations = (escalationsRes.data || []).map(e => {
+    const recentEscalations = withoutTestFamilies(escalationsRes.data, testIds).map(e => {
       const familyData = e.family_registrations?.data || {};
       return {
         familyName: familyData.mother?.name || familyData.father?.name || null,
@@ -786,7 +865,7 @@ app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
     });
 
     const summary = { submitted: 0, autoResolved: 0, escalated: 0 };
-    for (const row of summaryRes.data || []) {
+    for (const row of withoutTestFamilies(summaryRes.data, testIds)) {
       if (row.event_name === 'feedback.submitted') summary.submitted += 1;
       else if (row.event_name === 'feedback.auto_resolved') summary.autoResolved += 1;
       else if (row.event_name === 'feedback.escalated') summary.escalated += 1;
@@ -814,14 +893,16 @@ app.get('/api/admin/revenue', requireAdmin, requirePaymentsNote, async (req, res
     const days = Array.from({ length: 14 }, (_, i) => new Date(startOfTodayUTC - i * 86400000).toISOString().slice(0, 10));
     const windowStartUTC = new Date(startOfTodayUTC - 13 * 86400000).toISOString();
 
-    const [totalRes, mtdRes, recentRes] = await Promise.all([
-      supabase.from('payments').select('amount, tier').eq('status', 'captured').or(REAL_PAYMENTS_ONLY),
-      supabase.from('payments').select('amount, tier').eq('status', 'captured').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
-      supabase.from('payments').select('amount, status, created_at').gte('created_at', windowStartUTC).in('status', ['captured', 'failed']).or(REAL_PAYMENTS_ONLY)
+    const testIds = await testFamilyIds();
+    const [totalAll, mtdAll, recentAll] = await Promise.all([
+      supabase.from('payments').select('amount, tier, family_id').eq('status', 'captured').or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('amount, tier, family_id').eq('status', 'captured').gte('created_at', startOfMonthUTC).or(REAL_PAYMENTS_ONLY),
+      supabase.from('payments').select('amount, status, created_at, family_id').gte('created_at', windowStartUTC).in('status', ['captured', 'failed']).or(REAL_PAYMENTS_ONLY)
     ]);
-    if (totalRes.error) throw totalRes.error;
-    if (mtdRes.error) throw mtdRes.error;
-    if (recentRes.error) throw recentRes.error;
+    if (totalAll.error) throw totalAll.error;
+    if (mtdAll.error) throw mtdAll.error;
+    if (recentAll.error) throw recentAll.error;
+    const [totalRes, mtdRes, recentRes] = [totalAll, mtdAll, recentAll].map(r => ({ data: withoutTestFamilies(r.data, testIds) }));
 
     const totalRevenue = (totalRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
     const mtdRevenue = (mtdRes.data || []).reduce((sum, r) => sum + (r.amount || 0), 0) / 100;
@@ -879,13 +960,13 @@ app.get('/api/admin/failed-payments', requireAdmin, async (req, res) => {
 
     const { data, error } = await supabase
       .from('payments')
-      .select('tier, amount, razorpay_order_id, created_at, students(name), family_registrations(data)')
+      .select('tier, amount, razorpay_order_id, created_at, family_id, students(name), family_registrations(data)')
       .eq('status', 'failed')
       .order('created_at', { ascending: false })
       .limit(50);
     if (error) throw error;
 
-    const rows = (data || []).map(p => {
+    const rows = withoutTestFamilies(data, await testFamilyIds()).map(p => {
       const familyData = p.family_registrations?.data || {};
       return {
         familyName: familyData.mother?.name || familyData.father?.name || null,
@@ -1538,6 +1619,25 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="dauMessage">Loading…</p>
   </div>
 
+  <h2 class="section-title">Model cost</h2>
+  <div class="summary-grid-3">
+    <div class="kpi-card">
+      <p class="kpi-label">Today (USD)</p>
+      <p class="kpi-value loading" id="kpi-costToday">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Last 14 days (USD)</p>
+      <p class="kpi-value loading" id="kpi-cost14">…</p>
+    </div>
+    <div class="kpi-card">
+      <p class="kpi-label">Per active family today</p>
+      <p class="kpi-value loading" id="kpi-costPerFamily">…</p>
+    </div>
+  </div>
+  <div class="panel" id="costPanel">
+    <p class="panel-message loading">Loading…</p>
+  </div>
+
   <h2 class="section-title">Parent Feedback</h2>
   <div class="summary-grid-3">
     <div class="kpi-card">
@@ -1755,6 +1855,38 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         featurePanel.innerHTML = '<p class="panel-message">Error loading feature usage.</p>';
         dauPanel.innerHTML = '<p class="panel-message">Error loading daily active users.</p>';
         console.error('[admin dashboard] Could not load engagement:', err);
+      }
+    })();
+
+    (async () => {
+      const panel = document.getElementById('costPanel');
+      const set = (id, v) => { const el = document.getElementById(id); el.textContent = v; el.classList.remove('loading'); };
+      const usd = (v) => v == null ? '—' : '$' + Number(v).toFixed(v >= 1 ? 2 : 4);
+      try {
+        const res = await fetch('/api/admin/costs');
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const data = await res.json();
+        set('kpi-costToday', usd(data.todayUsd) + ' · ' + data.todayCalls + ' calls');
+        set('kpi-cost14', usd(data.last14Usd));
+        set('kpi-costPerFamily', data.perActiveFamilyToday == null ? '—' : usd(data.perActiveFamilyToday) + ' (' + data.activeFamiliesToday + ')');
+        const rows = data.byFeature || [];
+        if (!rows.length) {
+          panel.innerHTML = '<p class="panel-message">No model calls logged yet.</p>';
+          return;
+        }
+        const max = Math.max(0.0001, ...rows.map(r => r.usd));
+        const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+        panel.innerHTML = rows.map(r =>
+          '<div class="bar-row">' +
+            '<div class="bar-label">' + esc(r.name) + '</div>' +
+            '<div class="bar-track"><div class="bar-fill" style="width:' + Math.round((r.usd / max) * 100) + '%"></div></div>' +
+            '<div class="bar-count">' + usd(r.usd) + ' · ' + r.calls + '</div>' +
+          '</div>'
+        ).join('') + '<p class="panel-message">By model: ' + (data.byModel || []).map(m => esc(m.name) + ' ' + usd(m.usd)).join(', ') +
+          (data.unpricedCalls ? ' · ' + data.unpricedCalls + ' calls without a price' : '') + '</p>';
+      } catch (err) {
+        panel.innerHTML = '<p class="panel-message">Error loading model cost.</p>';
+        console.error('[admin dashboard] Could not load model cost:', err);
       }
     })();
 
@@ -6064,30 +6196,31 @@ app.post('/api/homework', async (req, res) => {
 
     trackSessionStarted(session.familyId, studentId, { feature, language: lang });
 
+    // e2e replay/record only for test families (server/model-replay.js);
+    // cost.usd totals this request's model calls for X-Model-Usd.
+    const testFamily = await isTestFamily(session.familyId);
+    const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
+    const cost = { usd: 0 };
+    const typedModel = MODELS.homework_typed;
     let modelCalls = 0;
     const callModel = async () => {
       try {
-        return await callModelOnce();
+        return await callModelOnce(modelCalls + 1);
       } finally {
         timer.mark('model' + (++modelCalls));
       }
     };
-    const callModelOnce = async () => {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-        },
-        body: JSON.stringify({
+    const callModelOnce = async (attempt) => {
+      const r = await callClaude({
+        feature: feature + (photos.length ? '_photo' : ''), variant: lang, attempt,
+        familyId: session.familyId, studentId, mode: replay.mode, recordings: replay.recordings, cost,
+        body: {
           // With a photo that gets "Show on photo" boxes, the visual tutor's
           // model: claude-sonnet-4-6 returned evenly spaced guesses (rows 1-2
           // off on the e2e worksheet, 2026-09-28) while sonnet-5 points at
-          // the right lines. Everything else stays on sonnet-4-6.
-          model: photos.length ? POINTING_MODEL : 'claude-sonnet-4-6',
-          ...(photos.length ? POINTING_SETTINGS : {}),
+          // the right lines. Typed requests use MODELS.homework_typed.
+          model: photos.length ? POINTING_MODEL : typedModel,
+          ...(photos.length ? POINTING_SETTINGS : modelSettings(typedModel)),
           // A broad/unspecific attachment (e.g. a whole textbook chapter page
           // with no single stated question) combined with a token-inefficient
           // output language (Telugu and other Indic scripts use far more
@@ -6102,10 +6235,16 @@ app.post('/api/homework', async (req, res) => {
           max_tokens: 3000,
           system: systemPrompt,
           messages: [{ role: 'user', content: userContent }]
-        })
+        }
       });
-      if (!response.ok) return { ok: false, status: response.status, errText: await response.text() };
-      return { ok: true, data: await response.json() };
+      return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
+    };
+    // Test families only: what this request's model calls cost, and in
+    // record mode the raw replies for the e2e runner to save.
+    const e2eExtras = (body) => {
+      if (!testFamily) return body;
+      res.set('X-Model-Usd', String(cost.usd));
+      return replay.mode === 'record' ? { ...body, _recordings: replay.recordings } : body;
     };
 
     // A reply without parseable JSON is asked for once more (see
@@ -6116,11 +6255,13 @@ app.post('/api/homework', async (req, res) => {
 
     if (result.kind === 'upstream') {
       console.error('Anthropic API error:', result.status, result.errText);
+      if (testFamily) res.set('X-Model-Usd', String(cost.usd));
       sendTiming(502);
       return res.status(502).json({ error: 'Claude API returned an error', detail: result.errText });
     }
     if (result.kind === 'unparseable') {
       console.error('homework: model reply unparseable twice, gave up', { feature, language: lang, error: result.error });
+      if (testFamily) res.set('X-Model-Usd', String(cost.usd));
       sendTiming(502);
       return res.status(502).json({ error: 'The answer came back incomplete. Please try again.' });
     }
@@ -6128,7 +6269,7 @@ app.post('/api/homework', async (req, res) => {
     trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
     if (feature !== FEATURES.HOMEWORK_HELP) {
       sendTiming(200);
-      return res.json(result.data);
+      return res.json(e2eExtras(result.data));
     }
     // Every photo/box pair is checked (server/homework-boxes.js); anything
     // invalid, or a box with no photo that may carry one, is dropped.
@@ -6152,7 +6293,7 @@ app.post('/api/homework', async (req, res) => {
       });
     }
     sendTiming(200);
-    res.json(data);
+    res.json(e2eExtras(data));
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Server error calling Claude' });
@@ -6192,30 +6333,24 @@ app.post('/api/homework/illustrate', illustrateLimiter, async (req, res) => {
       return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
     }
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+    const response = await callClaude({
+      feature: 'illustrate', familyId: session.familyId,
+      body: {
+        model: MODELS.illustrate,
+        ...modelSettings(MODELS.illustrate),
         // Output is a small JSON object (a few names/entities, which in
         // Telugu script are token-heavy) — 1500 leaves a wide margin.
         max_tokens: 1500,
         system: buildIllustrationParsePrompt(language),
         messages: [{ role: 'user', content: `<problem>\n${problemText.trim()}\n</problem>` }]
-      })
+      }
     });
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('Anthropic API error (illustrate):', response.status, errText);
+      console.error('Anthropic API error (illustrate):', response.status, response.errText);
       return res.status(502).json({ error: 'Claude API returned an error' });
     }
 
-    const data = await response.json();
+    const data = response.data;
     let raw = data.content?.[0]?.text || '';
     const fenceMatch = raw.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
     if (fenceMatch) raw = fenceMatch[1];
@@ -6421,29 +6556,23 @@ app.post('/api/homework-demo', async (req, res) => {
       text: hwText ? `Homework: ${hwText}` : 'Read the homework in the attached photo or PDF and respond to it.'
     });
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+    const response = await callClaude({
+      feature: 'homework_demo',
+      body: {
+        model: MODELS.homework_demo,
+        ...modelSettings(MODELS.homework_demo),
         max_tokens: 3000,
         system: buildDemoSystemPrompt(language, childClass, curriculum),
         messages: [{ role: 'user', content: userContent }]
-      })
+      }
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('Anthropic API error (demo):', response.status, errText);
+      console.error('Anthropic API error (demo):', response.status, response.errText);
       return res.status(502).json({ error: 'The AI service is busy. Please try again in a moment.' });
     }
 
-    const data = await response.json();
+    const data = response.data;
     const textBlock = (data.content || []).find(b => b.type === 'text');
     if (!textBlock) return res.status(502).json({ error: 'The AI service is busy. Please try again in a moment.' });
     // JSON-escaped, since the name lands inside the model's JSON strings.
@@ -6500,7 +6629,8 @@ app.post('/api/homework-explain', async (req, res) => {
     if (!student_id || !subject || !question) {
       return res.status(400).json({ error: 'Missing student_id, subject or question' });
     }
-    if (!(await requireOwnStudent(req, res, student_id))) return;
+    const session = await requireOwnStudent(req, res, student_id);
+    if (!session) return;
 
     let progress = DEFAULT_PROGRESS;
     if (supabase) {
@@ -6516,30 +6646,23 @@ app.post('/api/homework-explain', async (req, res) => {
 
     const systemPrompt = buildTeacherSystemPrompt(subject, progress);
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+    const response = await callClaude({
+      feature: 'homework_explain', familyId: session.familyId, studentId: student_id,
+      body: {
+        model: MODELS.homework_explain,
+        ...modelSettings(MODELS.homework_explain),
         max_tokens: 1000,
         system: systemPrompt,
         messages: [{ role: 'user', content: [{ type: 'text', text: `Homework: ${question}` }] }]
-      })
+      }
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('Anthropic API error:', response.status, errText);
-      return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
+      console.error('Anthropic API error:', response.status, response.errText);
+      return res.status(502).json({ error: 'Claude API returned an error', detail: response.errText });
     }
 
-    const data = await response.json();
-    res.json(data);
+    res.json(response.data);
   } catch (err) {
     console.error('Homework-explain error:', err);
     res.status(500).json({ error: 'Server error generating explanation' });
@@ -6711,30 +6834,24 @@ app.post('/api/question-paper-generate', requireTeacherSessionMw, teacherAiLimit
       lessonContent
     ];
 
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
+    const response = await callClaude({
+      feature: 'question_paper',
+      body: {
+        model: MODELS.question_paper,
+        ...modelSettings(MODELS.question_paper),
         max_tokens: 16000,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }]
-      })
+      }
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      console.error('Anthropic API error (question-paper-generate):', mode, response.status, errText);
-      return res.status(502).json({ error: 'Claude API returned an error', detail: errText });
+      console.error('Anthropic API error (question-paper-generate):', mode, response.status, response.errText);
+      return res.status(502).json({ error: 'Claude API returned an error', detail: response.errText });
     }
 
-    const data = await response.json();
-    let raw = data.content?.[0]?.text || '';
+    const data = response.data;
+    let raw = (data.content || []).find((b) => b.type === 'text')?.text || '';
     console.log('[QP-DEBUG] stop_reason:', data.stop_reason, 'raw.length:', raw.length);
     // Defensive: strip markdown code fences even though the prompt says not
     // to include them — under long/complex generations the model sometimes
@@ -6836,31 +6953,25 @@ function processGameQuestions(rawQuestions) {
 async function generateGameQuestions(lang, childContext, fixedCount, userContent) {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('Server is missing ANTHROPIC_API_KEY.');
   const systemPrompt = buildGameQuestionsSystemPrompt(lang, childContext, fixedCount);
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+  const response = await callClaude({
+    feature: 'game_questions',
+    body: {
+      model: MODELS.game_questions,
+      ...modelSettings(MODELS.game_questions),
       // Up to 15 questions/call (the spec's max per-player count) — scaled
       // up from /api/homework's 3000-token cap (measured for ~5-8 questions
       // in a token-heavy Indic script) with a safety margin on top.
       max_tokens: 6000,
       system: systemPrompt,
       messages: [{ role: 'user', content: userContent }]
-    })
+    }
   });
   if (!response.ok) {
-    const errText = await response.text();
-    console.error('Anthropic API error (game-questions):', response.status, errText);
+    console.error('Anthropic API error (game-questions):', response.status, response.errText);
     throw new Error('Claude API returned an error');
   }
-  const data = await response.json();
-  let raw = data.content?.[0]?.text || '';
+  const data = response.data;
+  let raw = (data.content || []).find((b) => b.type === 'text')?.text || '';
   const fenceMatch = raw.trim().match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
   if (fenceMatch) raw = fenceMatch[1];
   let parsed;

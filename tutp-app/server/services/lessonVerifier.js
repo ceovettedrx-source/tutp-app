@@ -17,6 +17,8 @@
 // it's a Claude call, not a regex.
 
 import { getMisconceptionsByIds } from './knowledgeGraph.js';
+import { callClaude } from '../anthropic.js';
+import { MODELS, modelSettings } from '../models.js';
 
 const MCQ_MARKER_RE = /\([A-D]\)/g;
 const MISCONCEPTION_TAG_RE = /\[in-misc-[a-z0-9-]+\]/gi;
@@ -122,29 +124,23 @@ export async function verifyMcqSections(lesson_json) {
     throw new Error('ANTHROPIC_API_KEY is not set');
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
+  const response = await callClaude({
+    feature: 'lesson_verify',
+    body: {
+      model: MODELS.lesson_verify,
+      ...modelSettings(MODELS.lesson_verify),
       max_tokens: 4000,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content: buildUserMessage(mcqItems, misconceptionsById) }]
-    })
+    }
   });
 
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Claude API returned an error (${response.status}): ${errText}`);
+    throw new Error(`Claude API returned an error (${response.status}): ${response.errText}`);
   }
 
-  const data = await response.json();
-  const rawFull = data.content?.[0]?.text || '';
+  const data = response.data;
+  const rawFull = (data.content || []).find((b) => b.type === 'text')?.text || '';
   let raw = rawFull.trim();
 
   // Defensive: the prompt insists on JSON-only, but a model sometimes wraps

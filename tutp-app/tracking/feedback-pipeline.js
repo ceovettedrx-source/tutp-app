@@ -1,28 +1,15 @@
-// Raw fetch against the Anthropic API, mirroring server.js's /api/homework
-// call exactly (same headers, same model) — no SDK client, matching how
-// every other Claude call in this codebase is made.
+import { callClaude as callModel } from '../server/anthropic.js';
+import { MODELS, modelSettings } from '../server/models.js';
 
+// Every Anthropic call goes through server/anthropic.js (cost logging,
+// model table).
 async function callClaude(messages, maxTokens) {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-workspace-id': process.env.ANTHROPIC_WORKSPACE_ID
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: maxTokens,
-      messages
-    })
-  });
+  const model = MODELS.feedback_classify;
+  const response = await callModel({ feature: 'feedback_classify', body: { model, ...modelSettings(model), max_tokens: maxTokens, messages } });
   if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Anthropic API error: ${response.status} ${errText}`);
+    throw new Error(`Anthropic API error: ${response.status} ${response.errText}`);
   }
-  const data = await response.json();
-  return data.content[0].text;
+  return (response.data.content || []).find((b) => b.type === 'text')?.text || '';
 }
 
 export async function classifyFeedback({ feature, sentiment, explanationClear, freeText, originalExplanation }) {

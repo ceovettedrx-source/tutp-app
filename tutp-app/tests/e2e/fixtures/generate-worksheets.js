@@ -11,6 +11,10 @@
 //   node tests/e2e/fixtures/generate-worksheets.js
 //   node tests/e2e/fixtures/generate-worksheets.js --rows
 //   node tests/e2e/fixtures/generate-worksheets.js --sheet12
+//   node tests/e2e/fixtures/generate-worksheets.js --sheet4
+// --sheet4 writes worksheet-4.jpg and worksheet-4-rows.json only: the first
+// four problems of the 8-problem sheet (rows 2 and 3 wrong), for the live
+// smoke set.
 // --sheet12 writes worksheet-12.jpg and worksheet-12-rows.json only: a denser
 // sheet closer to a real one (round B2, 2026-09-28): an instruction line and
 // a printed worked example above 12 problems, rows about 2/3 as tall, a
@@ -39,8 +43,8 @@ const PROBLEMS = [
   ['72 ÷ 8 =', '8', '9'],
 ];
 
-function html({ withAnswers }) {
-  const rows = PROBLEMS.map(([q, a], i) => `
+function html({ withAnswers, problems = PROBLEMS }) {
+  const rows = problems.map(([q, a], i) => `
     <div class="row">
       <span class="n">${i + 1})</span>
       <span class="q">${q}</span>
@@ -186,7 +190,23 @@ async function rowBoxes(page, problems) {
   });
 }
 
+// The 4-problem sheet for the live smoke set (round 2): the first four rows
+// of the 8-problem sheet (two right, two wrong), so a live run costs less.
+const PROBLEMS_4 = PROBLEMS.slice(0, 4);
+
 const browser = await chromium.launch({ channel: 'chrome' });
+if (process.argv.includes('--sheet4')) {
+  const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });
+  await page.setContent(html({ withAnswers: true, problems: PROBLEMS_4 }));
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForFunction(() => window.noiseDone === true);
+  await page.screenshot({ path: path.join(__dirname, 'worksheet-4.jpg'), type: 'jpeg', quality: 78 });
+  const rows = await rowBoxes(page, PROBLEMS_4);
+  fs.writeFileSync(path.join(__dirname, 'worksheet-4-rows.json'), JSON.stringify({ image: 'worksheet-4.jpg', size: [1200, 1600], rows }, null, 2) + '\n');
+  console.log('wrote worksheet-4.jpg, worksheet-4-rows.json');
+  await browser.close();
+  process.exit(0);
+}
 if (process.argv.includes('--sheet12')) {
   const page = await browser.newPage({ viewport: { width: 1200, height: 1600 } });
   await page.setContent(html12());
