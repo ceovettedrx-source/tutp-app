@@ -793,6 +793,13 @@
         body: JSON.stringify({ ...payload, regIdToken })
       });
       const data = await res.json();
+      if (res.status === 409 && data.code === 'already_registered') {
+        statusEl.textContent = data.error;
+        statusEl.className = 'form-status text-center mt-sm font-label-md text-sm text-error';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="material-symbols-outlined filled">task_alt</span>Complete Registration';
+        return;
+      }
       if (!res.ok || !data.ok) throw new Error(data.error || 'Could not save registration');
       if (regIdToken) await window.tutpEstablishSession(regIdToken);
       localStorage.removeItem('tutp_ref');
@@ -884,6 +891,23 @@
     btn.disabled = true; btn.textContent = 'Verifying…';
     try {
       regIdToken = await window.tutpVerifyOTP(code);
+      // An already-registered number signs in instead of making a second
+      // family (round 3). A failed check lets the form go on: the server
+      // refuses a duplicate again at submit.
+      let registered = false;
+      try {
+        const res = await fetch('/api/register/check-phone', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ regIdToken })
+        });
+        if (res.ok) registered = !!(await res.json()).registered;
+      } catch (e) {}
+      if (registered) {
+        errEl.innerHTML = 'This number is already registered. <a id="regSignInLink" class="underline font-semibold" href="/app/login/">Sign in</a> instead.';
+        errEl.classList.remove('hidden');
+        return;
+      }
       goToStep(4);
     } catch(err){
       errEl.textContent = authMsg(err);

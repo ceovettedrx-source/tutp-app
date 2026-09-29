@@ -23,7 +23,9 @@ import { createRetryFetch } from './server/services/supabaseRetryFetch.js';
 import { normalizePhone, hasPhoneInput } from './server/services/phone.js';
 import { buildHomeworkRequest, HOMEWORK_LANGUAGES, PROMPT_FEATURES } from './server/prompts/homework-prompts.js';
 import { callWithJsonRetry } from './server/homework-reply.js';
-import { classifySession } from './server/session-state.js';
+import {
+  classifySession, roleMatchesForPhone, memberIdsClaim, memberCheckFor, memberIdsFor, resolveLegacy, skipsMemberCheck,
+} from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 import { staticAssets } from './server/static-assets.js';
 import { stepTimer } from './server/step-timer.js';
@@ -33,7 +35,7 @@ import { callClaude } from './server/anthropic.js';
 import { MODELS, modelSettings } from './server/models.js';
 import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
-import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies } from './server/test-families.js';
+import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 
 // True when each photo's boxes go down the page in card order (tops
@@ -372,21 +374,64 @@ function getSession(req) {
   const token = req.cookies?.[SESSION_COOKIE_NAME];
   if (!token || !process.env.SESSION_SECRET) return null;
   try {
-    const { phone, familyId, teacherId, viewerKey, authAt, iat } = jwt.verify(token, process.env.SESSION_SECRET);
+    const { phone, familyId, teacherId, viewerKey, mids, authAt, iat } = jwt.verify(token, process.env.SESSION_SECRET);
     // Tokens minted before authAt existed: their issue time is the best
     // available sign-in time.
     const signedInAt = authAt ?? (iat ? iat * 1000 : 0);
     const loggedOutAt = Number(req.cookies?.[LOGGED_OUT_COOKIE_NAME]) || 0;
     if (loggedOutAt && signedInAt <= loggedOutAt) return null;
-    return { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null, authAt: signedInAt };
+    const session = { phone, familyId: familyId ?? null, teacherId: teacherId ?? null, viewerKey: viewerKey ?? null, authAt: signedInAt };
+    // mids: the family_members ids a member session signs in as (round 3,
+    // server/session-state.js). Left off a cookie from before round 3.
+    if (Array.isArray(mids)) session.mids = mids;
+    return session;
   } catch (err) {
     return null;
   }
 }
 
+// A removed family member loses access on their next API request (round 3).
+// The JWT stays valid until it expires, so every /api/ request of a member
+// session checks that one of its family_members rows still exists (a
+// primary-key lookup; mother/father sessions skip it). A cookie from before
+// round 3 is resolved once through the phone and stamped with its mids by
+// the sliding refresh below. An ended session gets 401 session_expired and
+// its cookie cleared; a teacher session keeps its teacher part.
+app.use(async (req, res, next) => {
+  if (!req.path.startsWith('/api/') || skipsMemberCheck(req.path) || !supabase) return next();
+  const session = getSession(req);
+  const check = memberCheckFor(session);
+  if (check === 'none') return next();
+  try {
+    let ended = false;
+    if (check === 'legacy') {
+      const verdict = resolveLegacy(session, await findFamilyIdByPhone(session.phone));
+      if (verdict.state === 'ended') ended = true;
+      else if (verdict.state === 'ok') req.stampedMids = verdict.mids;
+    } else {
+      const { data, error } = await supabase.from('family_members').select('id')
+        .eq('family_id', session.familyId).in('id', memberIdsFor(session));
+      if (error) throw error;
+      ended = !(data || []).length;
+    }
+    if (!ended) return next();
+    console.warn('member session ended', { familyId: session.familyId, path: req.path });
+    if (session.teacherId) {
+      issueSessionCookie(res, { ...session, familyId: null, viewerKey: null, mids: [] });
+      return sendForbidden(res);
+    }
+    res.clearCookie(SESSION_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
+    return res.status(401).json({ error: 'Your sign-in has ended — please sign in again.', code: 'session_expired', reason: 'member_removed' });
+  } catch (err) {
+    // A lookup error never locks anyone out; the next request checks again.
+    console.error('member session check failed:', err.message);
+    return next();
+  }
+});
+
 app.use((req, res, next) => {
   const session = getSession(req);
-  if (session) issueSessionCookie(res, session);
+  if (session) issueSessionCookie(res, req.stampedMids ? { ...session, mids: req.stampedMids } : session);
   next();
 });
 
@@ -2537,6 +2582,28 @@ const registerLimiter = rateLimit({
 // ------------------------------------------------------------------
 // Phones are stored through normalizePhone ("+91" + last 10 digits); see
 // server/services/phone.js.
+// Register page, right after the OTP step: is the just-verified phone
+// already in a family? Answers only for the phone the caller proved with an
+// OTP, so it can't be used to look up other people's numbers.
+app.post('/api/register/check-phone', registerLimiter, async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { regIdToken } = req.body || {};
+    if (!regIdToken) return res.status(400).json({ error: 'Phone verification missing — please verify your number again.' });
+    let decoded;
+    try {
+      decoded = await getFirebaseAuth().verifyIdToken(regIdToken);
+    } catch (err) {
+      return res.status(401).json({ error: 'Phone verification expired — please verify your number again.' });
+    }
+    if (!decoded.phone_number) return res.status(401).json({ error: 'This sign-in method is not supported' });
+    res.json({ registered: !!(await findFamilyIdByPhone(decoded.phone_number)) });
+  } catch (err) {
+    console.error('Register check-phone error:', err);
+    res.status(500).json({ error: 'Could not check the number' });
+  }
+});
+
 app.post('/api/register', registerLimiter, async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -2577,6 +2644,23 @@ app.post('/api/register', registerLimiter, async (req, res) => {
         return res.status(400).json({ error: `Please enter a 10-digit phone number for ${m.name}, or leave it blank.` });
       }
     }
+    // An already-registered phone never gets a second family (round 3: a
+    // father registering on his own made a duplicate family and child, and
+    // the shared phone became ambiguous at login). The page checked the
+    // verified phone at the OTP step already (/api/register/check-phone).
+    for (const role of ['mother', 'father']) {
+      if (normalizePhone(payload[role]?.phone) && await findFamilyIdByPhone(payload[role].phone)) {
+        return res.status(409).json({
+          error: normPhone(payload[role].phone) === verifiedPhone
+            ? 'This number is already registered. Please sign in instead.'
+            : `The ${role}'s phone number is already registered with Tut-P. Leave it blank here; they can sign in to their own account.`,
+          code: 'already_registered', role,
+        });
+      }
+    }
+    // A family on the e2e suite's test numbers stays out of every metric.
+    if (isTestPhone(verifiedPhone)) payload.is_test = true;
+    else delete payload.is_test;
     const { data, error } = await supabase.from('family_registrations').insert({ data: payload }).select('id').single();
     if (error) throw error;
 
@@ -2792,6 +2876,116 @@ app.post('/api/family/add-member', async (req, res) => {
   } catch (err) {
     console.error('Add member error:', err);
     res.status(500).json({ error: 'Could not add family member' });
+  }
+});
+
+// Round 3 (docs/specs/round-3-launch-blockers.md): add a child, add the other
+// parent, remove a member. Mother or father only, like add-member; the
+// session's own family only.
+async function requireFamilyParent(req, res, familyId, refusal) {
+  const session = requireOwnFamily(req, res, familyId);
+  if (!session) return null;
+  const roles = await sessionFamilyRoles(session);
+  if (!roles.includes('mother') && !roles.includes('father')) {
+    res.status(403).json({ error: refusal });
+    return null;
+  }
+  return session;
+}
+
+const MAX_CHILDREN_PER_FAMILY = 6; // founder decision A, 2026-09-29
+
+app.post('/api/family/add-child', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { family_id, child } = req.body || {};
+    const familyId = parseInt(family_id, 10);
+    if (!(await requireFamilyParent(req, res, familyId, 'Only a parent can add a child.'))) return;
+    const name = String(child?.name || '').trim().slice(0, 100);
+    if (!name) return res.status(400).json({ error: "Please enter the child's name." });
+    const [famRes, kidsRes] = await Promise.all([
+      supabase.from('family_registrations').select('data').eq('id', familyId).maybeSingle(),
+      supabase.from('students').select('id, mandal, village').eq('family_id', familyId).order('created_at', { ascending: true }),
+    ]);
+    if (famRes.error) throw famRes.error;
+    if (kidsRes.error) throw kidsRes.error;
+    const kids = kidsRes.data || [];
+    if (kids.length >= MAX_CHILDREN_PER_FAMILY) {
+      return res.status(409).json({ error: `A family can have at most ${MAX_CHILDREN_PER_FAMILY} children.`, code: 'child_limit' });
+    }
+    // Same trimming as /api/register (school, state, district feed homework
+    // matching); state/district from the family's location, mandal/village
+    // from the first child (the same household).
+    const location = famRes.data?.data?.location || {};
+    const trimOrNull = (v, n) => (v ? String(v).trim().slice(0, n) || null : null);
+    const { data: inserted, error } = await supabase.from('students').insert({
+      family_id: familyId,
+      name,
+      class: trimOrNull(child.class, 20),
+      school_name: trimOrNull(child.schoolName, 200),
+      state: trimOrNull(location.state, 100),
+      district: trimOrNull(location.district, 100),
+      mandal: kids[0]?.mandal || null,
+      village: kids[0]?.village || null,
+    }).select('id, name, class').single();
+    if (error) throw error;
+    res.json({ ok: true, child: inserted });
+  } catch (err) {
+    console.error('Add child error:', err);
+    res.status(500).json({ error: 'Could not add the child' });
+  }
+});
+
+// The other parent, added by phone (founder decision B, 2026-09-29): no
+// invite link — they sign in with an OTP on that number, which proves it is
+// theirs. Fills only an empty mother/father slot, and never a phone that is
+// already in any family (that would make the phone ambiguous at login).
+app.post('/api/family/add-parent', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { family_id, parent } = req.body || {};
+    const familyId = parseInt(family_id, 10);
+    if (!(await requireFamilyParent(req, res, familyId, 'Only a parent can add the other parent.'))) return;
+    const name = String(parent?.name || '').trim().slice(0, 100);
+    const phone = normalizePhone(parent?.phone);
+    if (!name) return res.status(400).json({ error: "Please enter the parent's name." });
+    if (!phone) return res.status(400).json({ error: 'Please enter a 10-digit phone number.' });
+    if (await findFamilyIdByPhone(phone)) {
+      return res.status(409).json({ error: 'This number is already registered with Tut-P. Ask them to sign in, or write to contact@tutp.online.', code: 'phone_in_use' });
+    }
+    const { data: famRow, error: famErr } = await supabase.from('family_registrations').select('data').eq('id', familyId).maybeSingle();
+    if (famErr) throw famErr;
+    const data = { ...(famRow?.data || {}) };
+    const slot = !normalizePhone(data.father?.phone) ? 'father' : !normalizePhone(data.mother?.phone) ? 'mother' : null;
+    if (!slot) return res.status(409).json({ error: 'Both parents are already on this family.', code: 'slot_filled' });
+    data[slot] = { ...(data[slot] || {}), name, phone };
+    const { error } = await supabase.from('family_registrations').update({ data }).eq('id', familyId);
+    if (error) throw error;
+    res.json({ ok: true, role: slot });
+  } catch (err) {
+    console.error('Add parent error:', err);
+    res.status(500).json({ error: 'Could not add the parent' });
+  }
+});
+
+// Removing a member ends their sign-in on their next request (the member
+// check middleware near getSession). Their visibility rules go with the row
+// (on delete cascade); past scores and activity stay.
+app.post('/api/family/remove-member', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const { family_id, member_id } = req.body || {};
+    const familyId = parseInt(family_id, 10);
+    if (!(await requireFamilyParent(req, res, familyId, 'Only a parent can remove family members.'))) return;
+    if (!member_id) return res.status(400).json({ error: 'Missing member_id' });
+    const { data, error } = await supabase.from('family_members').delete()
+      .eq('id', String(member_id)).eq('family_id', familyId).select('id');
+    if (error) throw error;
+    if (!(data || []).length) return res.status(404).json({ error: 'That family member was not found.' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Remove member error:', err);
+    res.status(500).json({ error: 'Could not remove the family member' });
   }
 });
 
@@ -4502,23 +4696,12 @@ function levenshtein(a, b) {
 // Shared by both findFamilyIdByPhone's single-match and ambiguous branches
 // below, so there's exactly one place that decides what counts as a match.
 async function buildRoleMatches(matchRow, digits) {
-  const norm = (p) => String(p || '').replace(/\D/g, '').slice(-10);
-  const roleMatches = [];
-  if (norm(matchRow.data?.mother?.phone) === digits) {
-    roleMatches.push({ role: 'mother', name: matchRow.data?.mother?.name || null });
-  }
-  if (norm(matchRow.data?.father?.phone) === digits) {
-    roleMatches.push({ role: 'father', name: matchRow.data?.father?.name || null });
-  }
   const { data: members, error: membersErr } = await supabase
     .from('family_members')
     .select('id, name, phone')
     .eq('family_id', matchRow.id);
   if (membersErr) throw membersErr;
-  (members || []).forEach(m => {
-    if (norm(m.phone) === digits) roleMatches.push({ role: 'family_member', memberId: m.id, name: m.name || null });
-  });
-  return roleMatches;
+  return roleMatchesForPhone(matchRow, members, digits);
 }
 
 async function findFamilyIdByPhone(phone) {
@@ -4800,7 +4983,7 @@ app.post('/api/session', async (req, res) => {
       const candidates = family.candidates.map(({ hasPassword, ...rest }) => rest);
       return res.json({ needsPicker: true, pendingToken, candidates });
     }
-    const session = { phone, familyId: family ? family.id : null, teacherId: teacherId || null };
+    const session = { phone, familyId: family ? family.id : null, teacherId: teacherId || null, mids: memberIdsClaim(family?.roleMatches) };
     issueSessionCookie(res, session);
     res.json({ ok: true, familyId: session.familyId, teacherId: session.teacherId });
   } catch (err) {
@@ -4825,6 +5008,13 @@ app.post('/api/session', async (req, res) => {
 // ended here: 401 session_expired with a `reason`, and the cookie cleared,
 // so the login page asks for a fresh sign-in instead of an empty profile
 // picker. A session that is also a teacher's keeps the teacher part.
+//
+// Fast path (round 3; was ~3.5 s cold on 2026-09-28): a cookie stamped with
+// mids only checks the phone's roles inside its own family (family row +
+// its members, in parallel with the children) instead of searching every
+// family by phone; a phone that has since moved away still ends as no_role.
+// Cookies from before round 3 keep the full phone search. Step times go out
+// as Server-Timing.
 // ------------------------------------------------------------------
 app.get('/api/session/me', async (req, res) => {
   try {
@@ -4833,19 +5023,28 @@ app.get('/api/session/me', async (req, res) => {
     if (!session) return sendSessionExpired(res);
     if (!session.familyId) return res.json({ familyId: null, teacherId: session.teacherId, roleMatches: [], children: [] });
 
-    const [familyRes, studentsRes, phoneFamily] = await Promise.all([
-      supabase.from('family_registrations').select('id').eq('id', session.familyId).maybeSingle(),
+    const timer = stepTimer();
+    const fast = session.viewerKey == null && Array.isArray(session.mids);
+    const [familyRes, studentsRes, phoneLookup, membersRes] = await Promise.all([
+      supabase.from('family_registrations').select(fast ? 'id, data' : 'id').eq('id', session.familyId).maybeSingle(),
       supabase.from('students').select('id, name, class').eq('family_id', session.familyId).order('created_at', { ascending: true }),
-      session.viewerKey != null ? null : findFamilyIdByPhone(session.phone),
+      session.viewerKey != null || fast ? null : findFamilyIdByPhone(session.phone),
+      fast ? supabase.from('family_members').select('id, name, phone').eq('family_id', session.familyId) : null,
     ]);
+    timer.mark(fast ? 'family' : 'phone_search');
     if (familyRes.error) throw familyRes.error;
     if (studentsRes.error) throw studentsRes.error;
+    if (membersRes?.error) throw membersRes.error;
+    const phoneFamily = fast
+      ? { id: session.familyId, roleMatches: roleMatchesForPhone(familyRes.data, membersRes.data, session.phone) }
+      : phoneLookup;
     const verdict = classifySession({ session, familyExists: !!familyRes.data, phoneFamily });
     res.set('Cache-Control', 'no-store');
+    res.set('Server-Timing', timer.header());
     if (verdict.state !== 'ok') {
       console.warn('session/me: family session ended', { reason: verdict.state, familyId: session.familyId, teacher: !!session.teacherId });
       if (session.teacherId) {
-        issueSessionCookie(res, { ...session, familyId: null, viewerKey: null });
+        issueSessionCookie(res, { ...session, familyId: null, viewerKey: null, mids: [] });
         return res.json({ familyId: null, teacherId: session.teacherId, roleMatches: [], children: [] });
       }
       res.clearCookie(SESSION_COOKIE_NAME, { httpOnly: true, secure: true, sameSite: 'lax' });
@@ -5050,7 +5249,9 @@ app.get('/api/family/:id', async (req, res) => {
       .maybeSingle();
     if (error) throw error;
     if (!data) return res.status(404).json({ error: 'Family not found' });
-    res.json({ motherName: data.data?.mother?.name || null, fatherName: data.data?.father?.name || null });
+    // openParentSlot: the parent /api/family/add-parent would fill, or null.
+    const openParentSlot = !normalizePhone(data.data?.father?.phone) ? 'father' : !normalizePhone(data.data?.mother?.phone) ? 'mother' : null;
+    res.json({ motherName: data.data?.mother?.name || null, fatherName: data.data?.father?.name || null, openParentSlot });
   } catch (err) {
     console.error('Get family error:', err);
     res.status(500).json({ error: 'Could not fetch family' });

@@ -39,8 +39,32 @@
     var key = need === 'teacher' ? 'tutp_teacher_id' : 'tutp_family_id';
     var DASH = { mother: '/app/mother/', father: '/app/father/', family_member: '/app/family-member/' };
 
-    function hide(){ document.documentElement.style.visibility = 'hidden'; }
-    function show(){ document.documentElement.style.visibility = ''; }
+    // While hidden, a small spinner appears after 300 ms (round 3: a cold
+    // open was a blank screen for ~3.5 s). It sets visibility: visible, which
+    // shows through the hidden page.
+    var spinnerTimer = null;
+    function showSpinner(){
+        if (document.getElementById('tutpGuardSpinner') || !document.body) return;
+        var box = document.createElement('div');
+        box.id = 'tutpGuardSpinner';
+        box.setAttribute('role', 'status');
+        box.setAttribute('aria-label', 'Loading');
+        box.style.cssText = 'visibility:visible;position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#f7f9ff;z-index:10001;';
+        box.innerHTML = '<div style="width:40px;height:40px;border:4px solid #d8e2ff;border-top-color:#005bbf;border-radius:50%;animation:tutpSpin .8s linear infinite"></div>' +
+            '<style>@keyframes tutpSpin{to{transform:rotate(360deg)}}</style>';
+        document.body.appendChild(box);
+    }
+    function hide(){
+        document.documentElement.style.visibility = 'hidden';
+        if (!spinnerTimer) spinnerTimer = setTimeout(showSpinner, 300);
+    }
+    function show(){
+        document.documentElement.style.visibility = '';
+        clearTimeout(spinnerTimer);
+        spinnerTimer = null;
+        var box = document.getElementById('tutpGuardSpinner');
+        if (box) box.remove();
+    }
     function toLogin(){ window.location.replace('/app/login/'); }
     function toPicker(){ hide(); window.location.replace('/app/login/?pick=1'); }
     function reloadOnce(){

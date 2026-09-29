@@ -10,6 +10,13 @@ const TTL_MS = 5 * 60 * 1000;
 
 export function initTestFamilies(client) { supabase = client; }
 
+// The e2e suite's fictional Firebase test numbers (9999900001-09, listed in
+// Firebase with a fixed code, so no SMS ever reaches a real phone). A family
+// registered on one is marked is_test at registration (round 3).
+export function isTestPhone(phone) {
+  return /^999990000[1-9]$/.test(String(phone || '').replace(/\D/g, '').slice(-10));
+}
+
 export async function testFamilyIds() {
   if (!supabase || Date.now() - cache.at < TTL_MS) return cache.ids;
   const { data, error } = await supabase.from('family_registrations').select('id').eq('data->>is_test', 'true');

@@ -2,7 +2,16 @@
 //   npm run test:unit
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { withoutTestFamilies, isTestFamily, initTestFamilies } from '../../server/test-families.js';
+import { withoutTestFamilies, isTestFamily, initTestFamilies, isTestPhone } from '../../server/test-families.js';
+
+test('isTestPhone: only the nine e2e numbers, in any formatting', () => {
+  assert.equal(isTestPhone('+919999900004'), true);
+  assert.equal(isTestPhone('99999 00009'), true);
+  assert.equal(isTestPhone('9999900000'), false);
+  assert.equal(isTestPhone('9999900010'), false);
+  assert.equal(isTestPhone('9876543210'), false);
+  assert.equal(isTestPhone(''), false);
+});
 
 test('withoutTestFamilies drops test family rows, by family_id or id', () => {
   const ids = new Set([16]);

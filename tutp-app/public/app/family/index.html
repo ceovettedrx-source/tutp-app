@@ -43,6 +43,40 @@
 </div>
 
 <div class="glass-card rounded-xl p-6 mb-6">
+<h2 class="font-headline text-2xl font-semibold mb-2">Your family members</h2>
+<p class="text-on-surface-variant mb-4">Removing someone signs them out of Tut-P straight away.</p>
+<ul id="memberList" class="space-y-2"></ul>
+<p id="memberListStatus" class="text-center text-sm mt-3"></p>
+</div>
+
+<div id="addParentCard" class="glass-card rounded-xl p-6 mb-6 hidden parent-only">
+<h2 class="font-headline text-2xl font-semibold mb-2">Add the <span id="addParentRole">father</span></h2>
+<p class="text-on-surface-variant mb-4">They sign in with their own phone number and a one-time code — no invite link needed.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label class="block text-sm font-semibold mb-1">Full Name <span class="text-error">*</span></label><input id="parentName" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="Full name" type="text"/></div>
+<div><label class="block text-sm font-semibold mb-1">Phone <span class="text-error">*</span></label><input id="parentPhone" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="+91 90000 00000" type="tel"/></div>
+</div>
+<button id="addParentBtn" class="w-full mt-5 bg-primary text-white h-12 rounded-lg font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" onclick="addParent()">
+<span class="material-symbols-outlined">person_add</span>Add Parent
+</button>
+<p id="parentStatus" class="text-center text-sm mt-3"></p>
+</div>
+
+<div class="glass-card rounded-xl p-6 mb-6 parent-only">
+<h2 class="font-headline text-2xl font-semibold mb-2">Add a child</h2>
+<p class="text-on-surface-variant mb-4">Up to 6 children per family. A new child starts on the free plan.</p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div><label class="block text-sm font-semibold mb-1">Child's Name <span class="text-error">*</span></label><input id="childName" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="Full name" type="text"/></div>
+<div><label class="block text-sm font-semibold mb-1">Class</label><select id="childClass" class="w-full h-11 px-3 rounded-lg soft-input"><option value="">Select class</option><option>Class 1</option><option>Class 2</option><option>Class 3</option><option>Class 4</option><option>Class 5</option><option>Class 6</option><option>Class 7</option><option>Class 8</option><option>Class 9</option><option>Class 10</option><option>Class 11</option><option>Class 12</option></select></div>
+</div>
+<div class="mt-4"><label class="block text-sm font-semibold mb-1">School Name</label><input id="childSchool" class="w-full h-11 px-3 rounded-lg soft-input" placeholder="School name" type="text"/></div>
+<button id="addChildBtn" class="w-full mt-5 bg-primary text-white h-12 rounded-lg font-semibold hover:bg-primary/90 transition-colors flex items-center justify-center gap-2" onclick="addChild()">
+<span class="material-symbols-outlined">child_care</span>Add Child
+</button>
+<p id="childStatus" class="text-center text-sm mt-3"></p>
+</div>
+
+<div class="glass-card rounded-xl p-6 mb-6">
 <h2 class="font-headline text-2xl font-semibold mb-2">Dashboard permissions</h2>
 <p class="text-on-surface-variant mb-4">As mother or father, you control what each family member can see on their dashboard. Bonding scores are always private to the person viewing them.</p>
 <div class="space-y-4">
@@ -182,12 +216,139 @@
       statusEl.className = 'text-center text-sm mt-3 text-success';
       document.getElementById('memberName').value = '';
       document.getElementById('memberPhone').value = '';
+      loadMemberList();
     } catch(err){
       statusEl.textContent = 'Something went wrong — please try again.';
       statusEl.className = 'text-center text-sm mt-3 text-error';
     } finally {
       btn.disabled = false;
       btn.innerHTML = '<span class="material-symbols-outlined">person_add</span>Add Family Member';
+    }
+  }
+
+  // Round 3: add a child, add the other parent, remove a member. Parent-only
+  // cards and remove buttons are hidden for a member session (roles cached
+  // by the login page / session guard); the server refuses them anyway.
+  const isParent = (function(){
+    try {
+      const roles = JSON.parse(sessionStorage.getItem('tutp_roles') || 'null');
+      if (!Array.isArray(roles)) return true;
+      return roles.some(r => r.role === 'mother' || r.role === 'father');
+    } catch (e) { return true; }
+  })();
+  if (!isParent) document.querySelectorAll('.parent-only').forEach(el => el.classList.add('hidden'));
+
+  function setStatus(el, text, ok){
+    el.textContent = text;
+    el.className = 'text-center text-sm mt-3 ' + (ok ? 'text-success' : 'text-error');
+  }
+
+  async function postJson(url, body){
+    const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const data = await res.json().catch(() => ({}));
+    return { res, data };
+  }
+
+  async function loadMemberList(){
+    const listEl = document.getElementById('memberList');
+    try {
+      const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/members');
+      const data = await res.json();
+      listEl.innerHTML = '';
+      const members = data.members || [];
+      if (!members.length) {
+        listEl.innerHTML = '<li class="text-on-surface-variant text-sm">No family members added yet.</li>';
+        return;
+      }
+      members.forEach(m => {
+        const li = document.createElement('li');
+        li.className = 'flex items-center justify-between gap-4 p-3 rounded-lg border border-outline-variant/30';
+        li.dataset.memberId = m.id;
+        const label = document.createElement('span');
+        label.className = 'font-body text-sm';
+        label.textContent = m.name + (m.relationship ? ' (' + m.relationship + ')' : '');
+        li.appendChild(label);
+        if (isParent) {
+          const btn = document.createElement('button');
+          btn.className = 'remove-member-btn text-error text-sm font-semibold flex items-center gap-1';
+          btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">person_remove</span>Remove';
+          btn.onclick = () => removeMember(m.id, m.name);
+          li.appendChild(btn);
+        }
+        listEl.appendChild(li);
+      });
+    } catch (err) {
+      console.error('Could not load family members:', err);
+    }
+  }
+  loadMemberList();
+
+  async function removeMember(memberId, name){
+    const statusEl = document.getElementById('memberListStatus');
+    if (!window.confirm('Remove ' + name + ' from your family? They will be signed out of Tut-P straight away.')) return;
+    const { res, data } = await postJson('/api/family/remove-member', { family_id: familyId, member_id: memberId });
+    if (res.ok && data.ok) {
+      setStatus(statusEl, name + ' has been removed.', true);
+      loadMemberList();
+    } else if (res.status !== 401) {
+      setStatus(statusEl, data.error || 'Something went wrong — please try again.', false);
+    }
+  }
+
+  (async function loadParentSlot(){
+    if (!isParent) return;
+    try {
+      const res = await fetch('/api/family/' + encodeURIComponent(familyId));
+      const data = await res.json();
+      if (res.ok && data.openParentSlot) {
+        document.getElementById('addParentRole').textContent = data.openParentSlot;
+        document.getElementById('addParentCard').classList.remove('hidden');
+      }
+    } catch (err) {
+      console.error('Could not load family:', err);
+    }
+  })();
+
+  async function addParent(){
+    const statusEl = document.getElementById('parentStatus');
+    const btn = document.getElementById('addParentBtn');
+    const name = document.getElementById('parentName').value.trim();
+    const phone = document.getElementById('parentPhone').value.trim();
+    if (!name || !phone) { setStatus(statusEl, 'Please enter their name and phone number.', false); return; }
+    btn.disabled = true;
+    try {
+      const { res, data } = await postJson('/api/family/add-parent', { family_id: familyId, parent: { name, phone } });
+      if (res.ok && data.ok) {
+        setStatus(statusEl, name + ' has been added. They can now sign in with ' + phone + '.', true);
+        document.getElementById('parentName').value = '';
+        document.getElementById('parentPhone').value = '';
+      } else if (res.status !== 401) {
+        setStatus(statusEl, data.error || 'Something went wrong — please try again.', false);
+      }
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function addChild(){
+    const statusEl = document.getElementById('childStatus');
+    const btn = document.getElementById('addChildBtn');
+    const name = document.getElementById('childName').value.trim();
+    if (!name) { setStatus(statusEl, "Please enter the child's name.", false); return; }
+    btn.disabled = true;
+    try {
+      const { res, data } = await postJson('/api/family/add-child', { family_id: familyId, child: {
+        name, class: document.getElementById('childClass').value, schoolName: document.getElementById('childSchool').value.trim()
+      } });
+      if (res.ok && data.ok) {
+        setStatus(statusEl, name + ' has been added to your family!', true);
+        document.getElementById('childName').value = '';
+        document.getElementById('childSchool').value = '';
+      } else if (res.status !== 401) {
+        setStatus(statusEl, data.error || 'Something went wrong — please try again.', false);
+      }
+    } finally {
+      btn.disabled = false;
     }
   }
 
