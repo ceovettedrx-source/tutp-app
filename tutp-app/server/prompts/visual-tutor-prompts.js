@@ -70,6 +70,7 @@ Box values are integer PIXELS in this crop: x1<x2<=${width}, y1<y2<=${height}. D
 Rules:
 - "found" is false, with no steps, if the tapped question is not written in this crop (for example the crop shows a different question). Never explain a different question.
 - Otherwise give 2 to 5 steps that walk the parent through how to solve it, in order: first the parts of the question (the numbers, the operation), then the working, last the child's written answer or the empty blank.
+- Work out the correct answer yourself from the question. The "Card answer" you are given may be wrong; if it disagrees with your own working, trust your working.
 - The child's written answer: tone "mistake" if it differs from the correct answer, "correct" if it matches, "info" if nothing is written. Every other step is "info".
 - Help the parent guide the child: explain the method (e.g. carrying, borrowing, times tables) in plain words a parent who is rusty in the subject can repeat.
 - Write "say" and "label" in ${language}. Keep the child's written text and the question's numbers unchanged.

@@ -19,6 +19,8 @@
 // (k8, Founder Dashboard revenue excluding the TEST payment, is a manual check.)
 // "Explain on photo" / "Check mistakes" (rounds B, B2), on the k1/k2 results,
 // with fixtures/worksheet-rows.json (where each row is on the sheet):
+//   k2  also: every wrongly answered row's card gives the correct answer,
+//       never the child's written one
 //   p1  after k2: at least 7 of the 8 cards have an "Explain on photo" button
 //   p2  at least 7 boxes are on their own question's row (nearest row centre)
 //   p3  "Explain on photo" on a wrong answer (row 2): the zoomed crop covers
@@ -155,7 +157,7 @@ function parseReply(data) {
     }
     // The server's step times (Server-Timing, server/step-timer.js).
     const timing = page.waitForResponse((r) => r.url().endsWith('/api/homework') && r.request().method() === 'POST', { timeout: 180000 })
-      .then((r) => r.headers()['server-timing'] || '').catch(() => '');
+      .then((r) => r.headers()).catch(() => ({}));
     await page.click('#hwModalSubmitBtn');
     // 180 s: the server asks the model a second time when the first reply
     // has no parseable JSON (server/homework-reply.js), doubling the wait.
@@ -170,7 +172,11 @@ function parseReply(data) {
       text: document.getElementById('hwModalResults').innerText,
     }));
     // "auth;dur=40, model1;dur=7020, total;dur=7061" -> { auth: 40, model1: 7020, total: 7061 }
-    r.steps = Object.fromEntries((await timing).split(',').map((s) => s.trim().match(/^(\w+);dur=(\d+)/)).filter(Boolean).map((m) => [m[1], +m[2]]));
+    const headers = await timing;
+    // Answers the server's arithmetic check had to correct: the model got
+    // them wrong (server/arith-check.js). Reported, not failed on.
+    r.arith = `arith fixed ${headers['x-arith-fixed'] ?? '?'} of ${headers['x-arith-checked'] ?? '?'}`;
+    r.steps = Object.fromEntries((headers['server-timing'] || '').split(',').map((s) => s.trim().match(/^(\w+);dur=(\d+)/)).filter(Boolean).map((m) => [m[1], +m[2]]));
     r.stepText = Object.entries(r.steps).map(([k, v]) => `${k} ${v}`).join(' | ') || 'no Server-Timing';
     return r;
   }
@@ -205,7 +211,18 @@ function parseReply(data) {
       const r = await runModal(page, { file: 'worksheet-5-wrong.jpg' });
       if (r.cards !== 8) throw new Error(`expected 8 question cards, got ${r.cards}: ${r.text.slice(0, 200)}`);
       k2ok = true;
-      return `8 cards, end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
+      // Each wrongly answered row's card gives the right answer, never the
+      // child's (2026-09-29: card 2 said "Answer: 33" for 45 - 18).
+      const texts = await page.evaluate(() => [...document.querySelectorAll('#hwModalQuestionsArea > div')].map((c) => c.innerText));
+      const copied = [];
+      for (const row of ROWS.filter((x) => x.wrong)) {
+        const t = texts.find((x) => rowOfQuestion(x.split('\n').slice(0, 3).join(' ').replace(/Answer:.*/s, ''))?.n === row.n);
+        const ans = t && (t.match(/Answer:\s*([^\n]*)/) || [])[1];
+        // The answer's last number is the result ("72 ÷ 8 = 9" -> 9).
+        if (ans == null || numbers(ans).split(' ').pop() !== row.correct) copied.push(`row ${row.n}: "${ans}"`);
+      }
+      if (copied.length) throw new Error(`card answers not the correct ones (${copied.join('; ')})`);
+      return `8 cards, wrong rows answered correctly (${r.arith}), end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
     }, page);
 
     // The cards' buttons: question text, photo, box (0..1000).
@@ -380,7 +397,7 @@ function parseReply(data) {
         out.push(`row ${row.n}${got === row.n ? '' : ' -> ' + got}`);
       }
       if (good !== cards.length) throw new Error(`${good} of ${cards.length} on their own row (${out.join('; ')})`);
-      return `${good} of ${cards.length} on their own row; end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
+      return `${good} of ${cards.length} on their own row (${r.arith}); end-to-end ${Date.now() - t0} ms; server ${r.stepText}`;
     }, page);
 
     await record('k3', 'a caller-sent systemPrompt is ignored (new and old request shape)', async () => {

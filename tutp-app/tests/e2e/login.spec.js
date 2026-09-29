@@ -31,6 +31,7 @@
 //   d  wrong code -> plain-language message, no raw Firebase text
 //   e  after d: Resend, then the right code -> logged in
 //   f  father -> own dashboard; mother's data 403 and /app/mother/ redirects
+//      (bonding score and parent-involvement baseline; the own baseline 200)
 //   g  member -> own dashboard; mother's/father's data 403, both pages redirect,
 //      a foreign member id in the tab is reset to the member's own
 //   h  parent dashboard -> child view loads without a redirect to login
@@ -234,6 +235,15 @@ async function apiStatus(page, url) {
 // POST /api/family/add-member with a phone that fails validation: a parent
 // gets 400 (allowed, but nothing is written), anyone else 403. Never adds
 // a row.
+// POST /api/parent-involvement-baseline naming a viewer, with answers that
+// fail validation: the own viewer gets 400, anyone else's 403. Never writes.
+async function baselinePostProbe(page, viewer) {
+  return page.evaluate(async (v) => (await fetch('/api/parent-involvement-baseline', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ viewer: v, homework_days: 99 }),
+  })).status, viewer);
+}
+
 async function addMemberProbe(page, familyId) {
   return page.evaluate(async (fid) => (await fetch('/api/family/add-member', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -596,6 +606,12 @@ function assertRole(me, role) {
       assertRole(me, role);
       const fid = me.body.familyId;
       const out = [];
+      // The own baseline still answers: GET 200, POST with bad answers 400.
+      const ownKey = role === 'father' ? 'father' : await page.evaluate(() => sessionStorage.getItem('tutp_family_member_id'));
+      const ownGet = await apiStatus(page, `/api/parent-involvement-baseline?viewer=${ownKey}`);
+      const ownPost = await baselinePostProbe(page, ownKey);
+      out.push(`own baseline get=${ownGet} post=${ownPost}`);
+      if (ownGet !== 200 || ownPost !== 400) throw new Error(`own baseline returned ${ownGet}/${ownPost}, expected 200/400 (${out.join('; ')})`);
       for (const other of forbidden) {
         if (other === forbidden[0]) {
           // Adding members is for parents only: father allowed (400 on the
@@ -608,6 +624,10 @@ function assertRole(me, role) {
         const s = await apiStatus(page, `/api/bonding-score/${fid}/${other}`);
         out.push(`${other} bonding-score=${s}`);
         if (s !== 403) throw new Error(`${other} data returned ${s}, expected 403 (${out.join('; ')})`);
+        const bg = await apiStatus(page, `/api/parent-involvement-baseline?viewer=${other}`);
+        const bp = await baselinePostProbe(page, other);
+        out.push(`${other} baseline get=${bg} post=${bp}`);
+        if (bg !== 403 || bp !== 403) throw new Error(`${other} baseline returned ${bg}/${bp}, expected 403 (${out.join('; ')})`);
         const opened = await openForbidden(page, DASH[other], DASH[role]);
         out.push(`open ${DASH[other]} -> ${opened.end}${opened.shown ? ' (SHOWN)' : ''}`);
         if (opened.shown) throw new Error(`${DASH[other]} was visible (${out.join('; ')})`);

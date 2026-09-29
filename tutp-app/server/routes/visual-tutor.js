@@ -84,7 +84,7 @@ router.post('/', async (req, res) => {
       const answer = typeof req.body.answer === 'string' ? req.body.answer.slice(0, 300) : '';
       const language = HOMEWORK_LANGUAGES.includes(req.body.language) ? req.body.language : 'English';
       system = explainLineSystemPrompt({ width: img.width, height: img.height, language });
-      content = [imageBlock, { type: 'text', text: `Tapped question: ${question}\nCorrect answer: ${answer || 'not given'}` }];
+      content = [imageBlock, { type: 'text', text: `Tapped question: ${question}\nCard answer: ${answer || 'not given'}` }];
     } else {
       system = locateLineSystemPrompt(img);
       content = [imageBlock, { type: 'text', text: `Question to find: ${question}` }];

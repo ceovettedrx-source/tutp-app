@@ -27,6 +27,8 @@ import { classifySession } from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 import { staticAssets } from './server/static-assets.js';
 import { stepTimer } from './server/step-timer.js';
+import { cronAuthorized } from './server/cron-auth.js';
+import { applyArithmeticCheck } from './server/arith-check.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 
 // True when each photo's boxes go down the page in card order (tops
@@ -5112,6 +5114,13 @@ async function resolveSessionViewerKey(session, hint) {
   return m.role === 'family_member' ? String(m.memberId) : m.role;
 }
 
+// A blank viewer names nobody; any other value must be one of the session's
+// own roles.
+async function sessionMayNameViewer(session, viewer) {
+  if (viewer == null || viewer === '') return true;
+  return sessionOwnsViewerKey(session, String(viewer));
+}
+
 // ------------------------------------------------------------------
 // Parent involvement baseline — the one-time 5-page onboarding survey
 // (homework days, support style, shared activities, meal frequency, trip
@@ -5135,7 +5144,10 @@ app.get('/api/parent-involvement-baseline', async (req, res) => {
     // The survey is optional, so a viewer we can't pin down just doesn't get
     // it (available: false), rather than an error. This GET runs on every
     // dashboard load; a 403 here is what used to log parents out whose phone
-    // number is on more than one role.
+    // number is on more than one role. Naming a viewer the session doesn't
+    // hold (a member asking for viewer=mother) is refused, as bonding-score
+    // does.
+    if (!(await sessionMayNameViewer(session, req.query.viewer))) return sendForbidden(res);
     const viewerKey = await resolveSessionViewerKey(session, req.query.viewer);
     if (!viewerKey) return res.json({ exists: false, baseline: null, available: false });
 
@@ -5159,6 +5171,7 @@ app.post('/api/parent-involvement-baseline', async (req, res) => {
     const session = getSession(req);
     if (!session) return sendSessionExpired(res);
     if (!session.familyId) return sendForbidden(res);
+    if (!(await sessionMayNameViewer(session, (req.body || {}).viewer))) return sendForbidden(res);
     const viewerKey = await resolveSessionViewerKey(session, (req.body || {}).viewer);
     if (!viewerKey) return sendForbidden(res);
 
@@ -5636,7 +5649,7 @@ app.get('/api/weekly-sessions/:familyId', async (req, res) => {
 // (e.g. a Scheduler retry) by homework_alerts_sent's unique constraint.
 // ------------------------------------------------------------------
 app.post('/api/cron/evening-homework-alerts', async (req, res) => {
-  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+  if (!cronAuthorized(req.headers, process.env.CRON_TOKEN)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -5733,7 +5746,7 @@ app.post('/api/cron/evening-homework-alerts', async (req, res) => {
 // shows "Not enough data yet" instead of a misleading 0.
 // ------------------------------------------------------------------
 app.post('/api/cron/parent-engagement-score', async (req, res) => {
-  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+  if (!cronAuthorized(req.headers, process.env.CRON_TOKEN)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -5782,7 +5795,7 @@ app.post('/api/cron/parent-engagement-score', async (req, res) => {
 // get a guilt-trip email.
 // ------------------------------------------------------------------
 app.post('/api/cron/weekly-digest', async (req, res) => {
-  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+  if (!cronAuthorized(req.headers, process.env.CRON_TOKEN)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -5873,7 +5886,7 @@ async function refundTutorContact(request) {
 }
 
 app.post('/api/cron/tutor-contact-refund-check', async (req, res) => {
-  if (!process.env.CRON_TOKEN || req.query.token !== process.env.CRON_TOKEN) {
+  if (!cronAuthorized(req.headers, process.env.CRON_TOKEN)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -6119,8 +6132,14 @@ app.post('/api/homework', async (req, res) => {
     }
     // Every photo/box pair is checked (server/homework-boxes.js); anything
     // invalid, or a box with no photo that may carry one, is dropped.
-    const { data, boxed, boxes } = applyQuestionBoxes(result.data, photos);
+    const { data: boxedData, boxed, boxes } = applyQuestionBoxes(result.data, photos);
     timer.mark('boxes');
+    // Plain arithmetic answers are recomputed in code (server/arith-check.js).
+    // Counts only in the log and headers, never question or answer text.
+    const { data, checked: arithChecked, fixed: arithFixed } = applyArithmeticCheck(boxedData);
+    res.set('X-Arith-Checked', String(arithChecked));
+    res.set('X-Arith-Fixed', String(arithFixed));
+    if (arithFixed) console.log('homework: arithmetic answers fixed', { feature, photos: photos.length, checked: arithChecked, fixed: arithFixed });
     // Box positions only (0..1000), never text or images: enough to see a
     // box on the wrong line, or boxes out of reading order, on real photos.
     if (photos.length) {
