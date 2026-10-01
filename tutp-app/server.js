@@ -37,6 +37,9 @@ import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
+import { registerChipRoutes } from './server/routes/chips.js';
+import { createChipLog, CHIP_IDS } from './server/chips/log.js';
+import { classifyIntent } from './server/chips/intent.js';
 
 // True when each photo's boxes go down the page in card order (tops
 // non-decreasing, 1% slack). False on a two-column sheet too, so a signal in
@@ -282,6 +285,9 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
 }
+// Search box chip logging (search-box-v2, server/chips/log.js): never throws,
+// pauses itself when migration 030 has not been run.
+const chipLog = createChipLog({ supabase, isTestFamily });
 
 // The `verify` hook stashes the exact raw bytes for the Razorpay webhook
 // route (req.rawBody) alongside the normally-parsed req.body — Razorpay's
@@ -6396,6 +6402,16 @@ app.post('/api/homework', async (req, res) => {
     }
 
     trackSessionStarted(session.familyId, studentId, { feature, language: lang });
+    // The search box chips (server/chips/): what the typed instruction asks
+    // for goes back in X-Chip-Intent (the page lets it override the selected
+    // chip), and the submit is logged: intent, chip, language, never the text.
+    const chipIntent = classifyIntent(text);
+    res.set('X-Chip-Intent', chipIntent);
+    if (feature === FEATURES.HOMEWORK_HELP) {
+      chipLog.record(session.familyId, studentId, [{
+        kind: 'submit', chip: CHIP_IDS.includes(body.chip) ? body.chip : null, intent: chipIntent, language: lang, text,
+      }]);
+    }
 
     // e2e replay/record only for test families (server/model-replay.js);
     // cost.usd totals this request's model calls for X-Model-Usd.
@@ -6500,6 +6516,8 @@ app.post('/api/homework', async (req, res) => {
     res.status(500).json({ error: 'Server error calling Claude' });
   }
 });
+
+registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
 
 // ------------------------------------------------------------------
 // Homework illustration — step 1 of the "show the problem as a picture"

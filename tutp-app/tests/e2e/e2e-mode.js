@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const RECORDINGS = path.join(HERE, 'recordings');
-const MODEL_ROUTE = /\/api\/(homework|visual-tutor)(\?|$)/;
+const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor)(\?|$)/;
 
 export function e2eMode(spec) {
   const mode = ['replay', 'record', 'live'].includes(process.env.E2E_MODE) ? process.env.E2E_MODE : 'replay';

@@ -8,7 +8,9 @@
 //   childContext  "Name · Class" from the students row, else "your child"
 //   text          what the parent typed (the old hwText / storyTopic / topic)
 
-export const HOMEWORK_LANGUAGES = ['English', 'Hindi', 'Telugu', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
+import { notesPrompt, notesUserText } from './notes-prompts.js';
+
+export const HOMEWORK_LANGUAGES =['English', 'Hindi', 'Telugu', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
 
 export const PROMPT_FEATURES = ['homework_help', 'quiz', 'storytelling', 'experiential_learning'];
 
@@ -104,6 +106,7 @@ const SYSTEM_PROMPTS = {
   quiz: quizPrompt,
   storytelling: storytellingPrompt,
   experiential_learning: experientialPrompt,
+  notes: notesPrompt,   // dispatcher hook: not in PROMPT_FEATURES, so only /api/homework-notes reaches it
 };
 
 // The text block that follows the attachments, worded exactly as the pages
@@ -111,6 +114,7 @@ const SYSTEM_PROMPTS = {
 // Storytelling and Experiential, or a "read the attachment" line when
 // nothing was typed.
 function userTextFor(feature, text, attachmentCount) {
+  if (feature === 'notes') return notesUserText(text);
   const many = attachmentCount > 1;
   if (feature === 'storytelling') {
     return text ? `Lesson: ${text}` : (many ? 'Read the lesson in the attached photos/PDFs and turn it into a story.' : 'Read the lesson in the attached photo or PDF and turn it into a story.');

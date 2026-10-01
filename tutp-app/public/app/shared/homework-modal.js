@@ -87,6 +87,7 @@
             hwCurrentMode = (mode === 'quiz') ? 'quiz' : 'homework';
             hwSessionToken++;
             resetHomeworkModal();
+            if (window.TutpChips) TutpChips.open(hwCurrentMode);
             document.getElementById('homeworkExplainModal').classList.remove('hidden');
             loadHomeworkModalChildContext();
         }
@@ -283,7 +284,9 @@
                         text: hwText,
                         language: lang,
                         studentId: sessionStorage.getItem('tutp_student_id'),
-                        attachments
+                        attachments,
+                        // The selected mode chip (search-box chips), for the log only.
+                        chip: (hwCurrentMode === 'homework' && window.TutpChips) ? TutpChips.selected() : null
                     })
                 });
                 if (!res.ok) {
@@ -335,6 +338,9 @@
                     document.getElementById('hwModalExplanationBlock').classList.add('hidden');
                     document.getElementById('hwModalQuizBlock').classList.add('hidden');
                     renderHwModalHomeworkResult(parsed);
+                    // Mode chips: show the result in the selected mode (a typed
+                    // instruction, classified by the server, overrides the chip).
+                    if (window.TutpChips) TutpChips.onResult(parsed, res.headers.get('X-Chip-Intent'), hwText);
                 }
                 const hwFeedbackExplanation = hwCurrentMode === 'quiz'
                     ? parsed.explanation
@@ -825,6 +831,7 @@
             closeHwExplain();
             hidePhotoPanel();
             hwSentPhotos = [];
+            if (window.TutpChips) TutpChips.reset();
             const actions = document.getElementById('hwPhotoActions');
             if (actions) actions.remove();
             document.getElementById('hwModalForm').classList.remove('hidden');

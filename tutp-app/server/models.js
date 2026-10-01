@@ -6,6 +6,7 @@
 export const MODELS = {
   homework_typed: 'claude-haiku-4-5',
   homework_explain: 'claude-haiku-4-5',
+  homework_notes: 'claude-haiku-4-5',
   homework_demo: 'claude-haiku-4-5',
   illustrate: 'claude-haiku-4-5',
   game_questions: 'claude-haiku-4-5',
