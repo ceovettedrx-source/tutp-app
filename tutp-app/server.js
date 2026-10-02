@@ -41,6 +41,7 @@ import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { createChipLog, CHIP_IDS } from './server/chips/log.js';
 import { classifyIntent } from './server/chips/intent.js';
+import { mountExamPrep } from './server/routes/exam-prep.js';
 
 // True when each photo's boxes go down the page in card order (tops
 // non-decreasing, 1% slack). False on a two-column sheet too, so a signal in
@@ -568,16 +569,21 @@ app.post('/api/admin/login', adminLoginLimiter, (req, res) => {
   res.json({ ok: true });
 });
 
-function requireAdmin(req, res, next) {
+// The admin cookie alone (no ?token=): the exam prep review page and its
+// API accept only this, so the token never travels in their URLs.
+function isAdminCookie(req) {
   const cookieToken = req.cookies?.[ADMIN_COOKIE_NAME];
-  if (cookieToken && process.env.SESSION_SECRET) {
-    try {
-      const decoded = jwt.verify(cookieToken, process.env.SESSION_SECRET);
-      if (decoded.admin) return next();
-    } catch (err) {
-      // Invalid/expired cookie — fall through to the query-token check.
-    }
+  if (!cookieToken || !process.env.SESSION_SECRET) return false;
+  try {
+    return !!jwt.verify(cookieToken, process.env.SESSION_SECRET).admin;
+  } catch (err) {
+    return false;
   }
+}
+
+function requireAdmin(req, res, next) {
+  // A missing, invalid or expired cookie falls through to the query token.
+  if (isAdminCookie(req)) return next();
   if (process.env.ADMIN_TOKEN && String(req.query.token || '').trim() === process.env.ADMIN_TOKEN.trim()) {
     return next();
   }
@@ -839,7 +845,8 @@ app.get('/api/admin/costs', requireAdmin, async (req, res) => {
       rows.push(...(data || []));
       if (!data || data.length < 1000) break;
     }
-    const calls = withoutTestFamilies(rows, testIds);
+    // Calls made for e2e test notes (exam prep) carry test: true instead of a family.
+    const calls = withoutTestFamilies(rows, testIds).filter(c => !(c.properties && c.properties.test));
 
     const round = (v) => Math.round(v * 10000) / 10000;
     const byDate = Object.fromEntries(days.map(d => [d, { date: d, usd: 0, calls: 0 }]));
@@ -865,7 +872,43 @@ app.get('/api/admin/costs', requireAdmin, async (req, res) => {
     if (dauErr) throw dauErr;
     const activeToday = new Set(withoutTestFamilies(dauRows, testIds).map(r => r.family_id)).size;
 
+    // Exam prep (round 4): notes served from the cache vs model calls to
+    // write them; spent = what the real notes cost to write, saved = each
+    // hit's note cost. Typed Homework Help questions asked before (count
+    // only, decision 3). Both over the same 14 days, test families left out.
+    const events = async (name) => {
+      const out = [];
+      for (let from = 0; from < 50000; from += 1000) {
+        const { data, error } = await supabase.from('usage_events').select('family_id, properties, created_at')
+          .eq('event_name', name).gte('created_at', windowStartUTC).order('created_at', { ascending: true }).range(from, from + 999);
+        if (error) throw error;
+        out.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return withoutTestFamilies(out, testIds);
+    };
+    const [hits, typed, notesRes] = await Promise.all([
+      events('exam_prep.hit'),
+      events('hw.typed_repeat'),
+      supabase.from('answer_cache').select('usd').eq('is_test', false).gte('created_at', windowStartUTC),
+    ]);
+    if (notesRes.error) console.warn('answer_cache cost query failed:', notesRes.error.message);
+    const seen = new Set();
+    let typedBefore = 0;
+    for (const t of typed) {
+      const h = t.properties && t.properties.hash;
+      if (h && seen.has(h)) typedBefore++;
+      if (h) seen.add(h);
+    }
+
     res.json({
+      examPrep: {
+        hits: hits.length,
+        modelCalls: calls.filter(c => String((c.properties || {}).feature || '').startsWith('exam_prep')).length,
+        spentUsd: round((notesRes.data || []).reduce((s, r) => s + (Number(r.usd) || 0), 0)),
+        savedUsd: round(hits.reduce((s, h) => s + (Number((h.properties || {}).usd_saved) || 0), 0)),
+      },
+      typedRepeat: { asked: typed.length, askedBefore: typedBefore },
       todayUsd: round(today.usd),
       todayCalls: today.calls,
       last14Usd: round(Object.values(byDate).reduce((s, d) => s + d.usd, 0)),
@@ -1689,6 +1732,10 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
   <div class="panel" id="costPanel">
     <p class="panel-message loading">Loading…</p>
   </div>
+  <div class="panel" id="examPrepCostPanel">
+    <p class="panel-message loading">Loading…</p>
+  </div>
+  <p class="panel-message"><a href="/admin/exam-prep">Exam prep notes: review page</a></p>
 
   <h2 class="section-title">Parent Feedback</h2>
   <div class="summary-grid-3">
@@ -1921,6 +1968,11 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         set('kpi-costToday', usd(data.todayUsd) + ' · ' + data.todayCalls + ' calls');
         set('kpi-cost14', usd(data.last14Usd));
         set('kpi-costPerFamily', data.perActiveFamilyToday == null ? '—' : usd(data.perActiveFamilyToday) + ' (' + data.activeFamiliesToday + ')');
+        const ep = data.examPrep || {}, tr = data.typedRepeat || {};
+        document.getElementById('examPrepCostPanel').innerHTML =
+          '<p class="panel-message">Exam prep cache (14 days): ' + (ep.hits || 0) + ' notes served from the cache vs ' + (ep.modelCalls || 0) +
+          ' model calls to write them · spent ' + usd(ep.spentUsd || 0) + ' · saved ' + usd(ep.savedUsd || 0) + '</p>' +
+          '<p class="panel-message">Typed questions asked before: ' + (tr.askedBefore || 0) + ' of ' + (tr.asked || 0) + ' (Homework Help, counted only)</p>';
         const rows = data.byFeature || [];
         if (!rows.length) {
           panel.innerHTML = '<p class="panel-message">No model calls logged yet.</p>';
@@ -6308,6 +6360,13 @@ function isValidHomeworkContentBlock(block) {
   return false;
 }
 
+// Same question typed again = same hash: lower case, spaces collapsed,
+// punctuation dropped, then class and language.
+function typedQuestionHash(text, cls, lang) {
+  const norm = String(text).toLowerCase().replace(/[^\p{L}\p{N}+\-×÷*/=<>.%]+/gu, ' ').replace(/\s+/g, ' ').trim();
+  return crypto.createHash('sha256').update(JSON.stringify([norm, cls || '', lang])).digest('hex');
+}
+
 const HOMEWORK_ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
 const HOMEWORK_MAX_TEXT = 4000;
 
@@ -6412,6 +6471,15 @@ app.post('/api/homework', async (req, res) => {
       chipLog.record(session.familyId, studentId, [{
         kind: 'submit', chip: CHIP_IDS.includes(body.chip) ? body.chip : null, intent: chipIntent, language: lang, text,
       }]);
+    }
+
+    // Typed Homework Help questions are counted, not cached (round 4,
+    // decision 3): a hash of the question + class + language, never the text.
+    if (feature === FEATURES.HOMEWORK_HELP && !attachments.length && text) {
+      supabase.from('usage_events').insert({
+        event_name: 'hw.typed_repeat', family_id: session.familyId, student_id: studentId,
+        properties: { hash: typedQuestionHash(text, studentRow && studentRow.class, lang), class: (studentRow && studentRow.class) || null, language: lang },
+      }).then(({ error }) => { if (error) console.error('hw.typed_repeat log failed:', error.message); }, () => {});
     }
 
     // e2e replay/record only for test families (server/model-replay.js);
@@ -7931,6 +7999,12 @@ app.get('/api/game-changer-of-the-day', requireAdmin, async (req, res) => {
     console.error('Game changer of the day error:', err);
     res.status(500).json({ error: 'Could not fetch today\'s Game Changer' });
   }
+});
+
+// Exam prep notes and their review page (round 4, server/routes/exam-prep.js).
+mountExamPrep(app, {
+  supabase, getSession, sendSessionExpired, sendForbidden, studentBelongsToSession, requireOwnFamily,
+  getPaidStatusForStudents, isTestFamily, isAdminCookie, startOfWeekIST,
 });
 
 // Simple health check — useful for confirming the server is alive after deploy

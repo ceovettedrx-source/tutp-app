@@ -93,12 +93,14 @@ function buildUserMessage(mcqItems, misconceptionsById) {
  * corrected_item_text back into lesson_json in place.
  *
  * @param {object} lesson_json
+ * @param {object} [call] passed on to callClaude: { mode, recordings, cost }
+ *   (exam prep, round 4: e2e replay for test notes, and the note's cost)
  * @returns {Promise<
  *   { checked: false, lesson_json: object }
  *   | { checked: true, all_passed: boolean, issues_found: number, lesson_json: object }
  * >}
  */
-export async function verifyMcqSections(lesson_json) {
+export async function verifyMcqSections(lesson_json, call = {}) {
   const sections = lesson_json?.student_sections || [];
   const mcqItems = [];
   for (const section of sections) {
@@ -125,6 +127,7 @@ export async function verifyMcqSections(lesson_json) {
   }
 
   const response = await callClaude({
+    ...call,
     feature: 'lesson_verify',
     body: {
       model: MODELS.lesson_verify,

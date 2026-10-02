@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Exam prep review</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+<link href="/css/dashboard-cards.css" rel="stylesheet">
+<link href="/css/exam-prep.css" rel="stylesheet">
+<!-- Served by server/routes/exam-prep.js to the admin cookie only (round 4).
+     Every action acts on one version of one note; there is no bulk action. -->
+<style>
+  body { margin: 0; background: #f7f9fc; font: 400 14px/20px Inter, system-ui, sans-serif; color: #181c20; }
+  main { max-width: 980px; margin: 0 auto; padding: 16px; }
+  h1 { font: 700 22px/30px 'Plus Jakarta Sans', Inter, system-ui, sans-serif; margin: 8px 0; }
+  h2 { font: 700 18px/24px Inter, system-ui, sans-serif; margin: 24px 0 8px; }
+  .bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .muted { color: #5b6170; }
+  .note { background: #fff; border: 1px solid #dfe3e8; border-radius: 12px; padding: 12px; margin: 8px 0; }
+  .note > summary { cursor: pointer; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .pill { display: inline-block; border-radius: 999px; padding: 2px 8px; font: 600 12px/18px Inter, system-ui, sans-serif; background: #e5e8ee; }
+  .pill.approved { background: #dcefe4; color: #006d2c; } .pill.needs_review { background: #fcefd6; color: #805600; }
+  .pill.rejected, .pill.failed { background: #fde7e5; color: #b3261e; } .pill.needs_fix { background: #ece7fb; color: #5b3fb8; }
+  .pill.generating { background: #e3edff; color: #005bbf; }
+  .pill.by-ai { background: #e3edff; color: #005bbf; } .pill.by-founder { background: #dcefe4; color: #006d2c; }
+  .report { margin: 6px 0; padding: 6px 10px; border-radius: 8px; background: #fcefd6; color: #805600; }
+  .version { border: 1.5px solid #dfe3e8; border-radius: 12px; margin: 10px 0; padding: 12px; background: #fff; }
+  .checks { margin: 8px 0; padding: 0; list-style: none; }
+  .checks li { margin: 2px 0; }
+  .ok { color: #006d2c; } .bad { color: #b3261e; }
+  .preview { border: 1px dashed #c1c6d6; border-radius: 12px; margin: 8px 0; max-height: 520px; overflow: auto; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; align-items: flex-start; }
+  .actions textarea { width: 100%; min-height: 56px; font: inherit; border: 1.5px solid #dfe3e8; border-radius: 8px; padding: 6px; box-sizing: border-box; }
+  .form { width: 100%; background: #f1f4fa; border-radius: 10px; padding: 10px; }
+  .form[hidden] { display: none; }
+  table { border-collapse: collapse; width: 100%; margin-top: 8px; }
+  td, th { text-align: left; border-bottom: 1px solid #e5e8ee; padding: 4px 6px; font-size: 13px; vertical-align: top; }
+  .undone { text-decoration: line-through; color: #8a8f99; }
+  #msg { position: sticky; top: 0; z-index: 5; }
+  #msg p { margin: 0 0 8px; padding: 8px 12px; border-radius: 8px; background: #181c20; color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <div class="bar">
+    <h1>Exam prep notes</h1>
+    <label class="muted"><input type="checkbox" id="testToggle"> Show the e2e test notes</label>
+    <a href="/admin/dashboard" class="muted">Founder dashboard</a>
+  </div>
+  <p class="muted">Class 5 maths, Chapter 13: Fractions, for AP and TS. A note reaches parents when you approve it, or when the AI approves it (every check passed and Haiku wrote it); with nothing approved they see "coming soon". Every button acts on one version of one note only, and Undo works on AI approvals too.</p>
+  <div id="msg"></div>
+  <h2>Needs your review</h2>
+  <p class="muted">Versions Sonnet wrote or a check failed on, and served notes a parent reported (they keep being served meanwhile).</p>
+  <div id="reviewList"><p class="muted">Loading…</p></div>
+  <h2>This week's spot check</h2>
+  <p class="muted">Two Telugu notes the AI approved, fixed for the week. Keep = fine (you become the reviewer); or Needs fix / Reject.</p>
+  <div id="sampleList"></div>
+  <h2>Waiting for a teacher</h2>
+  <p class="muted" id="teacherNote"></p>
+  <div id="teacherList"></div>
+  <h2>All notes</h2>
+  <div id="noteList"></div>
+</main>
+<script src="/app/shared/exam-prep-render.js"></script>
+<script>
+(function () {
+  var R = window.TutpExamPrepRender, el = R.el;
+  var MODE_LABEL = { revision_notes: 'Revision notes', key_points: 'Key points + formula sheet', flashcards: 'Flashcards', practice_questions: 'Practice questions' };
+  var LANG_LABEL = { en: 'English', te: 'Telugu' };
+  var CHECK_LABEL = { shape: 'Shape and counts', fractions: 'Every fraction is true', script: 'Telugu script', copied: 'No copied source text', model_check: 'Independent Sonnet 5 check', mcq_gates: 'MCQ Gates A/B' };
+  var isTest = new URLSearchParams(location.search).get('test') === '1';
+  var data = null, busy = false;
+  document.getElementById('testToggle').checked = isTest;
+  document.getElementById('testToggle').addEventListener('change', function (e) { location.search = e.target.checked ? '?test=1' : ''; });
+
+  function say(text) {
+    var m = document.getElementById('msg');
+    m.replaceChildren(el('p', null, text));
+    if (text) setTimeout(function () { if (m.firstChild && m.firstChild.textContent === text) m.replaceChildren(); }, 8000);
+  }
+  function post(url, body) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (d) { if (!r.ok) throw new Error(d.message || d.error || ('HTTP ' + r.status)); return d; }); });
+  }
+  function act(label, url, body) {
+    if (busy) return;
+    busy = true;
+    document.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    say(label + '…');
+    post(url, body).then(function () { say(label + ': done.'); }).catch(function (err) { say(label + ' failed: ' + err.message); })
+      .then(function () { busy = false; load(); });
+  }
+  function btn(text, action, onClick, cls) {
+    var b = el('button', 'dc-btn ' + (cls || 'dc-btn--outline'), text);
+    b.type = 'button';
+    b.setAttribute('data-action', action);
+    b.addEventListener('click', onClick);
+    return b;
+  }
+  function pill(status) { return el('span', 'pill ' + status, status.replace('_', ' ')); }
+  function noteName(n) { return (n.board === 'andhra-pradesh' ? 'AP' : 'TS') + ' · ' + MODE_LABEL[n.mode] + ' · ' + LANG_LABEL[n.lang]; }
+
+  function checksList(checks) {
+    var ul = el('ul', 'checks');
+    var final = (checks && checks.final) || {};
+    if (checks && checks.error) ul.appendChild(el('li', 'bad', '✗ ' + checks.error));
+    Object.keys(CHECK_LABEL).forEach(function (k) {
+      var c = final[k];
+      if (!c || c.skipped) return;
+      var li = el('li', c.pass ? 'ok' : 'bad', (c.pass ? '✓ ' : '✗ ') + CHECK_LABEL[k] + (c.share != null ? ' (' + Math.round(c.share * 100) + '%)' : ''));
+      li.setAttribute('data-check', k);
+      if (!c.pass && c.errors && c.errors.length) li.appendChild(el('div', 'muted', c.errors.slice(0, 6).join(' · ')));
+      if (c.suggestions && c.suggestions.length) li.appendChild(el('div', 'muted', 'Suggested fix: ' + c.suggestions.join(' · ')));
+      ul.appendChild(li);
+    });
+    if (checks && checks.attempts && checks.attempts.length > 1) ul.appendChild(el('li', 'muted', 'Haiku\'s version failed a check, so Sonnet 5 wrote it again.'));
+    return ul;
+  }
+
+  function versionCard(note, v) {
+    var box = el('div', 'version');
+    box.setAttribute('data-version', v.id);
+    box.setAttribute('data-status', v.status);
+    var head = el('div', 'bar');
+    head.appendChild(el('strong', null, 'Version ' + v.version));
+    head.appendChild(pill(v.status));
+    if (v.reviewed_by) {
+      var rb = el('span', 'pill by-' + v.reviewed_by, 'approved by ' + (v.reviewed_by === 'ai' ? 'AI' : 'you'));
+      rb.setAttribute('data-reviewed-by', v.reviewed_by);
+      head.appendChild(rb);
+    }
+    head.appendChild(el('span', 'muted', (v.model || '') + ' · $' + Number(v.usd || 0).toFixed(4) + ' · ' + new Date(v.created_at).toLocaleString('en-IN')));
+    if (v.fix_reason) head.appendChild(el('span', 'muted', 'Fix asked: "' + v.fix_reason + '"'));
+    box.appendChild(head);
+    (v.reports || []).forEach(function (r) {
+      var line = el('p', 'report', 'Reported by a parent ' + new Date(r.created_at).toLocaleString('en-IN') + (r.message ? ': "' + r.message + '"' : '.'));
+      line.setAttribute('data-report', r.id);
+      box.appendChild(line);
+    });
+    box.appendChild(checksList(v.checks));
+    if (v.content) {
+      var prev = el('div', 'preview ep-body');
+      R.render(prev, note.mode, { content: v.content });
+      box.appendChild(prev);
+      var map = (note.mindMap || []).find(function (m) { return m.id === v.id; });
+      if (map) {
+        var mp = el('div', 'preview');
+        mp.appendChild(el('p', 'muted', 'Mind map (drawn from these key points):'));
+        R.render(mp, 'mind_map', { svg: map.svg });
+        box.appendChild(mp);
+      }
+    }
+    var actions = el('div', 'actions');
+    if (v.status === 'approved' && ((v.reports || []).length || v.reviewed_by === 'ai')) {
+      actions.appendChild(btn('Keep', 'keep', function () {
+        act('Keep v' + v.version, '/api/admin/exam-prep/decide', { versionId: v.id, action: 'keep' });
+      }, 'dc-btn--blue'));
+    }
+    if (['needs_review', 'needs_fix', 'rejected'].indexOf(v.status) >= 0 && v.content) {
+      actions.appendChild(btn('Approve', 'approve', function () {
+        act('Approve v' + v.version, '/api/admin/exam-prep/decide', { versionId: v.id, action: 'approve' });
+      }, 'dc-btn--blue'));
+    }
+    if (['approved', 'needs_review'].indexOf(v.status) >= 0) {
+      var fixForm = el('div', 'form');
+      fixForm.hidden = true;
+      var fixReason = el('textarea');
+      fixReason.placeholder = 'What needs fixing? (required; only this note is written again)';
+      fixReason.setAttribute('data-field', 'fix-reason');
+      fixForm.appendChild(fixReason);
+      var hide = el('input');
+      hide.type = 'checkbox';
+      hide.setAttribute('data-field', 'hide');
+      if (v.status === 'approved') {
+        var hl = el('label', null, ' Hide now (a real error): parents see "coming soon" until you approve the new version. Unticked, they keep this version meanwhile.');
+        hl.prepend(hide);
+        fixForm.appendChild(hl);
+      }
+      fixForm.appendChild(btn('Send for fix', 'needs_fix_send', function () {
+        if (!fixReason.value.trim()) { say('Please write what needs fixing.'); return; }
+        act('Needs fix v' + v.version + ' (writing the new version, up to 2 minutes)', '/api/admin/exam-prep/decide', { versionId: v.id, action: 'needs_fix', reason: fixReason.value, hide: hide.checked });
+      }, 'dc-btn--blue'));
+      actions.appendChild(btn('Needs fix', 'needs_fix', function () { fixForm.hidden = !fixForm.hidden; }));
+      actions.appendChild(fixForm);
+    }
+    if (['approved', 'needs_review', 'needs_fix', 'failed'].indexOf(v.status) >= 0) {
+      var rejForm = el('div', 'form');
+      rejForm.hidden = true;
+      var rejReason = el('textarea');
+      rejReason.placeholder = 'Why is it rejected? (required)';
+      rejReason.setAttribute('data-field', 'reject-reason');
+      rejForm.appendChild(rejReason);
+      rejForm.appendChild(btn('Reject this version', 'reject_send', function () {
+        if (!rejReason.value.trim()) { say('Please write why it is rejected.'); return; }
+        if (!confirm('Reject this one note? Parents will see coming soon for it.')) return;
+        act('Reject v' + v.version, '/api/admin/exam-prep/decide', { versionId: v.id, action: 'reject', reason: rejReason.value, confirm: true });
+      }));
+      actions.appendChild(btn('Reject', 'reject', function () { rejForm.hidden = !rejForm.hidden; }));
+      actions.appendChild(rejForm);
+    }
+    box.appendChild(actions);
+    return box;
+  }
+
+  function history(note) {
+    var wrap = el('div');
+    if (!note.decisions.length) return wrap;
+    var latest = note.decisions.find(function (d) { return !d.undone_at; });
+    var vno = function (id) { var v = note.versions.find(function (x) { return x.id === id; }); return v ? 'v' + v.version : '?'; };
+    if (latest) {
+      wrap.appendChild(btn('Undo: ' + latest.action.replace('_', ' ') + ' ' + vno(latest.version_id), 'undo', function () {
+        act('Undo', '/api/admin/exam-prep/undo', { key: note.key });
+      }));
+    }
+    var t = el('table');
+    var h = el('tr');
+    ['When', 'Decision', 'Version', 'Before → after', 'Reason'].forEach(function (x) { h.appendChild(el('th', null, x)); });
+    t.appendChild(h);
+    note.decisions.forEach(function (d) {
+      var r = el('tr', d.undone_at ? 'undone' : null);
+      [new Date(d.created_at).toLocaleString('en-IN'), d.action.replace('_', ' ') + (d.decided_by === 'ai' ? ' (AI)' : '') + (d.hide ? ' (hidden)' : '') + (d.undone_at ? ' — undone' : ''), vno(d.version_id),
+        d.status_before + ' → ' + d.status_after + (d.other_version_id ? '; ' + vno(d.other_version_id) + ': ' + (d.other_status_before || 'new') + ' → ' + d.other_status_after : ''), d.reason || '']
+        .forEach(function (x) { r.appendChild(el('td', null, x)); });
+      t.appendChild(r);
+    });
+    wrap.appendChild(el('p', 'muted', 'Decision history'));
+    wrap.appendChild(t);
+    return wrap;
+  }
+
+  function draw() {
+    var review = document.getElementById('reviewList'), all = document.getElementById('noteList');
+    var sampleBox = document.getElementById('sampleList'), teacherBox = document.getElementById('teacherList');
+    review.replaceChildren();
+    all.replaceChildren();
+    sampleBox.replaceChildren();
+    teacherBox.replaceChildren();
+    function listed(box, n, v, tag) {
+      var wrap = el('div', 'note');
+      wrap.setAttribute('data-key', n.key);
+      wrap.setAttribute('data-list', tag);
+      wrap.appendChild(el('strong', null, noteName(n)));
+      wrap.appendChild(versionCard(n, v));
+      box.appendChild(wrap);
+    }
+    data.notes.forEach(function (n) {
+      n.versions.forEach(function (v) {
+        if (v.status === 'needs_review' || v.status === 'failed' || (v.status === 'approved' && (v.reports || []).length)) listed(review, n, v, 'review');
+        if (data.sample.indexOf(v.id) >= 0) listed(sampleBox, n, v, 'sample');
+        if (data.teacher.queue.indexOf(v.id) >= 0) listed(teacherBox, n, v, 'teacher');
+      });
+      var d = el('details', 'note');
+      d.setAttribute('data-key', n.key);
+      d.setAttribute('data-note', n.board + '|' + n.mode + '|' + n.lang);
+      var s = el('summary');
+      s.appendChild(el('strong', null, noteName(n)));
+      var served = n.versions.find(function (v) { return v.id === n.servedId; });
+      s.appendChild(served ? pill('approved') : el('span', 'pill', 'coming soon'));
+      if (served) s.appendChild(el('span', 'muted', 'serving v' + served.version));
+      var pending = n.versions.filter(function (v) { return v.status === 'needs_review'; }).length;
+      if (pending) s.appendChild(el('span', 'muted', pending + ' waiting for review'));
+      d.appendChild(s);
+      var live = n.versions.some(function (v) { return ['generating', 'needs_review', 'approved', 'needs_fix'].indexOf(v.status) >= 0; });
+      if (!live) {
+        d.appendChild(btn('Generate this note', 'generate', function () {
+          act('Writing ' + noteName(n) + ' (up to 2 minutes)', '/api/admin/exam-prep/generate', { board: n.board, mode: n.mode, lang: n.lang, test: isTest });
+        }, 'dc-btn--blue'));
+      }
+      d.appendChild(history(n));
+      n.versions.forEach(function (v) { d.appendChild(versionCard(n, v)); });
+      all.appendChild(d);
+    });
+    if (!review.children.length) review.appendChild(el('p', 'muted', 'Nothing is waiting for your review.'));
+    if (!sampleBox.children.length) sampleBox.appendChild(el('p', 'muted', 'No Telugu note approved by the AI yet.'));
+    document.getElementById('teacherNote').textContent = (data.teacher.accountExists
+      ? 'A teacher account exists. These AI-approved notes are queued for a teacher; the teacher screen comes with the teacher features.'
+      : 'No approved teacher account yet. These AI-approved notes are queued and wait for the first teacher.')
+      + ' Queued: ' + data.teacher.queue.length + '.';
+    if (!teacherBox.children.length) teacherBox.appendChild(el('p', 'muted', 'No AI-approved notes are waiting.'));
+  }
+
+  function load() {
+    fetch('/api/admin/exam-prep' + (isTest ? '?test=1' : ''), { cache: 'no-store' })
+      .then(function (r) { if (r.status === 403) { location.href = '/admin/login'; throw new Error('not signed in'); } if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (d) { data = d; draw(); })
+      .catch(function (err) { say('Could not load the notes: ' + err.message); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

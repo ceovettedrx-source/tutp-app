@@ -23,7 +23,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js'];
+// exam-prep.spec.js needs E2E_ADMIN_TOKEN in the environment (round 4).
+const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js', 'exam-prep.spec.js'];
 const MODEL_FILES = ['server/prompts', 'server/pointing-model.js', 'server/models.js', 'server/notes-ground.js'];
 const LAST_LIVE = path.join(__dirname, 'recordings', 'LAST_LIVE');
 const OUT = path.join(__dirname, 'output');

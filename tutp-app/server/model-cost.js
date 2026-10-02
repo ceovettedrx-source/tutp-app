@@ -23,9 +23,10 @@ export function costUsd(model, usage) {
 let supabase = null;
 export function initModelCost(client) { supabase = client; }
 
-export function logModelCall({ feature, model, usage, familyId = null, studentId = null, ms = null, replay = false }) {
+export function logModelCall({ feature, model, usage, familyId = null, studentId = null, ms = null, replay = false, isTest = false }) {
   const properties = {
     feature, model, replay,
+    ...(isTest ? { test: true } : {}),
     input_tokens: usage?.input_tokens ?? null,
     output_tokens: usage?.output_tokens ?? null,
     cache_read: usage?.cache_read_input_tokens ?? 0,

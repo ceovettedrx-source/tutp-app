@@ -11,6 +11,7 @@
 <link href="/css/story-modal.css" rel="stylesheet"/>
 <link href="/css/dashboard-cards.css" rel="stylesheet"/>
 <link href="/css/baseline-survey.css" rel="stylesheet"/>
+<link href="/css/exam-prep.css" rel="stylesheet"/>
 <style>
         body { background-color: #f7f9ff; color: #181c20; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -333,6 +334,20 @@
 <span class="dc-btn dc-btn--marigold">Browse Verified Tutors<span class="material-symbols-outlined">arrow_forward</span></span>
 </div>
 </a>
+
+<!-- Exam prep (round 4): filled by /app/shared/exam-prep.js -->
+<div class="dc-grid dc-grid--2">
+<div class="dc-card" id="examPrepCard">
+<div class="dc-card__head"><span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">quiz</span></span><div><p class="dc-eyebrow">Exam prep</p><h3 class="dc-title">Loading…</h3></div></div>
+</div>
+<div class="dc-card" id="examPrepWeekCard">
+<div class="dc-card__head">
+<span class="dc-chip dc-chip--green"><span class="material-symbols-outlined">timer</span></span>
+<div><p class="dc-eyebrow">Family progress</p><h3 class="dc-title">Exam prep this week</h3></div>
+</div>
+<div id="examPrepWeekList"><p class="dc-text">Loading…</p></div>
+</div>
+</div>
 
 <!-- STANDARD tier -->
 <div class="dc-grid dc-grid--2">
@@ -2008,4 +2023,6 @@
 <script src="/js/weekly-goal.js" defer></script>
 <script src="/js/billing.js" defer></script>
 <script src="/js/baseline-survey.js" defer></script>
+<script src="/app/shared/exam-prep-render.js" defer></script>
+<script src="/app/shared/exam-prep.js" defer></script>
 </body></html>

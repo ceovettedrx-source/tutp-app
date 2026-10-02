@@ -15,7 +15,9 @@ import { fileURLToPath } from 'url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const RECORDINGS = path.join(HERE, 'recordings');
-const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor)(\?|$)/;
+// Exam prep (round 4): writing a test note (generate, or decide with
+// needs_fix) calls the model too, replayed the same way (test notes only).
+const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor|admin\/exam-prep\/(?:generate|decide))(\?|$)/;
 
 export function e2eMode(spec) {
   const mode = ['replay', 'record', 'live'].includes(process.env.E2E_MODE) ? process.env.E2E_MODE : 'replay';

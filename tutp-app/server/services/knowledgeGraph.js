@@ -159,6 +159,53 @@ export async function getLearningComponent(grade, subject, state, topic) {
 }
 
 /**
+ * Everything the knowledge graph holds for one state textbook chapter (exam
+ * prep, round 4): every StateMapping row for that state and chapter whose
+ * LearningComponent is at this grade and whose LearningOutcome is in this
+ * subject, each with its Misconceptions. Chapter names match exactly
+ * ("Chapter 13: Fractions"). No match -> { sourced: false } and the caller
+ * shows "coming soon": nothing is ever generated without a source.
+ *
+ * @returns {Promise<
+ *   { sourced: true, state, grade, subject, chapter, components: {
+ *       stateMapping, learningComponent, learningOutcome, misconceptions }[],
+ *     tier3Texts: string[] }
+ *   | { sourced: false, reason: string }
+ * >}
+ * tier3Texts: every string of the tier-3 (restricted) sources behind this
+ * chapter, for the "no copied text" gate.
+ */
+export async function getChapter(state, grade, subject, chapter) {
+  const records = await loadAllRecords();
+  const components = [];
+  for (const stateMapping of records.filter((r) =>
+    r.type === 'StateMapping' && r.state === state && r.textbook_chapter === chapter && r.target_node_type === 'LearningComponent')) {
+    const learningComponent = records.find(
+      (r) => r.type === 'LearningComponent' && r.id === stateMapping.target_node_id && r.grade === grade
+    );
+    if (!learningComponent) continue;
+    const learningOutcome = records.find(
+      (r) => r.type === 'LearningOutcome' && r.id === learningComponent.parent_learning_outcome_id && r.subject === subject
+    );
+    if (!learningOutcome) continue;
+    const misconceptions = records.filter(
+      (r) => r.type === 'Misconception' && r.learning_component_id === learningComponent.id
+    );
+    components.push({ stateMapping, learningComponent, learningOutcome, misconceptions });
+  }
+  if (!components.length) {
+    return { sourced: false, reason: 'no StateMapping for this state + chapter at this grade and subject' };
+  }
+  const tier3Texts = [];
+  const strings = (v) => (typeof v === 'string' ? [v] : Array.isArray(v) ? v.flatMap(strings)
+    : v && typeof v === 'object' ? Object.values(v).flatMap(strings) : []);
+  for (const r of records) {
+    if (String(r.source?.license_tier || '').startsWith('tier-3')) tier3Texts.push(...strings(r));
+  }
+  return { sourced: true, state, grade, subject, chapter, components, tier3Texts };
+}
+
+/**
  * Looks up Misconception records by id (e.g. the `in-misc-...` ids embedded
  * as [in-misc-...] tags in generated lesson content, so a verifier can pull
  * up the full record — error_pattern_en, produces_choice_pattern — behind a

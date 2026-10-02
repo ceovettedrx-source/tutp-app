@@ -20,13 +20,15 @@ export function anthropicHeaders() {
   };
 }
 
-export async function callClaude({ feature, body, familyId = null, studentId = null, mode = 'live', variant = '', attempt = 1, recordings = null, cost = null }) {
+// isTest marks a call made for an e2e test note (exam prep, round 4), which
+// has no family: its model.call row is left out of the founder's cost card.
+export async function callClaude({ feature, body, familyId = null, studentId = null, mode = 'live', variant = '', attempt = 1, recordings = null, cost = null, isTest = false }) {
   const t0 = Date.now();
   const r = await modelFetch({ mode, feature, variant, body, attempt, headers: anthropicHeaders(), recordings });
   const ok = r.status >= 200 && r.status < 300;
   const logged = logModelCall({
     feature, model: body.model, usage: ok ? r.data && r.data.usage : null,
-    familyId, studentId, ms: Date.now() - t0, replay: r.replayed
+    familyId, studentId, ms: Date.now() - t0, replay: r.replayed, isTest
   });
   const usd = ok ? logged.usd : 0;
   if (cost && usd) cost.usd = Math.round(((cost.usd || 0) + usd) * 1e6) / 1e6;

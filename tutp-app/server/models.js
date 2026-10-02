@@ -21,6 +21,12 @@ export const MODELS = {
   question_paper: 'claude-sonnet-5',
   lesson_material: 'claude-sonnet-5',
   lesson_verify: 'claude-sonnet-5',
+  // Exam prep notes (round 4): written once per note from the admin page,
+  // never on a parent's request. Haiku first; Sonnet 5 writes it again when
+  // the gate finds a problem; the independent check is always Sonnet 5.
+  exam_prep_generate: 'claude-haiku-4-5',
+  exam_prep_retry: 'claude-sonnet-5',
+  exam_prep_check: 'claude-sonnet-5',
 };
 
 // The Storytelling model for the parent's chosen language ("English" is the

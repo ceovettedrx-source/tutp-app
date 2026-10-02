@@ -1,5 +1,5 @@
 {
-  "_note": "These three components are Tut-P's OWN grade-specific operationalization of the stage-level competency C-1.2 (see fractions-g4-g6.json) into a CPA/bar-model teaching sequence — this decomposition itself is not something NCF-SE specifies (NCF competencies are intentionally stage-level, leaving grade-by-grade sequencing to boards/textbooks), so verification_status stays 'placeholder' here even though the parent LO is 'sourced'. What would move these to 'sourced' is cross-checking the grade placement (should equivalence be grade 4 or grade 5?) against actual NCERT/state syllabus documents, not against NCF-SE itself.",
+  "_note": "These three components are Tut-P's OWN grade-specific operationalization of the stage-level competency C-1.2 (see fractions-g4-g6.json) into a CPA/bar-model teaching sequence — this decomposition itself is not something NCF-SE specifies (NCF competencies are intentionally stage-level, leaving grade-by-grade sequencing to boards/textbooks), so verification_status stays 'placeholder' here even though the parent LO is 'sourced'. What would move these to 'sourced' is cross-checking the grade placement (should equivalence be grade 4 or grade 5?) against actual NCERT/state syllabus documents, not against NCF-SE itself. REVIEWED 2026-09-30 (round 4, exam prep pilot): all three statements are Tut-P's own wording (no textbook text); grade placement of lc-02 and lc-03 matches the AP and TS Class 5 'Chapter 13: Fractions' mappings (state-mappings files), and lc-01 stays grade 4 as their prerequisite. Status moved to 'agent_reviewed': reviewed by the AI agent (Claude) against the state chapter mapping, not by a person, and not 'sourced' (no primary syllabus document was quoted). A human review would move it on. key_terms_en/key_terms_te are Tut-P's own glossary for exam prep notes; the Telugu terms (లవం, హారం, సజాతి/విజాతి భిన్నాలు) follow the usual AP/TS school usage and are on the founder's Telugu review list.",
   "records": [
     {
       "id": "in-ncf2023-math-preparatory-lo-001-lc-01",
@@ -7,12 +7,12 @@
       "parent_learning_outcome_id": "in-ncf2023-math-preparatory-lo-001",
       "grade": 4,
       "statement_en": "Represent simple fractions (half, third, quarter) using pictorial models such as shaded regions and bar models",
-      "statement_te": "సాధారణ భిన్నాలను (సగం, మూడోవంతు, పావు వంతు) షేడెడ్ ప్రాంతాలు, బార్ మోడల్స్ వంటి పిక్టోరియల్ నమూనాలతో సూచించడం",
+      "statement_te": "సాధారణ భిన్నాలను (సగం, మూడో వంతు, పావు వంతు) రంగు వేసిన భాగాలు, పట్టీ బొమ్మలు (బార్ మోడల్) వంటి చిత్రాలతో చూపించడం",
       "skill_verb": "represent",
       "cpa_stage": "pictorial",
       "bar_model_applicable": true,
       "difficulty": "at-grade",
-      "verification_status": "placeholder",
+      "verification_status": "agent_reviewed",
       "prerequisite_ids": [],
       "leads_to_ids": [
         "in-ncf2023-math-preparatory-lo-001-lc-02"
@@ -29,7 +29,19 @@
       "cpa_stage": "pictorial",
       "bar_model_applicable": true,
       "difficulty": "at-grade",
-      "verification_status": "placeholder",
+      "verification_status": "agent_reviewed",
+      "key_terms_en": [
+        { "term": "fraction", "meaning": "a number that names equal parts of one whole, such as 3/4" },
+        { "term": "numerator", "meaning": "the top number: how many equal parts are taken" },
+        { "term": "denominator", "meaning": "the bottom number: how many equal parts the whole is cut into" },
+        { "term": "equivalent fractions", "meaning": "fractions that name the same amount, such as 1/2 and 2/4" }
+      ],
+      "key_terms_te": [
+        { "term": "భిన్నం", "meaning": "ఒక పూర్ణంలోని సమాన భాగాలను తెలిపే సంఖ్య, ఉదా. 3/4" },
+        { "term": "లవం", "meaning": "పైన ఉండే సంఖ్య: ఎన్ని సమాన భాగాలు తీసుకున్నామో చెబుతుంది" },
+        { "term": "హారం", "meaning": "కింద ఉండే సంఖ్య: పూర్ణాన్ని ఎన్ని సమాన భాగాలు చేశామో చెబుతుంది" },
+        { "term": "సమాన భిన్నాలు", "meaning": "ఒకే పరిమాణాన్ని తెలిపే భిన్నాలు, ఉదా. 1/2, 2/4" }
+      ],
       "prerequisite_ids": [
         "in-ncf2023-math-preparatory-lo-001-lc-01"
       ],
@@ -48,7 +60,19 @@
       "cpa_stage": "pictorial",
       "bar_model_applicable": true,
       "difficulty": "at-grade",
-      "verification_status": "placeholder",
+      "verification_status": "agent_reviewed",
+      "key_terms_en": [
+        { "term": "like fractions", "meaning": "fractions with the same denominator, such as 2/7 and 5/7" },
+        { "term": "unlike fractions", "meaning": "fractions with different denominators, such as 1/3 and 1/4" },
+        { "term": "compare", "meaning": "decide which fraction is greater, smaller, or whether they are equal" },
+        { "term": "ascending / descending order", "meaning": "arranged from smallest to greatest / greatest to smallest" }
+      ],
+      "key_terms_te": [
+        { "term": "సజాతి భిన్నాలు", "meaning": "ఒకే హారం గల భిన్నాలు, ఉదా. 2/7, 5/7" },
+        { "term": "విజాతి భిన్నాలు", "meaning": "వేర్వేరు హారాలు గల భిన్నాలు, ఉదా. 1/3, 1/4" },
+        { "term": "పోల్చడం", "meaning": "ఏ భిన్నం పెద్దదో, చిన్నదో, లేదా రెండూ సమానమో తేల్చడం" },
+        { "term": "ఆరోహణ / అవరోహణ క్రమం", "meaning": "చిన్నది నుంచి పెద్దదానికి / పెద్దది నుంచి చిన్నదానికి వరుసగా అమర్చడం" }
+      ],
       "prerequisite_ids": [
         "in-ncf2023-math-preparatory-lo-001-lc-02"
       ],
