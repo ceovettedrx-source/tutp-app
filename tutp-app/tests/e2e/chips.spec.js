@@ -519,6 +519,40 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     return out.join(' | ');
   }, () => phone && phone.page);
 
+  // The chip row follows "Explain in": te and hi use their own text, another
+  // language falls back to the UI language (tutp_ui_lang), then English. No model call.
+  await record('c16', 'chip row language follows "Explain in" (en, te, hi; French falls back to the UI language, then English), updating at once', async () => {
+    const { page } = phone;
+    await page.goto(BASE + '/app/mother/');
+    await page.waitForFunction(() => typeof window.openHomeworkModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
+    await page.evaluate(() => { try { localStorage.removeItem('tutp_ui_lang'); } catch (e) {} });
+    await openModal(page);
+    const want = (lang) => page.evaluate((l) => {
+      const m = window.TUTP_CHIP_MESSAGES[l];
+      return { chips: ['chip.answer', 'chip.explain', 'chip.notes'].map((k) => m[k]), group: m['chip.group'] };
+    }, lang);
+    const have = async () => ({ chips: await chipTexts(page), group: (await page.locator('#hwChipLabel').textContent()).trim() });
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const out = [];
+    const check = async (select, lang, why) => {
+      await page.selectOption('#hwModalLang', select);
+      const w = await want(lang), h = await have();
+      expect(same(w, h), `${why}: wanted ${JSON.stringify(w)} got ${JSON.stringify(h)}`);
+      out.push(`${select}->${lang}`);
+    };
+    const en = await want('en'), te = await want('te'), hi = await want('hi');
+    expect(!same(en, te) && !same(en, hi) && !same(te, hi), 'the en, te and hi chip texts differ');
+    await check('English', 'en', 'English');
+    await check('Telugu', 'te', 'Telugu');
+    await check('Hindi', 'hi', 'Hindi');
+    await check('French', 'en', 'French with no UI language');
+    await page.evaluate(() => localStorage.setItem('tutp_ui_lang', 'te'));
+    await check('French', 'te', 'French with UI language te');
+    await check('Hindi', 'hi', 'Hindi overrides the UI language');
+    await page.evaluate(() => localStorage.removeItem('tutp_ui_lang'));
+    return out.join(' | ');
+  }, () => phone && phone.page);
+
   let father = null;
   await record('c10', 'father: chips in the modal; family-member and child pages carry the markup', async () => {
     father = await signIn('father');

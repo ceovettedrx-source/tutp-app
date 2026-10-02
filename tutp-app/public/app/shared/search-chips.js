@@ -98,7 +98,12 @@ window.TUTP_CHIP_MESSAGES = {
         }
         return 'en';
     }
-    const labelFor = (key) => (MSG[uiLang()] && MSG[uiLang()][key]) || MSG.en[key] || key;
+    // The language of the chip row and the notes card headings: the "Explain
+    // in" language when we have text for it, else the page's UI language,
+    // else English (labelFor falls back to English per key).
+    const CARD_LANG = { English: 'en', Telugu: 'te', Hindi: 'hi' };
+    const chipLang = () => CARD_LANG[lang()] || uiLang();
+    const labelFor = (key) => (MSG[chipLang()] && MSG[chipLang()][key]) || MSG.en[key] || key;
 
     function loadConfig() {
         if (config) return Promise.resolve(config);
@@ -199,16 +204,12 @@ window.TUTP_CHIP_MESSAGES = {
         PLAIN_BOX.split(' ').forEach((c) => block.classList.toggle(c, plain));
     }
 
-    // The language of the card's headings: the language the notes are written
-    // in when it is one we have headings for, else the page's UI language.
-    const CARD_LANG = { English: 'en', Telugu: 'te', Hindi: 'hi' };
-
     function showNotes(data) {
         const block = notesBlock();
         block.replaceChildren();
         if (data && data.version === 2 && window.TutpNotesCard) {
             setBoxLook(block, false);
-            block.appendChild(window.TutpNotesCard.render(data, { lang: CARD_LANG[lang()] || uiLang() }));
+            block.appendChild(window.TutpNotesCard.render(data, { lang: chipLang() }));
             return;
         }
         setBoxLook(block, true);
@@ -332,7 +333,9 @@ window.TUTP_CHIP_MESSAGES = {
     };
 
     document.addEventListener('change', (e) => {
-        // The notes follow the "Explain in" language.
-        if (e.target && e.target.id === 'hwModalLang' && config && hasResult && selectedId === 'notes') applyMode();
+        // The chip row and the notes follow the "Explain in" language.
+        if (!e.target || e.target.id !== 'hwModalLang' || !config) return;
+        renderChips();
+        if (hasResult && selectedId === 'notes') applyMode();
     });
 })();
