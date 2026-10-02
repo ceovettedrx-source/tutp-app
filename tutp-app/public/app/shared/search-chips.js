@@ -157,6 +157,7 @@ window.TUTP_CHIP_MESSAGES = {
     function place(inResults) {
         const row = $('hwChipRow');
         if (!row) return;
+        row.classList.add('no-print');   // the chip buttons never print
         const results = $('hwModalResults');
         if (inResults) {
             results.insertBefore(row, results.firstChild);
@@ -180,32 +181,49 @@ window.TUTP_CHIP_MESSAGES = {
         document.querySelectorAll('#hwModalQuestionsArea details').forEach((d) => { d.open = open; });
     }
 
+    // The plain look (messages, and the fallback when the reply has no
+    // structure) is the beige box; the structured card brings its own design.
+    const PLAIN_BOX = 'bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mt-2';
     function notesBlock() {
         let block = $('hwNotesBlock');
         if (block) return block;
         block = document.createElement('div');
         block.id = 'hwNotesBlock';
-        block.className = 'hidden bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mt-2';
+        block.className = 'hidden ' + PLAIN_BOX;
         block.setAttribute('aria-live', 'polite');
         const results = $('hwModalResults');
         results.insertBefore(block, $('hwModalHomeworkResultBlock'));
         return block;
     }
+    function setBoxLook(block, plain) {
+        PLAIN_BOX.split(' ').forEach((c) => block.classList.toggle(c, plain));
+    }
+
+    // The language of the card's headings: the language the notes are written
+    // in when it is one we have headings for, else the page's UI language.
+    const CARD_LANG = { English: 'en', Telugu: 'te', Hindi: 'hi' };
 
     function showNotes(data) {
         const block = notesBlock();
         block.replaceChildren();
+        if (data && data.version === 2 && window.TutpNotesCard) {
+            setBoxLook(block, false);
+            block.appendChild(window.TutpNotesCard.render(data, { lang: CARD_LANG[lang()] || uiLang() }));
+            return;
+        }
+        setBoxLook(block, true);
         const title = document.createElement('div');
         title.className = 'font-label-md text-label-md text-secondary';
         title.textContent = (data.subject ? data.subject + ' · ' : '') + labelFor('chip.notes');
         const ol = document.createElement('ol');
-        data.notes.forEach((n) => { const li = document.createElement('li'); li.textContent = n; ol.appendChild(li); });
+        (data.plain || data.notes || []).forEach((n) => { const li = document.createElement('li'); li.textContent = n; ol.appendChild(li); });
         block.append(title, ol);
     }
 
     function showNotesMessage(text) {
         const block = notesBlock();
         block.replaceChildren();
+        setBoxLook(block, true);
         const p = document.createElement('p');
         p.className = 'text-[15px] text-on-surface-variant m-0';
         p.textContent = text;

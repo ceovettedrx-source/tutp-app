@@ -12,11 +12,11 @@ import { callClaude } from '../anthropic.js';
 import { MODELS, modelSettings } from '../models.js';
 import { replayMode } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
+import { normalizeNotes, plainNotes } from '../notes-schema.js';
 
 const MAX_QUESTIONS = 8;
 const MAX_QUESTION_CHARS = 600;
 const MAX_TOPIC_CHARS = 1500;
-const MAX_NOTES = 10;
 const BROWSER_KINDS = ['impression', 'tap'];
 
 // Notes caps, per family (in memory, so per instance like the other
@@ -44,20 +44,21 @@ export function createNotesCache({ max = NOTES_LIMITS.cacheMax, ttlMs = NOTES_LI
   };
 }
 
-// The notes the model returned, or null: { subject, notes: [string] }.
+// The notes the model returned: the structured notes (version 2, see
+// server/notes-schema.js), else { plain: [string], subject } when the JSON has
+// no usable structure (the page shows the plain rendering), else null.
 export function parseNotes(data) {
   const block = ((data && data.content) || []).find((b) => b && b.type === 'text');
   const text = block && typeof block.text === 'string' ? block.text : '';
   const a = text.indexOf('{'), b = text.lastIndexOf('}');
   if (a < 0 || b <= a) return null;
-  try {
-    const o = JSON.parse(text.slice(a, b + 1));
-    const notes = (Array.isArray(o.notes) ? o.notes : []).filter((n) => typeof n === 'string' && n.trim()).map((n) => n.trim()).slice(0, MAX_NOTES);
-    if (!notes.length) return null;
-    return { subject: typeof o.subject === 'string' ? o.subject.slice(0, 60) : '', notes };
-  } catch {
-    return null;
-  }
+  let o;
+  try { o = JSON.parse(text.slice(a, b + 1)); } catch { return null; }
+  const structured = normalizeNotes(o);
+  if (structured) return structured;
+  const plain = plainNotes(o);
+  if (plain) console.warn('notes: plain fallback (reply has no usable structure)');
+  return plain;
 }
 
 // The text the notes are written from: the numbered questions, else the topic.
@@ -160,6 +161,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
           }
           const notes = parseNotes(result.data);
           if (!notes) return res.status(502).json({ error: 'The notes could not be made. Please try again.' });
+          res.set('X-Notes-Format', notes.plain ? 'plain' : 'structured');
           notesCache.set(cacheKey, notes);
           res.json(extras(notes));
         } catch (err) {

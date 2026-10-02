@@ -141,6 +141,19 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       }),
     ]);
   }
+  // What the structured notes card shows (notes-design-v2).
+  const structure = (page) => page.evaluate(() => {
+    const q = (s) => document.querySelector('#hwNotesBlock ' + s);
+    return {
+      title: !!(q('.nd-title') && q('.nd-title').textContent.trim()),
+      idea: !!(q('.nd-idea') && q('.nd-idea').textContent.trim()),
+      steps: document.querySelectorAll('#hwNotesBlock .nd-steps li').length,
+      quick: document.querySelectorAll('#hwNotesBlock .nd-quick details').length,
+      say: !!q('.nd-say'),
+      remember: !!q('.nd-rem'),
+      words: (q('.nd') ? q('.nd').innerText : '').split(/\s+/).filter(Boolean).length,
+    };
+  });
   const detailsOpen = (page) => page.$$eval('#hwModalQuestionsArea details', (ds) => ds.map((d) => d.open));
   const resetModal = (page) => page.evaluate(() => resetHomeworkModal());
 
@@ -212,9 +225,10 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     await record('c4', 'Notes on a result: one notes call, no homework call, cached', async () => {
       const hw = net.homework.length, nt = net.notes.length;
       await chip(page, 'notes').click();
-      await page.locator('#hwNotesBlock li').first().waitFor({ state: 'visible', timeout: 120000 });
-      const items = await page.$$eval('#hwNotesBlock li', (ls) => ls.length);
-      expect(items >= 3, 'notes items: ' + items);
+      await page.locator('#hwNotesBlock .nd').first().waitFor({ state: 'visible', timeout: 120000 });
+      const s = await structure(page);
+      expect(s.title && s.idea && s.steps >= 2 && s.quick === 2 && s.say, 'notes structure: ' + JSON.stringify(s));
+      const items = s.steps;
       expect(net.notes.length === nt + 1, 'one notes call expected, got ' + (net.notes.length - nt));
       expect(net.homework.length === hw, 'notes made a homework call');
       const sent = JSON.parse(net.notes[net.notes.length - 1]);
@@ -224,9 +238,9 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       await chip(page, 'answer').click();
       expect(await page.locator('#hwModalHomeworkResultBlock').isVisible(), 'cards should come back');
       await chip(page, 'notes').click();
-      await page.locator('#hwNotesBlock li').first().waitFor({ state: 'visible', timeout: 10000 });
+      await page.locator('#hwNotesBlock .nd').first().waitFor({ state: 'visible', timeout: 10000 });
       expect(net.notes.length === nt + 1, 'cached notes should not call again');
-      return `${items} notes; 1 call; cached; first notes call cost $${(net.notesUsd[0] || 0).toFixed(5)} (${e2e.mode})`;
+      return `${items} method steps; 1 call; cached; first notes call cost $${(net.notesUsd[0] || 0).toFixed(5)} (${e2e.mode})`;
     }, page);
 
     await record('c5', 'a typed instruction overrides the selected chip', async () => {
@@ -250,10 +264,95 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       const hw = net.homework.length, nt = net.notes.length;
       await page.fill('#hwModalText', TYPED);
       await page.click('#hwModalSubmitBtn');
-      await page.locator('#hwNotesBlock li').first().waitFor({ state: 'visible', timeout: 180000 });
+      await page.locator('#hwNotesBlock .nd').first().waitFor({ state: 'visible', timeout: 180000 });
       expect(net.homework.length === hw + 1, 'one homework call expected');
       expect(net.notes.length === nt + 1, 'one notes call expected');
       return '1 homework + 1 notes';
+    }, page);
+
+    await record('c12', 'notes card: quick-check answers behind a tap, model text is never markup, print view', async () => {
+      // c6 left the structured notes on screen.
+      const closed = await page.$$eval('#hwNotesBlock .nd-quick details', (ds) => ds.map((d) => d.open));
+      expect(closed.length === 2 && closed.every((o) => !o), 'quick-check answers should start hidden: ' + closed);
+      await page.locator('#hwNotesBlock .nd-quick summary').first().click();
+      const after = await page.$$eval('#hwNotesBlock .nd-quick details', (ds) => ds.map((d) => d.open));
+      expect(after[0] && !after[1], 'tap should open only the first answer: ' + after);
+      expect(await page.locator('#hwNotesBlock .nd-quick .nd-a').first().isVisible(), 'answer not visible after the tap');
+      const html = await page.$eval('#hwNotesBlock', (b) => b.innerHTML);
+      expect(!/<script|<img|onerror=|<iframe/i.test(html), 'markup from model text in the card');
+      expect(await page.$eval('#hwNotesBlock .nd', (n) => n.getAttribute('lang') === 'en'), 'card lang should be en');
+      // Print view: what "Save as PDF / Print" shows.
+      await page.setViewportSize({ width: 794, height: 1123 });
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event('beforeprint'));
+        document.getElementById('hwModalResults').classList.add('print-target');
+      });
+      await page.emulateMedia({ media: 'print' });
+      const print = await page.evaluate(() => {
+        const vis = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' && getComputedStyle(e).display !== 'none'; };
+        const card = document.querySelector('#hwNotesBlock .nd');
+        return {
+          chipRow: vis(document.getElementById('hwChipRow')),
+          buttons: [...document.querySelectorAll('#hwNotesBlock button')].filter(vis).length,
+          answers: [...document.querySelectorAll('#hwNotesBlock .nd-a')].every(vis),
+          white: getComputedStyle(card).backgroundColor === 'rgb(255, 255, 255)',
+          width: Math.round(card.getBoundingClientRect().width),
+          // The topic title and the "Notes" label must be on the page (not above its top edge).
+          titleTop: Math.round(card.querySelector('.nd-title').getBoundingClientRect().top + window.scrollY),
+          kickerVisible: vis(card.querySelector('.nd-kicker')),
+          hintShown: [...card.querySelectorAll('.nd-hint')].some(vis),
+          cardTop: Math.round(card.getBoundingClientRect().top + window.scrollY),
+        };
+      });
+      await page.screenshot({ path: path.join(OUT, 'notes-print.png'), fullPage: true });
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event('afterprint'));
+        document.getElementById('hwModalResults').classList.remove('print-target');
+      });
+      await page.emulateMedia({ media: 'screen' });
+      await page.setViewportSize({ width: 1280, height: 900 });
+      expect(!print.chipRow && print.buttons === 0 && print.answers && print.white && print.titleTop >= 0 && print.kickerVisible && !print.hintShown, 'print view: ' + JSON.stringify(print));
+      return `answers open, no markup; print: chips hidden, 0 buttons, answers visible, white (${print.width}px)`;
+    }, page);
+
+    // Other subjects (typed text, English): the structure is there every time.
+    for (const [id, name, typed] of [['c13a', 'science', 'Photosynthesis in plants: sunlight, water and air.'], ['c13b', 'language', 'Write the plural of: box, child, leaf.']]) {
+      await record(id, `notes card for ${name}: structure present, not a wall of text`, async () => {
+        await resetModal(page);
+        await openModal(page);
+        await chip(page, 'notes').click();
+        await page.fill('#hwModalText', typed);
+        await page.click('#hwModalSubmitBtn');
+        await page.locator('#hwNotesBlock .nd').first().waitFor({ state: 'visible', timeout: 180000 });
+        const s = await structure(page);
+        expect(s.title && s.idea && s.steps >= 2 && s.quick === 2 && s.say, 'structure: ' + JSON.stringify(s));
+        expect(s.words <= 420, 'too long: ' + s.words + ' words');
+        await page.setViewportSize({ width: 1280, height: 2600 });
+        await page.locator('#hwNotesBlock').screenshot({ path: path.join(OUT, `notes-after-${name}.png`) });
+        await page.setViewportSize({ width: 1280, height: 900 });
+        return `${s.words} words, ${s.steps} steps, remember ${s.remember}`;
+      }, page);
+    }
+
+    await record('c14', 'notes fallback: no structure -> the plain list; a failed call -> message + Try again', async () => {
+      await page.route('**/api/homework-notes', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ plain: ['first point', 'second point'], subject: 'Math' }) }));
+      await resetModal(page);
+      await openModal(page);
+      await chip(page, 'notes').click();
+      await page.fill('#hwModalText', TYPED);
+      await page.click('#hwModalSubmitBtn');
+      await page.locator('#hwNotesBlock li').first().waitFor({ state: 'visible', timeout: 180000 });
+      expect((await page.locator('#hwNotesBlock li').count()) === 2 && (await page.locator('#hwNotesBlock .nd').count()) === 0, 'plain fallback not shown');
+      await page.unroute('**/api/homework-notes');
+      await page.route('**/api/homework-notes', (route) => route.fulfill({ status: 502, contentType: 'application/json', body: '{"error":"x"}' }));
+      await resetModal(page);
+      await openModal(page);
+      await chip(page, 'notes').click();
+      await page.fill('#hwModalText', TYPED);
+      await page.click('#hwModalSubmitBtn');
+      await page.locator('#hwNotesBlock [data-role="notes-retry"]').waitFor({ state: 'visible', timeout: 180000 });
+      await page.unroute('**/api/homework-notes');
+      return 'plain list; error + Try again';
     }, page);
 
     await record('c7', 'chip logging: impressions and taps, no typed text, server says 204', async () => {
@@ -369,6 +468,54 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     await openModal(page);
     await submitAndWait(page, TYPED);
     await page.screenshot({ path: path.join(OUT, 'chips-360-mother-result.png') });
+    return out.join(' | ');
+  }, () => phone && phone.page);
+
+  // The structured notes card at 360 px in English, Telugu and Hindi: the same
+  // typed question each time (notes-after-<lang>.png; notes-before-<lang>.png
+  // came from the previous version).
+  await record('c15', 'notes card at 360 px (en, te, hi): headings in the notes language, no sideways scroll, readable line height', async () => {
+    const { page } = phone;
+    await page.goto(BASE + '/app/mother/');
+    await page.waitForFunction(() => typeof window.openHomeworkModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
+    const out = [];
+    for (const [tag, lang, kicker] of [['en', 'English', 'Notes'], ['te', 'Telugu', 'నోట్స్'], ['hi', 'Hindi', 'नोट्स']]) {
+      await resetModal(page).catch(() => {});
+      await openModal(page);
+      await page.selectOption('#hwModalLang', lang);
+      await chip(page, 'notes').click();
+      await page.fill('#hwModalText', 'Add 3/4 and 1/8. Show the steps.');
+      await page.click('#hwModalSubmitBtn');
+      await page.locator('#hwNotesBlock .nd').first().waitFor({ state: 'visible', timeout: 180000 });
+      const m = await page.evaluate(() => {
+        const block = document.getElementById('hwNotesBlock');
+        const card = block.querySelector('.nd');
+        const cs = getComputedStyle(card);
+        const over = [...card.querySelectorAll('*')].filter((e) => e.getBoundingClientRect().right > window.innerWidth + 1 && e.getBoundingClientRect().width > 0).length;
+        return {
+          lang: card.getAttribute('lang'),
+          kicker: card.querySelector('.nd-kicker').textContent.trim(),
+          lineRatio: parseFloat(cs.lineHeight) / parseFloat(cs.fontSize),
+          blockFits: block.scrollWidth <= block.clientWidth + 1,
+          over,
+          docFits: document.documentElement.scrollWidth <= window.innerWidth,
+          // The script of the model's own text (key idea + title), not the headings.
+          script: (() => {
+            const t = (card.querySelector('.nd-idea mark') || card).innerText + ' ' + ((card.querySelector('.nd-title') || {}).innerText || '');
+            return /[ఀ-౿]/.test(t) ? 'telugu' : (/[ऀ-ॿ]/.test(t) ? 'devanagari' : 'latin');
+          })(),
+        };
+      });
+      expect(m.lang === tag && m.kicker.includes(kicker), `${tag}: lang/kicker ${m.lang} ${m.kicker}`);
+      expect(m.blockFits && m.over === 0, `${tag}: overflow ` + JSON.stringify(m));
+      expect(tag === 'en' || m.lineRatio >= 1.7, `${tag}: line height ${m.lineRatio}`);
+      expect(m.script === { en: 'latin', te: 'telugu', hi: 'devanagari' }[tag], `${tag}: the notes are in ${m.script}`);
+      // A tall 360 px window so the whole card is in one picture (the modal scrolls inside).
+      await page.setViewportSize({ width: 360, height: 2600 });
+      await page.locator('#hwNotesBlock').screenshot({ path: path.join(OUT, `notes-after-${tag}.png`) });
+      await page.setViewportSize({ width: 360, height: 740 });
+      out.push(`${tag} ${m.script} lh ${m.lineRatio.toFixed(2)}`);
+    }
     return out.join(' | ');
   }, () => phone && phone.page);
 

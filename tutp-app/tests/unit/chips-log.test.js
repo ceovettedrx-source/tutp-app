@@ -151,9 +151,9 @@ test('notes: caps and server cache', () => {
   assert.equal(cache.get('b'), null);
 });
 
-test('notes: parseNotes needs a non-empty notes array', () => {
+test('notes: parseNotes falls back to plain strings, or null when nothing is readable', () => {
   const reply = (t) => ({ content: [{ type: 'text', text: t }] });
-  assert.deepEqual(parseNotes(reply('{"subject":"Math","notes":["a","  b  ",""]}')), { subject: 'Math', notes: ['a', 'b'] });
+  assert.deepEqual(parseNotes(reply('{"subject":"Math","notes":["a","  b  ",""]}')), { plain: ['a', 'b'], subject: 'Math' });
   assert.equal(parseNotes(reply('{"notes":[]}')), null);
   assert.equal(parseNotes(reply('no json')), null);
   assert.equal(parseNotes(null), null);
@@ -163,7 +163,7 @@ test('notes prompt: reached only through the dispatcher hook, not through /api/h
   assert.ok(!PROMPT_FEATURES.includes('notes'));
   const { system, content } = buildHomeworkRequest({ feature: 'notes', lang: 'Telugu', childContext: 'Asha', text: '1. 24 + 13', attachments: [] });
   assert.match(system, /Telugu/);
-  assert.match(system, /"notes":\[/);
+  assert.match(system, /"key_idea":/);
   assert.equal(content.length, 1);
   assert.equal(content[0].text, 'Homework: 1. 24 + 13');
 });
