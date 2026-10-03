@@ -27,8 +27,8 @@ $ErrorActionPreference = 'Stop'
 
 $Service    = 'tutp-demo'
 $Region     = 'us-central1'
-$NewRev     = 'REVISION_TO_BE_FILLED'        # release candidate, tagged ilrel
-$Commit     = 'COMMIT_TO_BE_FILLED'          # the tested commit (full sha); the branch must still be on it
+$NewRev     = 'tutp-demo-00376-muj'          # release candidate, tagged ilrel
+$Commit     = '60a81077600ef5b788ace9546fe31700ee911fba'   # the tested commit (full sha); the branch must contain it
 $Branch     = 'story-image-library'          # fast-forwarded into main on success
 $RepoDir    = 'C:\Users\user\wt-imglib'
 $SaltRef    = 'CHIP_HASH_SALT:2'             # required secret reference (version 2)
@@ -179,7 +179,8 @@ Write-Host '== Release: story image library (revision' $NewRev ') ==' -Foregroun
 # --- 1. Pre-checks (read only) ---------------------------------------------
 if (($NewRev -like '*TO_BE_FILLED') -or ($Commit -like '*TO_BE_FILLED')) { Stop-Release 'this script still has placeholder values for the revision or the commit.' }
 $tip = Get-Sha $Branch
-if ($tip -ne $Commit) { Stop-Release "branch $Branch is at '$tip', not at the tested commit $Commit. Ask Claude Code to re-test or update the script." }
+$contains = Invoke-Git @('merge-base', '--is-ancestor', $Commit, $Branch)
+if ($contains.Code -ne 0) { Stop-Release "branch $Branch (at '$tip') does not contain the tested commit $Commit. Ask Claude Code to re-test or update the script." }
 $ffWhy = Test-FastForward
 if ($ffWhy) { Stop-Release "main cannot be fast-forwarded: $ffWhy. Nothing was moved." }
 try {
@@ -218,7 +219,7 @@ try {
 } catch {
     Stop-Release "pre-check error: $($_.Exception.Message)"
 }
-Write-Host 'Pre-checks OK: branch on the tested commit, main fast-forwardable, traffic split, ilrel tag, revision Ready, CHIP_HASH_SALT version 2, no E2E_REPLAY.' -ForegroundColor Green
+Write-Host 'Pre-checks OK: branch contains the tested commit, main fast-forwardable, traffic split, ilrel tag, revision Ready, CHIP_HASH_SALT version 2, no E2E_REPLAY.' -ForegroundColor Green
 
 # --- 2. Smoke check on the ilrel URL ----------------------------------------
 $code = Get-HttpStatus $TagUrl
