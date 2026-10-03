@@ -12,8 +12,11 @@ function trackEvent(eventName, { familyId, studentId = null, properties = {} }) 
 export function trackSessionStarted(familyId, studentId, { feature, language }) {
   trackEvent(EVENTS.SESSION_STARTED, { familyId, studentId, properties: { feature, language } });
 }
-export function trackSessionCompleted(familyId, studentId, { feature, durationSeconds }) {
-  trackEvent(EVENTS.SESSION_COMPLETED, { familyId, studentId, properties: { feature, duration_seconds: durationSeconds } });
+// extra: more properties for one feature, e.g. Storytelling's { language,
+// story_retry (0 | 1), story_format ('ok' | 'fallback'), story_fixed } so the
+// founder dashboard can show the retry rate per language.
+export function trackSessionCompleted(familyId, studentId, { feature, durationSeconds, extra = {} }) {
+  trackEvent(EVENTS.SESSION_COMPLETED, { familyId, studentId, properties: { feature, duration_seconds: durationSeconds, ...extra } });
 }
 export function trackFeedbackSubmitted(familyId, studentId, { feature, sentiment, explanationClear, freeText }) {
   trackEvent(EVENTS.FEEDBACK_SUBMITTED, { familyId, studentId, properties: { feature, sentiment, explanation_clear: explanationClear, free_text: freeText } });

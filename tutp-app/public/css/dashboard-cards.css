@@ -145,8 +145,10 @@
 .dc-ring__count { font: 800 26px/28px 'Plus Jakarta Sans', Inter, sans-serif; color: var(--dc-text); }
 .dc-ring__of { font: 600 11px/14px Inter, sans-serif; color: var(--dc-text-faint); }
 .dc-stat-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-radius: var(--dc-radius-sm); background: var(--dc-surface-soft); }
-.dc-stat-row__label { display: flex; align-items: center; gap: 8px; font: 500 13px/18px Inter, sans-serif; color: var(--dc-text-muted); }
-.dc-stat-row__value { font: 700 20px/24px 'Plus Jakarta Sans', Inter, sans-serif; color: var(--dc-text); text-align: right; flex-shrink: 0; }
+.dc-stat-row__label { display: flex; align-items: center; gap: 8px; font: 500 13px/18px Inter, sans-serif; color: var(--dc-text-muted); min-width: 0; }
+/* The value may wrap: "Not enough data yet" at 20 px with flex-shrink 0 pushed the
+   page to 370 px wide at 360 (storytelling redesign round). */
+.dc-stat-row__value { font: 700 20px/24px 'Plus Jakarta Sans', Inter, sans-serif; color: var(--dc-text); text-align: right; flex-shrink: 1; min-width: 0; overflow-wrap: anywhere; }
 
 /* ---- live-session card bits --------------------------------------------- */
 .dc-person { display: flex; align-items: center; gap: 12px; }
