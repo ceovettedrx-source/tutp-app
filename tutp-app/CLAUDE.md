@@ -4,6 +4,7 @@
 - Small, low-risk decisions (exact class names, styling details, minor wording, which existing pattern to reuse) — use your own judgment and proceed, don't ask.
 - Large-scope changes (new pages, rewriting a file's structure/framework, anything touching many files, deploys, deletions) — show a short plan first and wait for confirmation before editing.
 - After finishing a task, give a short summary (3-4 lines) of what was done — not a full diff or file dump.
+- Every task ends with a summary entry in docs/CHANGES-EXPLAINED.md (enforced by Stop hook). Chat reads only this file, never full diffs.
 - Never write or edit code through shell heredoc, sed or node -e string replacement; use the file edit tool, so escapes like \D survive.
 
 ## Review discipline
