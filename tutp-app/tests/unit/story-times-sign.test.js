@@ -10,10 +10,17 @@ test('x between digits becomes ×, with the spacing 4 × 6', () => {
   assert.equal(fixTimesSign('4 X 6'), '4 × 6');
 });
 
-test('x with a blank on either side becomes ×', () => {
-  assert.equal(fixTimesSign('4 x __'), '4 × __');
-  assert.equal(fixTimesSign('__ x 4 = 12'), '__ × 4 = 12');
-  assert.equal(fixTimesSign('4 x □'), '4 × □');
+test('x between a digit and a blank stays as written', () => {
+  for (const s of ['4 x __', '6x_', '__ x 4 = 12', '4 x □', '5 * __', '_ * 5']) {
+    assert.equal(fixTimesSign(s), s);
+  }
+  assert.equal(fixTimesSign('4 x 6 = __'), '4 × 6 = __');
+});
+
+test('Telugu and Devanagari digits count as numbers', () => {
+  assert.equal(fixTimesSign('౪ x ౬'), '౪ × ౬');
+  assert.equal(fixTimesSign('४x६'), '४ × ६');
+  assert.equal(fixTimesSign('౪ x __'), '౪ x __');
 });
 
 test('* between digits becomes ×', () => {
@@ -36,7 +43,7 @@ test('Telugu and Hindi text around the sign', () => {
 test('an already correct × is unchanged and a second pass changes nothing', () => {
   assert.equal(fixTimesSign('4 × 6 = 24'), '4 × 6 = 24');
   const once = fixTimesSign('4 x 6 and 5*12 and 3 x __');
-  assert.equal(once, '4 × 6 and 5 × 12 and 3 × __');
+  assert.equal(once, '4 × 6 and 5 × 12 and 3 x __');
   assert.equal(fixTimesSign(once), once);
 });
 

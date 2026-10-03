@@ -16,12 +16,12 @@ export const SCENE_LABELS = ['hook', 'problem', 'mathMoment', 'wrapUp'];
 const MAX_VISUAL_TOTAL = 1000; // the page draws at most 60 items and counts the rest
 const MAX_EQUATIONS = 6;
 
-// The letter x/X or * written as a times sign between two numbers or a number
-// and a blank ("4 x 6", "6x3", "4 x __", "5 * 12") becomes "4 × 6". Anywhere
-// else (a sentence with x as the unknown, words) it is left alone; × itself is
-// not matched, so running it twice changes nothing.
+// The letter x/X or * written as a times sign between two numbers ("4 x 6",
+// "6x3", "5 * 12") becomes "4 × 6". Anywhere else (a sentence with x as the
+// unknown, a blank on either side like "4 x __", words) it is left alone; ×
+// itself is not matched, so running it twice changes nothing.
 export function fixTimesSign(s) {
-  return s.replace(/([\d_□])[ \t]*[xX*][ \t]*(?=[\d_□])/g, '$1 × ');
+  return s.replace(FIX_TIMES, '$1 × ');
 }
 
 function str(v, max) {
@@ -49,6 +49,7 @@ export function nounStem(noun) {
 // word) and a number on the right count, so "x + 5 = 12", "2x + 3" and a
 // word with an x in it stay as they are. Telugu text around the sum is fine.
 const DIGIT = '[\\d\\u0966-\\u096F\\u0BE6-\\u0BEF\\u0C66-\\u0C6F]';
+const FIX_TIMES = new RegExp(`(?<![A-Za-z])(${DIGIT}+)[ \\t]*[xX*][ \\t]*(?=${DIGIT})`, 'g');
 const TIMES = new RegExp(`(?<![A-Za-z_])(${DIGIT}+)([ \\t]*)[xX*]([ \\t]*)(?=${DIGIT})`, 'g');
 export function timesSign(text) {
   return typeof text === 'string' ? text.replace(TIMES, '$1$2×$3') : text;
