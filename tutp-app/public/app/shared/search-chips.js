@@ -38,7 +38,7 @@ window.TUTP_CHIP_MESSAGES = {
         'chip.answer': 'సమాధానం చెప్పండి',
         'chip.explain': 'వివరించండి',
         'chip.notes': 'నోట్స్ ఇవ్వండి',
-        'chip.exam_prep': 'పరీక్షకు సిద్ధం',
+        'chip.exam_prep': 'పరీక్ష తయారీ',
         'chip.makingNotes': 'నోట్స్ తయారు చేస్తున్నాం…',
         'chip.notesFailed': 'ఇప్పుడు నోట్స్ తయారు చేయలేకపోయాం.',
         'chip.retry': 'మళ్ళీ ప్రయత్నించండి'

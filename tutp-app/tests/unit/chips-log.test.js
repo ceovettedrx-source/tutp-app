@@ -165,5 +165,5 @@ test('notes prompt: reached only through the dispatcher hook, not through /api/h
   assert.match(system, /Telugu/);
   assert.match(system, /"key_idea":/);
   assert.equal(content.length, 1);
-  assert.equal(content[0].text, 'Homework: 1. 24 + 13');
+  assert.match(content[0].text, /^Homework: 1\. 24 \+ 13\nNumbers used in this homework \(use none of them in quick_check\): 24, 13$/);
 });

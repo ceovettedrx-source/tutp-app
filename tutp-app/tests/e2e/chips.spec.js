@@ -25,6 +25,10 @@
 //       aria-pressed)
 //   c10 father: the modal shows the chips; the family-member and child pages
 //       carry the same markup and script
+//   c17 notes quality (notes-quality-v2): en/te/hi x maths/science/language, title
+//       and key idea share a token with the homework, quick check has new numbers,
+//       no banned Telugu wording, every step a sentence (output/notes-matrix.json)
+//   c18 Telugu maths notes through the page: 360 px and print screenshots
 //   c11 GET /api/search-chips; /api/homework-notes refuses no session (401),
 //       another family's child (403) and an empty body (400)
 //
@@ -34,6 +38,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { e2eMode } from './e2e-mode.js';
+import { checkNotes } from '../../server/notes-ground.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -391,6 +396,47 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       return 'group label, button names, aria-pressed, keyboard';
     }, page);
 
+    // notes-quality-v2: 3 languages x maths, science, language. The notes are about the
+    // homework's own skill, the quick check uses new numbers, no banned Telugu wording,
+    // every step is a sentence. Output for review: output/notes-matrix.json.
+    const MATRIX_HW = {
+      maths: ['6 x 9 = 6 x 3 x __', '8 x 12 = 8 x 4 x __'],
+      science: ['Photosynthesis in plants: sunlight, water and air.'],
+      language: ['Write the plural of: box, child, leaf.'],
+    };
+    await record('c17', 'notes quality: en/te/hi x maths/science/language, skill-specific, new quick-check numbers, sentences', async () => {
+      const rows = [], notes = [], problems = [];
+      for (const lang of ['English', 'Telugu', 'Hindi']) {
+        for (const [subject, questions] of Object.entries(MATRIX_HW)) {
+          const r = await page.evaluate(async ({ studentId, lang, questions }) => {
+            const resp = await fetch('/api/homework-notes', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ studentId, language: lang, questions }) });
+            return { status: resp.status, usd: Number(resp.headers.get('x-model-usd') || 0), retry: resp.headers.get('x-notes-retry'), body: await resp.json() };
+          }, { studentId: mother.studentId, lang, questions });
+          const n = r.body;
+          const bad = [];   // every cell is checked and written out; the case fails at the end
+          if (r.status !== 200) bad.push(`status ${r.status}`);
+          else if (!(!n.plain && n.title && n.key_idea && n.method && n.method.length >= 2 && n.quick_check && n.quick_check.length === 2)) bad.push('structure');
+          else {
+            const hw = questions.map((q, i) => `${i + 1}. ${q}`).join('\n');
+            const g = checkNotes(n, hw);
+            if (!g.ok) bad.push(`${g.reasons.join(',')} :: ${n.title} / ${n.key_idea}`);
+            if (lang === 'Telugu') {
+              const all = JSON.stringify(n);
+              for (const w of ['స్థానిక లక్షణం', 'సున్న్య', 'సర్వ కాలం']) if (all.includes(w)) bad.push(`banned wording ${w}`);
+            }
+            const steps = [...n.method, ...((n.worked_example && n.worked_example.steps) || [])];
+            if (!steps.every((s) => s.trim().split(/\s+/).length >= 3)) bad.push('fragment step ' + JSON.stringify(steps));
+          }
+          if (bad.length) problems.push(`${lang}/${subject}: ${bad.join('; ')}`);
+          rows.push(`${lang}/${subject} $${r.usd.toFixed(5)} retry:${r.retry}`);
+          notes.push({ lang, subject, usd: r.usd, retry: r.retry, problems: bad, notes: n });
+        }
+      }
+      fs.writeFileSync(path.join(OUT, 'notes-matrix.json'), JSON.stringify(notes, null, 1));
+      expect(!problems.length, problems.join(' || ') + ' [' + rows.join(' | ') + ']');
+      return rows.join(' | ');
+    }, page);
+
     await record('c11', 'routes: chip list, no session 401, other child 403, empty 400', async () => {
       const list = await page.evaluate(async () => (await fetch('/api/search-chips')).json());
       expect(JSON.stringify(list.chips.map((c) => c.id)) === '["answer","explain","notes"]', 'chips ' + JSON.stringify(list.chips));
@@ -517,6 +563,33 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       out.push(`${tag} ${m.script} lh ${m.lineRatio.toFixed(2)}`);
     }
     return out.join(' | ');
+  }, () => phone && phone.page);
+
+  // notes-quality-v2: the Telugu maths notes through the page, 360 px and print
+  // (notes-te-maths-360.png, notes-te-maths-print.png).
+  await record('c18', 'Telugu maths notes through the page: 360 px and print screenshots', async () => {
+    const { page } = phone;
+    await page.goto(BASE + '/app/mother/');
+    await page.waitForFunction(() => typeof window.openHomeworkModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
+    await resetModal(page).catch(() => {});
+    await openModal(page);
+    await page.selectOption('#hwModalLang', 'Telugu');
+    await chip(page, 'notes').click();
+    await page.fill('#hwModalText', '1. 6 x 9 = 6 x 3 x __\n2. 8 x 12 = 8 x 4 x __');
+    await page.click('#hwModalSubmitBtn');
+    await page.locator('#hwNotesBlock .nd').first().waitFor({ state: 'visible', timeout: 180000 });
+    await page.setViewportSize({ width: 360, height: 2600 });
+    await page.locator('#hwNotesBlock').screenshot({ path: path.join(OUT, 'notes-te-maths-360.png') });
+    await page.setViewportSize({ width: 794, height: 1123 });
+    await page.evaluate(() => { window.dispatchEvent(new Event('beforeprint')); document.getElementById('hwModalResults').classList.add('print-target'); });
+    await page.emulateMedia({ media: 'print' });
+    await page.screenshot({ path: path.join(OUT, 'notes-te-maths-print.png'), fullPage: true });
+    await page.evaluate(() => { window.dispatchEvent(new Event('afterprint')); document.getElementById('hwModalResults').classList.remove('print-target'); });
+    await page.emulateMedia({ media: 'screen' });
+    await page.setViewportSize({ width: 360, height: 740 });
+    const s = await structure(page);
+    expect(s.title && s.idea && s.steps >= 2 && s.quick === 2 && s.say, 'structure: ' + JSON.stringify(s));
+    return `${s.words} words, ${s.steps} steps`;
   }, () => phone && phone.page);
 
   // The chip row follows "Explain in": te and hi use their own text, another

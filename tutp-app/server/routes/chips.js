@@ -7,7 +7,8 @@
 import crypto from 'crypto';
 import { chipPayload } from '../chips/chip-config.js';
 import { buildHomeworkRequest, HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
-import { callWithJsonRetry } from '../homework-reply.js';
+import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
+import { checkNotes, correctionHint } from '../notes-ground.js';
 import { callClaude } from '../anthropic.js';
 import { MODELS, modelSettings } from '../models.js';
 import { replayMode } from '../model-replay.js';
@@ -137,11 +138,11 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
           const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
           const cost = { usd: 0 };
           const model = MODELS.homework_notes;
-          const callModel = async (attempt = 1) => {
+          const callModel = async (attempt = 1, userContent = content) => {
             const r = await callClaude({
               feature: 'notes', variant: lang, attempt,
               familyId: session.familyId, studentId: body.studentId, mode: replay.mode, recordings: replay.recordings, cost,
-              body: { model, ...modelSettings(model), max_tokens: 1500, system, messages: [{ role: 'user', content }] },
+              body: { model, ...modelSettings(model), max_tokens: 2500, system, messages: [{ role: 'user', content: userContent }] },
             });
             return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
           };
@@ -155,12 +156,26 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
             return replay.mode === 'record' ? { ...out, _recordings: replay.recordings } : out;
           };
           if (result.kind !== 'ok') {
-            console.error('notes: model call failed', { kind: result.kind, status: result.status || null });
+            console.error('notes: model call failed', { kind: result.kind, status: result.status || null, ...(testFamily && replay.mode === 'replay' ? { detail: String(result.errText || '').slice(0, 200) } : {}) });
             if (testFamily) res.set('X-Model-Usd', String(cost.usd));
             return res.status(502).json({ error: 'The notes could not be made. Please try again.' });
           }
-          const notes = parseNotes(result.data);
+          let notes = parseNotes(result.data);
           if (!notes) return res.status(502).json({ error: 'The notes could not be made. Please try again.' });
+          // Quality check: one retry at most, with a correction hint.
+          let retried = false, usedRetry = false;
+          const first = checkNotes(notes, text);
+          if (!first.ok) {
+            retried = true;
+            const hint = correctionHint(first.reasons);
+            const content2 = [...content, { type: 'text', text: hint }];
+            const r2 = await callModel(1, content2);
+            const retry = r2.ok && checkReplyJson(r2.data).ok ? parseNotes(r2.data) : null;
+            if (retry && !retry.plain && checkNotes(retry, text).reasons.length < first.reasons.length) { notes = retry; usedRetry = true; }
+          }
+          console.log('notes.ground', JSON.stringify({ language: lang, ok: first.ok, reasons: first.reasons, retried, usedRetry }));
+          res.set('X-Notes-Retry', retried ? (usedRetry ? 'used' : 'kept-first') : 'no');
+          if (testFamily) res.set('X-Model-Usd', String(cost.usd));
           res.set('X-Notes-Format', notes.plain ? 'plain' : 'structured');
           notesCache.set(cacheKey, notes);
           res.json(extras(notes));

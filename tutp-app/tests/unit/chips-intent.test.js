@@ -18,7 +18,7 @@ const cases = [
   ['quiz me', 'quiz'],
   // Telugu
   ['సమాధానం చెప్పండి', 'answer'], ['సమాధానాలు ఇవ్వండి', 'answer'],
-  ['వివరించండి', 'explain'], ['నోట్స్ ఇవ్వండి', 'notes'], ['పరీక్షకు సిద్ధం', 'exam_prep'],
+  ['వివరించండి', 'explain'], ['నోట్స్ ఇవ్వండి', 'notes'], ['పరీక్ష తయారీ', 'exam_prep'],
   // Hindi
   ['जवाब बताइए', 'answer'], ['समझाइए', 'explain'], ['नोट्स दीजिए', 'notes'], ['परीक्षा की तैयारी', 'exam_prep'],
   // transliterated
