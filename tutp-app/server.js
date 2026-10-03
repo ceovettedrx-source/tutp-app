@@ -6515,10 +6515,11 @@ app.post('/api/homework', async (req, res) => {
       res.set('X-Story-Format', check.ok ? 'ok' : 'fallback');
       res.set('X-Story-Fixed', String(check.ok ? check.fixed : 0));
       res.set('X-Story-Retry', String(retried));
+      res.set('X-Story-Visual', check.ok ? check.visualSource : 'none');
       if (!check.ok) console.warn('storytelling: fallback story sent', { language: lang });
       trackSessionCompleted(session.familyId, studentId, {
         feature, durationSeconds: null,
-        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0 },
+        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none' },
       });
       sendTiming(200);
       // Same envelope as every other feature: the page reads the first text block.

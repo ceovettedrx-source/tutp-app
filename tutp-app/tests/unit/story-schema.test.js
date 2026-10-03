@@ -30,12 +30,13 @@ test('a complete reply passes and keeps its numbers', () => {
   assert.equal(r.story.readMinutes, 2);
 });
 
-test('groups that do not add up to the total drop the visual, nothing else', () => {
+test('groups that do not add up to the total drop the visual, nothing else (a fact family is built from the equations instead, story visuals v2)', () => {
   const s = good();
   s.visual.total = 25;
   const r = validateStory(s);
   assert.equal(r.ok, true);
-  assert.equal(r.story.visual, null);
+  assert.equal(r.story.visual.type, 'factFamily');
+  assert.equal(r.visualSource, 'derived');
   assert.equal(r.fixed, 1);
   assert.equal(r.story.equations.length, 2);
 });

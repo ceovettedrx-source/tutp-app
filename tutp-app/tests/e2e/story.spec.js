@@ -62,6 +62,9 @@ const MATHS_TOPIC = 'Multiplication as equal groups: 4 plates with 6 laddus on e
 const HINDI_TOPIC = 'संज्ञा: व्यक्ति, स्थान और वस्तु के नाम';
 const SCIENCE_TOPIC = 'Why leaves are green';
 const TAMIL_TOPIC = 'பெருக்கல்: சம குழுக்கள், 3 தட்டுகளில் தலா 5 இனிப்புகள், 3 x 5 = 15';
+const INVERSE_TOPIC = 'Class 9 గణితం: విలోమ ప్రక్రియలు. కూడిక మరియు తీసివేత ఒకదానికొకటి వ్యతిరేకం. 7 + 5 = 12 అయితే 12 − 5 = 7';
+// s17: its two model replies are written by hand (recordings), the first with a wrong sum.
+const RETRY_TOPIC = 'Inverse operations: 8 + 6 = 14 and 14 - 6 = 8 (e2e wrong-sum retry check)';
 const TAMIL = /[஀-௿]/;
 // What each story call used and cost (X-Story-Model, X-Model-Usd), for the report.
 const calls = [];
@@ -217,10 +220,28 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(TELUGU.test(text), 'no Telugu script in the scenes');
     expect(await page.locator('#storyModalResults .sm-eq').count() >= 1, 'no equation chips');
     expect(!!s.visual, 'the model gave no picture for a groups lesson');
-    const dots = await page.locator('#storyModalResults .sm-dot').count();
+    const dots = await page.locator('#storyModalResults .sm-icon, #storyModalResults .sm-dot').count();
     expect(dots === Math.min(s.visual.total, 60), `dots ${dots} vs total ${s.visual.total}`);
     expect(s.visual.groups.reduce((a, b) => a + b, 0) === s.visual.total, 'groups do not add up');
     return `${s.scenes.length} scenes, ${await page.locator('#storyModalResults .sm-eq').count()} equations, ${dots} dots, retry ${r.headers['x-story-retry']}, fixed ${r.headers['x-story-fixed']}, $${r.headers['x-model-usd'] || 0}`;
+  }, page);
+
+  await record('s15', 'a groups story draws real item icons (emoji), not dots, between scene 3 and the equations', async () => {
+    const s = lastStory(net).story;
+    expect(s.visual && s.visual.type === 'groups', 'not a groups story: ' + JSON.stringify(s.visual));
+    expect(typeof s.visual.icon === 'string' && s.visual.icon.length > 0, 'the server sent no icon for "' + s.visual.itemNoun + '"');
+    const R = '#storyModalResults';
+    const icons = await page.$$eval(R + ' .sm-icon', (es) => es.map((e) => e.textContent));
+    expect(icons.length === Math.min(s.visual.total, 60), `icons ${icons.length} vs total ${s.visual.total}`);
+    expect(icons.every((t) => t === s.visual.icon), 'icons differ: ' + [...new Set(icons)].join(' '));
+    expect(await page.locator(R + ' .sm-dot').count() === 0, 'dots are still drawn next to the icons');
+    const order = await page.evaluate((sel) => {
+      const fig = document.querySelector(sel + ' .sm-visual'), eqs = document.querySelector(sel + ' .sm-eqs');
+      const li = fig && fig.closest('li');
+      return { inThird: !!li && Array.from(li.parentNode.children).indexOf(li) === 2, before: !!(fig && eqs && (fig.compareDocumentPosition(eqs) & Node.DOCUMENT_POSITION_FOLLOWING)) };
+    }, R);
+    expect(order.inThird && order.before, 'the picture is not under scene 3 before the equations: ' + JSON.stringify(order));
+    return `${icons.length} ${s.visual.icon} icons, picture sits under scene 3`;
   }, page);
 
   await record('s3', 'look: Telugu font stack, 17 px, line height 1.9, brand blue, amber card, no green, footnote', async () => {
@@ -460,6 +481,67 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
   }, page);
 
   // ---- s9 voices
+  await record('s16', 'Telugu inverse operations: a fact-family picture with the equations\' numbers, a new try-together problem, in print too', async () => {
+    await tell(page, 'Telugu', INVERSE_TOPIC);
+    const r = lastStory(net);
+    expect(r.status === 200 && r.story, 'no story reply');
+    noteCall('te-inverse', 'Telugu', r);
+    const s = r.story;
+    expect(s.visual && s.visual.type === 'factFamily', 'picture is not a factFamily: ' + JSON.stringify(s.visual));
+    expect(['model', 'derived'].includes(r.headers['x-story-visual']), 'X-Story-Visual ' + r.headers['x-story-visual']);
+    const R = '#storyModalResults';
+    const v = s.visual;
+    // the picture's numbers are those of a listed equation
+    const eqNums = s.equations.map((e) => (e.match(/\d+/g) || []).map(Number).sort((x, y) => x - y).join(','));
+    const mine = [v.a, v.b, v.total].sort((x, y) => x - y).join(',');
+    expect(eqNums.includes(mine), `fact family ${mine} is not one of the equations: ${s.equations.join(' | ')}`);
+    const circles = await page.$$eval(R + ' .sm-fact .sm-ff-n', (es) => es.map((e) => e.textContent.trim()));
+    expect(circles.join(',') === [v.total, v.a, v.b].join(','), 'triangle numbers: ' + circles.join(','));
+    const lines = await page.$$eval(R + ' .sm-fact-list li', (es) => es.map((e) => e.textContent.trim()));
+    expect(lines.length >= 3, 'inverse sentences: ' + lines.join(' | '));
+    const sign = v.op === 'add' ? ['+', '−'] : ['×', '÷'];
+    expect(lines.some((t) => t.includes(sign[1])), 'no inverse sentence: ' + lines.join(' | '));
+    // the try-together question is a NEW problem
+    const nums = (s.tryTogether.question.match(/\d+/g) || []).map(Number);
+    expect(!(nums.includes(v.a) && nums.includes(v.b)), 'try-together reuses the picture\'s numbers: ' + s.tryTogether.question);
+    // between scene 3 and the equations
+    const order = await page.evaluate((sel) => {
+      const fig = document.querySelector(sel + ' .sm-visual'), eqs = document.querySelector(sel + ' .sm-eqs');
+      return !!(fig && eqs && (fig.compareDocumentPosition(eqs) & Node.DOCUMENT_POSITION_FOLLOWING));
+    }, R);
+    expect(order, 'picture is not before the equations');
+    await page.locator('#storyModal .sm-visual').first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(OUT, 'story-te-inverse.png'), fullPage: false });
+    await page.locator(R).screenshot({ path: path.join(OUT, 'story-te-inverse-full.png') });
+    fs.writeFileSync(path.join(OUT, 'story-te-inverse.txt'), [s.title, ...s.scenes.map((x, i) => `${i + 1}. [${x.label}] ${x.text}`), 'picture: ' + JSON.stringify(v) + ' (' + r.headers['x-story-visual'] + ')', 'equations: ' + s.equations.join(' | '), 'try together: ' + s.tryTogether.question + '  -> ' + s.tryTogether.answer].join('\n') + '\n');
+    // print view keeps the picture
+    await page.evaluate(() => document.getElementById('storyModalResults').classList.add('print-target'));
+    await page.emulateMedia({ media: 'print' });
+    const inPrint = await page.$eval(R + ' .sm-visual', (e) => { const b = e.getBoundingClientRect(); return getComputedStyle(e).display !== 'none' && b.width > 40 && b.height > 40; });
+    await page.emulateMedia({ media: 'screen' });
+    await page.evaluate(() => document.getElementById('storyModalResults').classList.remove('print-target'));
+    expect(inPrint, 'the picture is not in the print view');
+    await page.evaluate(() => closeStoryModal());
+    return `${v.type} ${v.a} ${sign[0]} ${v.b} = ${v.total} (${r.headers['x-story-visual']}), ${lines.length} sentences, retry ${r.headers['x-story-retry']}, screenshot output/story-te-inverse.png`;
+  }, page);
+
+  await record('s17', 'a wrong sum written in a scene is sent back once (retry 1) and the corrected story is shown', async () => {
+    // always replayed, even in record mode: the two replies are hand-written
+    const force = (route) => route.continue({ headers: { ...route.request().headers(), 'x-e2e-mode': 'replay' } });
+    const HW = /\/api\/homework(\?|$)/;
+    await page.route(HW, force);
+    try { await tell(page, 'English', RETRY_TOPIC); } finally { await page.unroute(HW, force); }
+    const r = lastStory(net);
+    expect(r.status === 200 && r.story, 'no story reply: status ' + r.status);
+    noteCall('en-retry', 'English', r);
+    expect(r.headers['x-story-retry'] === '1', 'X-Story-Retry ' + r.headers['x-story-retry'] + ' (the wrong sum did not trigger the retry)');
+    expect(r.headers['x-story-format'] === 'ok', 'X-Story-Format ' + r.headers['x-story-format']);
+    const text = await page.$$eval('#storyModalResults .sm-scene-text', (es) => es.map((e) => e.textContent).join(' '));
+    expect(text.includes('8 + 6 = 14') && !text.includes('8 + 6 = 15'), 'the wrong sum is still on the page: ' + text);
+    await page.evaluate(() => closeStoryModal());
+    return 'retry 1, the shown scenes say 8 + 6 = 14';
+  }, page);
+
   await record('s9', 'no voice: "Read aloud together" hint, no play button, no error text; a voice: play/stop, no hint', async () => {
     const ctxA = await newCtx({ width: 1280, height: 900 }, () => {
       Object.defineProperty(window, 'speechSynthesis', { value: { getVoices: () => [], cancel() {}, speak() {}, onvoiceschanged: null }, configurable: true });

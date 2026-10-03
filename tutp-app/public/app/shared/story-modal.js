@@ -230,35 +230,133 @@
             tag: p.gradeSubjectTag || '',
             minutes: p.readMinutes || 0,
             scenes: scenes,
-            visual: p.visual && p.visual.type === 'groups' ? p.visual : null,
+            visual: p.visual && VISUAL_TYPES[p.visual.type] ? p.visual : null,
             equations: Array.isArray(p.equations) ? p.equations : [],
             tryTogether: p.tryTogether && p.tryTogether.question ? p.tryTogether : null,
             parentPrompt: p.parentPrompt || p.abhyasaPrompt || ''
         };
     }
 
-    function visualEl(v) {
-        var fig = el('figure', 'sm-visual');
-        var equal = v.groups.every(function (g) { return g === v.groups[0]; });
-        var label = v.total + ' ' + v.itemNoun + (equal && v.groups.length > 1 ? ': ' + v.groups.length + ' groups of ' + v.groups[0] : ': ' + v.groups.join(' + '));
-        fig.setAttribute('role', 'img');
-        fig.setAttribute('aria-label', label);
+    // The picture of a story (server/story-schema.js validates every type):
+    // groups, numberLine, barModel, factFamily. All drawn here, no model call.
+    var SVGNS = 'http://www.w3.org/2000/svg';
+    function svgEl(tag, attrs, text) {
+        var e = document.createElementNS(SVGNS, tag);
+        for (var k in attrs) if (Object.prototype.hasOwnProperty.call(attrs, k)) e.setAttribute(k, attrs[k]);
+        if (text != null) e.textContent = text;
+        return e;
+    }
+    function svgRoot(w, h) {
+        var s = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'sm-svg', 'aria-hidden': 'true', focusable: 'false' });
+        s.style.width = '100%'; s.style.maxWidth = w + 'px'; s.style.height = 'auto';
+        return s;
+    }
+
+    function groupsBody(v) {
         var grid = el('div', 'sm-groups');
-        grid.setAttribute('aria-hidden', 'true');
         var drawn = 0;
         v.groups.forEach(function (n) {
             var g = el('div', 'sm-group');
             var dots = el('div', 'sm-dots');
-            for (var i = 0; i < n && drawn < MAX_ITEMS; i++, drawn++) dots.appendChild(el('span', 'sm-dot'));
+            for (var i = 0; i < n && drawn < MAX_ITEMS; i++, drawn++) {
+                dots.appendChild(v.icon ? el('span', 'sm-icon', v.icon) : el('span', 'sm-dot'));
+            }
             g.appendChild(dots);
             g.appendChild(el('span', 'sm-group-n', String(n)));
             grid.appendChild(g);
         });
-        fig.appendChild(grid);
-        var cap = label + (v.total > MAX_ITEMS ? ' (showing ' + MAX_ITEMS + ')' : '');
-        fig.appendChild(el('figcaption', null, cap));
+        return grid;
+    }
+
+    function numberLineBody(v) {
+        var W = 320, H = 86, x0 = 18, x1 = W - 18, y = 52;
+        var steps = (v.to - v.from) / v.step;
+        var s = svgRoot(W, H);
+        var xOf = function (n) { return x0 + (n - v.from) / (v.to - v.from) * (x1 - x0); };
+        s.appendChild(svgEl('line', { x1: x0, y1: y, x2: x1, y2: y, class: 'sm-nl-line' }));
+        var every = steps > 10 ? 2 : 1; // label every second mark on a long line
+        for (var i = 0; i <= steps; i++) {
+            var n = v.from + i * v.step, x = xOf(n);
+            s.appendChild(svgEl('line', { x1: x, y1: y - 5, x2: x, y2: y + 5, class: 'sm-nl-tick' }));
+            if (i % every === 0 || i === steps) s.appendChild(svgEl('text', { x: x, y: y + 22, class: 'sm-nl-n', 'text-anchor': 'middle' }, String(n)));
+        }
+        v.jumps.forEach(function (j, k) {
+            var a = xOf(j.from), b = xOf(j.to), mid = (a + b) / 2, lift = 14 + (k % 2) * 8;
+            s.appendChild(svgEl('path', { d: 'M' + a + ' ' + (y - 6) + ' Q' + mid + ' ' + (y - 6 - lift * 2) + ' ' + b + ' ' + (y - 6), class: 'sm-nl-jump' }));
+            var dir = b > a ? 1 : -1;
+            s.appendChild(svgEl('path', { d: 'M' + b + ' ' + (y - 6) + ' l' + (-5 * dir) + ' -5 M' + b + ' ' + (y - 6) + ' l' + (-5 * dir) + ' 5', class: 'sm-nl-jump' }));
+            var d = j.to - j.from;
+            s.appendChild(svgEl('text', { x: mid, y: y - 10 - lift * 1.1, class: 'sm-nl-lab', 'text-anchor': 'middle' }, (d > 0 ? '+' : '−') + Math.abs(d)));
+        });
+        return s;
+    }
+
+    function barModelBody(v) {
+        var wrap = el('div', 'sm-bar-model');
+        wrap.appendChild(el('div', 'sm-bm-total', String(v.total)));
+        var row = el('div', 'sm-bm-row');
+        v.parts.forEach(function (p, i) {
+            var seg = el('div', 'sm-bm-part sm-bm-' + (i % 4));
+            seg.style.flexGrow = String(p.value);
+            seg.appendChild(el('span', 'sm-bm-val', String(p.value)));
+            if (p.label) seg.appendChild(el('span', 'sm-bm-lab', p.label));
+            row.appendChild(seg);
+        });
+        wrap.appendChild(row);
+        return wrap;
+    }
+
+    function factSentences(v) {
+        var add = v.op === 'add', p = add ? '+' : '×', q = add ? '−' : '÷';
+        var list = [v.a + ' ' + p + ' ' + v.b + ' = ' + v.total, v.b + ' ' + p + ' ' + v.a + ' = ' + v.total,
+            v.total + ' ' + q + ' ' + v.a + ' = ' + v.b, v.total + ' ' + q + ' ' + v.b + ' = ' + v.a];
+        return list.filter(function (t, i) { return list.indexOf(t) === i; });
+    }
+
+    function factFamilyBody(v) {
+        var wrap = el('div', 'sm-fact');
+        var s = svgRoot(220, 150);
+        s.appendChild(svgEl('polygon', { points: '110,12 18,132 202,132', class: 'sm-ff-tri' }));
+        [[110, 34, v.total, 'sm-ff-top'], [42, 124, v.a, 'sm-ff-c'], [178, 124, v.b, 'sm-ff-c']].forEach(function (c) {
+            s.appendChild(svgEl('circle', { cx: c[0], cy: c[1], r: 24, class: 'sm-ff-dot ' + c[3] }));
+            s.appendChild(svgEl('text', { x: c[0], y: c[1] + 6, class: 'sm-ff-n ' + c[3], 'text-anchor': 'middle' }, String(c[2])));
+        });
+        wrap.appendChild(s);
+        var ul = el('ul', 'sm-fact-list');
+        factSentences(v).forEach(function (t) { ul.appendChild(el('li', null, t)); });
+        wrap.appendChild(ul);
+        return wrap;
+    }
+
+    function visualLabel(v) {
+        if (v.type === 'groups') {
+            var equal = v.groups.every(function (g) { return g === v.groups[0]; });
+            return v.total + ' ' + v.itemNoun + (equal && v.groups.length > 1 ? ': ' + v.groups.length + ' groups of ' + v.groups[0] : ': ' + v.groups.join(' + '));
+        }
+        if (v.type === 'numberLine') {
+            return 'Number line from ' + v.from + ' to ' + v.to + (v.jumps.length ? ', ' + v.jumps.map(function (j) { return 'jump from ' + j.from + ' to ' + j.to; }).join(', ') : '');
+        }
+        if (v.type === 'barModel') {
+            return 'Bar of ' + v.total + ': ' + v.parts.map(function (p) { return (p.label ? p.label + ' ' : '') + p.value; }).join(', ');
+        }
+        return 'Number triangle: ' + factSentences(v).join(', ');
+    }
+
+    function visualEl(v) {
+        var fig = el('figure', 'sm-visual sm-visual-' + v.type);
+        var label = visualLabel(v);
+        fig.setAttribute('role', 'img');
+        fig.setAttribute('aria-label', label);
+        var body = v.type === 'groups' ? groupsBody(v) : v.type === 'numberLine' ? numberLineBody(v) : v.type === 'barModel' ? barModelBody(v) : factFamilyBody(v);
+        body.setAttribute('aria-hidden', 'true');
+        fig.appendChild(body);
+        if (v.type === 'groups' || v.type === 'factFamily') {
+            fig.appendChild(el('figcaption', null, v.type === 'groups' ? label + (v.total > MAX_ITEMS ? ' (showing ' + MAX_ITEMS + ')' : '') : 'One fact, four sums'));
+        }
         return fig;
     }
+
+    var VISUAL_TYPES = { groups: 1, numberLine: 1, barModel: 1, factFamily: 1 };
 
     // The feedback question, inline at the end of the result (it used to be the
     // page's fixed bottom-right box, which sat on top of the story at 360 px).
