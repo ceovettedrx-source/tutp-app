@@ -51,17 +51,20 @@ const fitsClass = (img, classNum) => classNum == null || (classNum >= img.classM
 // Up to `limit` approved, not hidden images that fit the lesson: aliases (any
 // language) found in the typed text, best first. With no typed text (a photo
 // lesson) the class-fitting images are offered and the model judges the fit.
+// The class only ranks typed-text matches (a parent may read a lesson above or
+// below the child's class, and the picture still fits); it is a filter only
+// for a photo lesson, where nothing else tells the picture and lesson apart.
 export function candidatesFor(lib, { text, classNum, hidden, limit = MAX_CANDIDATES }) {
-  const pool = lib.images.filter((img) => usable(img, hidden) && fitsClass(img, classNum));
+  const pool = lib.images.filter((img) => usable(img, hidden));
   const t = String(text || '').normalize('NFC').toLowerCase();
-  if (!t.trim()) return pool.slice().sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit);
+  if (!t.trim()) return pool.filter((img) => fitsClass(img, classNum)).sort((a, b) => a.id.localeCompare(b.id)).slice(0, limit);
   const scored = [];
   for (const img of pool) {
     let score = 0;
     for (const list of Object.values(img.aliases || {})) {
       for (const alias of list) if (hasAlias(t, alias)) score += /\s/.test(alias.trim()) ? 2 : 1;
     }
-    if (score > 0) scored.push({ img, score });
+    if (score > 0) scored.push({ img, score: score + (fitsClass(img, classNum) ? 0.5 : 0) });
   }
   return scored.sort((a, b) => b.score - a.score || a.img.id.localeCompare(b.img.id)).slice(0, limit).map((s) => s.img);
 }

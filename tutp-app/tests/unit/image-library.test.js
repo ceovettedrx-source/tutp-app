@@ -46,16 +46,21 @@ test('candidates: aliases in any language, whole words, best first', () => {
   assert.deepEqual(candidatesFor(lib, { text: 'both eyes', classNum: 8 }).map((c) => c.id), ['human-eye']);
 });
 
-test('candidates: hidden and unapproved images are never offered, class must fit (2 classes slack)', () => {
+test('candidates: hidden and unapproved images are never offered; the class only ranks typed-text matches', () => {
   assert.deepEqual(candidatesFor(lib, { text: 'a volcano erupts', classNum: 9 }), []);
   assert.deepEqual(candidatesFor(lib, { text: 'animal cell', classNum: 9, hidden: new Set(['animal-cell']) }), []);
-  assert.equal(candidatesFor(lib, { text: 'animal cell', classNum: 5 }).length, 0);    // 5 < 8 - 2
-  assert.equal(candidatesFor(lib, { text: 'animal cell', classNum: 6 }).length, 1);    // within the slack
+  assert.equal(candidatesFor(lib, { text: 'animal cell', classNum: 3 }).length, 1);    // outside the class range: still offered
   assert.equal(candidatesFor(lib, { text: 'animal cell', classNum: null }).length, 1); // class unknown
+  // same score, the class-fitting image comes first
+  const two = { images: [img('b-one', { aliases: { en: ['light'], te: [], hi: [], ta: [] }, classMin: 1, classMax: 3 }), img('a-two', { aliases: { en: ['light'], te: [], hi: [], ta: [] } })], glossary: {} };
+  assert.deepEqual(candidatesFor(two, { text: 'light', classNum: 9 }).map((c) => c.id), ['a-two', 'b-one']);
 });
 
-test('candidates: no typed text offers the class-fitting images; never more than 15', () => {
+test('candidates: no typed text offers the class-fitting images (2 classes slack); never more than 15', () => {
   assert.deepEqual(candidatesFor(lib, { text: '', classNum: 9 }).map((c) => c.id), ['animal-cell', 'human-eye']);
+  assert.deepEqual(candidatesFor(lib, { text: '', classNum: 3 }).map((c) => c.id), []);          // 3 < 6 - 2
+  assert.deepEqual(candidatesFor(lib, { text: '', classNum: 4 }).map((c) => c.id), ['human-eye']); // within the slack of 6..10
+  assert.equal(candidatesFor(lib, { text: '', classNum: null }).length, 2);
   const many = { images: Array.from({ length: 30 }, (_, i) => img(`img-${String(i).padStart(2, '0')}`)), glossary: {} };
   assert.equal(candidatesFor(many, { text: '', classNum: 9 }).length, MAX_CANDIDATES);
   const matching = { images: Array.from({ length: 30 }, (_, i) => img(`img-${i}`, { aliases: { en: ['photo'], te: [], hi: [], ta: [] } })), glossary: {} };
@@ -178,6 +183,24 @@ test('prompt: only the candidates are offered; none means no library rule; scene
     assert.match(p, /resolution/);
     assert.match(p, /"type":"venn"/);
   }
+});
+
+test('the hand-written e2e replies (tests/e2e/recordings-handwritten.mjs) pass the story checks and exist on disk', async () => {
+  const fs = await import('node:fs');
+  const { TOPICS, STORIES, keyFor } = await import('../e2e/recordings-handwritten.mjs');
+  const real = loadLibrary();
+  const expected = { library: 'library', invented: 'none', venn: 'model', bar: 'model', chain: 'derived' };
+  for (const [name, topic] of Object.entries(TOPICS)) {
+    assert.ok(fs.existsSync(new URL(`../e2e/recordings/${keyFor(topic)}.json`, import.meta.url)), `${name}: recording file (run node tests/e2e/recordings-handwritten.mjs)`);
+    const c = storyLibraryContext(real, { text: topic, classNum: 5, langName: 'English' });
+    const r = validateStory(STORIES[name], { library: c });
+    assert.equal(r.ok, true, `${name}: ${JSON.stringify(r.issues)}`);
+    assert.equal(r.visualSource, expected[name], name);
+  }
+  // the topic of the library story really offers the chromosome picture, the invented-id topic offers it too but not the eye
+  const offered = (t) => storyLibraryContext(real, { text: t, classNum: 5, langName: 'English' }).candidates.map((x) => x.id);
+  assert.deepEqual(offered(TOPICS.library), ['chromosome']);
+  assert.deepEqual(offered(TOPICS.invented), ['chromosome']);
 });
 
 test('the shipped library loads and every approved image has its file, anchors in range and glossary names', async () => {
