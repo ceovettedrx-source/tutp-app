@@ -31,6 +31,7 @@ import { staticAssets } from './server/static-assets.js';
 import { stepTimer } from './server/step-timer.js';
 import { cronAuthorized } from './server/cron-auth.js';
 import { applyArithmeticCheck } from './server/arith-check.js';
+import { extractStoryJson, validateStory, salvageStory } from './server/story-schema.js';
 import { callClaude } from './server/anthropic.js';
 import { MODELS, modelSettings } from './server/models.js';
 import { initModelCost } from './server/model-cost.js';
@@ -6420,6 +6421,7 @@ app.post('/api/homework', async (req, res) => {
     const cost = { usd: 0 };
     const typedModel = MODELS.homework_typed;
     let modelCalls = 0;
+    let storyHint = ''; // Storytelling only: what the first reply got wrong, sent with the one retry
     const callModel = async () => {
       try {
         return await callModelOnce(modelCalls + 1);
@@ -6451,7 +6453,7 @@ app.post('/api/homework', async (req, res) => {
           // relying on the prompt limit alone.
           max_tokens: 3000,
           system: systemPrompt,
-          messages: [{ role: 'user', content: userContent }]
+          messages: [{ role: 'user', content: storyHint ? [...userContent, { type: 'text', text: storyHint }] : userContent }]
         }
       });
       return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
@@ -6481,6 +6483,44 @@ app.post('/api/homework', async (req, res) => {
       if (testFamily) res.set('X-Model-Usd', String(cost.usd));
       sendTiming(502);
       return res.status(502).json({ error: 'The answer came back incomplete. Please try again.' });
+    }
+
+    // Storytelling: the reply is checked in code (server/story-schema.js).
+    // One more model call, with what was wrong, when it does not pass; then
+    // the readable part is kept (X-Story-Format: fallback), or the usual 502.
+    if (feature === 'storytelling') {
+      let raw = extractStoryJson(result.data);
+      let check = validateStory(raw);
+      let retried = 0;
+      if (!check.ok) {
+        retried = 1;
+        console.warn('storytelling: reply failed the checks, retrying once', { language: lang, issues: check.issues });
+        storyHint = 'Your previous reply failed these checks: ' + check.issues.join('; ') + '. Reply again with the complete JSON in exactly the shape given, fixing them.';
+        const again = await callModel();
+        if (again.ok) {
+          const raw2 = extractStoryJson(again.data);
+          const check2 = validateStory(raw2);
+          if (check2.ok || !raw) { raw = raw2; check = check2; }
+        }
+      }
+      const story = check.ok ? check.story : salvageStory(raw);
+      if (!story) {
+        console.error('storytelling: nothing usable after the retry', { language: lang, issues: check.issues });
+        if (testFamily) res.set('X-Model-Usd', String(cost.usd));
+        sendTiming(502);
+        return res.status(502).json({ error: 'The answer came back incomplete. Please try again.' });
+      }
+      res.set('X-Story-Format', check.ok ? 'ok' : 'fallback');
+      res.set('X-Story-Fixed', String(check.ok ? check.fixed : 0));
+      res.set('X-Story-Retry', String(retried));
+      if (!check.ok) console.warn('storytelling: fallback story sent', { language: lang });
+      trackSessionCompleted(session.familyId, studentId, {
+        feature, durationSeconds: null,
+        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0 },
+      });
+      sendTiming(200);
+      // Same envelope as every other feature: the page reads the first text block.
+      return res.json(e2eExtras({ ...result.data, content: [{ type: 'text', text: JSON.stringify(story) }] }));
     }
 
     trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });

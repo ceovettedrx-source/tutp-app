@@ -58,6 +58,9 @@ const HEADLESS = args.includes('--headless');
 // wrong row), p4 (check mistakes).
 const SMOKE = args.includes('--smoke');
 const SMOKE_SET = new Set(['k0', 'k1', 'k2', 'p3', 'p4']);
+// --only=k0,k5: just these tests (to re-record one reply, e.g. k5's story,
+// without the photo calls: E2E_MODE=record node tests/e2e/homework.spec.js <url> --only=k0,k5).
+const ONLY = (args.find(a => a.startsWith('--only=')) || '').slice(7).split(',').filter(Boolean);
 const SHEET = SMOKE ? { file: 'worksheet-4.jpg', rows: 'worksheet-4-rows.json', n: 4 } : { file: 'worksheet-5-wrong.jpg', rows: 'worksheet-rows.json', n: 8 };
 const PHONES = { mother: '+919999900001', father: '+919999900002' };
 const DASH = { mother: '/app/mother/', father: '/app/father/' };
@@ -85,6 +88,7 @@ function log(...a) { console.log('[e2e:hw]', ...a); }
 
 async function record(id, name, fn, page) {
   if (SMOKE && !SMOKE_SET.has(id)) return;
+  if (ONLY.length && !ONLY.includes(id)) return;
   try {
     const detail = await fn();
     results.push({ id, name, status: 'PASS', detail: detail || '' });
@@ -448,7 +452,11 @@ function parseReply(data) {
       const story = await api(page, { feature: 'storytelling', text: 'Why leaves are green', language: 'English', studentId, attachments: [] });
       if (story.status !== 200) throw new Error('story status ' + story.status);
       const s = parseReply(story.data).json;
-      if (typeof s.story !== 'string' || typeof s.abhyasaApplicable !== 'boolean') throw new Error('story shape: ' + JSON.stringify(s).slice(0, 200));
+      // storytelling redesign: title, 3+ labelled scenes, a try-together question for the child, a parent line
+      if (typeof s.title !== 'string' || !Array.isArray(s.scenes) || s.scenes.length < 3 || !s.scenes.every(x => x.label && x.text)
+        || !s.tryTogether || !s.tryTogether.question || !s.tryTogether.answer || typeof s.parentPrompt !== 'string') {
+        throw new Error('story shape: ' + JSON.stringify(s).slice(0, 200));
+      }
       out.push('story ok');
       const exp = await api(page, { feature: 'experiential_learning', text: 'Fractions: halves and quarters', language: 'English', studentId, attachments: [] });
       if (exp.status !== 200) throw new Error('experiential status ' + exp.status);
