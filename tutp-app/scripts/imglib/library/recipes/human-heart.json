@@ -1,0 +1,21 @@
+{
+  "id": "human-heart",
+  "subject": "Science",
+  "classMin": 6, "classMax": 10,
+  "description": "The human heart in section: four chambers, aorta and main vessels",
+  "alt": "The human heart cut in half to show its four chambers (two atria on top, two ventricles below), the aorta and the main blood vessels",
+  "aliases": {
+    "en": ["heart", "human heart", "circulatory system", "blood circulation", "atrium", "ventricle", "aorta"],
+    "te": ["గుండె", "రక్త ప్రసరణ", "కర్ణిక", "జఠరిక", "బృహద్ధమని"],
+    "hi": ["हृदय", "दिल", "रक्त परिसंचरण", "अलिंद", "निलय", "महाधमनी"],
+    "ta": ["இதயம்", "இரத்த ஓட்டம்", "ஏட்ரியம்", "வென்ட்ரிக்கிள்", "பெருநாடி"]
+  },
+  "labelKeys": ["right_atrium", "left_atrium", "right_ventricle", "left_ventricle", "aorta"],
+  "prompt": "A front-view diagram of the human heart in section (patient's right is on the viewer's left). Four chambers: two smaller atria on top, two larger ventricles below, with the left ventricle wall thicker. The aorta arches from the top, with the pulmonary artery and the two venae cavae. Oxygen-rich side in the orange accent, the rest in blue and teal.",
+  "checklist": [
+    "four chambers: two atria above, two ventricles below, separated by a septum",
+    "the left ventricle is larger with a thicker wall than the right",
+    "the aorta arches out of the left ventricle; the pulmonary artery leaves the right ventricle",
+    "the heart is oriented correctly: apex pointing down and to the viewer's right"
+  ]
+}

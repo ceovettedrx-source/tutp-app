@@ -33,6 +33,11 @@ export function trackFeedbackEscalated(familyId, studentId, { category, patternC
 export function trackShareClicked(familyId) {
   trackEvent(EVENTS.SHARE_CLICKED, { familyId });
 }
+// A parent tapped "Is this picture wrong?" on a story's library picture
+// (server/image-library.js hides an image after 3 families in 30 days).
+export function trackImageReported(familyId, studentId, { imageId }) {
+  trackEvent(EVENTS.IMAGE_REPORTED, { familyId, studentId, properties: { feature: 'storytelling', image_id: imageId } });
+}
 // feature is fixed to 'visual_tutor' rather than added to FEATURES: FEATURES
 // is also /api/homework's allow-list, which shouldn't accept this value.
 export function trackVisualTutorCall(familyId, { mode, outcome, steps, model, inputTokens, outputTokens, stopReason = null }) {

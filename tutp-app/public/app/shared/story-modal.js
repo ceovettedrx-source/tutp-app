@@ -14,6 +14,8 @@
 // The reply (server/story-schema.js) is { title, gradeSubjectTag,
 // readMinutes, scenes[], visual|null, equations[], tryTogether|null,
 // parentPrompt }. An older { story, abhyasaPrompt } reply is shown too.
+// visual types: groups, numberLine, barModel, factFamily, venn (drawn here) and
+// library (a ready picture with pins and a legend, from server/image-library.js).
 // All story text goes in with textContent, never innerHTML.
 (function () {
     'use strict';
@@ -280,6 +282,11 @@
             s.appendChild(svgEl('line', { x1: x, y1: y - 5, x2: x, y2: y + 5, class: 'sm-nl-tick' }));
             if (i % every === 0 || i === steps) s.appendChild(svgEl('text', { x: x, y: y + 22, class: 'sm-nl-n', 'text-anchor': 'middle' }, String(n)));
         }
+        if (v.icon) { // the counted thing waits at the start of the first jump
+            var at = v.jumps.length ? v.jumps[0].from : v.from;
+            s.setAttribute('viewBox', '0 0 ' + W + ' ' + (H + 22));
+            s.appendChild(svgEl('text', { x: xOf(at), y: y + 44, class: 'sm-nl-icon', 'text-anchor': 'middle' }, v.icon));
+        }
         v.jumps.forEach(function (j, k) {
             var a = xOf(j.from), b = xOf(j.to), mid = (a + b) / 2, lift = 14 + (k % 2) * 8;
             s.appendChild(svgEl('path', { d: 'M' + a + ' ' + (y - 6) + ' Q' + mid + ' ' + (y - 6 - lift * 2) + ' ' + b + ' ' + (y - 6), class: 'sm-nl-jump' }));
@@ -298,6 +305,7 @@
         v.parts.forEach(function (p, i) {
             var seg = el('div', 'sm-bm-part sm-bm-' + (i % 4));
             seg.style.flexGrow = String(p.value);
+            if (v.icon) seg.appendChild(el('span', 'sm-bm-icons', new Array(Math.min(p.value, 10) + 1).join(v.icon) + (p.value > 10 ? '…' : '')));
             seg.appendChild(el('span', 'sm-bm-val', String(p.value)));
             if (p.label) seg.appendChild(el('span', 'sm-bm-lab', p.label));
             row.appendChild(seg);
@@ -319,7 +327,8 @@
         s.appendChild(svgEl('polygon', { points: '110,12 18,132 202,132', class: 'sm-ff-tri' }));
         [[110, 34, v.total, 'sm-ff-top'], [42, 124, v.a, 'sm-ff-c'], [178, 124, v.b, 'sm-ff-c']].forEach(function (c) {
             s.appendChild(svgEl('circle', { cx: c[0], cy: c[1], r: 24, class: 'sm-ff-dot ' + c[3] }));
-            s.appendChild(svgEl('text', { x: c[0], y: c[1] + 6, class: 'sm-ff-n ' + c[3], 'text-anchor': 'middle' }, String(c[2])));
+            if (v.icon) s.appendChild(svgEl('text', { x: c[0], y: c[1] - 9, class: 'sm-ff-icon', 'text-anchor': 'middle' }, v.icon));
+            s.appendChild(svgEl('text', { x: c[0], y: c[1] + (v.icon ? 12 : 6), class: 'sm-ff-n ' + c[3], 'text-anchor': 'middle' }, String(c[2])));
         });
         wrap.appendChild(s);
         var ul = el('ul', 'sm-fact-list');
@@ -328,10 +337,111 @@
         return wrap;
     }
 
+    // Two overlapping ellipses (the intersection in orange) behind three lists
+    // of elements; an element is its icon when the server found one, else a
+    // small text chip. The stage grows with the lists.
+    var vennCount = 0;
+    function vennList(items, cls) {
+        var col = el('div', 'sm-venn-col ' + cls);
+        items.forEach(function (it) {
+            col.appendChild(it.icon ? elWith('span', 'sm-venn-item sm-venn-ico', it.icon, it.text) : el('span', 'sm-venn-item', it.text));
+        });
+        return col;
+    }
+    function elWith(tag, cls, text, title) { var e = el(tag, cls, text); e.title = title; return e; }
+    function vennBody(v) {
+        var wrap = el('div', 'sm-venn');
+        var head = el('div', 'sm-venn-labels');
+        head.appendChild(el('span', 'sm-venn-label', v.left.label));
+        head.appendChild(el('span', 'sm-venn-label', v.right.label));
+        wrap.appendChild(head);
+        var stage = el('div', 'sm-venn-stage');
+        var id = 'smVennClip' + (++vennCount);
+        var s = svgEl('svg', { viewBox: '0 0 100 100', preserveAspectRatio: 'none', class: 'sm-venn-svg', 'aria-hidden': 'true', focusable: 'false' });
+        var defs = svgEl('defs', {});
+        var clip = svgEl('clipPath', { id: id });
+        clip.appendChild(svgEl('ellipse', { cx: 33, cy: 50, rx: 33, ry: 48 }));
+        defs.appendChild(clip);
+        s.appendChild(defs);
+        s.appendChild(svgEl('ellipse', { cx: 33, cy: 50, rx: 33, ry: 48, class: 'sm-venn-a' }));
+        s.appendChild(svgEl('ellipse', { cx: 67, cy: 50, rx: 33, ry: 48, class: 'sm-venn-b' }));
+        s.appendChild(svgEl('ellipse', { cx: 67, cy: 50, rx: 33, ry: 48, class: 'sm-venn-both', 'clip-path': 'url(#' + id + ')' }));
+        stage.appendChild(s);
+        stage.appendChild(vennList(v.left.items, 'sm-venn-l'));
+        stage.appendChild(vennList(v.both, 'sm-venn-m'));
+        stage.appendChild(vennList(v.right.items, 'sm-venn-r'));
+        wrap.appendChild(stage);
+        return wrap;
+    }
+
+    // A ready, checked picture from the image library (server/image-library.js):
+    // the label-free image, numbered pins on it and a legend in the story's
+    // language (the English source term in brackets), an "AI-made" tag and a
+    // report button (POST /api/story-image/report). The button is not printed.
+    function libraryBody(v) {
+        var wrap = el('div', 'sm-lib');
+        var stage = el('div', 'sm-lib-stage');
+        var img = document.createElement('img');
+        img.className = 'sm-lib-img';
+        img.src = v.src;
+        img.alt = v.alt;
+        img.loading = 'lazy';
+        img.decoding = 'async';
+        stage.appendChild(img);
+        v.labels.forEach(function (l) {
+            var pin = el('span', 'sm-lib-pin', String(l.n));
+            pin.style.left = (l.x * 100) + '%';
+            pin.style.top = (l.y * 100) + '%';
+            pin.setAttribute('aria-hidden', 'true');
+            stage.appendChild(pin);
+        });
+        wrap.appendChild(stage);
+        if (v.labels.length) {
+            var ol = el('ol', 'sm-lib-legend');
+            v.labels.forEach(function (l) {
+                var li = el('li', 'sm-lib-item');
+                li.appendChild(el('span', 'sm-lib-n', String(l.n)));
+                li.appendChild(el('span', 'sm-lib-term', l.term));
+                if (l.source) li.appendChild(el('span', 'sm-lib-src', '(' + l.source + ')'));
+                ol.appendChild(li);
+            });
+            wrap.appendChild(ol);
+        }
+        var foot = el('div', 'sm-lib-foot');
+        foot.appendChild(el('span', 'sm-lib-tag', 'AI-made illustration'));
+        var report = el('button', 'sm-link-btn sm-lib-report sm-no-print', 'Is this picture wrong?');
+        report.type = 'button';
+        var thanks = el('span', 'sm-lib-thanks sm-no-print sm-hidden', 'Thank you, we will check this picture.');
+        thanks.setAttribute('role', 'status');
+        report.addEventListener('click', function () {
+            report.disabled = true;
+            fetch('/api/story-image/report', {
+                method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId: sessionStorage.getItem('tutp_student_id'), imageId: v.id })
+            }).then(function (r) {
+                if (!r.ok) throw new Error('report failed');
+                report.classList.add('sm-hidden');
+                thanks.classList.remove('sm-hidden');
+            }).catch(function () {
+                report.disabled = false;
+                report.textContent = 'Could not send. Try again';
+            });
+        });
+        foot.appendChild(report);
+        foot.appendChild(thanks);
+        wrap.appendChild(foot);
+        return wrap;
+    }
+
     function visualLabel(v) {
+        if (v.type === 'library') return v.alt;
+        if (v.type === 'venn') {
+            var of = function (items) { return items.map(function (i) { return i.text; }).join(', ') || 'none'; };
+            return 'Venn diagram. ' + v.left.label + ' only: ' + of(v.left.items) + '. ' + v.right.label + ' only: ' + of(v.right.items) + '. Both: ' + of(v.both) + '.';
+        }
         if (v.type === 'groups') {
             var equal = v.groups.every(function (g) { return g === v.groups[0]; });
-            return v.total + ' ' + v.itemNoun + (equal && v.groups.length > 1 ? ': ' + v.groups.length + ' groups of ' + v.groups[0] : ': ' + v.groups.join(' + '));
+            return v.total + (v.itemNoun ? ' ' + v.itemNoun : '') + (equal && v.groups.length > 1 ? ': ' + v.groups.length + ' groups of ' + v.groups[0] : ': ' + v.groups.join(' + '));
         }
         if (v.type === 'numberLine') {
             return 'Number line from ' + v.from + ' to ' + v.to + (v.jumps.length ? ', ' + v.jumps.map(function (j) { return 'jump from ' + j.from + ' to ' + j.to; }).join(', ') : '');
@@ -345,10 +455,14 @@
     function visualEl(v) {
         var fig = el('figure', 'sm-visual sm-visual-' + v.type);
         var label = visualLabel(v);
-        fig.setAttribute('role', 'img');
-        fig.setAttribute('aria-label', label);
-        var body = v.type === 'groups' ? groupsBody(v) : v.type === 'numberLine' ? numberLineBody(v) : v.type === 'barModel' ? barModelBody(v) : factFamilyBody(v);
-        body.setAttribute('aria-hidden', 'true');
+        // A library picture is real content (an img with alt text, a legend and a
+        // button), so it is not hidden from a screen reader as a drawing is.
+        if (v.type !== 'library') {
+            fig.setAttribute('role', 'img');
+            fig.setAttribute('aria-label', label);
+        }
+        var body = v.type === 'library' ? libraryBody(v) : v.type === 'venn' ? vennBody(v) : v.type === 'groups' ? groupsBody(v) : v.type === 'numberLine' ? numberLineBody(v) : v.type === 'barModel' ? barModelBody(v) : factFamilyBody(v);
+        if (v.type !== 'library') body.setAttribute('aria-hidden', 'true');
         fig.appendChild(body);
         if (v.type === 'groups' || v.type === 'factFamily') {
             fig.appendChild(el('figcaption', null, v.type === 'groups' ? label + (v.total > MAX_ITEMS ? ' (showing ' + MAX_ITEMS + ')' : '') : 'One fact, four sums'));
@@ -356,7 +470,7 @@
         return fig;
     }
 
-    var VISUAL_TYPES = { groups: 1, numberLine: 1, barModel: 1, factFamily: 1 };
+    var VISUAL_TYPES = { groups: 1, numberLine: 1, barModel: 1, factFamily: 1, venn: 1, library: 1 };
 
     // The feedback question, inline at the end of the result (it used to be the
     // page's fixed bottom-right box, which sat on top of the story at 360 px).

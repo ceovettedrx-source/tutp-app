@@ -1,0 +1,21 @@
+{
+  "id": "animal-cell",
+  "subject": "Science",
+  "classMin": 6, "classMax": 10,
+  "description": "A typical animal cell: membrane, cytoplasm, nucleus, mitochondria",
+  "alt": "A typical animal cell cut open: a round nucleus, several mitochondria and other organelles inside the cytoplasm, surrounded by a cell membrane",
+  "aliases": {
+    "en": ["animal cell", "cell structure", "cell membrane", "cytoplasm", "nucleus", "organelle", "mitochondria", "cell"],
+    "te": ["జంతు కణం", "కణం", "కేంద్రకం", "కణత్వచం", "కణద్రవ్యం"],
+    "hi": ["जंतु कोशिका", "कोशिका", "केंद्रक", "कोशिका झिल्ली", "कोशिकाद्रव्य"],
+    "ta": ["விலங்கு செல்", "செல்", "உட்கரு", "செல் சவ்வு", "சைட்டோபிளாசம்"]
+  },
+  "labelKeys": ["nucleus", "cell_membrane", "cytoplasm", "mitochondrion"],
+  "prompt": "A cross-section of a typical animal cell, rounded irregular outline (no cell wall). A large round nucleus with a smaller nucleolus drawn in the orange accent, three or four identical bean-shaped mitochondria, a few small round vesicles, and a stacked Golgi body, all floating in the cytoplasm. The cell membrane is a clear single outline.",
+  "checklist": [
+    "one clearly visible nucleus, the largest organelle, with a nucleolus",
+    "no cell wall and no chloroplasts (this is an animal cell)",
+    "all mitochondria are drawn identically, bean shaped",
+    "the cell membrane is one continuous closed outline"
+  ]
+}

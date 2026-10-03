@@ -1,0 +1,21 @@
+{
+  "id": "flower-parts",
+  "subject": "Science",
+  "classMin": 4, "classMax": 9,
+  "description": "Parts of a flower: petals, sepals, stamens, pistil, stem",
+  "alt": "A flower cut in half lengthwise showing petals, sepals, stamens with anthers, and the pistil with stigma, style and ovary",
+  "aliases": {
+    "en": ["flower", "parts of a flower", "petal", "sepal", "stamen", "pistil", "pollination", "reproduction in plants"],
+    "te": ["పువ్వు", "పుష్పం", "రేకు", "కేసరం", "అండకోశం", "పరాగసంపర్కం"],
+    "hi": ["फूल", "पुष्प", "पंखुड़ी", "पुंकेसर", "स्त्रीकेसर", "परागण"],
+    "ta": ["பூ", "மலர்", "இதழ்", "மகரந்தத்தாள்", "சூலகம்", "மகரந்தச் சேர்க்கை"]
+  },
+  "labelKeys": ["petal", "sepal", "stamen", "pistil"],
+  "prompt": "A flower in longitudinal section, upright, with a short stem. Several identical petals in blue and teal, green-teal sepals below them, five to six identical stamens (thin filament with an anther) around the centre, and the central pistil (stigma, style, ovary) drawn in the orange accent.",
+  "checklist": [
+    "petals all drawn identically and arranged symmetrically",
+    "sepals are below the petals, stamens inside the petals, pistil in the centre",
+    "the pistil has a stigma on top, a style and a swollen ovary at the base",
+    "stamens are identical to each other"
+  ]
+}

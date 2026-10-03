@@ -1,0 +1,21 @@
+{
+  "id": "digestive-system",
+  "subject": "Science",
+  "classMin": 5, "classMax": 10,
+  "description": "Outline of the human digestive system: mouth, food pipe, stomach, small and large intestine",
+  "alt": "A human body outline showing the digestive tract: mouth, food pipe, stomach, coiled small intestine and the large intestine framing it",
+  "aliases": {
+    "en": ["digestive system", "digestion", "stomach", "intestine", "food pipe", "esophagus", "alimentary canal"],
+    "te": ["జీర్ణవ్యవస్థ", "జీర్ణక్రియ", "జీర్ణాశయం", "ప్రేగు"],
+    "hi": ["पाचन तंत्र", "पाचन", "आमाशय", "आंत"],
+    "ta": ["செரிமான மண்டலம்", "செரிமானம்", "இரைப்பை", "குடல்"]
+  },
+  "labelKeys": ["mouth", "esophagus", "stomach", "small_intestine", "large_intestine"],
+  "prompt": "A simple front-view outline of a human upper body (head and torso, no face details, no skin tone, just a light blue silhouette outline) with the digestive tract drawn inside: mouth, a straight food pipe, a J-shaped stomach in the orange accent, a tightly coiled small intestine in the centre, and the large intestine as an inverted U framing it. Liver and other organs omitted.",
+  "checklist": [
+    "order along the tract is mouth, food pipe, stomach, small intestine, large intestine",
+    "the stomach is on the viewer's right side of the body (patient's left), J shaped",
+    "the small intestine is coiled and the large intestine is wider and frames it",
+    "no face, no genitals, a neutral outline body"
+  ]
+}

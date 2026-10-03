@@ -57,8 +57,9 @@ function inReadingOrder(boxes) {
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
-  trackShareClicked
+  trackShareClicked, trackImageReported
 } from './tracking/tracking.js';
+import { loadLibrary, storyLibraryContext, createHiddenCache, classNumber, promptLine, IMAGE_REPORTED, REPORT_WINDOW_DAYS } from './server/image-library.js';
 import { FEATURES } from './tracking/events.js';
 import { classifyFeedback, autoResolveTooComplex, escalateToFounder } from './tracking/feedback-pipeline.js';
 import { getCharacterSVG } from './server/services/illustration/characters.js';
@@ -290,6 +291,23 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 // pauses itself when migration 030 has not been run.
 const chipLog = createChipLog({ supabase, isTestFamily });
 
+// Story image library (server/image-library.js): ready, checked pictures made
+// offline. An image reported by 3 or more distinct families in 30 days is
+// hidden; the lookup of reports is cached for 5 minutes.
+const imageLibrary = loadLibrary();
+const hiddenImages = createHiddenCache({
+  notBefore: () => Object.fromEntries(imageLibrary.images.filter((i) => i.stored_at).map((i) => [i.id, Date.parse(i.stored_at)])),
+  fetchRows: async () => {
+    if (!supabase) return [];
+    const since = new Date(Date.now() - REPORT_WINDOW_DAYS * 86400000).toISOString();
+    const { data, error } = await supabase.from('usage_events').select('family_id, properties, created_at')
+      .eq('event_name', IMAGE_REPORTED).gte('created_at', since).limit(5000);
+    if (error) throw error;
+    return data || [];
+  },
+});
+const recentImageReports = new Map(); // family|image -> time, one row per family and image per hour
+
 // The `verify` hook stashes the exact raw bytes for the Razorpay webhook
 // route (req.rawBody) alongside the normally-parsed req.body — Razorpay's
 // signature is an HMAC over the raw request bytes, and by the time a route
@@ -312,6 +330,8 @@ app.use(express.json({
 // anything unversioned is "no-cache". express.static's default "public,
 // max-age=0" let phones keep a stale /app/shared/*.js after a deploy.
 app.use(staticAssets(path.join(__dirname, 'public')));
+// Library pictures keep their file name when an image is regenerated, so a day, not a year.
+app.use('/imglib', express.static(path.join(__dirname, 'public', 'imglib'), { maxAge: '1d' }));
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res, filePath) => {
     if (/\.(?:html|m?js|css)$/.test(filePath)) res.setHeader('Cache-Control', 'no-cache');
@@ -6382,7 +6402,12 @@ app.post('/api/homework', async (req, res) => {
       res.set('Server-Timing', timer.header());
       console.log('homework: timing', { feature, photos: photos.length, status, steps: timer.summary() });
     };
-    const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos });
+    // Storytelling only: the library pictures that fit this lesson (at most
+    // 15), offered in the prompt and the only ids validateStory accepts.
+    const libraryCtx = feature === 'storytelling'
+      ? storyLibraryContext(imageLibrary, { text, classNum: classNumber(studentRow && studentRow.class), langName: lang, hidden: await hiddenImages.get() })
+      : null;
+    const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos, libraryCandidates: libraryCtx ? libraryCtx.candidates.map(promptLine) : [] });
     if (!userContent.every(isValidHomeworkContentBlock)) {
       return res.status(400).json({ error: 'Invalid attachment' });
     }
@@ -6491,7 +6516,8 @@ app.post('/api/homework', async (req, res) => {
     // the readable part is kept (X-Story-Format: fallback), or the usual 502.
     if (feature === 'storytelling') {
       let raw = extractStoryJson(result.data);
-      let check = validateStory(raw);
+      const storyCtx = { library: libraryCtx };
+      let check = validateStory(raw, storyCtx);
       let retried = 0;
       if (!check.ok) {
         retried = 1;
@@ -6500,7 +6526,7 @@ app.post('/api/homework', async (req, res) => {
         const again = await callModel();
         if (again.ok) {
           const raw2 = extractStoryJson(again.data);
-          const check2 = validateStory(raw2);
+          const check2 = validateStory(raw2, storyCtx);
           if (check2.ok || !raw) { raw = raw2; check = check2; }
         }
       }
@@ -6519,7 +6545,7 @@ app.post('/api/homework', async (req, res) => {
       if (!check.ok) console.warn('storytelling: fallback story sent', { language: lang });
       trackSessionCompleted(session.familyId, studentId, {
         feature, durationSeconds: null,
-        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none' },
+        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none', ...(check.ok && story.visual && story.visual.type === 'library' ? { story_image: story.visual.id } : {}) },
       });
       sendTiming(200);
       // Same envelope as every other feature: the page reads the first text block.
@@ -6675,6 +6701,36 @@ app.post('/api/feedback', async (req, res) => {
   } catch (err) {
     console.error('Feedback pipeline error:', err);
     res.status(500).json({ error: 'Could not process feedback' });
+  }
+});
+
+// ------------------------------------------------------------------
+// "Is this picture wrong?" on a story's library picture. Logged as an
+// image.reported usage_events row (no new table); three distinct families in
+// 30 days hide the image (server/image-library.js). Test families answer ok
+// but are not counted. One row per family and image per hour.
+// ------------------------------------------------------------------
+app.post('/api/story-image/report', async (req, res) => {
+  try {
+    const { studentId, imageId } = req.body || {};
+    const session = await requireOwnStudent(req, res, studentId);
+    if (!session) return;
+    if (typeof imageId !== 'string' || !imageLibrary.images.some((i) => i.id === imageId)) {
+      return res.status(400).json({ error: 'unknown_image' });
+    }
+    if (await isTestFamily(session.familyId)) return res.json({ ok: true, counted: false });
+    const key = session.familyId + '|' + imageId;
+    const last = recentImageReports.get(key);
+    if (!last || Date.now() - last > 3600000) {
+      recentImageReports.set(key, Date.now());
+      if (recentImageReports.size > 5000) recentImageReports.clear();
+      trackImageReported(session.familyId, studentId, { imageId });
+      hiddenImages.invalidate();
+    }
+    res.json({ ok: true, counted: true });
+  } catch (err) {
+    console.error('Story image report error:', err);
+    res.status(500).json({ error: 'Could not record the report' });
   }
 });
 

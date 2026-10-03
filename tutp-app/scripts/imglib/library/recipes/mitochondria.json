@@ -1,0 +1,20 @@
+{
+  "id": "mitochondria",
+  "subject": "Science",
+  "classMin": 8, "classMax": 12,
+  "description": "A mitochondrion cut open: outer membrane, folded inner membrane (cristae), matrix",
+  "alt": "A mitochondrion cut open lengthwise: a smooth outer membrane, a folded inner membrane forming cristae, and the matrix inside",
+  "aliases": {
+    "en": ["mitochondria", "mitochondrion", "powerhouse of the cell", "cristae", "cellular respiration"],
+    "te": ["మైటోకాండ్రియా", "కణశ్వాసక్రియ"],
+    "hi": ["माइटोकॉन्ड्रिया", "कोशिकीय श्वसन"],
+    "ta": ["மைட்டோகாண்ட்ரியா", "செல் சுவாசம்"]
+  },
+  "labelKeys": ["outer_membrane", "inner_membrane", "cristae", "matrix"],
+  "prompt": "A single mitochondrion cut open lengthwise, bean shaped, horizontal. A smooth outer membrane outline; inside, a second membrane that folds inward into evenly spaced finger-like cristae (shown in the orange accent); the space around the folds is the matrix.",
+  "checklist": [
+    "two separate membranes: a smooth outer one and a folded inner one",
+    "four to six cristae, all folded the same way and evenly spaced",
+    "the matrix space is visible between the cristae"
+  ]
+}

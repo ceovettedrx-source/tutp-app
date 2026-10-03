@@ -1,0 +1,21 @@
+{
+  "id": "plant-cell",
+  "subject": "Science",
+  "classMin": 6, "classMax": 10,
+  "description": "A typical plant cell: cell wall, membrane, large vacuole, chloroplasts, nucleus",
+  "alt": "A typical plant cell with a rectangular cell wall, a large central vacuole, a nucleus and several chloroplasts",
+  "aliases": {
+    "en": ["plant cell", "cell wall", "chloroplast", "vacuole", "plant cell structure"],
+    "te": ["వృక్ష కణం", "కణకవచం", "హరితరేణువు", "రిక్తిక"],
+    "hi": ["पादप कोशिका", "कोशिका भित्ति", "हरितलवक", "रिक्तिका"],
+    "ta": ["தாவர செல்", "செல் சுவர்", "பசுங்கணிகம்"]
+  },
+  "labelKeys": ["cell_wall", "cell_membrane", "chloroplast", "vacuole", "nucleus"],
+  "prompt": "A cross-section of a typical plant cell with a rounded-rectangle shape: a thick outer cell wall, a thin cell membrane just inside it, one large central vacuole, a nucleus drawn in the orange accent pushed to one side, and several identical oval chloroplasts with small stacked discs inside, near the wall.",
+  "checklist": [
+    "a thick cell wall outside a thinner membrane (two distinct outlines)",
+    "one large central vacuole taking much of the cell",
+    "several chloroplasts, all identical in shape and colour",
+    "a nucleus is present"
+  ]
+}

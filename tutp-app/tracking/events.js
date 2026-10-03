@@ -7,6 +7,7 @@ export const EVENTS = {
   FEEDBACK_ESCALATED: 'feedback.escalated',
   SHARE_CLICKED: 'share.clicked',
   VISUAL_TUTOR_CALL: 'visual_tutor.call',
+  IMAGE_REPORTED: 'image.reported',
 };
 export const FEATURES = {
   HOMEWORK_HELP: 'homework_help',

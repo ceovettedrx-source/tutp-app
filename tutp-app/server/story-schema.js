@@ -10,7 +10,7 @@
 // against its question. Unit tests: tests/unit/story-schema.test.js.
 
 import { solveArithmetic, evaluate } from './arith-check.js';
-import { pickIcon } from './story-icons.js';
+import { pickIcon, iconForNoun } from './story-icons.js';
 
 export const SCENE_LABELS = ['hook', 'problem', 'mathMoment', 'wrapUp'];
 const MAX_VISUAL_TOTAL = 1000; // the page draws at most 60 items and counts the rest
@@ -64,10 +64,50 @@ export function asciiDigits(text) {
 const MAX_NUM = 100000;
 const num = (v) => { const n = int(v); return n != null && n >= 1 && n <= MAX_NUM ? n : null; };
 
+// Venn elements: one region's list of short strings -> [{text, icon}] (icon ''
+// when the item map has none, the page then shows the text), or null.
+const VENN_MAX_ITEMS = 24;
+function vennItems(list) {
+  if (!Array.isArray(list) || list.length > 10) return null;
+  const out = [];
+  for (const it of list) {
+    const text = str(typeof it === 'number' ? String(it) : it, 24);
+    if (!text) return null;
+    out.push({ text, icon: iconForNoun(text) });
+  }
+  return out;
+}
+export function validateVenn(v) {
+  const left = v.left && str(v.left.label, 30), right = v.right && str(v.right.label, 30);
+  const l = v.left && vennItems(v.left.items), r = v.right && vennItems(v.right.items);
+  const b = vennItems(v.both == null ? [] : v.both);
+  if (!left || !right || !l || !r || !b) return null;
+  if (l.length + b.length < 1 || r.length + b.length < 1) return null;
+  const all = [...l, ...r, ...b].map((i) => i.text.normalize('NFC').toLowerCase());
+  if (all.length > VENN_MAX_ITEMS || new Set(all).size !== all.length) return null; // an element is in one region only
+  return { type: 'venn', left: { label: left, items: l }, right: { label: right, items: r }, both: b };
+}
+// Every Venn element, for the check that the story names them.
+export const vennElements = (v) => [...v.left.items, ...v.right.items, ...v.both].map((i) => i.text);
+
+// Optional item icon of numberLine, barModel and factFamily (story visuals v3):
+// the model's single emoji, else the map for itemNoun, else none.
+const withIcon = (visual, v) => {
+  const icon = pickIcon(v.icon, str(v.itemNoun, 40) || '');
+  return icon ? { ...visual, icon } : visual;
+};
+
 // The model's visual -> a checked visual, or null when its shape or numbers
-// are wrong. Types: groups, numberLine, barModel, factFamily.
-export function validateVisual(v) {
+// are wrong. Types: groups, numberLine, barModel, factFamily, venn, library.
+// ctx.library = { offered: Set of ids, build(id) } checks a library picture:
+// only an id that was offered in the prompt, and is still approved, is kept.
+export function validateVisual(v, ctx = {}) {
   if (!v || typeof v !== 'object') return null;
+  if (v.type === 'library') {
+    const id = typeof v.id === 'string' ? v.id : '';
+    return ctx.library && ctx.library.offered.has(id) ? ctx.library.build(id) : null;
+  }
+  if (v.type === 'venn') return validateVenn(v);
   if (v.type === 'groups') {
     const total = int(v.total);
     const groups = Array.isArray(v.groups) ? v.groups.map(int) : [];
@@ -88,7 +128,7 @@ export function validateVisual(v) {
       if (a == null || b == null || a === b || a < from || a > to || b < from || b > to) return null;
       jumps.push({ from: a, to: b });
     }
-    return { type: 'numberLine', from, to, step, jumps };
+    return withIcon({ type: 'numberLine', from, to, step, jumps }, v);
   }
   if (v.type === 'barModel') {
     const total = num(v.total);
@@ -99,14 +139,14 @@ export function validateVisual(v) {
       parts.push({ label: (p && str(p.label, 24)) || '', value });
     }
     const sum = parts.reduce((a, p) => a + p.value, 0);
-    return total && parts.length >= 2 && parts.length <= 6 && sum === total ? { type: 'barModel', parts, total } : null;
+    return total && parts.length >= 2 && parts.length <= 6 && sum === total ? withIcon({ type: 'barModel', parts, total }, v) : null;
   }
   if (v.type === 'factFamily') {
     const a = num(v.a), b = num(v.b), total = num(v.total);
     const op = v.op === 'multiply' ? 'multiply' : v.op === 'add' ? 'add' : null;
     if (!a || !b || !total || !op) return null;
     if ((op === 'add' ? a + b : a * b) !== total) return null;
-    return { type: 'factFamily', a, b, total, op };
+    return withIcon({ type: 'factFamily', a, b, total, op }, v);
   }
   return null;
 }
@@ -124,6 +164,54 @@ export function equationFact(eq) {
   if (/[×x*]/.test(op)) return x * y === z ? { type: 'factFamily', a: x, b: y, total: z, op: 'multiply' } : null;
   if (/[\-−–]/.test(op)) return y + z === x ? { type: 'factFamily', a: y, b: z, total: x, op: 'add' } : null;
   return y * z === x ? { type: 'factFamily', a: y, b: z, total: x, op: 'multiply' } : null; // ÷ or /
+}
+
+// A picture for an equation that is not a plain "a op b = c": a chain of
+// three to six numbers joined by one kind of sign ("2 + 3 + 4 = 9" is a bar of
+// 2, 3, 4; "2 × 3 × 4 = 24" is 4 groups of 6) and an equation with one blank
+// ("4 × __ = 24", "6 × 9 = 6 × 3 × __"), solved first (server/arith-check.js)
+// and then drawn from the filled-in equation. Whole numbers and exact results
+// only; anything else gives null (no picture, never a wrong one).
+const BLANKS = /_+|□|\?|\[\s*\]|\(\s*\)/g;
+const MAX_GROUPS = 12;
+function chainTerms(side) {
+  const sign = side.includes('+') ? '+' : side.includes('*') ? '*' : null;
+  if (!sign) return null;
+  const parts = side.split(sign).map((t) => t.trim());
+  if (parts.length < 3 || parts.length > 6 || !parts.every((t) => /^\d+$/.test(t))) return null;
+  const nums = parts.map(Number);
+  return nums.every((n) => n >= 1) ? { sign, nums } : null;
+}
+export function equationVisual(eq) {
+  const plain = equationFact(eq);
+  if (plain) return plain;
+  if (typeof eq !== 'string' || eq.length > 80) return null;
+  let s = asciiDigits(eq).replace(/[×xX*]/g, '*').replace(/÷/g, '/').replace(/[−–]/g, '-');
+  const blanks = (s.match(BLANKS) || []).length;
+  if (blanks > 1) return null;
+  if (blanks === 1) {
+    const x = solveArithmetic(eq);
+    if (x == null || x < 1) return null;
+    s = s.replace(BLANKS, String(x));
+  }
+  if (!/^[\d\s+\-*/=]+$/.test(s)) return null;
+  const sides = s.split('=').map((t) => t.trim());
+  if (sides.length !== 2) return null;
+  const [lv, rv] = sides.map((t) => evaluate(t));
+  if (lv == null || lv !== rv || !Number.isInteger(lv) || lv < 1) return null;
+  const filled = equationFact(s);          // "4 * 6 = 24" after a blank was solved
+  if (filled) return filled;
+  const chain = chainTerms(sides[1]) || chainTerms(sides[0]);
+  if (!chain) return null;
+  if (chain.sign === '+') {
+    return lv <= MAX_NUM ? { type: 'barModel', parts: chain.nums.map((value) => ({ label: '', value })), total: lv } : null;
+  }
+  // × chain: one factor (the last that is 2..12) is the number of groups, the rest is the size of each
+  let at = -1;
+  for (let i = chain.nums.length - 1; i >= 0; i--) if (chain.nums[i] >= 2 && chain.nums[i] <= MAX_GROUPS) { at = i; break; }
+  if (at < 0 || lv > MAX_VISUAL_TOTAL) return null;
+  const n = chain.nums[at];
+  return { type: 'groups', itemNoun: '', icon: '', total: lv, groups: Array(n).fill(lv / n) };
 }
 
 // Same operation, same total, same two numbers in either order.
@@ -196,7 +284,7 @@ export function questionValue(question) {
 }
 
 // raw (parsed JSON) -> { ok: true, story, fixed } or { ok: false, issues }.
-export function validateStory(raw) {
+export function validateStory(raw, ctx = {}) {
   const issues = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, issues: ['not an object'] };
   let fixed = 0;
@@ -220,8 +308,8 @@ export function validateStory(raw) {
   let visualSource = 'none';
   const v = raw.visual;
   if (v && typeof v === 'object') {
-    visual = validateVisual(v);
-    if (visual) visualSource = 'model';
+    visual = validateVisual(v, ctx);
+    if (visual) visualSource = visual.type === 'library' ? 'library' : 'model';
     else fixed++; // dropped: the numbers did not add up, or the shape was wrong
   }
 
@@ -241,7 +329,8 @@ export function validateStory(raw) {
   // the first plain whole-number equation. A fact family that is not one of
   // the listed equations is replaced by the listed one.
   const facts = equations.map(equationFact).filter(Boolean);
-  if (!visual && facts.length) { visual = facts[0]; visualSource = 'derived'; }
+  const derived = equations.map(equationVisual).filter(Boolean); // facts, chains, equations with a blank
+  if (!visual && derived.length) { visual = derived[0]; visualSource = 'derived'; }
   else if (visual && visual.type === 'factFamily' && facts.length && !facts.some((f) => sameFact(f, visual))) {
     visual = facts[0]; visualSource = 'derived'; fixed++;
   }
@@ -275,7 +364,7 @@ export function validateStory(raw) {
   // the scenes and the try-together question use (haiku once wrote the Telugu
   // word for "messages" where the story meant laddus). Matched by stem, so the
   // endings of an inflected language (లడ్డు, లడ్డూలు, లడ్డులను) still count.
-  if (visual && visual.type === 'groups') {
+  if (visual && visual.type === 'groups' && visual.itemNoun) {
     const stem = nounStem(visual.itemNoun);
     const has = (t) => t.normalize('NFC').toLowerCase().includes(stem);
     const inScenes = scenes.filter((s) => has(s.text)).length;
@@ -284,6 +373,20 @@ export function validateStory(raw) {
     }
     if (tryTogether && !has(tryTogether.question)) {
       issues.push(`the try-together question does not use the word "${visual.itemNoun}"; use the same word`);
+    }
+  }
+
+  // A Venn diagram is drawn from the story's own sets: at least half of its
+  // elements must be named in the story (short items such as numbers are
+  // matched whole, longer words by stem so an inflected ending still counts).
+  if (visual && visual.type === 'venn') {
+    const texts = [...scenes.map((s) => s.text), tryTogether ? tryTogether.question : '', ...equations].join(' ').normalize('NFC').toLowerCase();
+    const named = vennElements(visual).filter((e) => {
+      const t = e.normalize('NFC').toLowerCase();
+      return texts.includes(t.length <= 3 ? t : nounStem(t));
+    }).length;
+    if (named * 2 < vennElements(visual).length) {
+      issues.push('the Venn diagram shows elements the story does not name; draw it from the sets in the story itself');
     }
   }
 

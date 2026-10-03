@@ -1,0 +1,20 @@
+{
+  "id": "nucleosome",
+  "subject": "Science",
+  "classMin": 9, "classMax": 12,
+  "description": "Beads on a string: DNA wound around histone protein cores, joined by linker DNA",
+  "alt": "A row of four nucleosomes: DNA wound twice around each histone protein core, with short linker DNA between them",
+  "aliases": {
+    "en": ["nucleosome", "histone", "chromatin", "beads on a string", "linker dna"],
+    "te": ["న్యూక్లియోసోమ్", "హిస్టోన్", "క్రొమాటిన్"],
+    "hi": ["न्यूक्लियोसोम", "हिस्टोन", "क्रोमैटिन"],
+    "ta": ["நியூக்ளியோசோம்", "ஹிஸ்டோன்", "குரோமட்டின்"]
+  },
+  "labelKeys": ["histone", "dna", "linker_dna"],
+  "prompt": "Four identical nucleosomes in a horizontal row, like beads on a string. Each is a histone core (a cluster of rounded lobes in a warm tone) with a strand of DNA wound about twice around it, and short linker DNA joining each to the next. All four cores are drawn exactly the same; only one thing is orange: the histone cores (all four).",
+  "checklist": [
+    "four nucleosomes, all four drawn identically, including the colour of the histone core",
+    "DNA is wound around each core about two turns and continues as linker DNA between cores",
+    "the DNA strand is continuous from the first to the last nucleosome"
+  ]
+}

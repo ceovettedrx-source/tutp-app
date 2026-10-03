@@ -1,0 +1,20 @@
+{
+  "id": "food-chain",
+  "subject": "Science",
+  "classMin": 4, "classMax": 9,
+  "description": "A food chain: grass, grasshopper, frog, snake with arrows showing who eats whom",
+  "alt": "A food chain from left to right: grass, a grasshopper, a frog and a snake, with arrows pointing from each food to the animal that eats it",
+  "aliases": {
+    "en": ["food chain", "food web", "producer", "consumer", "herbivore", "carnivore", "ecosystem"],
+    "te": ["ఆహార గొలుసు", "ఆహార జాలం", "ఉత్పత్తిదారు", "వినియోగదారు", "జీవావరణం"],
+    "hi": ["खाद्य श्रृंखला", "खाद्य जाल", "उत्पादक", "उपभोक्ता", "पारितंत्र"],
+    "ta": ["உணவுச் சங்கிலி", "உணவு வலை", "உற்பத்தியாளர்", "நுகர்வோர்", "சூழல் மண்டலம்"]
+  },
+  "labelKeys": ["producer", "primary_consumer", "secondary_consumer", "tertiary_consumer"],
+  "prompt": "A horizontal food chain with four equal-sized flat icons evenly spaced left to right: a clump of grass, a grasshopper, a frog, a snake. Between each pair, one identical arrow pointing from the food to the eater (grass to grasshopper to frog to snake). The organisms are blue and teal; only the three arrows are the orange accent.",
+  "checklist": [
+    "four organisms in the order grass, grasshopper, frog, snake, evenly spaced and similar in size",
+    "three identical arrows, all pointing left to right (from food to eater)",
+    "each animal is anatomically plausible (grasshopper six legs, frog four legs, snake limbless)"
+  ]
+}

@@ -13,3 +13,7 @@ docs/
 # (server/model-replay.js); without that env (production) they're never read.
 tests/**
 !tests/e2e/recordings/**
+
+# image library: full-size originals and run logs stay out of the Cloud Run image (the page loads public/imglib/*.webp)
+scripts/imglib/library/originals/
+scripts/imglib/library/*.jsonl

@@ -1,0 +1,21 @@
+{
+  "id": "photosynthesis",
+  "subject": "Science",
+  "classMin": 5, "classMax": 10,
+  "description": "Photosynthesis: a plant takes in sunlight, water and carbon dioxide and gives out oxygen and glucose",
+  "alt": "A green plant with arrows showing sunlight, carbon dioxide and water going in, and oxygen and glucose coming out",
+  "aliases": {
+    "en": ["photosynthesis", "how plants make food", "plants make food", "chlorophyll", "sunlight and plants"],
+    "te": ["కిరణజన్య సంయోగక్రియ", "మొక్కలు ఆహారం", "పత్రహరితం"],
+    "hi": ["प्रकाश संश्लेषण", "पौधे भोजन", "पर्णहरित"],
+    "ta": ["ஒளிச்சேர்க்கை", "தாவரங்கள் உணவு", "பச்சையம்"]
+  },
+  "labelKeys": ["sunlight", "carbon_dioxide", "water", "oxygen", "glucose"],
+  "prompt": "A single small plant with a stem, four identical leaves and visible roots in soil, centred. A sun in the orange accent top left with three short rays pointing at the leaves. Plain arrows (no text): one arrow into the leaves from the left for carbon dioxide, one arrow up the roots for water, one arrow out of the leaves to the right for oxygen, and one small arrow down the stem for glucose.",
+  "checklist": [
+    "the plant has roots, stem and leaves; all leaves drawn identically",
+    "sunlight, carbon dioxide and water arrows point INTO the plant; oxygen and glucose arrows point OUT of the leaves/down the stem",
+    "the sun is the only orange element",
+    "five distinct arrows with clear start and end points"
+  ]
+}

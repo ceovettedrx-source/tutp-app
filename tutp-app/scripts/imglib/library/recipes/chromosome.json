@@ -1,0 +1,20 @@
+{
+  "id": "chromosome",
+  "subject": "Science",
+  "classMin": 8, "classMax": 12,
+  "description": "A duplicated chromosome: two sister chromatids joined at the centromere",
+  "alt": "A duplicated chromosome shaped like an X: two identical sister chromatids joined at the centromere",
+  "aliases": {
+    "en": ["chromosome", "chromatid", "centromere", "sister chromatid"],
+    "te": ["క్రోమోజోమ్", "క్రోమోసోమ్", "క్రొమాటిడ్", "సెంట్రోమియర్"],
+    "hi": ["गुणसूत्र", "क्रोमोसोम", "क्रोमैटिड", "सेंट्रोमियर"],
+    "ta": ["குரோமோசோம்", "குரோமாடிட்", "சென்ட்ரோமியர்"]
+  },
+  "labelKeys": ["chromatid", "centromere"],
+  "prompt": "A single duplicated chromosome in the classic X shape: two identical sister chromatids (one blue, one teal, mirrored) crossing and joined at one small centromere drawn in the orange accent. Front view, centred, vertical.",
+  "checklist": [
+    "exactly two sister chromatids, mirror images of each other, four arms in total",
+    "the arms are joined at one centromere near the middle, shown as the orange accent",
+    "the arms are rounded and similar in length"
+  ]
+}

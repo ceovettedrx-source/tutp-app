@@ -1,0 +1,21 @@
+{
+  "id": "neuron",
+  "subject": "Science",
+  "classMin": 7, "classMax": 12,
+  "description": "A neuron: dendrites, cell body with nucleus, long axon, axon terminals",
+  "alt": "A nerve cell (neuron): branching dendrites on the left, a cell body with a nucleus, a long axon and branching axon terminals on the right",
+  "aliases": {
+    "en": ["neuron", "nerve cell", "nervous system", "axon", "dendrite", "synapse"],
+    "te": ["నాడీ కణం", "నాడీ వ్యవస్థ", "ఆక్సాన్", "డెండ్రైట్"],
+    "hi": ["तंत्रिका कोशिका", "न्यूरॉन", "तंत्रिका तंत्र", "तंत्रिकाक्ष", "द्रुमिका"],
+    "ta": ["நியூரான்", "நரம்பு செல்", "நரம்பு மண்டலம்", "ஆக்சான்"]
+  },
+  "labelKeys": ["dendrites", "cell_body", "axon", "axon_terminal"],
+  "prompt": "A single neuron laid out horizontally. On the left, a rounded cell body (with a nucleus in the orange accent) with several branching dendrites. A long thin axon runs to the right, wrapped with four to five evenly spaced, identical myelin sheath segments, ending in small branching axon terminals.",
+  "checklist": [
+    "dendrites branch from the cell body; the axon leaves from the opposite side",
+    "the cell body contains one nucleus",
+    "myelin segments are identical and evenly spaced along the axon",
+    "axon ends in branching terminals"
+  ]
+}

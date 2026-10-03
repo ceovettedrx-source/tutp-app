@@ -1,0 +1,19 @@
+{
+  "style": "Flat vector educational illustration for children aged 9 to 15. Clean even outlines, flat fills, white background, plenty of empty margin around the subject. Palette: blues and teals (#7BAFD4 to #4A9AA8 with darker outlines of the same hue) plus exactly one warm orange accent (#F5A04A) used for the single most important part. No text, no letters, no numbers, no labels, no arrows with text, no gradients, no drop shadows, no 3D rendering, no photographic texture.",
+  "negative": "text, letters, digits, captions, watermark, signature, gradient, shadow, 3D, photo, cartoon face, extra limbs",
+  "common_checklist": [
+    "anatomy_structure: the parts of the subject are present, in the right places and in the right proportions for a school textbook; nothing important is missing or invented",
+    "no_text: there is no text, letter, digit or label anywhere in the image (a symbol such as an arrow is fine)",
+    "palette: flat fills in blue/teal with at most one orange accent, white background, no gradients or shadows",
+    "repeated_elements: every element that is meant to repeat (cells, nucleosomes, petals, chambers) is drawn identically in shape and colour; only a deliberately highlighted one may differ, and then it must be the orange accent for a stated reason",
+    "clean_edges: nothing is cut off at the image border; the subject is centred with margin"
+  ],
+  "max_refine_rounds": 3,
+  "output_width": 900,
+  "gemini_image_model": "gemini-2.5-flash-image",
+  "gemini_review_model": "gemini-2.5-flash",
+  "gemini_image_usd": 0.04,
+  "gemini_review_usd": 0.003,
+  "claude_review_model": "claude-sonnet-5",
+  "spend_cap_usd": 3
+}

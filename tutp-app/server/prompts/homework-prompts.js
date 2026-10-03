@@ -80,20 +80,27 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
 // four labelled scenes, an optional picture of groups, equations and one
 // try-together question for the child; server/story-schema.js checks it and
 // recomputes every number.
-function storytellingPrompt({ lang, childContext }) {
+function storytellingPrompt({ lang, childContext, libraryCandidates = [] }) {
+  // Library pictures (docs/specs/story-image-library.md): only the candidates
+  // the server picked for this lesson are offered; with none, there is no rule.
+  const libraryRule = libraryCandidates.length ? `
+   - LIBRARY PICTURES: {"type":"library","id":"<one id from this list>"} shows a ready, checked illustration. Use one ONLY when it shows exactly what this lesson is about; if none fits, leave the picture null (or use a type above for maths). Never invent an id.
+${libraryCandidates.map((l) => '     ' + l).join('\n')}` : '';
   return `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read it aloud before homework time.
 Ground this in NCF-SE 2023's Panchpadi teaching sequence. The story does two stages at once: Bodha (conceptual understanding) by explaining the lesson's actual content, framed through Prayoga (application) by connecting it to a real-life situation a child would recognise.
-SOURCE WORDING: keep the lesson's own words, names, numbers and terms exactly as written in the lesson, in its original language; never translate or change them. Everything you add is written in ${lang}, in simple natural textbook language a child can follow, with numbers as digits.
-A REAL STORY: one named child as the main character, in a home, market or local festival setting a child in India would recognise (for example Diwali, Sankranti, Ugadi, Bonalu or a kitchen). The lesson's idea is what the character needs to solve a small conflict, the idea solves it, and the story ends warmly.
+SOURCE WORDING: only the lesson's technical terms, names and numbers stay exactly as written in the lesson, in its original language; never translate or change those. Everything else, above all the explanation of the lesson's idea, is written in ${lang}, in simple natural everyday language a child can follow, with numbers as digits. Never paste or closely copy a sentence or paragraph of the textbook: explain the idea in your own simple words.
+A REAL STORY: one named child as the main character, in a home, market or local festival setting a child in India would recognise (for example Diwali, Sankranti, Ugadi, Bonalu or a kitchen). The story has a conflict, something the character wants or needs and cannot get yet, and a resolution: the lesson's idea is what solves it, and the story ends warmly.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"title":"short story title in ${lang}","gradeSubjectTag":"the lesson's own class, subject and topic, e.g. Class 5 · Maths · Fractions","readMinutes":2,"scenes":[{"label":"hook","text":"..."},{"label":"problem","text":"..."},{"label":"mathMoment","text":"..."},{"label":"wrapUp","text":"..."}],"visual":{"type":"groups","itemNoun":"laddus","icon":"🟠","total":24,"groups":[6,6,6,6]},"equations":["..."],"tryTogether":{"question":"...","answer":"..."},"parentPrompt":"..."}
 Rules:
-1. Exactly 4 scenes, in this order, with these labels: hook (the character and the setting), problem (the conflict, which needs the lesson's idea), mathMoment (the lesson's idea itself, explained through what the character does; for a lesson that is not maths this is its key idea), wrapUp (the resolution). Each scene is 1 to 3 short sentences in ${lang}.
-2. visual: every maths lesson gets ONE picture, chosen by the lesson; use null only for a lesson that is not maths. All numbers are whole numbers of 1 or more. The four types:
+1. Exactly 4 scenes, in this order, with these labels: hook (the character and the setting), problem (the conflict: what the character needs and cannot get yet, which needs the lesson's idea), mathMoment ("the big idea": the lesson's idea itself, explained in simple ${lang} through what the character does, with only the technical terms, names and numbers kept in the lesson's own language, never a pasted textbook paragraph; for a lesson that is not maths this is its key idea), wrapUp (the resolution, where the idea solves the conflict). Each scene is 1 to 3 short sentences in ${lang}.
+2. visual: every maths lesson gets ONE picture, chosen by the lesson; use null for a lesson that is not maths unless a LIBRARY PICTURE below fits exactly. All numbers are whole numbers of 1 or more. The types:
    - {"type":"groups","itemNoun":"laddus","icon":"🟠","total":24,"groups":[6,6,6,6]} for counting, sharing or multiplying things; "groups" add up exactly to "total" (at most 60 things are drawn). "itemNoun" is the ONE word for the counted things; use exactly that word (only the language's own plural or case endings may change) in the scenes and in the try-together question, never another word for the same things. "icon" is ONE emoji for them (mango 🥭, banana 🍌, pencil ✏️, ball ⚽, diya 🪔, flower 🌸 and so on).
    - {"type":"numberLine","from":0,"to":20,"step":1,"jumps":[{"from":8,"to":13}]} for adding, subtracting or skipping along a line (at most 20 steps from "from" to "to"; "step" is the distance between marks).
    - {"type":"barModel","total":12,"parts":[{"label":"red","value":5},{"label":"blue","value":7}]} for a whole split into parts, or comparing amounts (2 to 6 parts that add up to "total"; labels are 1 to 3 words).
    - {"type":"factFamily","a":3,"b":4,"total":7,"op":"add"} for a lesson on adding with subtracting, or multiplying with dividing, as inverse operations ("op" is "add" with a + b = total, or "multiply" with a × b = total). Use the same numbers as one of the equations.
+   - {"type":"venn","left":{"label":"likes tea","items":["Asha","Ravi"]},"right":{"label":"likes milk","items":["Meena"]},"both":["Kiran"]} for a lesson on sets, overlaps or common elements: "items" are the elements only in that set, "both" the elements in both (the intersection); every element appears once, at most 24 in all, 1 to 3 words each, and they are the sets named in the story.
+   On numberLine, barModel and factFamily you may add "itemNoun" and "icon" (one emoji) for the counted things, as for groups.${libraryRule}
 3. equations: 0 to 4 short plain-arithmetic equations used in the story, each written whole with its result, such as "4 × 6 = 24" (a shape example only; the numbers must suit the lesson's class). Write multiplication with the sign × and division with ÷, never the letter x or *. Use [] when the lesson has none. Every sum written inside a scene must be correct and give the same result as the equations list; work each one out twice.
 LEVEL: take the class from the child (the child is described at the end of this prompt) and from the lesson's own class if it names one. The try-together question and any equation you add yourself must be at that class level, even when the lesson's own example is simpler: for Class 4-5 use multi-digit numbers (such as 14 × 6, 125 × 4, 36 ÷ 4 with a remainder) or fractions and decimals as the lesson does, and never Class 2-3 table facts like 4 × 6 or 5 × 8; for Class 1-2 keep to small numbers. Equations that quote the lesson's own example stay as the lesson wrote them.
 SIGN: every multiplication, in equations, scenes and the try-together question alike, is written with the sign × (never the letter x or *), and division with ÷.
@@ -144,8 +151,8 @@ function userTextFor(feature, text, attachmentCount) {
 
 // { system, content } for the Messages API: attachments first, then the
 // text block, the same order the pages used.
-export function buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos = [] }) {
-  const system = SYSTEM_PROMPTS[feature]({ lang, childContext, text, photos });
+export function buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos = [], libraryCandidates = [] }) {
+  const system = SYSTEM_PROMPTS[feature]({ lang, childContext, text, photos, libraryCandidates });
   const content = attachments.map(a => ({
     type: a.mediaType === 'application/pdf' ? 'document' : 'image',
     source: { type: 'base64', media_type: a.mediaType, data: a.base64 },

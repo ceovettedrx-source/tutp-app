@@ -1,0 +1,21 @@
+{
+  "id": "human-eye",
+  "subject": "Science",
+  "classMin": 6, "classMax": 10,
+  "description": "The human eye in section: cornea, iris, pupil, lens, retina, optic nerve",
+  "alt": "A side section of the human eye showing the cornea at the front, the iris and pupil, the lens, the retina at the back and the optic nerve leaving it",
+  "aliases": {
+    "en": ["human eye", "eye", "structure of the eye", "retina", "cornea", "lens", "iris", "pupil", "vision"],
+    "te": ["కన్ను", "కంటి నిర్మాణం", "రెటీనా", "కార్నియా", "కటకం", "కనుపాప"],
+    "hi": ["मानव नेत्र", "आँख", "रेटिना", "कॉर्निया", "पुतली", "परितारिका"],
+    "ta": ["மனிதக் கண்", "கண்", "விழித்திரை", "கார்னியா", "கண்மணி", "கருவிழி"]
+  },
+  "labelKeys": ["cornea", "pupil", "iris", "lens", "retina", "optic_nerve"],
+  "prompt": "A horizontal side section of the human eye, front (cornea) on the left. A transparent domed cornea, the iris as two flaps either side of the round pupil, a biconvex lens just behind it, a large round eyeball chamber, the retina lining the back (in the orange accent), and the optic nerve leaving the back to the right.",
+  "checklist": [
+    "the cornea is a bulge at the front, the lens sits behind the iris and pupil",
+    "the lens is biconvex and centred on the pupil",
+    "the retina lines the back inside surface and the optic nerve leaves from the back",
+    "the eyeball is round and its parts are in the correct front-to-back order"
+  ]
+}

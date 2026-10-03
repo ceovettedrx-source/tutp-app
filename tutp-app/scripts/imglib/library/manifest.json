@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "images": [
+    {
+      "id": "chromosome",
+      "aliases": {
+        "en": [
+          "chromosome",
+          "chromatid",
+          "centromere",
+          "sister chromatid"
+        ],
+        "te": [
+          "క్రోమోజోమ్",
+          "క్రోమోసోమ్",
+          "క్రొమాటిడ్",
+          "సెంట్రోమియర్"
+        ],
+        "hi": [
+          "गुणसूत्र",
+          "क्रोमोसोम",
+          "क्रोमैटिड",
+          "सेंट्रोमियर"
+        ],
+        "ta": [
+          "குரோமோசோம்",
+          "குரோமாடிட்",
+          "சென்ட்ரோமியர்"
+        ]
+      },
+      "subject": "Science",
+      "classMin": 8,
+      "classMax": 12,
+      "description": "A duplicated chromosome: two sister chromatids joined at the centromere",
+      "alt": "A duplicated chromosome shaped like an X: two identical sister chromatids joined at the centromere",
+      "file": "chromosome.webp",
+      "anchors": [
+        {
+          "key": "chromatid",
+          "x": 0.41,
+          "y": 0.3
+        },
+        {
+          "key": "centromere",
+          "x": 0.5,
+          "y": 0.485
+        }
+      ],
+      "provenance": {
+        "source": "ai-generated",
+        "model": "unknown (supplied by the founder)",
+        "prompt": "A single duplicated chromosome in the classic X shape: two identical sister chromatids (one blue, one teal, mirrored) crossing and joined at one small centromere drawn in the orange accent. Front view, centred, vertical.\n\nStyle: Flat vector educational illustration for children aged 9 to 15. Clean even outlines, flat fills, white background, plenty of empty margin around the subject. Palette: blues and teals (#7BAFD4 to #4A9AA8 with darker outlines of the same hue) plus exactly one warm orange accent (#F5A04A) used for the single most important part. No text, no letters, no numbers, no labels, no arrows with text, no gradients, no drop shadows, no 3D rendering, no photographic texture.\nAvoid: text, letters, digits, captions, watermark, signature, gradient, shadow, 3D, photo, cartoon face, extra limbs.",
+        "prompt_note": "the recipe prompt, written to describe the supplied image; the original generation prompt is not known",
+        "date": "2026-10-03",
+        "license": "owned by Tut-P (generated for it)"
+      },
+      "review": {
+        "date": "2026-10-03",
+        "method": "claude-code-session-vision",
+        "claude": true,
+        "gemini": null,
+        "anchors": "session vision review: two mirrored chromatids, four rounded arms of similar length, one orange centromere at the junction; colours run diagonally (flagged for a teacher glance); pins checked by rendering",
+        "needs_api_rereview": true
+      },
+      "status": "approved",
+      "stored_at": "2026-10-03T17:24:42.094Z"
+    }
+  ]
+}

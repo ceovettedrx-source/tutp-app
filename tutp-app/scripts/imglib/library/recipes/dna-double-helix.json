@@ -1,0 +1,20 @@
+{
+  "id": "dna-double-helix",
+  "subject": "Science",
+  "classMin": 8, "classMax": 12,
+  "description": "The DNA double helix: two twisted backbones joined by base-pair rungs",
+  "alt": "A vertical DNA double helix: two twisting sugar-phosphate backbones joined by rungs of paired bases",
+  "aliases": {
+    "en": ["dna", "double helix", "dna structure", "base pair", "nucleotide", "genes"],
+    "te": ["డిఎన్ఎ", "డబుల్ హెలిక్స్", "జన్యువు"],
+    "hi": ["डीएनए", "डबल हेलिक्स", "जीन"],
+    "ta": ["டிஎன்ஏ", "இரட்டைச் சுருள்", "மரபணு"]
+  },
+  "labelKeys": ["backbone", "base_pair"],
+  "prompt": "A vertical DNA double helix, about two and a half turns. Two intertwining backbone ribbons (one blue, one teal) crossing regularly, joined by short horizontal rungs (base pairs); each rung is two halves meeting in the middle, with one rung pair in the orange accent. Evenly spaced, perfectly regular twist.",
+  "checklist": [
+    "exactly two backbone strands twisting around the same axis with a regular pitch",
+    "rungs are evenly spaced and all about the same length, each connecting the two strands",
+    "the strands cross at regular intervals with consistent over-under order"
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "water-cycle",
+  "subject": "Science",
+  "classMin": 3, "classMax": 8,
+  "description": "The water cycle: evaporation, condensation, precipitation, collection",
+  "alt": "The water cycle: sun heating a lake so water rises as vapour, clouds forming, rain falling on a hill and flowing back to the lake",
+  "aliases": {
+    "en": ["water cycle", "evaporation", "condensation", "precipitation", "rain", "clouds", "hydrological cycle"],
+    "te": ["నీటి చక్రం", "బాష్పీభవనం", "సాంద్రీకరణ", "వర్షం", "మేఘాలు"],
+    "hi": ["जल चक्र", "वाष्पीकरण", "संघनन", "वर्षा", "बादल"],
+    "ta": ["நீர் சுழற்சி", "ஆவியாதல்", "ஒடுக்கம்", "மழை", "மேகங்கள்"]
+  },
+  "labelKeys": ["evaporation", "condensation", "precipitation", "collection", "cloud"],
+  "prompt": "A landscape diagram: a lake in the lower left, a hill with a river on the right running back to the lake, a sun in the orange accent top right, and a cloud in the upper middle. Plain curved arrows (no text) go: up from the lake to the cloud (evaporation), around the cloud (condensation), rain drops falling from the cloud onto the hill (precipitation), and the river flowing down into the lake (collection).",
+  "checklist": [
+    "lake, hill/river, sun and cloud all present",
+    "a clear closed loop: the arrows form a cycle in the right order (up, cloud, rain down, flow back)",
+    "rain falls from the cloud downward, vapour arrows go upward",
+    "only the sun is orange"
+  ]
+}
