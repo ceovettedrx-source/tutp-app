@@ -15,9 +15,17 @@ export const SCENE_LABELS = ['hook', 'problem', 'mathMoment', 'wrapUp'];
 const MAX_VISUAL_TOTAL = 1000; // the page draws at most 60 items and counts the rest
 const MAX_EQUATIONS = 6;
 
+// The letter x/X or * written as a times sign between two numbers or a number
+// and a blank ("4 x 6", "6x3", "4 x __", "5 * 12") becomes "4 × 6". Anywhere
+// else (a sentence with x as the unknown, words) it is left alone; × itself is
+// not matched, so running it twice changes nothing.
+export function fixTimesSign(s) {
+  return s.replace(/([\d_□])[ \t]*[xX*][ \t]*(?=[\d_□])/g, '$1 × ');
+}
+
 function str(v, max) {
   if (typeof v !== 'string') return null;
-  const s = v.trim();
+  const s = fixTimesSign(v.trim());
   return s && s.length <= max ? s : null;
 }
 function int(v) {
