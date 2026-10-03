@@ -1,5 +1,12 @@
 # Round 4 — exam prep pilot on a verified answer cache (2026-09-30)
 
+> **Status (2026-10-03):** rebased onto main `be0cc4f`. No-traffic preview `ep4`
+> (revision `tutp-demo-00370-feb`). The exam-prep e2e has NOT been run.
+> Migration 028 and `supabase/test-data/028_family16_class5.sql` are NOT applied.
+> `E2E_ADMIN_TOKEN` was not provided. `CAPABILITIES.exam_prep` stays `false`.
+> The other e2e specs (cache, cron, login, family, visual-tutor, homework,
+> chips, story) passed in replay on `ep4`, once.
+
 Scope and decisions 1-5 were approved by the founder on 2026-09-28 (kept in
 memory as `kg-cache-exam-prep-spec`). This page turns them into files, edge
 cases and tests. Branch `round-4-exam-prep` from main `16e92bb` (rounds 2+3
