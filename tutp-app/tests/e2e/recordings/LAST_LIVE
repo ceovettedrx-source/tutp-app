@@ -1,5 +1,7 @@
-server/prompts/homework-prompts.js 014421f657b95bb7ce9313f9180548c4a5d18d13
-server/prompts/notes-prompts.js 7838d60eb5125e61382d2a9bed3e4d970e05bea2
+server/prompts/homework-prompts.js cee35e95eb71a106dd49932ebcd4a5fb74c9f87e
+server/prompts/notes-glossary.js 05160308171bf47408520241f4eb2f84eb646968
+server/prompts/notes-prompts.js a1679cf106e3ebe3075745f718d71c1e36453627
 server/prompts/visual-tutor-prompts.js d3549d2a7af0f8f3298c00314b5aeb1f8dc3627b
 server/pointing-model.js e6a50cd497a66337188303599d1baa28a061f219
 server/models.js 2065dfb4c8e8dd920f2503b761d27e1be9d3d988
+server/notes-ground.js f25065fa654124ced8fd760a3c77f83ac0c56ec1
