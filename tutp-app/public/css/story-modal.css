@@ -117,6 +117,12 @@
 
 .sm-audio { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 18px; }
 .sm-coach { margin: 0; flex: 1 1 100%; padding: 10px 14px; border-radius: 10px; background: var(--sm-tint); color: var(--sm-blue-dark); font: 400 14px/1.6 Inter, system-ui, sans-serif; }
+.sm-feedback { margin-top: 18px; padding: 12px 14px; border: 1px solid var(--sm-line); border-radius: 12px; font: 400 14px/1.5 Inter, system-ui, sans-serif; }
+.sm-fb-q { margin: 0 0 8px; font-weight: 600; color: var(--sm-ink); }
+.sm-fb-row { display: flex; gap: 8px; }
+.sm-fb-btn { min-width: 48px; min-height: 48px; font-size: 24px; line-height: 1; background: var(--sm-surface); border: 2px solid var(--sm-line); border-radius: 10px; cursor: pointer; }
+.sm-fb-btn:hover { border-color: var(--sm-blue); background: var(--sm-tint); }
+.sm-fb-thanks { margin: 0; color: var(--sm-blue-dark); font-weight: 600; }
 .sm-foot { margin: 16px 0 0; font: 400 11px/1.4 Inter, system-ui, sans-serif; color: var(--sm-muted); }
 .sm-again { margin-top: 18px; text-align: center; }
 

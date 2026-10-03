@@ -8,7 +8,8 @@
 //
 // Page helpers used at click time only (all defined by homework-modal.js or
 // the page script): attachFilePickerMulti, callHomeworkApi, startStagedLoading,
-// showFeedbackPrompt, showFreeLimitModal, printResult.
+// submitFeedback, showWhatsappSharePrompt (not on the child page),
+// showFreeLimitModal, printResult.
 //
 // The reply (server/story-schema.js) is { title, gradeSubjectTag,
 // readMinutes, scenes[], visual|null, equations[], tryTogether|null,
@@ -259,6 +260,62 @@
         return fig;
     }
 
+    // The feedback question, inline at the end of the result (it used to be the
+    // page's fixed bottom-right box, which sat on top of the story at 360 px).
+    // Same two questions and the same POST /api/feedback (the page's
+    // submitFeedback); the one WhatsApp share prompt after a positive answer
+    // is kept where the page has it.
+    function feedbackEl(text) {
+        var box = el('section', 'sm-feedback sm-no-print');
+        box.id = 'storyModalFeedback';
+        box.setAttribute('aria-label', 'Feedback');
+        function step(id, question, label, defs, attr) {
+            var s = el('div', 'sm-fb-step');
+            s.id = id;
+            s.appendChild(el('p', 'sm-fb-q', question));
+            var row = el('div', 'sm-fb-row');
+            row.setAttribute('role', 'group');
+            row.setAttribute('aria-label', label);
+            defs.forEach(function (d) {
+                var b = el('button', 'sm-fb-btn', d[1]);
+                b.type = 'button';
+                b.setAttribute(attr, d[0]);
+                b.setAttribute('aria-label', d[2]);
+                row.appendChild(b);
+            });
+            s.appendChild(row);
+            return s;
+        }
+        var s1 = step('storyModalFbSentiment', 'How was this story?', 'How was this story?',
+            [['positive', '😊', 'Good'], ['neutral', '😐', 'Okay'], ['negative', '😟', 'Not good']], 'data-sentiment');
+        var s2 = step('storyModalFbClear', 'Was the explanation clear?', 'Was the explanation clear?',
+            [['true', '👍', 'Yes, it was clear'], ['false', '👎', 'No, it was not clear']], 'data-clear');
+        s2.classList.add('sm-hidden');
+        var thanks = el('p', 'sm-fb-thanks sm-hidden', 'Thank you for telling us.');
+        thanks.setAttribute('role', 'status');
+        var sentiment = null;
+        s1.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('[data-sentiment]');
+            if (!b) return;
+            sentiment = b.getAttribute('data-sentiment');
+            s1.classList.add('sm-hidden');
+            s2.classList.remove('sm-hidden');
+        });
+        s2.addEventListener('click', function (e) {
+            var b = e.target.closest && e.target.closest('[data-clear]');
+            if (!b) return;
+            submitFeedback(sessionStorage.getItem('tutp_student_id'), 'storytelling', sentiment, b.getAttribute('data-clear') === 'true', text);
+            s2.classList.add('sm-hidden');
+            thanks.classList.remove('sm-hidden');
+            if (sentiment === 'positive' && typeof showWhatsappSharePrompt === 'function' && !sessionStorage.getItem('tutp_whatsapp_share_shown')) {
+                sessionStorage.setItem('tutp_whatsapp_share_shown', '1');
+                showWhatsappSharePrompt();
+            }
+        });
+        box.appendChild(s1); box.appendChild(s2); box.appendChild(thanks);
+        return box;
+    }
+
     function render(story, lang) {
         var info = LANGS[lang] || LANGS.English;
         var box = $('storyModalResults');
@@ -357,6 +414,7 @@
         audio.appendChild(play); audio.appendChild(stop); audio.appendChild(hint);
         box.appendChild(audio);
 
+        box.appendChild(feedbackEl(story.scenes.map(function (s) { return s.text; }).join(' ')));
         box.appendChild(el('p', 'sm-foot', 'Built on NCF-SE 2023 Panchpadi'));
 
         var again = el('div', 'sm-again sm-no-print');
@@ -390,8 +448,6 @@
             if (token !== sessionToken) return;
             var story = normalize(parsed);
             if (!story.scenes.length) throw new Error('empty story');
-            var all = story.scenes.map(function (s) { return s.text; }).join(' ');
-            showFeedbackPrompt('storytelling', all);
             render(story, lang);
             $('storyModalForm').classList.add('sm-hidden');
             $('storyModalResults').classList.remove('sm-hidden');
