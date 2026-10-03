@@ -26,6 +26,12 @@
 //       "No <language> voice" error; a voice -> play or stop button, no hint
 //   s10 an older { story, abhyasaPrompt } reply still renders, as scenes
 //   s11 a failed request shows the page's error box (the modal stays usable)
+//   s12 feedback is inline at the end of the story (no fixed popup) and posts a
+//       storytelling row with the joined scene texts; s12b the same at 360 px
+//   s13 Tamil: Tamil script, Noto Sans Tamil first, sonnet-5
+//   (s2/s7/s13 also check: non-English -> claude-sonnet-5, s8 English -> haiku, one
+//   word (visual.itemNoun) for the counted things; the stories are written to
+//   output/story-*.txt and what each call cost to output/story-cost.json)
 //
 // Output: tests/e2e/output/ (FAIL_s*.png, story-results.json). Exit 1 on any failure.
 import { chromium } from 'playwright';
@@ -33,6 +39,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { e2eMode } from './e2e-mode.js';
+import { nounStem } from '../../server/story-schema.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -54,6 +61,16 @@ const DEVANAGARI = /[ऀ-ॿ]/;
 const MATHS_TOPIC = 'Multiplication as equal groups: 4 plates with 6 laddus on each plate, 4 x 6 = 24';
 const HINDI_TOPIC = 'संज्ञा: व्यक्ति, स्थान और वस्तु के नाम';
 const SCIENCE_TOPIC = 'Why leaves are green';
+const TAMIL_TOPIC = 'பெருக்கல்: சம குழுக்கள், 3 தட்டுகளில் தலா 5 இனிப்புகள், 3 x 5 = 15';
+const TAMIL = /[஀-௿]/;
+// What each story call used and cost (X-Story-Model, X-Model-Usd), for the report.
+const calls = [];
+function noteCall(label, language, r) {
+  calls.push({
+    label, language, model: r.headers['x-story-model'] || '', usd: Number(r.headers['x-model-usd'] || 0),
+    retry: Number(r.headers['x-story-retry'] || 0), format: r.headers['x-story-format'] || '', fixed: Number(r.headers['x-story-fixed'] || 0),
+  });
+}
 
 function log(...a) { console.log('[e2e:story]', ...a); }
 async function record(id, name, fn, page) {
@@ -178,6 +195,22 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(r.headers['x-story-format'] === 'ok', 'server checks: X-Story-Format ' + r.headers['x-story-format']);
     const s = r.story;
     expect(s.title && s.scenes.length >= 3 && s.tryTogether && s.parentPrompt, 'reply shape');
+    noteCall('te-maths', 'Telugu', r);
+    expect(r.headers['x-story-model'] === 'claude-sonnet-5', 'Telugu story model: ' + r.headers['x-story-model']);
+    // The story as the parent reads it, for the founder to judge the wording.
+    fs.writeFileSync(path.join(OUT, 'story-te-maths.txt'), [
+      s.title, s.gradeSubjectTag + ' · ' + s.readMinutes + ' min',
+      ...s.scenes.map((x, i) => `${i + 1}. [${x.label}] ${x.text}`),
+      s.visual ? `picture: ${s.visual.total} ${s.visual.itemNoun} = ${s.visual.groups.join(' + ')}` : 'picture: none',
+      'equations: ' + s.equations.join(' | '),
+      'try together: ' + s.tryTogether.question + '  -> ' + s.tryTogether.answer,
+      'ask your child: ' + s.parentPrompt,
+    ].join('\n') + '\n');
+    if (s.visual) {
+      const stem = nounStem(s.visual.itemNoun);
+      const n = s.scenes.filter((x) => x.text.normalize('NFC').toLowerCase().includes(stem)).length;
+      expect(n >= 2 && s.tryTogether.question.normalize('NFC').toLowerCase().includes(stem), `itemNoun "${s.visual.itemNoun}" is not used consistently (${n} scenes)`);
+    }
     const nums = await page.$$eval('#storyModalResults .sm-num', (es) => es.map((e) => e.textContent.trim()));
     expect(nums.join(',') === s.scenes.map((_, i) => String(i + 1)).join(','), 'scene numbers: ' + nums.join(','));
     const text = await page.$$eval('#storyModalResults .sm-scene-text', (es) => es.map((e) => e.textContent).join(' '));
@@ -311,6 +344,9 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     const R = '#storyModalResults';
     const text = await page.$$eval(R + ' .sm-scene-text', (es) => es.map((e) => e.textContent).join(' '));
     expect(DEVANAGARI.test(text), 'no Devanagari in the scenes');
+    noteCall('hi-lang', 'Hindi', r);
+    expect(r.headers['x-story-model'] === 'claude-sonnet-5', 'Hindi story model: ' + r.headers['x-story-model']);
+    fs.writeFileSync(path.join(OUT, 'story-hi-lang.txt'), [r.story.title, ...r.story.scenes.map((x, i) => `${i + 1}. [${x.label}] ${x.text}`), 'try together: ' + r.story.tryTogether.question + '  -> ' + r.story.tryTogether.answer].join('\n') + '\n');
     const fam = await style(page, R + ' .sm-scene-text', 'fontFamily');
     expect(/Noto Sans Devanagari/.test(fam), 'font stack: ' + fam);
     const size = parseFloat(await style(page, R + ' .sm-scene-text', 'fontSize'));
@@ -329,6 +365,8 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     const r = lastStory(net);
     expect(r.status === 200 && r.story, 'no story reply');
     expect(r.story.tryTogether && r.story.tryTogether.question, 'no try-together question');
+    noteCall('en-science', 'English', r);
+    expect(r.headers['x-story-model'] === 'claude-haiku-4-5', 'English story model: ' + r.headers['x-story-model']);
     expect(!r.story.visual || r.story.visual.total >= 1, 'visual');
     let reached = false;
     for (let i = 0; i < 25 && !reached; i++) {
@@ -350,24 +388,75 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     return `reveal by Enter, Escape closes, focus back; retry ${r.headers['x-story-retry']}, $${r.headers['x-model-usd'] || 0}`;
   }, page);
 
-  await record('s12', 'feedback: the prompt is given the story text and /api/feedback takes a storytelling row', async () => {
+  await record('s12', 'feedback: inline at the end of the story (no fixed popup); /api/feedback takes a storytelling row with the story text', async () => {
+    const fixedBefore = await page.locator('body > div #fbSentimentStep').count();
     await tell(page, 'English', SCIENCE_TOPIC);
     const story = lastStory(net).story;
     const joined = story.scenes.map((s) => s.text).join(' ');
     expect(joined.length > 40, 'story text is empty');
-    await page.locator('#fbSentimentStep [data-sentiment="positive"]').last().waitFor({ state: 'visible', timeout: 10000 });
-    await page.locator('#fbSentimentStep [data-sentiment="positive"]').last().click();
+    expect(await page.locator('body > div #fbSentimentStep').count() === fixedBefore, 'the fixed feedback box appeared for a story');
+    const fb = page.locator('#storyModalResults #storyModalFeedback');
+    expect(await fb.count() === 1, 'no inline feedback in the results');
+    const last = await page.evaluate(() => {
+      const kids = [...document.getElementById('storyModalResults').children].filter((e) => !e.classList.contains('sm-foot') && !e.classList.contains('sm-again'));
+      return kids[kids.length - 1].id;
+    });
+    expect(last === 'storyModalFeedback', 'feedback is not the last block of the results: ' + last);
+    await fb.locator('[data-sentiment="positive"]').click();
     const reqP = page.waitForRequest((r) => /\/api\/feedback(\?|$)/.test(r.url()) && r.method() === 'POST', { timeout: 15000 });
     const resP = page.waitForResponse((r) => /\/api\/feedback(\?|$)/.test(r.url()) && r.request().method() === 'POST', { timeout: 15000 });
-    await page.locator('#fbClearStep [data-clear="true"]').last().click();
+    await fb.locator('[data-clear="true"]').click();
     const body = JSON.parse((await reqP).postData() || '{}');
     const res = await resP;
-    expect(body.feature === 'storytelling', 'feedback feature: ' + body.feature);
+    expect(body.feature === 'storytelling' && body.sentiment === 'positive' && body.explanationClear === true, 'feedback body: ' + JSON.stringify({ ...body, originalExplanation: '…' }));
     expect(typeof body.originalExplanation === 'string' && body.originalExplanation.length > 40, 'originalExplanation is empty');
     expect(body.originalExplanation === joined, 'originalExplanation is not the joined scene texts');
     expect(res.status() === 200 && (await res.json()).ok === true, 'feedback status ' + res.status());
+    expect(/Thank you/.test(await fb.textContent()), 'no thank-you after sending');
+    // The page's share prompt after a positive answer is its own box; remove it so later tests start clean.
+    await page.evaluate(() => { document.querySelectorAll('#fbShareLink').forEach((a) => a.closest('div').remove()); closeStoryModal(); });
+    return `inline, feature storytelling, ${body.originalExplanation.length} chars of story text, 200 ok`;
+  }, page);
+
+  await record('s12b', '360 px: the feedback sits inside the story panel, buttons >= 44 px, nothing fixed on top of the story', async () => {
+    if (!small) throw new Error('no 360 px session (s6 failed)');
+    await tell(small.page, 'Telugu', MATHS_TOPIC);
+    const m = await small.page.evaluate(() => {
+      const panel = document.querySelector('#storyModal .sm-panel').getBoundingClientRect();
+      const fb = document.getElementById('storyModalFeedback');
+      fb.scrollIntoView({ block: 'center' });
+      const r = fb.getBoundingClientRect();
+      const btns = [...fb.querySelectorAll('button')].filter((b) => b.offsetParent !== null).map((b) => Math.round(b.getBoundingClientRect().height));
+      const fixedBoxes = [...document.querySelectorAll('body > div')].filter((d) => getComputedStyle(d).position === 'fixed' && d.id !== 'storyModal' && d.querySelector('#fbSentimentStep'));
+      return { inside: r.left >= panel.left - 1 && r.right <= panel.right + 1, btns, fixed: fixedBoxes.length };
+    });
+    expect(m.inside, 'the feedback block is outside the panel');
+    expect(m.btns.length && m.btns.every((h) => h >= 44), 'feedback buttons under 44 px: ' + m.btns.join(','));
+    expect(m.fixed === 0, 'a fixed feedback box is on screen');
+    await small.page.locator('#storyModal .sm-panel').screenshot({ path: path.join(OUT, 'story-360-te-feedback.png') });
+    await small.page.evaluate(() => closeStoryModal());
+    return `buttons ${m.btns.join('/')} px, inline, no fixed box`;
+  }, () => small && small.page);
+
+  await record('s13', 'Tamil lesson: Tamil script, Noto Sans Tamil first, sonnet-5, one noun for the counted things', async () => {
+    await tell(page, 'Tamil', TAMIL_TOPIC);
+    const r = lastStory(net);
+    expect(r.status === 200 && r.story, 'no story reply');
+    noteCall('ta-maths', 'Tamil', r);
+    expect(r.headers['x-story-model'] === 'claude-sonnet-5', 'Tamil story model: ' + r.headers['x-story-model']);
+    const text = await page.$$eval('#storyModalResults .sm-scene-text', (es) => es.map((e) => e.textContent).join(' '));
+    expect(TAMIL.test(text), 'no Tamil script in the scenes');
+    const fam = await style(page, '#storyModalResults .sm-scene-text', 'fontFamily');
+    expect(fam.replace(/["']/g, '').startsWith('Noto Sans Tamil'), 'font stack: ' + fam);
+    const s = r.story;
+    fs.writeFileSync(path.join(OUT, 'story-ta-maths.txt'), [s.title, ...s.scenes.map((x, i) => `${i + 1}. [${x.label}] ${x.text}`), 'try together: ' + s.tryTogether.question + '  -> ' + s.tryTogether.answer].join('\n') + '\n');
+    if (s.visual) {
+      const stem = nounStem(s.visual.itemNoun);
+      const n = s.scenes.filter((x) => x.text.normalize('NFC').toLowerCase().includes(stem)).length;
+      expect(n >= 2, `itemNoun "${s.visual.itemNoun}" used in ${n} scenes`);
+    }
     await page.evaluate(() => closeStoryModal());
-    return `feature storytelling, ${body.originalExplanation.length} chars of story text, 200 ok`;
+    return `format ${r.headers['x-story-format']}, retry ${r.headers['x-story-retry']}, $${r.headers['x-model-usd'] || 0}`;
   }, page);
 
   // ---- s9 voices
@@ -448,5 +537,6 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
   console.log('\nRESULTS (story)');
   for (const r of results) console.log(`${r.id}\t${r.status}\t${r.name}\t${r.detail}${r.shot ? '\t' + r.shot : ''}`);
   fs.writeFileSync(path.join(OUT, 'story-results.json'), JSON.stringify(results, null, 2));
+  fs.writeFileSync(path.join(OUT, 'story-cost.json'), JSON.stringify(calls, null, 2));
   process.exit(results.some(r => r.status === 'FAIL') ? 1 : 0);
 })().catch(e => { console.error('[e2e:story] fatal', e); process.exit(1); });
