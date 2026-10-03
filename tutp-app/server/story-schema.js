@@ -24,6 +24,17 @@ function int(v) {
   return typeof v === 'number' && Number.isInteger(v) ? v : null;
 }
 
+// The part of a word that stays when its ending changes: the word without its
+// last 3 letters (7 or more), 2 (5 or 6), 1 (shorter), never under 2 letters.
+// Counted in code points, so a Telugu letter with its vowel sign is not cut
+// in the middle of a syllable more than the language itself does.
+export function nounStem(noun) {
+  const cs = [...String(noun).normalize('NFC').toLowerCase().trim()];
+  const n = cs.length;
+  const k = n >= 7 ? n - 3 : n >= 5 ? n - 2 : Math.max(2, n - 1);
+  return cs.slice(0, k).join('');
+}
+
 // Anthropic Messages response -> the parsed JSON object, or null.
 export function extractStoryJson(data) {
   const block = ((data && data.content) || []).find(b => b && b.type === 'text');
@@ -105,8 +116,14 @@ export function validateStory(raw) {
 
   let tryTogether = null;
   const tt = raw.tryTogether;
-  const question = tt && str(tt.question, 300);
-  let answer = tt && str(typeof tt.answer === 'number' ? String(tt.answer) : tt.answer, 160);
+  let question = tt && str(tt.question, 300);
+  // A "= ?" left at the end of a sentence with no expression before it (seen in
+  // Telugu and Tamil replies) is cut off, not retried.
+  if (question && /=\s*(\?|_+|□)?\s*$/.test(question) && questionValue(question) == null) {
+    question = question.replace(/\s*=\s*(\?|_+|□)?\s*$/, '').trim();
+    fixed++;
+  }
+  let answer = tt && str(typeof tt.answer === 'number' ? String(tt.answer) : tt.answer, 300);
   if (!question || !answer) {
     issues.push('tryTogether missing');
   } else {
@@ -121,6 +138,22 @@ export function validateStory(raw) {
 
   const parentPrompt = str(raw.parentPrompt, 500);
   if (!parentPrompt) issues.push('parentPrompt missing');
+
+  // One word for the counted things: the picture's itemNoun must be the word
+  // the scenes and the try-together question use (haiku once wrote the Telugu
+  // word for "messages" where the story meant laddus). Matched by stem, so the
+  // endings of an inflected language (లడ్డు, లడ్డూలు, లడ్డులను) still count.
+  if (visual) {
+    const stem = nounStem(visual.itemNoun);
+    const has = (t) => t.normalize('NFC').toLowerCase().includes(stem);
+    const inScenes = scenes.filter((s) => has(s.text)).length;
+    if (inScenes < 2) {
+      issues.push(`the word "${visual.itemNoun}" (visual.itemNoun) is not used in the scenes; use exactly that word for the counted things`);
+    }
+    if (tryTogether && !has(tryTogether.question)) {
+      issues.push(`the try-together question does not use the word "${visual.itemNoun}"; use the same word`);
+    }
+  }
 
   if (issues.length) return { ok: false, issues };
 

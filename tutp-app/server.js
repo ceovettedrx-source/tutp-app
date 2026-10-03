@@ -33,7 +33,7 @@ import { cronAuthorized } from './server/cron-auth.js';
 import { applyArithmeticCheck } from './server/arith-check.js';
 import { extractStoryJson, validateStory, salvageStory } from './server/story-schema.js';
 import { callClaude } from './server/anthropic.js';
-import { MODELS, modelSettings } from './server/models.js';
+import { MODELS, modelSettings, storyModel } from './server/models.js';
 import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
@@ -6419,7 +6419,7 @@ app.post('/api/homework', async (req, res) => {
     const testFamily = await isTestFamily(session.familyId);
     const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
     const cost = { usd: 0 };
-    const typedModel = MODELS.homework_typed;
+    const typedModel = feature === 'storytelling' ? storyModel(lang) : MODELS.homework_typed;
     let modelCalls = 0;
     let storyHint = ''; // Storytelling only: what the first reply got wrong, sent with the one retry
     const callModel = async () => {
@@ -6470,6 +6470,7 @@ app.post('/api/homework', async (req, res) => {
     // server/homework-reply.js). Logged without the prompt or the reply.
     const result = await callWithJsonRetry(callModel, (info) => {
       console.warn('homework: unparseable model reply', { feature, language: lang, ...info });
+      if (feature === 'storytelling') storyHint = 'Your previous reply was not valid JSON (' + info.error + '). Reply again with the complete JSON on one line; inside any text use only single quotes for speech, never double quotes, and no line breaks.';
     });
 
     if (result.kind === 'upstream') {
@@ -6510,6 +6511,7 @@ app.post('/api/homework', async (req, res) => {
         sendTiming(502);
         return res.status(502).json({ error: 'The answer came back incomplete. Please try again.' });
       }
+      res.set('X-Story-Model', typedModel);
       res.set('X-Story-Format', check.ok ? 'ok' : 'fallback');
       res.set('X-Story-Fixed', String(check.ok ? check.fixed : 0));
       res.set('X-Story-Retry', String(retried));

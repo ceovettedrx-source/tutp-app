@@ -8,6 +8,11 @@ export const MODELS = {
   homework_explain: 'claude-haiku-4-5',
   homework_notes: 'claude-haiku-4-5',
   homework_demo: 'claude-haiku-4-5',
+  // Storytelling (storytelling-quality round): English stays on haiku; any other
+  // language goes to sonnet-5, because haiku's Telugu was weak (a Telugu word
+  // for "messages" where the story meant laddus). See storyModel().
+  story_english: 'claude-haiku-4-5',
+  story_other: 'claude-sonnet-5',
   illustrate: 'claude-haiku-4-5',
   game_questions: 'claude-haiku-4-5',
   feedback_classify: 'claude-haiku-4-5',
@@ -17,6 +22,12 @@ export const MODELS = {
   lesson_material: 'claude-sonnet-5',
   lesson_verify: 'claude-sonnet-5',
 };
+
+// The Storytelling model for the parent's chosen language ("English" is the
+// page's own label, as in HOMEWORK_LANGUAGES).
+export function storyModel(lang) {
+  return lang === 'English' ? MODELS.story_english : MODELS.story_other;
+}
 
 // Extra request settings per model: sonnet-5 thinks by default, which can
 // use up max_tokens before the JSON (round 1), so its text-only calls run at

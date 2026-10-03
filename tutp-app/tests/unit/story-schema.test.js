@@ -42,7 +42,7 @@ test('groups that do not add up to the total drop the visual, nothing else', () 
 
 test('a total over 60 is kept (the page draws 60 and counts the rest)', () => {
   const s = good();
-  s.visual = { type: 'groups', itemNoun: 'seeds', total: 100, groups: [50, 50] };
+  s.visual = { type: 'groups', itemNoun: 'laddus', total: 100, groups: [50, 50] };
   assert.equal(validateStory(s).story.visual.total, 100);
 });
 
@@ -90,6 +90,7 @@ test('an unknown scene label or an empty text is a problem; extra scenes are cut
   s.scenes[2].text = '';
   assert.equal(validateStory(s).ok, false);
   const t = good();
+  t.visual = null;
   t.scenes = Array.from({ length: 9 }, () => ({ label: 'hook', text: 'x y z' }));
   assert.equal(validateStory(t).story.scenes.length, 6);
 });
