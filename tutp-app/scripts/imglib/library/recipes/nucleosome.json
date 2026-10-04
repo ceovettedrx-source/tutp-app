@@ -11,7 +11,7 @@
     "ta": ["நியூக்ளியோசோம்", "ஹிஸ்டோன்", "குரோமட்டின்"]
   },
   "labelKeys": ["histone", "dna", "linker_dna"],
-  "prompt": "Four identical nucleosomes in a horizontal row, like beads on a string. Each is a histone core (a cluster of rounded lobes in a warm tone) with a strand of DNA wound about twice around it, and short linker DNA joining each to the next. All four cores are drawn exactly the same; only one thing is orange: the histone cores (all four).",
+  "prompt": "Four IDENTICAL nucleosomes in a horizontal row, like beads on a string. Each is a histone core drawn as a rounded cluster of lobes in one single light orange-yellow colour, the same shape, size and colour for all four cores. A blue-teal DNA strand is wound about twice around each core, and a short linker stretch of the same DNA strand joins each nucleosome to the next. The only orange in the picture is the four histone cores; the DNA is blue/teal.",
   "checklist": [
     "four nucleosomes, all four drawn identically, including the colour of the histone core",
     "DNA is wound around each core about two turns and continues as linker DNA between cores",

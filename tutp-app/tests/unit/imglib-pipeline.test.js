@@ -68,3 +68,15 @@ test('recipes: every recipe is complete, its label keys are in the glossary, ids
     assert.match(generationPrompt(r), /No text|no text/);
   }
 });
+
+test('isQuotaStatus: 429 and quota/billing wording stop generation, other errors do not', async () => {
+  const { isQuotaStatus, isImageModel } = await import('../../scripts/imglib/lib.mjs');
+  assert.equal(isQuotaStatus(429, ''), true);
+  assert.equal(isQuotaStatus(403, 'This model is only available on the paid tier, enable billing'), true);
+  assert.equal(isQuotaStatus(400, 'You exceeded your current quota'), true);
+  assert.equal(isQuotaStatus(404, 'model not found'), false);
+  assert.equal(isQuotaStatus(500, 'internal'), false);
+  assert.equal(isImageModel('gemini-3.1-flash-image'), true);
+  assert.equal(isImageModel('gemini-2.5-flash'), false);
+  assert.equal(isImageModel('imagen-4.0-generate'), false);
+});

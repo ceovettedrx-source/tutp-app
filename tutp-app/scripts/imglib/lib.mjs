@@ -60,12 +60,10 @@ export function getSecret(envName) {
 export function getWorkspaceId() {
   return process.env.ANTHROPIC_WORKSPACE_ID ? process.env.ANTHROPIC_WORKSPACE_ID.trim() : null;
 }
-export const KEYS_HINT = 'Set the keys in your own PowerShell first (values are not printed), then run the script again:\n'
-  + '  $env:ANTHROPIC_API_KEY = (gcloud.cmd secrets versions access latest --secret=anthropic-api-key)\n'
-  + '  $env:ANTHROPIC_WORKSPACE_ID = "<the workspace id Tut-P uses>"\n'
-  + '  $env:GEMINI_API_KEY = (gcloud.cmd secrets versions access latest --secret=gemini-api-key)   # optional';
-export const GEMINI_HINT = 'No Gemini key stored. To enable generation, run once (paste your key inside the quotes):\n'
-  + '  "PASTE_YOUR_GEMINI_API_KEY" | gcloud.cmd secrets create gemini-api-key --data-file=-';
+export const KEYS_HINT = 'The Gemini key is ONLY read from the GEMINI_API_KEY environment variable of this shell. Set it yourself from the secret gemini-imagelib-key (never gemini-api-key, that is the production key); the value is not printed:\n'
+  + '  $env:GEMINI_API_KEY = (gcloud.cmd secrets versions access latest --secret=gemini-imagelib-key)\n'
+  + 'Claude review (optional here): $env:ANTHROPIC_API_KEY and $env:ANTHROPIC_WORKSPACE_ID.';
+export const GEMINI_HINT = 'No GEMINI_API_KEY in this shell, so generation is off (use inbox mode: import <folder>).\n' + KEYS_HINT;
 
 // ------------------------------------------------------- JSON from model text
 export function extractJson(text) {
@@ -92,33 +90,63 @@ export async function claudeJson({ key, model, system, content, maxTokens = 1500
 }
 const png = (buf) => ({ type: 'image', source: { type: 'base64', media_type: 'image/png', data: buf.toString('base64') } });
 
+// A Gemini failure that means "no access to this": quota, billing, paid-only, 429.
+export class GeminiQuotaError extends Error {}
+export const isQuotaStatus = (status, text) => status === 429 || /quota|billing|paid|free tier|RESOURCE_EXHAUSTED/i.test(String(text || ''));
 async function geminiCall(key, model, body) {
-  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
-    method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body),
-  });
-  const data = await res.json().catch(() => null);
-  if (!res.ok || !data) throw new Error(`Gemini call failed (${res.status})`);
-  return data;
+  // at most 2 attempts in total, and only for a transient 5xx; quota is final
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => null);
+    if (res.ok && data) return data;
+    const msg = data && data.error ? String(data.error.message || data.error.status || '').slice(0, 160) : '';
+    if (isQuotaStatus(res.status, msg)) throw new GeminiQuotaError(`Gemini ${model}: quota/billing limit (${res.status}) ${msg}`);
+    if (res.status >= 500 && attempt < 2) continue;
+    throw new Error(`Gemini call failed (${res.status}) ${model} ${msg}`);
+  }
 }
-// prompt (+ optional previous image to refine) -> PNG buffer
-export async function geminiImage({ key, prompt, previous, spend, what }) {
+// ListModels with the key: [{ name, methods }]
+export async function geminiListModels(key) {
+  const out = [];
+  let pageToken = '';
+  for (let i = 0; i < 5; i++) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=200${pageToken ? `&pageToken=${pageToken}` : ''}`, { headers: { 'x-goog-api-key': key } });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data) {
+      const msg = data && data.error ? String(data.error.message || '').slice(0, 160) : '';
+      if (isQuotaStatus(res.status, msg)) throw new GeminiQuotaError(`ListModels: quota/billing limit (${res.status}) ${msg}`);
+      throw new Error(`ListModels failed (${res.status}) ${msg}`);
+    }
+    for (const m of data.models || []) out.push({ name: String(m.name || '').replace(/^models\//, ''), methods: m.supportedGenerationMethods || [] });
+    if (!data.nextPageToken) break;
+    pageToken = data.nextPageToken;
+  }
+  return out;
+}
+export const isImageModel = (name) => /image/i.test(name) && !/imagen|embedding/i.test(name);
+// prompt (+ optional previous image to refine) -> PNG buffer. model defaults to style.gemini_image_model
+export async function geminiImage({ key, prompt, previous, spend, what, model }) {
   const st = style();
+  const useModel = model || st.gemini_image_model;
   spend.need(st.gemini_image_usd, what);
   const parts = [{ text: prompt }];
   if (previous) parts.push({ inlineData: { mimeType: 'image/png', data: previous.toString('base64') } });
-  const data = await geminiCall(key, st.gemini_image_model, { contents: [{ parts }] });
-  spend.add(st.gemini_image_usd, { provider: 'gemini', model: st.gemini_image_model, what });
+  const data = await geminiCall(key, useModel, { contents: [{ parts }], generationConfig: { responseModalities: ['IMAGE'] } });
+  spend.add(st.gemini_image_usd_actual ?? st.gemini_image_usd, { provider: 'gemini', model: useModel, what });
   const part = (((data.candidates || [])[0] || {}).content || {}).parts?.find((p) => p.inlineData && p.inlineData.data);
   if (!part) throw new Error('Gemini returned no image');
   return Buffer.from(part.inlineData.data, 'base64');
 }
-export async function geminiJson({ key, prompt, image, spend, what }) {
+export async function geminiJson({ key, prompt, image, spend, what, model }) {
   const st = style();
+  const useModel = model || st.gemini_review_model;
   spend.need(st.gemini_review_usd * 3, what);
   const parts = [{ text: prompt }];
   if (image) parts.push({ inlineData: { mimeType: 'image/png', data: image.toString('base64') } });
-  const data = await geminiCall(key, st.gemini_review_model, { contents: [{ parts }], generationConfig: { responseMimeType: 'application/json' } });
-  spend.add(st.gemini_review_usd, { provider: 'gemini', model: st.gemini_review_model, what });
+  const data = await geminiCall(key, useModel, { contents: [{ parts }], generationConfig: { responseMimeType: 'application/json' } });
+  spend.add(st.gemini_review_usd, { provider: 'gemini', model: useModel, what });
   const text = (((data.candidates || [])[0] || {}).content || {}).parts?.map((p) => p.text || '').join('');
   return extractJson(text);
 }
@@ -131,6 +159,7 @@ export function generationPrompt(recipe) {
 export function checklistOf(recipe) {
   return [...style().common_checklist, ...(recipe.checklist || []).map((c) => `recipe_specific: ${c}`)];
 }
+export { reviewPrompt as reviewPromptFor };
 function reviewPrompt(recipe) {
   const items = checklistOf(recipe).map((c, i) => `${i + 1}. ${c}`).join('\n');
   return `You are a strict reviewer of children's science textbook illustrations (Class 5 to 12, India). The image should show: ${recipe.description}.

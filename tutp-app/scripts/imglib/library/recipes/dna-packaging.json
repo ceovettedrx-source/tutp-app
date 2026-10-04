@@ -11,7 +11,7 @@
     "ta": ["டிஎன்ஏ", "குரோமட்டின்", "இரட்டைச் சுருள்"]
   },
   "labelKeys": ["dna_double_helix", "nucleosome", "chromatin_fibre", "chromosome"],
-  "prompt": "A left-to-right sequence of four stages separated by three simple chevron arrows: (1) a straight DNA double helix with base-pair rungs, (2) a short chain of nucleosomes on a DNA string, (3) a thick coiled chromatin fibre (a solenoid of nucleosomes), (4) a condensed X-shaped chromosome. Same scale of line weight in every stage, stages evenly spaced and vertically centred.",
+  "prompt": "A left-to-right sequence of FOUR panels separated by three identical simple chevron arrows: (1) a straight DNA double helix with base-pair rungs; (2) beads on a string: a short chain of identical light orange-yellow round beads on a blue-teal DNA string; (3) a simple stacked coil of the same orange beads, like a neat spring of beads, drawn only with those beads and a blue-teal line, with NO teal spheres and NO ring or flower shape; (4) a condensed X-shaped chromosome. The orange beads are the only orange in panels 2 and 3. Same line weight in every panel, panels evenly spaced and vertically centred.",
   "checklist": [
     "four stages in the order double helix, nucleosomes, chromatin fibre, chromosome",
     "stage 1 is a regular double helix with rungs",

@@ -17,8 +17,9 @@
 import fs from 'fs';
 import path from 'path';
 import {
-  LIB, style, loadRecipes, getSecret, GEMINI_HINT, KEYS_HINT, renderPins, Spend, SpendCapError, geminiImage, generationPrompt,
-  reviewImage, processImage, placeAnchors, storeImage, logReview, closeBrowser,
+  LIB, GLOSSARY, readJson, style, loadRecipes, getSecret, GEMINI_HINT, KEYS_HINT, renderPins, Spend, SpendCapError, geminiImage, geminiJson, generationPrompt,
+  reviewImage, processImage, placeAnchors, storeImage, logReview, closeBrowser, GeminiQuotaError, geminiListModels, isImageModel,
+  evaluateChecks, checklistOf, reviewPromptFor, cleanAnchors,
 } from './lib.mjs';
 
 const args = process.argv.slice(2);
@@ -33,10 +34,30 @@ const ids = opt('--ids') ? opt('--ids').split(',') : null;
 
 const verdictsFile = opt('--verdicts');
 const claudeKey = getSecret('ANTHROPIC_API_KEY');
-if (!claudeKey && !verdictsFile) { console.error('No ANTHROPIC_API_KEY in the environment.\n' + KEYS_HINT); process.exit(2); }
 const geminiKey = getSecret('GEMINI_API_KEY');
+const sessionCmds = ['models', 'draft', 'gemini-review', 'gemini-anchors'];
+if (!claudeKey && !verdictsFile && !sessionCmds.includes(cmd)) { console.error('No ANTHROPIC_API_KEY in the environment.\n' + KEYS_HINT); process.exit(2); }
 const recipes = loadRecipes().filter((r) => !ids || ids.includes(r.id));
 const results = [];
+const gvFile = opt('--gemini-verdicts');
+const geminiVerdicts = gvFile && fs.existsSync(gvFile) ? JSON.parse(fs.readFileSync(gvFile, 'utf8')) : null;
+
+// ---- session helpers (Gemini key from the environment, Claude Code session does the vision review)
+const quotaLine = (e) => `STOP: Gemini says quota/billing/paid-only (${e.message.slice(0, 140)}). Falling back to inbox mode: put <id>.png files in a folder and run "import <folder>". Nothing was retried.`;
+const imageModelId = () => opt('--model') || st.gemini_image_model;
+// the clear prompt of a recipe plus, on a refine, the issues the reviewers found
+const promptWith = (recipe, issues) => generationPrompt(recipe) + (issues && issues.length ? `\n\nFix these problems found in the previous drawing and keep everything else the same:\n- ${issues.join('\n- ')}` : '');
+async function cmdModels() {
+  if (!geminiKey) { console.log(GEMINI_HINT); return; }
+  const list = await geminiListModels(geminiKey);
+  const img = list.filter((m) => isImageModel(m.name) && m.methods.includes('generateContent'));
+  console.log('Image-generation models available to this key:');
+  for (const m of img) console.log(`  ${m.name}`);
+  const names = new Set(img.map((m) => m.name));
+  console.log(`Default (Nano Banana 2): ${names.has('gemini-3.1-flash-image') ? 'gemini-3.1-flash-image available' : 'gemini-3.1-flash-image NOT available'}`);
+  console.log(`Fallback: ${names.has('gemini-2.5-flash-image') ? 'gemini-2.5-flash-image available' : 'gemini-2.5-flash-image NOT available'}`);
+  console.log(`Pro (only after 3 failed refine rounds): ${names.has(st.gemini_pro_image_model) ? st.gemini_pro_image_model + ' available' : st.gemini_pro_image_model + ' NOT available'}`);
+}
 
 // One image through review, anchors and storage. refine(issues) returns a new
 // PNG (generate mode) or null (inbox mode: a failed review is final).
@@ -84,6 +105,12 @@ async function processSession(recipe, buf, v, { provenance }) {
     fs.mkdirSync(previewDir, { recursive: true });
     fs.writeFileSync(path.join(previewDir, `${recipe.id}-pins.png`), await renderPins(buf, anchors.map((a, i) => ({ n: i + 1, x: a.x, y: a.y }))));
   }
+  // second independent pass (Gemini vision, written by gemini-review): both must pass
+  const gv = geminiVerdicts && geminiVerdicts[recipe.id];
+  if (geminiVerdicts) {
+    if (!gv) issues.push('no Gemini second pass recorded');
+    else if (gv.pass !== true) issues.push(...(gv.issues && gv.issues.length ? gv.issues : ['Gemini second pass failed']));
+  }
   const pass = v.pass === true && issues.length === 0 && keysOk;
   if (!pass) {
     logReview({ id: recipe.id, pass: false, method: 'session', issues });
@@ -92,13 +119,114 @@ async function processSession(recipe, buf, v, { provenance }) {
   if (flag('--dry')) return { id: recipe.id, ok: true, why: [], dry: true };
   storeImage({
     recipe, png: buf, webp: img.webp, anchors, provenance,
-    review: { date: new Date().toISOString().slice(0, 10), method: 'claude-code-session-vision', claude: true, gemini: null, anchors: v.note || 'checked by rendering the pins', needs_api_rereview: true },
+    review: { date: new Date().toISOString().slice(0, 10), method: 'claude-code-session-vision', claude: true, gemini: geminiVerdicts ? true : null, ...(gv && gv.model ? { gemini_model: gv.model } : {}), rounds: v.rounds || 1, anchors: v.note || 'checked by rendering the pins', needs_api_rereview: !geminiVerdicts },
   });
   logReview({ id: recipe.id, pass: true, method: 'session' });
   return { id: recipe.id, ok: true };
 }
 
+// draft: Gemini draws the PNG into --out <dir> (first draw, or a refine when --issues-file has issues for the id).
+// Round 1 = first draw, rounds 2-4 = the 3 refine rounds, all on the default image model (fallback model when
+// the default is not available); the Pro image model is used only for the one attempt after 3 failed refines.
+async function cmdDraft() {
+  const out = opt('--out');
+  if (!out) { console.error('Usage: draft --ids a,b --out <dir> [--issues-file f.json] [--model id]'); process.exit(2); }
+  if (!geminiKey) { console.log(GEMINI_HINT); return; }
+  fs.mkdirSync(out, { recursive: true });
+  const statePath = path.join(out, 'state.json');
+  const state = fs.existsSync(statePath) ? JSON.parse(fs.readFileSync(statePath, 'utf8')) : {};
+  const issuesFile = opt('--issues-file');
+  const issuesById = issuesFile ? JSON.parse(fs.readFileSync(issuesFile, 'utf8')) : {};
+  for (const recipe of recipes) {
+    const s = state[recipe.id] || { drafts: 0, models: [] };
+    const issues = issuesById[recipe.id] || [];
+    const file = path.join(out, `${recipe.id}.png`);
+    const refine = s.drafts > 0 && issues.length && fs.existsSync(file);
+    if (s.drafts > 0 && !refine) { console.log(`  ${recipe.id}: already drafted (give --issues-file to refine), skipped`); continue; }
+    if (s.drafts >= st.max_refine_rounds + 2) { console.log(`  ${recipe.id}: out of rounds, FAILED`); continue; }
+    const usePro = s.drafts === st.max_refine_rounds + 1; // after the first draw and 3 refines
+    const chain = opt('--model') ? [opt('--model')] : usePro ? [st.gemini_pro_image_model] : [st.gemini_image_model, st.gemini_fallback_image_model];
+    let buf = null;
+    for (const model of chain) {
+      try {
+        buf = await geminiImage({ key: geminiKey, prompt: promptWith(recipe, issues), previous: refine ? fs.readFileSync(file) : undefined, spend, what: `draft ${recipe.id} #${s.drafts + 1}`, model });
+        s.models.push(model);
+        break;
+      } catch (e) {
+        if (e instanceof SpendCapError) { console.log('STOP: ' + e.message); return; }
+        if (e instanceof GeminiQuotaError) { console.log(quotaLine(e)); fs.writeFileSync(statePath, JSON.stringify(state, null, 2)); process.exitCode = 4; return; }
+        console.log(`  ${recipe.id}: ${model} failed: ${e.message.slice(0, 160)}`);
+      }
+    }
+    if (!buf) { console.log(`  ${recipe.id}: no model produced an image`); continue; }
+    s.drafts++;
+    state[recipe.id] = s;
+    fs.writeFileSync(file, buf);
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
+    console.log(`  ${recipe.id}: draft ${s.drafts} by ${s.models[s.models.length - 1]} -> ${file}`);
+  }
+  console.log(`Spent this run (estimate, free tier is 0): ${spend.total.toFixed(4)} USD of ${spend.cap} USD cap`);
+}
+
+// gemini-review: the independent second pass on <dir>/<id>.png; merges into --gemini-verdicts file.
+async function cmdGeminiReview() {
+  const dir = opt('--out'); const target = gvFile;
+  if (!dir || !target) { console.error('Usage: gemini-review --ids a,b --out <dir> --gemini-verdicts <file.json>'); process.exit(2); }
+  if (!geminiKey) { console.log(GEMINI_HINT); return; }
+  const all = fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : {};
+  for (const recipe of recipes) {
+    const file = path.join(dir, `${recipe.id}.png`);
+    if (!fs.existsSync(file)) continue;
+    try {
+      const model = opt('--review-model') || st.gemini_review_model;
+      const buf = fs.readFileSync(file);
+      const j = await geminiJson({ key: geminiKey, prompt: reviewPromptFor(recipe), image: buf, spend, what: `second review ${recipe.id}`, model });
+      const v = evaluateChecks(j, checklistOf(recipe).length);
+      all[recipe.id] = { pass: v.pass, issues: v.issues, model };
+      console.log(`  ${recipe.id}: Gemini ${model}: ${v.pass ? 'PASS' : 'FAIL'}${v.pass ? '' : ' - ' + v.issues.slice(0, 4).join(' | ')}`);
+    } catch (e) {
+      if (e instanceof GeminiQuotaError) { console.log(quotaLine(e)); process.exitCode = 4; break; }
+      console.log(`  ${recipe.id}: Gemini review error: ${e.message.slice(0, 160)}`);
+    }
+    fs.writeFileSync(target, JSON.stringify(all, null, 2));
+  }
+}
+
+// gemini-anchors: Gemini proposes the label points, the script renders the pins to <dir>/<id>-pins.png for a
+// human/Claude look; proposals go to --anchors-out (json) and are only a starting point.
+async function cmdGeminiAnchors() {
+  const dir = opt('--out'); const target = opt('--anchors-out');
+  if (!dir || !target || !geminiKey) { console.error('Usage: gemini-anchors --ids a,b --out <dir> --anchors-out <file.json> (needs GEMINI_API_KEY)'); process.exit(2); }
+  const gloss = readJson(GLOSSARY);
+  const all = fs.existsSync(target) ? JSON.parse(fs.readFileSync(target, 'utf8')) : {};
+  for (const recipe of recipes) {
+    const file = path.join(dir, `${recipe.id}.png`);
+    if (!fs.existsSync(file)) continue;
+    const buf = fs.readFileSync(file);
+    const names = recipe.labelKeys.map((k) => `${k} = ${(gloss[k] && gloss[k].en) || k}`).join('; ');
+    try {
+      const j = await geminiJson({ key: geminiKey, spend, what: `anchors ${recipe.id}`, image: buf, model: opt('--review-model') || st.gemini_review_model,
+        prompt: `The image shows: ${recipe.description}. For each label key give the point (x, y), normalised 0..1 from the top-left of the image, where a pin should touch the part it names; put it on the part itself, not on empty background. If a part appears several times pick the clearest one. Keys: ${names}.\nReply JSON: {"anchors":[{"key":"...","x":0.5,"y":0.5}]}` });
+      const anchors = cleanAnchors(j, recipe.labelKeys);
+      all[recipe.id] = anchors;
+      fs.writeFileSync(target, JSON.stringify(all, null, 2));
+      fs.writeFileSync(path.join(dir, `${recipe.id}-pins.png`), await renderPins(buf, anchors.map((a, i) => ({ n: i + 1, x: a.x, y: a.y }))));
+      console.log(`  ${recipe.id}: ${anchors.length}/${recipe.labelKeys.length} anchors, pins -> ${recipe.id}-pins.png (${anchors.map((a, i) => `${i + 1}=${a.key}`).join(', ')})`);
+    } catch (e) {
+      if (e instanceof GeminiQuotaError) { console.log(quotaLine(e)); process.exitCode = 4; break; }
+      console.log(`  ${recipe.id}: anchors error: ${e.message.slice(0, 160)}`);
+    }
+  }
+}
+
 async function main() {
+  if (cmd === 'models') {
+    await cmdModels();
+    return;
+  }
+  if (cmd === 'draft') { await cmdDraft(); return; }
+  if (cmd === 'gemini-review') { await cmdGeminiReview(); return; }
+  if (cmd === 'gemini-anchors') { await cmdGeminiAnchors(); return; }
   if (cmd === 'import') {
     const folder = args[1];
     if (!folder || !fs.existsSync(folder)) { console.error('Usage: import <folder>'); process.exit(2); }
