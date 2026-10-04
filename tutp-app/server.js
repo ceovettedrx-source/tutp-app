@@ -39,6 +39,7 @@ import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
+import { registerElRoutes } from './server/routes/el.js';
 import { createChipLog, CHIP_IDS } from './server/chips/log.js';
 import { classifyIntent } from './server/chips/intent.js';
 
@@ -6587,6 +6588,7 @@ app.post('/api/homework', async (req, res) => {
 });
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
+registerElRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, checkFreeLimit, freeLimitMessage, trackSessionStarted, trackSessionCompleted });
 
 // ------------------------------------------------------------------
 // Homework illustration — step 1 of the "show the problem as a picture"

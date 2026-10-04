@@ -14,6 +14,12 @@ export const MODELS = {
   story_english: 'claude-haiku-4-5',
   story_other: 'claude-sonnet-5',
   illustrate: 'claude-haiku-4-5',
+  // Guided Discovery (experiential-learning-v2): the cheapest model for the
+  // teach-back follow-up question and the video review; non-English lesson
+  // translation goes to sonnet-5 (haiku's Telugu was weak, see storyModel).
+  el_teachback: 'claude-haiku-4-5',
+  el_video_review: 'claude-haiku-4-5',
+  el_translate: 'claude-sonnet-5',
   game_questions: 'claude-haiku-4-5',
   feedback_classify: 'claude-haiku-4-5',
   // Teacher features: long structured output (up to 16k tokens), and the

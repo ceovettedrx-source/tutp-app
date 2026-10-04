@@ -1,0 +1,90 @@
+{
+  "id": "density-floating",
+  "title": "Density and floating",
+  "predict": {
+    "question": "You put a small heavy marble and a big potato in a bowl of water. What happens?",
+    "options": [
+      {
+        "text": "The marble sinks, the potato floats or sinks slower, because size matters too",
+        "misconceptionId": null
+      },
+      {
+        "text": "The marble floats and the potato sinks, because the marble is smaller",
+        "misconceptionId": null
+      },
+      {
+        "text": "The marble sinks because it is heavy, and anything heavy always sinks no matter what",
+        "misconceptionId": "in-misc-sci-el-density-floating-01"
+      }
+    ],
+    "correctIndex": 0,
+    "why": "Whether something floats depends on how heavy it is for its size (density) compared to water, not on weight alone."
+  },
+  "experiment": null,
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "Which one surprised you?",
+      "Is the potato heavier or lighter than the coin? Then why does it behave differently?",
+      "What matters more: total weight or weight for its size?"
+    ],
+    "avoid": [
+      "Do not say 'heavy things sink'",
+      "Do not explain density before they guess"
+    ]
+  },
+  "notice": {
+    "question": "What did you see happen to each object?",
+    "lookFor": "Child notices that heavy objects like potato can float while small heavy things like coin sink, so weight alone doesn't decide it"
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look at how big each object is compared to how heavy it feels"
+    },
+    {
+      "level": 2,
+      "text": "Compare the coin and the potato — which is heavier overall, which floats?"
+    },
+    {
+      "level": 3,
+      "text": "Think about how much space (size) an object takes up for its weight"
+    }
+  ],
+  "reveal": {
+    "explanation": "Water pushes up on anything placed in it. If an object's weight is less than the push of water for its size, it floats; if more, it sinks. This depends on density — how packed the material is, not just total weight. A potato is light for its size, so it floats or sinks slowly, while a small coin is very heavy for its size, so it sinks fast.",
+    "term": "Density",
+    "termMeaning": "How much mass is packed into a given amount of space (volume)."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a huge ship made of iron floats but a small iron nail sinks."
+  },
+  "revisits": [
+    {
+      "question": "Why does an ice cube float on water?",
+      "answer": "Ice is less dense than water, so it floats."
+    },
+    {
+      "question": "Why does an egg sink in plain water but float in salty water?",
+      "answer": "Salty water is denser, so it pushes up more and the egg floats."
+    }
+  ],
+  "grade": 8,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "buoyancy",
+      "density"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/buoyancy/latest/buoyancy_all.html",
+    "https://phet.colorado.edu/sims/html/density/latest/density_all.html"
+  ],
+  "safety": {
+    "experiment": "dropped",
+    "reasons": [
+      "facts: A potato actually sinks in plain water since its density is slightly greater than water; the experiment/prediction incorrectly implies it floats or floats more readily than a marble."
+    ]
+  }
+}

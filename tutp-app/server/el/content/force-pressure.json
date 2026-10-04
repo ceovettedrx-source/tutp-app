@@ -1,0 +1,88 @@
+{
+  "id": "force-pressure",
+  "title": "Force and pressure",
+  "predict": {
+    "question": "You press a pencil into a sponge, first flat eraser-end down, then sharp point down, with the same push. Which happens?",
+    "options": [
+      {
+        "text": "The sharp point sinks in deeper than the flat end",
+        "misconceptionId": null
+      },
+      {
+        "text": "Both sink in equally since you push equally hard",
+        "misconceptionId": "in-misc-sci-el-force-pressure-01"
+      },
+      {
+        "text": "The flat end sinks in deeper than the point",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "The same force on a smaller area (the point) creates much more pressure, so it digs in deeper."
+  },
+  "experiment": null,
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "Which end went in more?",
+      "Did you push harder for the point, or the same?",
+      "So what matters besides how hard you push?"
+    ],
+    "avoid": [
+      "Don't say 'pressure is force divided by area' before they notice it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see?",
+    "lookFor": "The pencil point sinks much deeper than the flat eraser end, even with the same push."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look at how much area touches the sponge in each case."
+    },
+    {
+      "level": 2,
+      "text": "Compare the tiny tip area to the wide flat area."
+    },
+    {
+      "level": 3,
+      "text": "Same force spread over a smaller area pushes harder on each bit of sponge."
+    }
+  ],
+  "reveal": {
+    "explanation": "The force you applied was the same both times. But the point touches a very small area, so all that force gets concentrated there. The flat end spreads the same force over a much bigger area, so each bit feels less push. This is why sharp things pierce easily and flat things don't.",
+    "term": "Pressure",
+    "termMeaning": "Pressure is force acting on a given area; smaller area means more pressure for the same force."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a needle pierces cloth easily but a blunt stick doesn't, using the word 'area'."
+  },
+  "revisits": [
+    {
+      "question": "Why do camels have wide feet to walk on sand?",
+      "answer": "Wide feet spread their weight over a larger area, giving less pressure so they don't sink."
+    },
+    {
+      "question": "Why does a sharp knife cut better than a blunt one with the same push?",
+      "answer": "The sharp edge has a much smaller area, so the same force creates more pressure, cutting easily."
+    }
+  ],
+  "grade": 8,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "forces-and-motion-basics"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/forces-and-motion-basics/latest/forces-and-motion-basics_all.html"
+  ],
+  "safety": {
+    "experiment": "dropped",
+    "reasons": [
+      "rule: forbidden word \"sharp\" in: Turn the pencil so the sharp point faces down and press with the same steady for",
+      "review: Pressing a sharp pencil point with force risks poking/puncturing a finger if it slips"
+    ]
+  }
+}

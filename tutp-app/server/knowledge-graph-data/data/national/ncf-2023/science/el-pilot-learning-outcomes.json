@@ -1,0 +1,293 @@
+{
+  "_note": "Guided Discovery pilot (experiential-learning-v2). One LearningOutcome and one Misconception per concept; concept-level and board-agnostic. statement_en is Tut-P's own paraphrase, never textbook text. ncf_curricular_goal_id and ncf_competency_code are null because the NCF-SE competency was not matched to each concept (never guessed). Misconceptions are widely documented science-education patterns written in Tut-P's words; no specific citation has been attached yet, so their verification_status is placeholder.",
+  "records": [
+    {
+      "id": "in-ncf2023-science-el-separation-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 6,
+      "statement_en": "Chooses and explains a way (sieving, filtering, evaporating) to separate a mixture, based on what is different about its parts",
+      "concept_id": "separation",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-separation-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-separation-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes anything mixed in water can be filtered out, including salt that has dissolved",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-shadows-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 7,
+      "statement_en": "Explains that a shadow forms when an opaque object blocks light travelling in straight lines, and how its size changes with distances",
+      "concept_id": "shadows",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-shadows-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-shadows-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes the shadow gets smaller when the object moves closer to the light",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-magnets-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 6,
+      "statement_en": "Predicts which materials a magnet attracts and how two magnets act on each other (like poles repel, unlike poles attract)",
+      "concept_id": "magnets",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-magnets-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-magnets-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes a magnet attracts every metal, or that a magnet is strongest in its middle",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-circuit-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 7,
+      "statement_en": "Builds and explains a complete circuit in which a cell, a switch and a bulb form a closed loop for current to flow",
+      "concept_id": "circuit",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-circuit-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-circuit-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes a bulb lights with only one wire from the cell, because the current is \"used up\" at the bulb",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-acids-bases-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 7,
+      "statement_en": "Classifies everyday substances as acidic, basic or neutral using an indicator and explains what the colour change shows",
+      "concept_id": "acids-bases",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-acids-bases-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-acids-bases-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes all sour things are dangerous acids and all soapy things are harmless, so a colour change cannot tell them apart",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-heat-transfer-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 7,
+      "statement_en": "Explains that heat flows from hotter to colder things and tells conduction, convection and radiation apart in everyday examples",
+      "concept_id": "heat-transfer",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-heat-transfer-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-heat-transfer-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes metal spoons feel cold because they hold cold, not because they carry heat away from the hand faster",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-force-pressure-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 8,
+      "statement_en": "Explains that the same force gives more pressure on a smaller area, and gives everyday examples",
+      "concept_id": "force-pressure",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-force-pressure-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-force-pressure-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes pressure depends only on how hard you push, not on the area you push over",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-friction-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 8,
+      "statement_en": "Explains that friction is a force that opposes sliding, depends on the two surfaces, and compares smooth and rough surfaces",
+      "concept_id": "friction",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-friction-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-friction-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes friction only exists on rough surfaces and a smooth surface has none",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-sound-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "secondary",
+      "grade": 9,
+      "statement_en": "Explains that sound is made by vibrating objects, that pitch depends on frequency and loudness on amplitude",
+      "concept_id": "sound",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-sound-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-sound-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes a louder sound is also a higher pitch, and that sound can travel through empty space",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-density-floating-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "middle",
+      "grade": 8,
+      "statement_en": "Predicts whether an object floats or sinks using the upward push of the liquid and the density of the object compared with the liquid",
+      "concept_id": "density-floating",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-density-floating-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-density-floating-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes heavy things always sink and light things always float, whatever their size and shape",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-inertia-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "secondary",
+      "grade": 9,
+      "statement_en": "Explains that an object keeps its state of rest or steady motion unless a net force acts, and uses it for everyday examples",
+      "concept_id": "inertia",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-inertia-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-inertia-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes a moving object needs a continuing push to keep moving, and stops by itself when the push ends",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    },
+    {
+      "id": "in-ncf2023-science-el-refraction-lo-001",
+      "type": "LearningOutcome",
+      "framework": "NCF-2023",
+      "ncf_curricular_goal_id": null,
+      "ncf_competency_code": null,
+      "subject": "science",
+      "grade_band": "secondary",
+      "grade": 10,
+      "statement_en": "Explains that light bends when it passes from one transparent material to another, and uses it to explain a pencil that looks bent in water",
+      "concept_id": "refraction",
+      "verification_status": "placeholder"
+    },
+    {
+      "id": "in-misc-sci-el-refraction-01",
+      "type": "Misconception",
+      "learning_outcome_id": "in-ncf2023-science-el-refraction-lo-001",
+      "learning_component_id": null,
+      "error_pattern_en": "Believes a pencil in water really bends, or that light speeds up and bends away when it enters water",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "commonly documented student misconception; no specific citation attached yet"
+      }
+    }
+  ]
+}

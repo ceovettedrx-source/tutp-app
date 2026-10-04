@@ -1,0 +1,88 @@
+/* Experiential Learning v2: Guided Discovery, video cards, revisit card
+   (public/app/shared/el-guided.js). Self-contained, mobile first: 16px gutters,
+   buttons at least 44px tall, nothing wider than the screen. Brand blue #005bbf. */
+.el-pick, .el-body, .el-revisit {
+  --el-blue: #005bbf; --el-blue-dark: #004a99; --el-tint: #eaf2fc; --el-tint-line: #b9d3f3;
+  --el-ink: #1b1f24; --el-muted: #4f5966; --el-line: #d5dbe3; --el-surface: #ffffff;
+  --el-ok: #1b6e3c; --el-ok-bg: #e5f4ea; --el-bad: #a3281f; --el-bad-bg: #fbe9e7; --el-amber-bg: #fff4d6; --el-amber-line: #e8a617;
+  color: var(--el-ink); font-family: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif; box-sizing: border-box;
+}
+.el-pick *, .el-body *, .el-revisit * { box-sizing: border-box; }
+.el-pick { margin: 0 0 18px; padding: 14px; border: 2px solid var(--el-tint-line); background: var(--el-tint); border-radius: 14px; }
+.el-pick-head { display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; margin-bottom: 10px; }
+.el-pick-title { font-size: 16px; font-weight: 700; font-family: 'Plus Jakarta Sans', Inter, sans-serif; }
+.el-pick-sub { font-size: 13px; color: var(--el-muted); margin-top: 2px; }
+.el-board { font: inherit; font-size: 13px; padding: 8px 10px; min-height: 44px; border: 2px solid var(--el-line); border-radius: 10px; background: var(--el-surface); color: var(--el-ink); max-width: 100%; }
+.el-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.el-chip { font: inherit; font-size: 13px; font-weight: 600; min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 2px solid var(--el-tint-line); background: var(--el-surface); color: var(--el-blue); cursor: pointer; }
+.el-chip:hover:not(:disabled) { border-color: var(--el-blue); }
+.el-chip:disabled { opacity: .6; cursor: wait; }
+.el-err { margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--el-bad); }
+
+.el-body { padding: 4px 0 8px; }
+.el-title { margin: 0; font-size: 20px; font-weight: 700; font-family: 'Plus Jakarta Sans', Inter, sans-serif; }
+.el-chapter { font-size: 13px; color: var(--el-muted); margin: 2px 0 12px; }
+.el-steps { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0 0 14px; padding: 0; }
+.el-steps li { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--el-line); color: var(--el-muted); }
+.el-steps li.on { background: var(--el-blue); border-color: var(--el-blue); color: #fff; font-weight: 600; }
+.el-steps li.done { background: var(--el-tint); border-color: var(--el-tint-line); color: var(--el-blue-dark); }
+.el-step { display: block; }
+.el-q { font-size: 17px; line-height: 1.5; font-weight: 600; margin: 0 0 8px; }
+.el-q-sub { font-size: 14px; color: var(--el-muted); margin: 0 0 10px; }
+.el-hint-line, .el-mini { font-size: 12px; color: var(--el-muted); margin: 0 0 8px; }
+.el-mini { text-transform: uppercase; letter-spacing: .04em; font-weight: 600; margin-top: 10px; }
+.el-opts { display: grid; gap: 10px; margin: 0 0 12px; }
+.el-opt { font: inherit; font-size: 15px; line-height: 1.4; text-align: left; min-height: 48px; padding: 12px 14px; border-radius: 12px; border: 2px solid var(--el-line); background: var(--el-surface); color: var(--el-ink); cursor: pointer; }
+.el-opt:hover:not(:disabled) { border-color: var(--el-blue); }
+.el-opt.locked { border-color: var(--el-blue); background: var(--el-tint); }
+.el-opt.wrong { border-color: var(--el-bad); background: var(--el-bad-bg); color: var(--el-muted); }
+.el-opt.right { border-color: var(--el-ok); background: var(--el-ok-bg); }
+.el-opt:disabled { cursor: default; }
+.el-locked { margin: 4px 0 10px; font-weight: 600; color: var(--el-blue-dark); }
+.el-btn { font: inherit; font-size: 14px; font-weight: 600; min-height: 44px; padding: 10px 18px; border-radius: 10px; border: 2px solid var(--el-line); background: var(--el-surface); color: var(--el-ink); cursor: pointer; margin: 4px 8px 4px 0; }
+.el-btn.primary { background: var(--el-blue); border-color: var(--el-blue); color: #fff; }
+.el-btn.primary:hover:not(:disabled) { background: var(--el-blue-dark); }
+.el-btn:disabled { opacity: .6; cursor: wait; }
+.el-card { border: 2px solid var(--el-line); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; background: var(--el-surface); }
+.el-card p, .el-card ul, .el-card ol { margin: 4px 0; font-size: 15px; line-height: 1.55; }
+.el-card ul, .el-card ol { padding-left: 20px; }
+.el-card-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--el-blue-dark); margin-bottom: 4px; }
+.el-parent { background: var(--el-amber-bg); border-color: var(--el-amber-line); }
+.el-parent .el-card-title { color: #4a3200; }
+.el-reveal { background: var(--el-ok-bg); border-color: var(--el-ok); }
+.el-adult { display: inline-block; margin-right: 8px; padding: 1px 8px; font-size: 11px; font-weight: 700; border-radius: 999px; background: var(--el-amber-bg); border: 1px solid var(--el-amber-line); color: #4a3200; }
+.el-note { font-size: 13px !important; color: var(--el-muted); }
+.el-text { display: block; width: 100%; margin: 6px 0 10px; padding: 10px 12px; font: inherit; font-size: 15px; line-height: 1.5; border: 2px solid var(--el-line); border-radius: 10px; resize: vertical; min-height: 84px; }
+.el-text:focus { border-color: var(--el-blue); outline: none; }
+.el-hints { margin: 8px 0; }
+.el-hint { padding: 8px 12px; margin: 0 0 6px; border-left: 4px solid var(--el-blue); background: var(--el-tint); border-radius: 8px; font-size: 14px; line-height: 1.5; }
+.el-row { display: flex; flex-wrap: wrap; align-items: center; }
+.el-follow { font-size: 16px !important; font-weight: 600; }
+.el-sims { display: grid; gap: 10px; margin: 6px 0 12px; }
+.el-iframe { display: block; width: 100%; height: 420px; min-height: 240px; border: 2px solid var(--el-line); border-radius: 12px; background: #f4f6f9; }
+.el-attr { margin: 6px 0 0; font-size: 12px; color: var(--el-muted); }
+.el-loading { color: var(--el-muted); font-size: 14px; }
+
+/* Videos: nothing is ever laid over the player; the player is at least 200x200. */
+.el-videos, #experientialModalVideos { margin-top: 12px; }
+.el-video { margin: 0 0 16px; }
+.el-slot { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--el-muted); margin-bottom: 4px; }
+.el-yt { height: auto; aspect-ratio: 16 / 9; min-height: 220px; }
+.el-segs, .el-moments { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.el-seg, .el-moment { font: inherit; font-size: 13px; font-weight: 600; min-height: 44px; padding: 8px 14px; border-radius: 999px; border: 2px solid var(--el-tint-line); background: var(--el-surface); color: var(--el-blue); cursor: pointer; }
+.el-seg[aria-pressed="true"] { background: var(--el-blue); border-color: var(--el-blue); color: #fff; }
+.el-moment { font-weight: 500; min-height: 36px; padding: 4px 12px; }
+.el-yt-link { margin-top: 6px; font-size: 13px; color: var(--el-muted); }
+.el-yt-link a { color: var(--el-blue); text-decoration: underline; }
+
+.el-revisit { margin: 0 0 16px; padding: 14px; border-radius: 14px; border: 2px solid var(--el-amber-line); background: var(--el-amber-bg); }
+.el-rev-topic { font-size: 12px; font-weight: 700; color: #4a3200; text-transform: uppercase; letter-spacing: .04em; }
+.el-ans { margin: 4px 0 8px; font-size: 15px; font-weight: 600; color: var(--el-ok); }
+
+/* Print: the guided lesson prints as one page-friendly column; buttons and
+   videos stay on screen only. */
+#experientialModalResults.el-guided-on > :not(.no-print):not(#elGuidedBody) { display: none !important; }
+@media print {
+  .el-pick, .el-steps, .el-btn, .el-opt:not(.right), .el-sims, .el-videos, .el-text, .el-row, #experientialModalVideos { display: none !important; }
+  .el-card { break-inside: avoid; }
+}

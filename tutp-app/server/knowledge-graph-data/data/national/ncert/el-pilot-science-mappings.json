@@ -1,0 +1,257 @@
+{
+  "_note": "CBSE/NCERT chapter mappings for the Guided Discovery pilot. Chapter number and title were read from the official ncert.nic.in contents pages, and the concept was found inside the named chapter PDF (2026-10-05, reprint 2026-27). Chapter titles and numbers only; no textbook text copied.",
+  "records": [
+    {
+      "id": "in-map-cbse-ncert-el-separation",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 9: Methods of Separation in Everyday Life",
+      "grade": 6,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 6 Science, Chapter 9",
+        "url": "https://ncert.nic.in/textbook/pdf/fecu109.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-separation-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-shadows",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 11: Light: Shadows and Reflections",
+      "grade": 7,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 7 Science, Chapter 11",
+        "url": "https://ncert.nic.in/textbook/pdf/gecu111.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-shadows-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-magnets",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 4: Exploring Magnets",
+      "grade": 6,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 6 Science, Chapter 4",
+        "url": "https://ncert.nic.in/textbook/pdf/fecu104.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-magnets-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-circuit",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 3: Electricity: Circuits and their Components",
+      "grade": 7,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 7 Science, Chapter 3",
+        "url": "https://ncert.nic.in/textbook/pdf/gecu103.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-circuit-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-acids-bases",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 2: Exploring Substances: Acidic, Basic, and Neutral",
+      "grade": 7,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 7 Science, Chapter 2",
+        "url": "https://ncert.nic.in/textbook/pdf/gecu102.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-acids-bases-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-heat-transfer",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 7: Heat Transfer in Nature",
+      "grade": 7,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 7 Science, Chapter 7",
+        "url": "https://ncert.nic.in/textbook/pdf/gecu107.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-heat-transfer-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-force-pressure",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 6: Pressure, Winds, Storms, and Cyclones",
+      "grade": 8,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 8 Science, Chapter 6",
+        "url": "https://ncert.nic.in/textbook/pdf/hecu106.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-force-pressure-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-friction",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 5: Exploring Forces",
+      "grade": 8,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 8 Science, Chapter 5",
+        "url": "https://ncert.nic.in/textbook/pdf/hecu105.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-friction-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-sound",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 10: Sound Waves: Characteristics and Applications",
+      "grade": 9,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 9 Science, Chapter 10",
+        "url": "https://ncert.nic.in/textbook/pdf/iesc110.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-sound-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-density-floating",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 5: Exploring Forces",
+      "grade": 8,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 8 Science, Chapter 5",
+        "url": "https://ncert.nic.in/textbook/pdf/hecu105.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-density-floating-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-inertia",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 6: How Forces Affect Motion",
+      "grade": 9,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 9 Science, Chapter 6",
+        "url": "https://ncert.nic.in/textbook/pdf/iesc106.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-inertia-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-cbse-ncert-el-refraction",
+      "type": "StateMapping",
+      "state": "cbse-ncert",
+      "scf_code": "unstructured",
+      "textbook_chapter": "Chapter 9: Light – Reflection and Refraction",
+      "grade": 10,
+      "medium": [
+        "english",
+        "hindi"
+      ],
+      "alignment_type": "full",
+      "verification_status": "sourced",
+      "source": {
+        "document": "NCERT Class 10 Science, Chapter 9",
+        "url": "https://ncert.nic.in/textbook/pdf/jesc109.pdf",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-refraction-lo-001",
+      "target_node_type": "LearningOutcome"
+    }
+  ]
+}

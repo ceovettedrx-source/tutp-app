@@ -1,0 +1,103 @@
+{
+  "id": "separation",
+  "title": "Separation of substances",
+  "predict": {
+    "question": "If you mix salt in water and sand in another water, then pour both through a cloth strainer, what will happen?",
+    "options": [
+      {
+        "text": "Sand stays back, salt also stays back on the cloth",
+        "misconceptionId": "in-misc-sci-el-separation-01"
+      },
+      {
+        "text": "Sand stays back on cloth, but salt passes through with the water",
+        "misconceptionId": null
+      },
+      {
+        "text": "Both sand and salt pass through the cloth with the water",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 1,
+    "why": "Salt dissolves and becomes part of the water, so it passes through the cloth, while sand stays solid and gets trapped."
+  },
+  "experiment": {
+    "title": "Filter the salt and the sand",
+    "items": [
+      "salt",
+      "sand",
+      "water",
+      "cup",
+      "bowl",
+      "cloth",
+      "tea strainer",
+      "spoon"
+    ],
+    "steps": [
+      "Take two cups, add water to both",
+      "Add a spoon of salt to cup 1 and stir till it disappears",
+      "Add a spoon of sand to cup 2 and stir",
+      "Place cloth over the tea strainer and pour cup 1 water through it into the bowl",
+      "Rinse the cloth, place over strainer again, pour cup 2 water through it",
+      "Look closely at what remains on the cloth each time"
+    ],
+    "adultSteps": [],
+    "note": "Use only cool water, and wipe up any spills right away so no one slips."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "What do you see left on the cloth after pouring the salt water?",
+      "Why do you think sand stayed but salt disappeared before you even poured it?",
+      "Can you taste the filtered salt water (if safe for your child) to check if salt is still there?"
+    ],
+    "avoid": [
+      "Don't say 'salt dissolves so it passes through' before they observe it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see on the cloth after pouring each cup, and what happened to the taste/look of the water?",
+    "lookFor": "Child notices sand left behind on cloth as grains, but no visible salt left behind, and filtered water still tastes salty"
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look closely at the cloth after each pour - is there anything solid sitting on it?"
+    },
+    {
+      "level": 2,
+      "text": "Compare: did the sand disappear into the water like the salt did, before you even poured it?"
+    },
+    {
+      "level": 3,
+      "text": "Things that fully disappear into water (dissolve) slip through tiny holes in a filter, but solid bits that don't disappear get stuck."
+    }
+  ],
+  "reveal": {
+    "explanation": "Sand does not dissolve in water, so it stays as solid grains that are too big to pass through the cloth. Salt dissolves completely, breaking into tiny invisible particles that mix with the water itself. Filtering only works to separate solid bits that haven't dissolved from a liquid. To get salt back, you would need to evaporate the water, not filter it.",
+    "term": "Filtration",
+    "termMeaning": "Filtration is a method to separate undissolved solid particles from a liquid using something with tiny holes, like cloth or paper."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why sand can be filtered out of water but salt cannot."
+  },
+  "revisits": [
+    {
+      "question": "If you mix chalk powder in water, can you separate it by filtering? Why?",
+      "answer": "Yes, chalk powder does not dissolve, so it stays solid and gets trapped by the filter."
+    },
+    {
+      "question": "How could you get back the salt from salty water if filtering doesn't work?",
+      "answer": "By evaporating the water, leaving the salt behind as solid crystals."
+    }
+  ],
+  "grade": 6,
+  "version": 1,
+  "sim": {
+    "slugs": []
+  },
+  "simUrls": [],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

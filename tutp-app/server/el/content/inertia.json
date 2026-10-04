@@ -1,0 +1,101 @@
+{
+  "id": "inertia",
+  "title": "Inertia (Newton's first law)",
+  "predict": {
+    "question": "You place a coin on a cardboard strip balanced over a cup, then flick the cardboard away fast. What happens to the coin?",
+    "options": [
+      {
+        "text": "The coin falls straight down into the cup",
+        "misconceptionId": null
+      },
+      {
+        "text": "The coin flies off in the same direction as the cardboard",
+        "misconceptionId": "in-misc-sci-el-inertia-01"
+      },
+      {
+        "text": "The coin stays stuck to the cardboard and flies away with it",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "The coin has no horizontal force on it, so it stays where it was and gravity pulls it straight down into the cup."
+  },
+  "experiment": {
+    "title": "Coin, Card and Cup trick",
+    "items": [
+      "cup",
+      "cardboard",
+      "coin"
+    ],
+    "steps": [
+      "Place the cup on a table",
+      "Put a small strip of cardboard flat on top of the cup, covering it",
+      "Place a coin at the centre of the cardboard",
+      "Flick the cardboard sideways quickly with one finger",
+      "Watch where the coin lands"
+    ],
+    "adultSteps": [],
+    "note": "Flick gently and keep fingers away from the cup edge to avoid spills or scratches."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "What did the cardboard do and what did the coin do?",
+      "Why didn't the coin move with the cardboard?",
+      "What would happen if you flicked it slowly instead?"
+    ],
+    "avoid": [
+      "Don't say 'the coin has inertia' before they try it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see happen to the coin when you flicked the cardboard?",
+    "lookFor": "Child notices the cardboard moves away but the coin stays in place and drops down, rather than moving with the card."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Watch the coin's path closely - does it move sideways at all before falling?"
+    },
+    {
+      "level": 2,
+      "text": "Compare: the cardboard gets a push, but does the coin get the same push?"
+    },
+    {
+      "level": 3,
+      "text": "The coin had nothing pushing it sideways, so it just stayed where it was while gravity pulled it down."
+    }
+  ],
+  "reveal": {
+    "explanation": "Objects resist changes to their state of motion - if they are still, they stay still unless something pushes them. When you flick the cardboard, only the cardboard gets pushed sideways, not the coin. Since no sideways force acts on the coin, it stays in place and simply falls straight down once the cardboard is gone. This tendency to resist change in motion is called inertia.",
+    "term": "Inertia",
+    "termMeaning": "The natural tendency of an object to stay at rest or keep moving at the same speed unless a force acts on it."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why the coin didn't fly away with the cardboard, using the word 'inertia'."
+  },
+  "revisits": [
+    {
+      "question": "Why do passengers in a bus jerk forward when the bus suddenly stops?",
+      "answer": "Their bodies keep moving forward due to inertia even though the bus has stopped."
+    },
+    {
+      "question": "Why does a ball on the ground not start rolling by itself?",
+      "answer": "It stays at rest because no force is acting on it to make it move, due to inertia."
+    }
+  ],
+  "grade": 9,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "forces-and-motion-basics"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/forces-and-motion-basics/latest/forces-and-motion-basics_all.html"
+  ],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

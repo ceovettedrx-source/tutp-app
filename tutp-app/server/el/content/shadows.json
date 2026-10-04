@@ -1,0 +1,98 @@
+{
+  "id": "shadows",
+  "title": "Light and shadows",
+  "predict": {
+    "question": "If you move a torch-free ball closer to a window light source, what happens to its shadow on the wall?",
+    "options": [
+      {
+        "text": "The shadow gets bigger",
+        "misconceptionId": null
+      },
+      {
+        "text": "The shadow gets smaller",
+        "misconceptionId": "in-misc-sci-el-shadows-01"
+      },
+      {
+        "text": "The shadow stays the same size",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "Moving the object closer to the light spreads the blocked light over a wider area, making the shadow bigger."
+  },
+  "experiment": {
+    "title": "Shadow stretching",
+    "items": [
+      "torch-free window with sunlight",
+      "ball",
+      "paper",
+      "wall"
+    ],
+    "steps": [
+      "Stand near a sunlit window so light falls on a wall or a paper screen on the floor",
+      "Hold the ball close to the window and mark/observe the shadow size on the wall",
+      "Slowly move the ball away from the window towards the wall",
+      "Observe the shadow size now",
+      "Move the ball back close to the window again and compare"
+    ],
+    "adultSteps": [],
+    "note": "Do not look directly at the sun; use indirect sunlight through the window."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "What happened to the shadow when the ball was near the window?",
+      "What happened when you moved it away?",
+      "Can you guess why that happens?"
+    ],
+    "avoid": [
+      "Don't say 'the shadow gets bigger because it's closer to light' before they notice it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see about the shadow's size as the ball moved?",
+    "lookFor": "Child notices shadow is bigger when object is closer to light, smaller when farther away"
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Watch the edges of the shadow on the wall, not just the ball"
+    },
+    {
+      "level": 2,
+      "text": "Compare shadow size when ball is near window vs far from window"
+    },
+    {
+      "level": 3,
+      "text": "Light spreads out from its source like a widening cone — think what happens when the object blocks it near versus far"
+    }
+  ],
+  "reveal": {
+    "explanation": "Light travels in straight lines from its source. When an opaque object blocks these lines, a dark area called a shadow forms behind it. When the object is closer to the light, it blocks a wider spread of light rays, making the shadow larger. When it's farther from light (closer to the screen), it blocks a narrower set of rays, making the shadow smaller.",
+    "term": "Shadow formation",
+    "termMeaning": "A shadow is formed when an opaque object blocks light travelling in straight lines, creating a dark region on the other side."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why your shadow looks bigger when you stand close to a lamp and smaller when you stand far away."
+  },
+  "revisits": [
+    {
+      "question": "Why do shadows at noon look shorter than in the evening?",
+      "answer": "Because the sun's position changes the angle of light rays, changing shadow length"
+    },
+    {
+      "question": "If you hold a book very close to a lamp, what happens to its shadow on the table?",
+      "answer": "The shadow becomes larger because the book blocks more spreading light rays"
+    }
+  ],
+  "grade": 7,
+  "version": 1,
+  "sim": {
+    "slugs": []
+  },
+  "simUrls": [],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

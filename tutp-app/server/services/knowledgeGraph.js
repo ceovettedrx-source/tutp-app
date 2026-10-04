@@ -175,6 +175,19 @@ export async function getMisconceptionsByIds(ids) {
 }
 
 /**
+ * StateMapping records (every board) whose target is the given
+ * LearningOutcome id. Used by Guided Discovery (server/el/lessons.js), whose
+ * mappings point at a LearningOutcome rather than a LearningComponent.
+ *
+ * @param {string} outcomeId
+ * @returns {Promise<object[]>}
+ */
+export async function getStateMappingsForOutcome(outcomeId) {
+  const records = await loadAllRecords();
+  return records.filter((r) => r.type === 'StateMapping' && r.target_node_type === 'LearningOutcome' && r.target_node_id === outcomeId);
+}
+
+/**
  * Looks up TeacherTrainingUnit records qualifying a teacher for a
  * grade/subject. There can legitimately be more than one match (e.g. a
  * D.El.Ed unit and a B.Ed unit both cover the same subject at overlapping

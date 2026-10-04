@@ -1,0 +1,101 @@
+{
+  "id": "sound",
+  "title": "Sound and vibration",
+  "predict": {
+    "question": "If you stretch a rubber band tight and pluck it, then loosen it and pluck again, what will change?",
+    "options": [
+      {
+        "text": "The loose band will make a lower, slower sound while the tight one sounds higher",
+        "misconceptionId": null
+      },
+      {
+        "text": "The loose band will sound louder and higher at the same time",
+        "misconceptionId": "in-misc-sci-el-sound-01"
+      },
+      {
+        "text": "Nothing will change, both sound the same",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "A tighter band vibrates faster, giving more vibrations per second and a higher pitch, while looseness slows the vibration."
+  },
+  "experiment": {
+    "title": "Rubber Band Twang Test",
+    "items": [
+      "rubber band",
+      "plastic bottle",
+      "ruler"
+    ],
+    "steps": [
+      "Stretch a rubber band around an empty plastic bottle lengthwise",
+      "Pluck it gently and watch and listen",
+      "Now stretch it tighter by pulling more and pluck again",
+      "Compare the sound and how fast the band moves",
+      "Try pressing a ruler lightly near the band while it vibrates to feel it shake"
+    ],
+    "adultSteps": [],
+    "note": "Pluck gently, don't snap the band hard on fingers."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "Did the band move fast or slow each time?",
+      "Was the tight one higher or lower in sound?",
+      "Can you feel it shaking if you touch it lightly?"
+    ],
+    "avoid": [
+      "Don't say 'tight means high pitch' before they notice it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see and hear when the band was loose versus tight?",
+    "lookFor": "Child notices the band moves (vibrates) and that tighter/faster vibration gives higher-pitched sound"
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Watch the band itself, not just listen"
+    },
+    {
+      "level": 2,
+      "text": "Compare how fast it shakes when loose versus tight"
+    },
+    {
+      "level": 3,
+      "text": "Faster shaking makes a different kind of sound than slower shaking"
+    }
+  ],
+  "reveal": {
+    "explanation": "Sound is made when something vibrates back and forth quickly. When the rubber band vibrates fast, it makes a high-pitched sound; when it vibrates slowly, the pitch is low. Loudness is different—it depends on how big the vibration is, not how fast. Sound also needs something like air to travel through; it cannot travel through empty space.",
+    "term": "Frequency and amplitude",
+    "termMeaning": "Frequency is how many vibrations happen per second (controls pitch), amplitude is how big each vibration is (controls loudness)."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a tight rubber band sounds different from a loose one, using the word 'vibrate'."
+  },
+  "revisits": [
+    {
+      "question": "Why does a thin guitar string usually sound higher than a thick one?",
+      "answer": "Thin strings vibrate faster, giving higher frequency and higher pitch"
+    },
+    {
+      "question": "Can astronauts in space hear sound directly through empty space?",
+      "answer": "No, sound needs a medium like air; space is empty so sound cannot travel"
+    }
+  ],
+  "grade": 9,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "sound-waves"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/sound-waves/latest/sound-waves_all.html"
+  ],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

@@ -1,0 +1,106 @@
+{
+  "id": "acids-bases",
+  "title": "Acids, bases and indicators",
+  "predict": {
+    "question": "If you dip turmeric paper into lemon juice and into soapy water, what will happen?",
+    "options": [
+      {
+        "text": "Turmeric stays yellow in both, since both are just kitchen liquids",
+        "misconceptionId": null
+      },
+      {
+        "text": "Turmeric stays yellow in lemon juice but turns reddish-brown in soapy water",
+        "misconceptionId": null
+      },
+      {
+        "text": "Lemon juice is always dangerous so it will burn the paper, while soap is harmless and does nothing",
+        "misconceptionId": "in-misc-sci-el-acids-bases-01"
+      }
+    ],
+    "correctIndex": 1,
+    "why": "Turmeric indicator turns reddish-brown in basic (soapy) solutions but stays yellow in acidic or neutral ones, showing a real chemical difference, not just taste or danger."
+  },
+  "experiment": {
+    "title": "Turmeric Indicator Test",
+    "items": [
+      "turmeric",
+      "paper",
+      "water",
+      "lemon",
+      "soap",
+      "bowl",
+      "spoon"
+    ],
+    "steps": [
+      "Rub a little turmeric powder mixed with water on strips of paper and let them dry (or ask adult to help dry faster)",
+      "Make a soapy water solution in a bowl",
+      "Squeeze lemon juice into another bowl with a little water",
+      "Dip one turmeric paper strip into the lemon water and note the colour",
+      "Dip another turmeric paper strip into the soapy water and note the colour",
+      "Compare both strips side by side"
+    ],
+    "adultSteps": [],
+    "note": "Keep hands away from eyes while handling turmeric and soap; wash hands after the activity."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "What colour do you see on each strip?",
+      "Why do you think lemon and soap gave different colours?",
+      "Does sour taste always mean the same thing as this colour change?"
+    ],
+    "avoid": [
+      "Don't say 'lemon is acid and soap is base' before they notice the colours themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see on the two turmeric strips?",
+    "lookFor": "Child notices the strip in soapy water turned reddish-brown while the one in lemon stayed yellow, and connects this to a real difference between the liquids."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look closely at the colour of each paper strip, not just the liquid."
+    },
+    {
+      "level": 2,
+      "text": "Compare the strip from lemon juice with the strip from soapy water - are they the same?"
+    },
+    {
+      "level": 3,
+      "text": "One liquid changed the turmeric colour and the other didn't - this tells you something about what's inside each liquid."
+    }
+  ],
+  "reveal": {
+    "explanation": "Substances can be acidic, basic or neutral, and this is a chemical property, not about taste or danger. Lemon juice is acidic and keeps turmeric yellow. Soapy water is basic and turns turmeric reddish-brown. An indicator like turmeric changes colour differently with acids and bases, letting us test substances without tasting them.",
+    "term": "Indicator",
+    "termMeaning": "A substance that changes colour to show whether something is acidic or basic."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why turmeric paper is used to test if something is acidic or basic, using what you saw with lemon and soap."
+  },
+  "revisits": [
+    {
+      "question": "If you dip turmeric paper in baking soda water, what colour do you expect?",
+      "answer": "Reddish-brown, because baking soda solution is basic like soap."
+    },
+    {
+      "question": "Would vinegar turn turmeric paper reddish-brown or keep it yellow?",
+      "answer": "It stays yellow because vinegar is acidic, like lemon juice."
+    }
+  ],
+  "grade": 7,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "acid-base-solutions"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/acid-base-solutions/latest/acid-base-solutions_all.html"
+  ],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}
