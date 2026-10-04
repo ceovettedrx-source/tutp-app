@@ -34,6 +34,8 @@ import { applyArithmeticCheck } from './server/arith-check.js';
 import { extractStoryJson, validateStory, salvageStory } from './server/story-schema.js';
 import { callClaude } from './server/anthropic.js';
 import { MODELS, modelSettings, storyModel } from './server/models.js';
+import { runAnswer, answerRequestBody } from './server/answer-run.js';
+import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
@@ -6397,6 +6399,16 @@ app.post('/api/homework', async (req, res) => {
       : 'your child';
     // Homework Help only: photos that can get "Show on photo" boxes.
     const photos = feature === FEATURES.HOMEWORK_HELP ? boxablePhotos(attachments) : [];
+    // Answer Please v2 (docs/specs/answer-explain-v2.md): Homework Help only,
+    // and only while ANSWER_V2_ENABLED is on; flag off = every line of the
+    // old path below runs exactly as before.
+    const v2 = answerV2Enabled(req) && feature === FEATURES.HOMEWORK_HELP;
+    const v2ctx = v2 ? await loadStudentContext(supabase, studentId) : null;
+    // Measured 2026-10-04 on the 8-question Telugu photo: one call 26 s,
+    // two parallel batches of 4 about 16.5 s, the old path 18 s. So an
+    // attachment is answered in two batches (ANSWER_V2_BATCH=0 turns that
+    // off); typed text is one call.
+    const v2Batch = process.env.ANSWER_V2_BATCH !== '0' && attachments.length > 0;
     // Step times in the log and in a Server-Timing header (read by the e2e).
     const sendTiming = (status) => {
       res.set('Server-Timing', timer.header());
@@ -6407,7 +6419,12 @@ app.post('/api/homework', async (req, res) => {
     const libraryCtx = feature === 'storytelling'
       ? storyLibraryContext(imageLibrary, { text, classNum: classNumber(studentRow && studentRow.class), langName: lang, hidden: await hiddenImages.get() })
       : null;
-    const { system: systemPrompt, content: userContent } = buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos, libraryCandidates: libraryCtx ? libraryCtx.candidates.map(promptLine) : [] });
+    const buildSystem = (range) => buildHomeworkRequest({
+      feature: v2 ? 'answer_v2' : feature, lang, childContext, text, attachments, photos,
+      libraryCandidates: libraryCtx ? libraryCtx.candidates.map(promptLine) : [],
+      ...(v2 ? { extra: { board: v2ctx.board, range } } : {}),
+    });
+    const { system: systemPrompt, content: userContent } = buildSystem(null);
     if (!userContent.every(isValidHomeworkContentBlock)) {
       return res.status(400).json({ error: 'Invalid attachment' });
     }
@@ -6483,6 +6500,21 @@ app.post('/api/homework', async (req, res) => {
       });
       return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
     };
+    // Answer Please v2: one call (or two parallel batches), see
+    // server/answer-run.js. A recording key carries the batch range.
+    const callAnswerModel = async ({ range, hint, attempt }) => {
+      const sys = range ? buildSystem(range).system : systemPrompt;
+      try {
+        const r = await callClaude({
+          feature: 'answer_v2' + (photos.length ? '_photo' : ''), variant: lang + (range ? ':' + range.from + '-' + range.to : ''), attempt,
+          familyId: session.familyId, studentId, mode: replay.mode, recordings: replay.recordings, cost,
+          body: answerRequestBody({ system: sys, userContent, hint, range })
+        });
+        return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
+      } finally {
+        timer.mark('model' + (++modelCalls));
+      }
+    };
     // Test families only: what this request's model calls cost, and in
     // record mode the raw replies for the e2e runner to save.
     const e2eExtras = (body) => {
@@ -6493,10 +6525,31 @@ app.post('/api/homework', async (req, res) => {
 
     // A reply without parseable JSON is asked for once more (see
     // server/homework-reply.js). Logged without the prompt or the reply.
-    const result = await callWithJsonRetry(callModel, (info) => {
-      console.warn('homework: unparseable model reply', { feature, language: lang, ...info });
-      if (feature === 'storytelling') storyHint = 'Your previous reply was not valid JSON (' + info.error + '). Reply again with the complete JSON on one line; inside any text use only single quotes for speech, never double quotes, and no line breaks.';
-    });
+    let result;
+    let v2Status = 'ok';
+    if (v2) {
+      const run = await runAnswer({ callModel: callAnswerModel, board: v2ctx.board, photos, batch: v2Batch });
+      if (run.kind === 'ok') {
+        // The checked answer goes back in the same envelope the page already
+        // reads; every question's concept_key is signed so Explain can trust it.
+        const answer = { ...run.answer, questions: run.answer.questions.map(q => (q.concept_key ? { ...q, concept_sig: signConceptKey(q.concept_key) } : q)) };
+        v2Status = answer.status;
+        res.set('X-Answer-Status', answer.status);
+        res.set('X-Answer-Fixed', String(run.fixed || 0));
+        res.set('X-Answer-Batched', v2Batch ? '1' : '0');
+        result = { kind: 'ok', data: { ...run.data, content: [{ type: 'text', text: JSON.stringify(answer) }] }, attempts: run.calls };
+      } else if (run.kind === 'invalid') {
+        console.warn('homework: answer v2 failed the checks twice', { language: lang, issues: run.issues });
+        result = { kind: 'unparseable', error: run.issues.join('; '), attempts: run.calls };
+      } else {
+        result = run;
+      }
+    } else {
+      result = await callWithJsonRetry(callModel, (info) => {
+        console.warn('homework: unparseable model reply', { feature, language: lang, ...info });
+        if (feature === 'storytelling') storyHint = 'Your previous reply was not valid JSON (' + info.error + '). Reply again with the complete JSON on one line; inside any text use only single quotes for speech, never double quotes, and no line breaks.';
+      });
+    }
 
     if (result.kind === 'upstream') {
       console.error('Anthropic API error:', result.status, result.errText);
@@ -6552,7 +6605,8 @@ app.post('/api/homework', async (req, res) => {
       return res.json(e2eExtras({ ...result.data, content: [{ type: 'text', text: JSON.stringify(story) }] }));
     }
 
-    trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
+    // An unreadable or non-homework photo (Answer v2) does not use up a session.
+    if (v2Status === 'ok') trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
     if (feature !== FEATURES.HOMEWORK_HELP) {
       sendTiming(200);
       return res.json(e2eExtras(result.data));
@@ -6587,6 +6641,7 @@ app.post('/api/homework', async (req, res) => {
 });
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
+registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
 
 // ------------------------------------------------------------------
 // Homework illustration — step 1 of the "show the problem as a picture"

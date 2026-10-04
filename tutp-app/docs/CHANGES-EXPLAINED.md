@@ -1,5 +1,19 @@
 # Changes explained
 
+## 2026-10-05 - homework help v2: Answer Please + Explain Please (built, tested, not live)
+
+**What changed**
+- Answer Please now returns a marks-aware answer card per question (steps, final answer, a check of the numbers by code); Explain Please adds a concept explanation with a picture (code-drawn SVG now, Gemini image when the key is bound). Free families see the card, Pro (any child with an active paid_until) sees the full explanation. Pictures and explanations are cached per concept and language; pictures are served by short-lived signed URLs (`server/lib/signed-url.js`, shared; `/api/upload` untouched). "Tut-P Knowledge Graph" shows only when the answer came from the graph, never for a model answer.
+- Golden set (10 cases, live, effort low): g1 345+278=623 and 600-257=343 pass; g2 Telugu 24x6=144 pass; g3 3/8+2/8=5/8 pass; g4 Hindi civics, g5 Telugu biology, g6 grammar pass; g7 physics 120 km/2 h=60 km/h and distance-vs-displacement pass; g8 Hindi 150/3=50 km/h pass; g9 Telugu 0+2x10=20 m/s pass; g10 aerobic vs anaerobic pass. 10/10, all 6 numerical cases right, so Answer stays at Sonnet 5 low; medium was not needed. Explain is Sonnet 5 low.
+- 8-question Telugu photo: one call took 26 s (about 2,900 tokens, nothing cut off), too slow, so photos are split into two parallel batches of 4 and merged in order: 16-17 s locally, 19-20 s end to end on the preview (old path about 18 s; no time budget was set, so that was the yardstick). Cost about 0.045 vs 0.036 USD per photo. `ANSWER_V2_BATCH=0` turns batching off.
+
+**What is live**
+- Live now: storytelling visuals v2 (00373-buy); nothing of this round is live. Built behind `ANSWER_V2_ENABLED` (new path on) with the old `/api/homework` untouched when it is 0. Rollback: `gcloud run services update tutp-demo --region=us-central1 --update-env-vars ANSWER_V2_ENABLED=0`.
+- Tests: migration 031 (explain_cache, illustrations, private bucket) applied; answer-explain spec 15/15 and the full e2e suite on the preview (results in the release report); unit 284, UI harness 30/30.
+
+**What is next**
+- Pictures use the SVG fallback until `GEMINI_IMAGE_API_KEY` is bound from secret `gemini-image-api-key` and `IMAGE_GEN_ENABLED=1` is set. "Save to notes" is device-only (this browser). Founder: phone check, traffic command.
+
 ## 2026-10-04 - story image library (built, tested, not live)
 
 **What changed**

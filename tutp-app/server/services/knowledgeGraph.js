@@ -175,6 +175,24 @@ export async function getMisconceptionsByIds(ids) {
 }
 
 /**
+ * The LearningComponents just before and just after one, from the
+ * progression graph's "prerequisite_of" edges (Answer/Explain v2 prev/next
+ * tiles). Only real records: { prev, next } each a LearningComponent record
+ * or null (more than one neighbour: the first listed; none: null).
+ *
+ * @param {string} learningComponentId
+ * @returns {Promise<{ prev: object|null, next: object|null }>}
+ */
+export async function getNeighbors(learningComponentId) {
+  const records = await loadAllRecords();
+  const edges = records.filter((r) => r.type === 'ProgressionEdge' && r.relation === 'prerequisite_of');
+  const lc = (id) => records.find((r) => r.type === 'LearningComponent' && r.id === id) || null;
+  const before = edges.find((e) => e.to_id === learningComponentId);
+  const after = edges.find((e) => e.from_id === learningComponentId);
+  return { prev: before ? lc(before.from_id) : null, next: after ? lc(after.to_id) : null };
+}
+
+/**
  * Looks up TeacherTrainingUnit records qualifying a teacher for a
  * grade/subject. There can legitimately be more than one match (e.g. a
  * D.El.Ed unit and a B.Ed unit both cover the same subject at overlapping

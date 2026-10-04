@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const RECORDINGS = path.join(HERE, 'recordings');
-const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor)(\?|$)/;
+const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor|explain-please)(\?|$)/;
 
 export function e2eMode(spec) {
   const mode = ['replay', 'record', 'live'].includes(process.env.E2E_MODE) ? process.env.E2E_MODE : 'replay';
@@ -38,8 +38,24 @@ export function e2eMode(spec) {
 
   return {
     mode,
-    async attach(ctx) {
-      await ctx.route(MODEL_ROUTE, (route) => route.continue({ headers: { ...route.request().headers(), 'x-e2e-mode': mode } }));
+    // opts (Answer/Explain v2, server/e2e-overrides.js; honoured by a preview
+    // with E2E_REPLAY=1 only): { v2: true } turns v2 on for this browser,
+    // { image: 'mock' } uses the mock image provider, { keySuffix } gives the
+    // run its own cache rows. Without opts nothing changes.
+    async attach(ctx, opts) {
+      if (opts && (opts.v2 || opts.image || opts.keySuffix)) {
+        await ctx.route(/\/api\//, (route) => {
+          const url = route.request().url();
+          const headers = { ...route.request().headers() };
+          if (MODEL_ROUTE.test(url)) headers['x-e2e-mode'] = mode;
+          if (opts.v2) headers['x-e2e-answer-v2'] = '1';
+          if (opts.image) headers['x-e2e-image'] = opts.image;
+          if (opts.keySuffix) headers['x-e2e-key-suffix'] = opts.keySuffix;
+          route.continue({ headers });
+        });
+      } else {
+        await ctx.route(MODEL_ROUTE, (route) => route.continue({ headers: { ...route.request().headers(), 'x-e2e-mode': mode } }));
+      }
       ctx.on('response', (r) => { state.pending.push(onResponse(r).catch(() => {})); });
     },
     async finish() {

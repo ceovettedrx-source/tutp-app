@@ -313,6 +313,10 @@
                     throw new HwParseError(parseErr.message, textBlock.text);
                 }
 
+                // Answer Please v2 reply: the page code for it is fetched now.
+                if (hwCurrentMode !== 'quiz' && parsed.schema === 2) {
+                    try { await ensureAnswerV2(); } catch (loadErr) { console.error('[hwModal] Answer v2 assets:', loadErr); parsed.schema = 1; }
+                }
                 // A newer session (modal closed and reopened) has started
                 // since this request went out — its own fresh state must
                 // not be clobbered by this now-stale response.
@@ -433,10 +437,62 @@
         // Experiential Learning's hook pattern) so the parent isn't forced
         // to read it, but can always get to it. "concept" mode: a single
         // paragraph, no toggle needed.
+        // "Explain on photo" button of a question card, when the server sent
+        // a checked photo/box pair for it (shared by the old and v2 cards).
+        function hwAddPhotoButton(card, q){
+            if (Number.isInteger(q.photo) && Array.isArray(q.box) && q.box.length === 4 && hwSentPhotos[q.photo]) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.role = 'explain-photo';
+                btn.dataset.photo = String(q.photo);
+                btn.dataset.box = q.box.join(',');
+                btn.className = 'font-label-md text-xs text-primary border-2 border-outline-variant hover:border-primary rounded-lg px-3 py-1.5 mt-2 transition-colors';
+                btn.textContent = '🔎 Explain on photo';
+                btn.addEventListener('click', () => explainOnPhoto(card, q, btn));
+                card.appendChild(btn);
+            }
+        }
+        // Answer Please v2 (reply schema 2, server flag ANSWER_V2_ENABLED):
+        // the cards and the Explain panel live in answer-cards.js and
+        // explain-panel.js, loaded the first time a v2 reply arrives, so with
+        // the flag off nothing new is ever fetched.
+        let hwAnswerV2Loading = null;
+        function ensureAnswerV2(){
+            if (window.TutpAnswer && window.TutpExplain) return Promise.resolve();
+            if (hwAnswerV2Loading) return hwAnswerV2Loading;
+            const addScript = src => new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = () => reject(new Error('Could not load ' + src));
+                document.head.appendChild(s);
+            });
+            const css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.href = '/css/answer-explain.css';
+            document.head.appendChild(css);
+            hwAnswerV2Loading = addScript('/app/shared/answer-cards.js').then(() => addScript('/app/shared/explain-panel.js')).catch(err => { hwAnswerV2Loading = null; throw err; });
+            return hwAnswerV2Loading;
+        }
         function renderHwModalHomeworkResult(parsed){
             const conceptBlock = document.getElementById('hwModalConceptBlock');
             const questionsArea = document.getElementById('hwModalQuestionsArea');
             hidePhotoPanel();
+            if (parsed.schema === 2 && window.TutpAnswer && window.TutpExplain) {
+                conceptBlock.classList.add('hidden');
+                questionsArea.classList.remove('hidden');
+                const childText = (document.getElementById('hwModalChildContext').textContent || '').replace(/^Helping\s+/, '').split(' · ')[0];
+                window.TutpAnswer.render(parsed, {
+                    area: questionsArea,
+                    language: document.getElementById('hwModalLang').value,
+                    studentId: sessionStorage.getItem('tutp_student_id'),
+                    childName: childText && childText !== 'your child' ? childText : '',
+                    decorate: (card, qi) => hwAddPhotoButton(card, (parsed.extracted_questions || [])[qi] || {})
+                });
+                if (parsed.status === 'ok') renderHwPhotoActions();
+                document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
+                return;
+            }
             if (parsed.mode === 'questions') {
                 conceptBlock.classList.add('hidden');
                 questionsArea.classList.remove('hidden');
@@ -456,17 +512,7 @@
                     // The server sends photo/box only after checking them
                     // (server/homework-boxes.js); the photo must be one this
                     // page sent, so there is something to draw on.
-                    if (Number.isInteger(q.photo) && Array.isArray(q.box) && q.box.length === 4 && hwSentPhotos[q.photo]) {
-                        const btn = document.createElement('button');
-                        btn.type = 'button';
-                        btn.dataset.role = 'explain-photo';
-                        btn.dataset.photo = String(q.photo);
-                        btn.dataset.box = q.box.join(',');
-                        btn.className = 'font-label-md text-xs text-primary border-2 border-outline-variant hover:border-primary rounded-lg px-3 py-1.5 mt-2 transition-colors';
-                        btn.textContent = '🔎 Explain on photo';
-                        btn.addEventListener('click', () => explainOnPhoto(card, q, btn));
-                        card.appendChild(btn);
-                    }
+                    hwAddPhotoButton(card, q);
                     questionsArea.appendChild(card);
                 });
                 renderHwPhotoActions();

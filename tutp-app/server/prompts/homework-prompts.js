@@ -9,6 +9,7 @@
 //   text          what the parent typed (the old hwText / storyTopic / topic)
 
 import { notesPrompt, notesUserText } from './notes-prompts.js';
+import { answerPrompt } from './answer-prompts.js';
 
 export const HOMEWORK_LANGUAGES =['English', 'Hindi', 'Telugu', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
 
@@ -131,6 +132,7 @@ const SYSTEM_PROMPTS = {
   storytelling: storytellingPrompt,
   experiential_learning: experientialPrompt,
   notes: notesPrompt,   // dispatcher hook: not in PROMPT_FEATURES, so only /api/homework-notes reaches it
+  answer_v2: answerPrompt, // Answer Please v2 (ANSWER_V2_ENABLED): not in PROMPT_FEATURES, only /api/homework picks it
 };
 
 // The text block that follows the attachments, worded exactly as the pages
@@ -139,6 +141,7 @@ const SYSTEM_PROMPTS = {
 // nothing was typed.
 function userTextFor(feature, text, attachmentCount) {
   if (feature === 'notes') return notesUserText(text);
+  if (feature === 'answer_v2') feature = 'homework_help';
   const many = attachmentCount > 1;
   if (feature === 'storytelling') {
     return text ? `Lesson: ${text}` : (many ? 'Read the lesson in the attached photos/PDFs and turn it into a story.' : 'Read the lesson in the attached photo or PDF and turn it into a story.');
@@ -151,8 +154,9 @@ function userTextFor(feature, text, attachmentCount) {
 
 // { system, content } for the Messages API: attachments first, then the
 // text block, the same order the pages used.
-export function buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos = [], libraryCandidates = [] }) {
-  const system = SYSTEM_PROMPTS[feature]({ lang, childContext, text, photos, libraryCandidates });
+// extra: prompt-only settings of a feature (answer_v2: board, range).
+export function buildHomeworkRequest({ feature, lang, childContext, text, attachments, photos = [], libraryCandidates = [], extra = {} }) {
+  const system = SYSTEM_PROMPTS[feature]({ lang, childContext, text, photos, libraryCandidates, ...extra });
   const content = attachments.map(a => ({
     type: a.mediaType === 'application/pdf' ? 'document' : 'image',
     source: { type: 'base64', media_type: a.mediaType, data: a.base64 },

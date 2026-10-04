@@ -16,6 +16,9 @@ export const MODELS = {
   illustrate: 'claude-haiku-4-5',
   game_questions: 'claude-haiku-4-5',
   feedback_classify: 'claude-haiku-4-5',
+  // Answer/Explain v2 (docs/specs/answer-explain-v2.md, founder decision 4).
+  answer_v2: 'claude-sonnet-5',
+  explain_v2: 'claude-sonnet-5',
   // Teacher features: long structured output (up to 16k tokens), and the
   // verifier's job is to catch mistakes.
   question_paper: 'claude-sonnet-5',
@@ -34,4 +37,12 @@ export function storyModel(lang) {
 // low effort, like the photo calls. haiku-4-5 takes no thinking settings.
 export function modelSettings(model) {
   return model === 'claude-sonnet-5' ? { output_config: { effort: 'low' } } : {};
+}
+
+// Answer Please v2 thinks at this effort. Founder decision 4: low; if any
+// golden-set numerical case fails, change it to 'medium' and re-run (the
+// release summary says which one passed).
+export const ANSWER_V2_EFFORT = 'low';
+export function answerSettings() {
+  return { output_config: { effort: ANSWER_V2_EFFORT } };
 }
