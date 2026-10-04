@@ -89,3 +89,9 @@ Not touched: Notes tab (`notes-*`), `/api/upload`, payments.
 - Sonnet 5 output size for 8 questions with blocks in Telugu may hit the token budget; mitigation: compact JSON, `max_tokens` raised, one-retry rule, and an e2e case with 8 questions.
 - Server time budget for photo calls (about 8 s noted in CLAUDE.md) may be exceeded by the richer schema; to be measured in the first live run, and the prompt trimmed if red.
 - Explain cache holds model text for all families: content is shared per concept and language, never personal.
+
+## Outcome (2026-10-05)
+
+- Golden set 10/10 live at Sonnet 5 low effort (all 6 numerical cases right); Answer stays at low.
+- 8-question Telugu photo: one call 26 s, split into 2 parallel batches of 4 (16-17 s local, 19-20 s on the preview; old path about 18 s).
+- Full e2e suite passed twice in a row in replay on preview 00385-deq; answer-explain 15/15; unit 284; UI harness 30/30.

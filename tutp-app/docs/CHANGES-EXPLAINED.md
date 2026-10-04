@@ -9,7 +9,8 @@
 
 **What is live**
 - Live now: storytelling visuals v2 (00373-buy); nothing of this round is live. Built behind `ANSWER_V2_ENABLED` (new path on) with the old `/api/homework` untouched when it is 0. Rollback: `gcloud run services update tutp-demo --region=us-central1 --update-env-vars ANSWER_V2_ENABLED=0`.
-- Tests: migration 031 (explain_cache, illustrations, private bucket) applied; answer-explain spec 15/15 and the full e2e suite on the preview (results in the release report); unit 284, UI harness 30/30.
+- Tests: migration 031 (explain_cache, illustrations, private bucket) applied. Full e2e suite passed twice in a row in replay on the no-traffic preview 00385-deq (all 10 specs, answer-explain 15/15, no live smoke set needed, model spend $0.0000 per spec; the first full run had a one-off 30 s page-load timeout in chips that passed on rerun). Recording the 15 answer-explain specs cost $0.1846 (26 calls). Unit 284, UI harness 30/30. The preview runs with the flag unset (specs switch v2 on by header); the revision that gets traffic has `ANSWER_V2_ENABLED=1` and no `E2E_REPLAY`.
+- Upload security: signed picture URLs now come from one shared helper (`server/lib/signed-url.js`); `/api/upload` itself was not changed.
 
 **What is next**
 - Pictures use the SVG fallback until `GEMINI_IMAGE_API_KEY` is bound from secret `gemini-image-api-key` and `IMAGE_GEN_ENABLED=1` is set. "Save to notes" is device-only (this browser). Founder: phone check, traffic command.
