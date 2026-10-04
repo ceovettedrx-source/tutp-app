@@ -412,7 +412,11 @@
   }
 
   // ---------------- Real photo upload ----------------
-  const uploadedPhotos = {}; // key -> url
+  // key -> object path on the server (registration/..., moved to the family's
+  // folder when the family is saved). The thumbnails come from the local file:
+  // nothing here is readable without a family sign-in.
+  const uploadedPhotos = {};
+  const photoPreviews = {};
   async function uploadFile(file){
     const dataUrl = await new Promise((resolve, reject)=>{
       const reader = new FileReader();
@@ -424,11 +428,11 @@
     const res = await fetch('/api/upload', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: base64 })
+      body: JSON.stringify({ purpose: 'registration', regIdToken, dataBase64: base64 })
     });
     const data = await res.json();
     if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
-    return data.url;
+    return data.path;
   }
 
   async function handlePhotoUpload(evt, key){
@@ -438,9 +442,9 @@
     const placeholder = document.getElementById('childPhotoPlaceholder');
     if (statusEl) statusEl.textContent = 'Uploading…';
     try {
-      const url = await uploadFile(file);
-      uploadedPhotos[key] = url;
-      if (placeholder) placeholder.innerHTML = `<img src="${url}" class="upload-thumb" alt="Child photo"/>`;
+      uploadedPhotos[key] = await uploadFile(file);
+      photoPreviews[key] = URL.createObjectURL(file);
+      if (placeholder) placeholder.innerHTML = `<img src="${photoPreviews[key]}" class="upload-thumb" alt="Child photo"/>`;
       if (statusEl) statusEl.textContent = '✓ Photo added';
     } catch (err) {
       if (statusEl) statusEl.textContent = 'Upload failed — please try again';
@@ -479,9 +483,9 @@
       if (!file) return;
       tile.innerHTML = '<span class="font-caption text-caption text-primary">Uploading…</span>';
       try {
-        const url = await uploadFile(file);
-        uploadedPhotos['subject_' + s.key] = url;
-        tile.innerHTML = `<img src="${url}" class="upload-thumb" alt="${s.key} workbook"/><span class="absolute bottom-1 right-1 material-symbols-outlined text-white bg-success rounded-full p-1 text-sm">check</span>`;
+        uploadedPhotos['subject_' + s.key] = await uploadFile(file);
+        photoPreviews['subject_' + s.key] = URL.createObjectURL(file);
+        tile.innerHTML = `<img src="${photoPreviews['subject_' + s.key]}" class="upload-thumb" alt="${s.key} workbook"/><span class="absolute bottom-1 right-1 material-symbols-outlined text-white bg-success rounded-full p-1 text-sm">check</span>`;
       } catch (err) {
         tile.innerHTML = '<span class="font-caption text-caption text-error">Upload failed — tap to retry</span>';
       }
@@ -527,7 +531,7 @@
       document.getElementById('reviewChildName').textContent = childName;
       document.getElementById('reviewChildClass').textContent = document.getElementById('childClass').value || '—';
       const avatarEl = document.getElementById('reviewChildAvatar');
-      if (uploadedPhotos['child']) avatarEl.innerHTML = `<img src="${uploadedPhotos['child']}" class="upload-thumb" alt="Child's photo"/>`;
+      if (photoPreviews['child']) avatarEl.innerHTML = `<img src="${photoPreviews['child']}" class="upload-thumb" alt="Child's photo"/>`;
       else avatarEl.textContent = (childName && childName !== '—') ? childName[0].toUpperCase() : '?';
       const extraChildNames = Array.from(document.querySelectorAll('.extra-child-row .child-name')).map(i => i.value.trim()).filter(Boolean);
       const extraChildrenEl = document.getElementById('reviewExtraChildren');

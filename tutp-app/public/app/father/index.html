@@ -1797,7 +1797,8 @@
             if (!url || !PENDING_ATTACH_MODES[mode] || !Number.isFinite(ts) || (Date.now() - ts) >= 15 * 60 * 1000) return;
             try {
                 const blob = await (await fetch(url)).blob();
-                const file = new File([blob], url.split('/').pop() || 'homework', { type: blob.type });
+                const file = new File([blob], sessionStorage.getItem('tutp_pending_attach_name') || 'homework', { type: blob.type });
+                sessionStorage.removeItem('tutp_pending_attach_name');
                 const input = PENDING_ATTACH_MODES[mode]();
                 const dt = new DataTransfer();
                 dt.items.add(file);

@@ -535,7 +535,8 @@
     }
 
     // ---------------- Hero "attach homework" widget ----------------
-    let pendingAttachUrl = null;
+    let pendingAttachUrl = null; // the file as a data: url, kept in this tab only
+    let pendingAttachName = '';
     function toggleAttachMenu(){ document.getElementById('attachMenu').classList.toggle('hidden'); }
     document.addEventListener('click', (e) => {
         const menu = document.getElementById('attachMenu');
@@ -570,23 +571,19 @@
     async function uploadHomeAttachment(file){
         const statusEl = document.getElementById('homeAttachStatus');
         document.getElementById('homeHwInput').value = file.name;
-        statusEl.textContent = 'Uploading ' + file.name + '…';
+        statusEl.textContent = 'Attaching ' + file.name + '…';
         statusEl.classList.remove('hidden');
         try {
-            const dataUrl = await new Promise((resolve, reject) => {
+            // Nothing is uploaded before sign-in: the file waits in this tab
+            // (sessionStorage, see chooseHomeAttachMode) and the dashboard
+            // opens it in the chosen mode after login.
+            pendingAttachUrl = await new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve(reader.result);
                 reader.onerror = reject;
                 reader.readAsDataURL(file);
             });
-            const res = await fetch('/api/upload', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: dataUrl.split(',')[1] })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
-            pendingAttachUrl = data.url;
+            pendingAttachName = file.name;
             statusEl.textContent = '✓ ' + file.name + ' attached';
         } catch (err) {
             statusEl.textContent = 'Could not attach that file — please try again.';
@@ -618,9 +615,15 @@
             document.getElementById('homeExamComingSoonModal').classList.remove('hidden');
             return;
         }
-        sessionStorage.setItem('tutp_pending_attach_url', pendingAttachUrl);
-        sessionStorage.setItem('tutp_pending_attach_mode', mode);
-        sessionStorage.setItem('tutp_pending_attach_ts', String(Date.now()));
+        try {
+            sessionStorage.setItem('tutp_pending_attach_url', pendingAttachUrl);
+            sessionStorage.setItem('tutp_pending_attach_name', pendingAttachName);
+            sessionStorage.setItem('tutp_pending_attach_mode', mode);
+            sessionStorage.setItem('tutp_pending_attach_ts', String(Date.now()));
+        } catch (err) {
+            // Too big to keep in the tab: sign in first, then attach it there.
+            ['url', 'name', 'mode', 'ts'].forEach(k => sessionStorage.removeItem('tutp_pending_attach_' + k));
+        }
         window.location.href = '/app/login/';
     }
     function closeHomeExamComingSoonModal(){
