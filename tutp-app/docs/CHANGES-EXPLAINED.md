@@ -28,3 +28,9 @@
 
 **What is next**
 - After the switch: main is fast-forwarded by the script. Non-urgent ideas are in docs/BACKLOG.md.
+
+## 2026-10-05 - experiential learning v2 started, answer-explain-v2 parked
+
+- answer-explain-v2 is parked as WIP (commit 80b6b78 on branch answer-explain-v2, pushed). It is not merged into main, not deployed, and untouched by this work.
+- Left out of that commit: four log files, docs/.last-summary and a stray pasted-command file in the parent folder. The pre-commit secret scan passed, nothing was flagged.
+- The experiential learning v2 job text arrived cut off after "PART 1 ... 1. KG, concept-level", so no build has started. Next step: resend the full job text.
