@@ -120,13 +120,13 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
     const model = MODELS.el_translate;
     const r = await callClaude({
       feature: 'el_translate', variant: lang, familyId: session.familyId, mode, recordings: req._elRecordings, cost: req._elCost,
-      body: { model, ...modelSettings(model), max_tokens: 6000, system, messages: [{ role: 'user', content: JSON.stringify({ title: lesson.title, ...words }) }] },
+      body: { model, ...modelSettings(model), max_tokens: 14000, system, messages: [{ role: 'user', content: JSON.stringify({ title: lesson.title, ...words }) }] },
     });
     if (!r.ok) { console.error('el: translate failed', { status: r.status, lang, lesson: lesson.id }); return null; }
     const text = ((r.data.content || []).find((b) => b.type === 'text') || {}).text || '';
     const a = text.indexOf('{'), b = text.lastIndexOf('}');
     let parsed;
-    try { parsed = JSON.parse(text.slice(a, b + 1)); } catch { console.error('el: translate unparseable', lesson.id, lang); return null; }
+    try { parsed = JSON.parse(text.slice(a, b + 1)); } catch { console.error('el: translate unparseable', lesson.id, lang, 'stop_reason', r.data.stop_reason, 'output_tokens', r.data.usage && r.data.usage.output_tokens); return null; }
     const merged = mergeText(lesson, parsed);
     if (!validateLesson(merged).ok) return null;
     if (!testFamily) translations.set(key, merged);     // test families never share the cache, so a recording run always makes its call

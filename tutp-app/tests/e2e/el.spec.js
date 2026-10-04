@@ -100,7 +100,7 @@ async function record(id, name, fn, page) {
     return { ctx, page, studentId, events: calls };
   }
   const hdr = { 'x-e2e-mode': e2e.mode };
-  const api = (page, p, extra = {}) => page.request.get(BASE + p, { headers: { ...hdr, ...extra } });
+  const api = (page, p, extra = {}) => page.request.get(BASE + p, { headers: { ...hdr, ...extra }, timeout: 180000 });   // a recording run waits for a live translation
   const post = (page, p, data) => page.request.post(BASE + p, { headers: hdr, data });
 
   let s = null;
@@ -108,6 +108,11 @@ async function record(id, name, fn, page) {
   if (!s) { await browser.close(); console.log('no session: stopping'); process.exit(1); }
   const { page, studentId } = s;
 
+  // An event is saved a moment after the click; poll up to 8 s for its 204.
+  const waitEvent = async (name) => {
+    for (let i = 0; i < 80; i++) { if (s.events.some((e) => e.name === name && e.status === 204)) return true; await page.waitForTimeout(100); }
+    return false;
+  };
   const openModal = async () => {
     await page.evaluate(() => openExperientialModal());
     await page.locator('#experientialModal').waitFor({ state: 'visible' });
@@ -226,8 +231,7 @@ async function record(id, name, fn, page) {
     expect(/PhET Interactive Simulations, University of Colorado Boulder, CC-BY 4\.0/.test(await page.textContent('#elGuidedBody .el-attr')), 'attribution');
     const box = await page.locator('#elGuidedBody iframe.el-iframe').boundingBox();
     expect(box.width >= 200 && box.height >= 200, 'sim size');
-    await page.waitForTimeout(500);
-    expect(s.events.some((e) => e.name === 'sim_opened' && e.status === 204), 'sim_opened not saved');
+    expect(await waitEvent('sim_opened'),'sim_opened not saved: ' + JSON.stringify(s.events));
     return src;
   }, page);
 
@@ -331,8 +335,7 @@ async function record(id, name, fn, page) {
     await page.locator('#elGuidedBody .el-follow').waitFor();
     const q = await page.textContent('#elGuidedBody .el-follow');
     expect((q.match(/\?/g) || []).length === 1 && q.trim().endsWith('?'), 'not exactly one question: ' + q);
-    await page.waitForTimeout(600);
-    expect(s.events.some((e) => e.name === 'teach_back_done' && e.status === 204), 'teach_back_done not saved');
+    expect(await waitEvent('teach_back_done'),'teach_back_done not saved: ' + JSON.stringify(s.events));
     return q.slice(0, 80);
   }, page);
 
