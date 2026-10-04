@@ -1,5 +1,22 @@
 # Changes explained
 
+## 2026-10-04 - upload security (built, tested, not live)
+
+**What changed**
+- A file can no longer be uploaded without signing in. `/api/upload` needs a signed-in family member (a child's id must belong to that family), or a teacher for assignment attachments, or, during registration, the verified phone (OTP). Anything else gets 401 or 403.
+- The server reads the file type from the file itself (JPEG, PNG, WebP, HEIC, PDF only, 8 MB), and names it itself: `families/<family id>/<random>.ext`. A name or path sent by the browser is never used.
+- Files are opened only through `/api/files/open`, which checks the family and then hands out a link that works for 15 minutes. The database now stores the file's path, not a public link. Old rows with public links still show: the teacher-homework list turns them into 15 minute links.
+- Registration photos are uploaded under a folder of the verified phone and moved into the new family's folder when the family is saved; any other path in the form is dropped. The registration page shows the photo from the local file.
+- The home page "attach homework" no longer uploads before login: the file waits in the browser tab and the dashboard opens it after sign-in (very large files: attach after sign-in).
+- The storage bucket itself is NOT changed. `scripts/storage/make-private.ps1` (for Vet, after traffic moves) checks, counts, prints what it will change and asks y/n.
+
+**What is live**
+- Live now: story image library (revision 00376-muj). Nothing of this round is live.
+- Built and tested: see the release report (tag usrel, 0 percent traffic, no E2E_REPLAY, CHIP_HASH_SALT:2). Goes live when the founder runs `scripts/release-us.ps1`; then `scripts/storage/make-private.ps1`.
+
+**What is next**
+- Until the bucket is made private, old public links still work for anyone who has them. Making it private is the founder step after the release.
+
 ## 2026-10-04 - story image library (built, tested, not live)
 
 **What changed**
