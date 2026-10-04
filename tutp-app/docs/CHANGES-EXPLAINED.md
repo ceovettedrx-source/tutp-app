@@ -1,5 +1,19 @@
 # Changes explained
 
+## 2026-10-04 - print on A4 and science try-together (built, tested, not live)
+
+**What changed**
+- Save as PDF / Print of a story now has its own print path (`printStory` in `story-modal.js`, class `sm-printing` on the page) instead of the dashboards' hide-everything trick, which left the modal's fixed scroll box around the story. A4 with 12 mm margins (named page, other prints keep theirs), body 11 pt, scenes flow across pages (a scene may break, its heading stays with its first lines), the picture block with its legend never splits, pictures at most 70 mm tall, Try Together answer last.
+- Science try-together: the prompt asks for a concept or simple count question for lessons that are not maths, and the server sends back any non-maths story whose try-together is a "percent of N" sum (the one retry).
+- Scene 3 is 1 to 3 sentences: a longer one is sent back once; if the retry is still long it is cut after its third sentence, never mid-sentence.
+- When a non-maths story gets no library picture the server logs `story.image_missing` with the lesson's normalized concept (lowercase words, no names, no numbers, no student id). `node scripts/imglib/missing-concepts.mjs` prints the top 30 of the last 30 days.
+
+**Tests**
+- Unit: 237 pass. Print render check `tests/e2e/print-a4.spec.js` (own PDF reader, no dependency): chromosome 2 pages at A4, maths 1, short 1; no page but the last more than 40 percent empty (A4 and Legal). e2e twice in a row passed on the preview; live smoke 4 calls 0.0275 USD; one live story run 0.1986 USD.
+- Known, not from this round: live English (haiku) stories come back as invalid JSON in about 1 of 4 attempts (old prompt 6 of 24, new 5 of 24), so about 1 in 20 English stories ends in the "answer came back incomplete" error even after the retry (e2e s8 hit it once).
+
+**What is live**
+- Nothing of this round. Built and tested: revision tutp-demo-00379-civ (tag parel, 0 percent traffic, no E2E_REPLAY, CHIP_HASH_SALT:2), commit 4340ad3, tested as preview 00378-san (same image). Goes live when the founder runs `scripts/release-pa.ps1`.
 ## 2026-10-04 - story image library (built, tested, not live)
 
 **What changed**

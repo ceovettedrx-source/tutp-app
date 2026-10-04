@@ -28,8 +28,8 @@ $ErrorActionPreference = 'Stop'
 
 $Service    = 'tutp-demo'
 $Region     = 'us-central1'
-$NewRev     = 'TO_BE_FILLED'                 # release candidate, tagged parel
-$Commit     = 'TO_BE_FILLED'                 # the tested commit (full sha); the branch must contain it
+$NewRev     = 'tutp-demo-00379-civ'          # release candidate, tagged parel
+$Commit     = '4340ad3964515654cd5d0bf86194fb8017c6a22d'   # the tested commit (full sha); the branch must contain it
 $Branch     = 'print-a4-and-science-tryit'   # fast-forwarded into main on success
 $RepoDir    = 'C:\Users\user\wt-pa'
 $SaltRef    = 'CHIP_HASH_SALT:2'             # required secret reference (version 2)
