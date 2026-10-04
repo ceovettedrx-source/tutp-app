@@ -1,10 +1,17 @@
 {
+  "id": "/",
   "name": "Tut-P",
   "short_name": "Tut-P",
+  "description": "Homework help, quizzes and stories for parents and children, in Telugu, Hindi or English.",
+  "lang": "en-IN",
+  "dir": "ltr",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "theme_color": "#005bbf",
   "background_color": "#005bbf",
+  "categories": ["education"],
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/images/icons/icon-192.png",

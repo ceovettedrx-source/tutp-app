@@ -9,3 +9,9 @@ design-assets/
 
 # e2e run output (screenshots, results.json)
 /tests/e2e/output/
+
+# Android app (scripts/android/build.ps1): never commit signing keys or build output
+*.keystore
+*.jks
+*.p12
+/android/build/

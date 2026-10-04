@@ -28,6 +28,7 @@ import {
 } from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 import { staticAssets } from './server/static-assets.js';
+import { assetLinksHandler } from './server/android-links.js';
 import { stepTimer } from './server/step-timer.js';
 import { cronAuthorized } from './server/cron-auth.js';
 import { applyArithmeticCheck } from './server/arith-check.js';
@@ -329,6 +330,9 @@ app.use(express.json({
 // server/static-assets.js). Versioned JS/CSS is cached for a year; HTML and
 // anything unversioned is "no-cache". express.static's default "public,
 // max-age=0" let phones keep a stale /app/shared/*.js after a deploy.
+// Android app link check (/.well-known/assetlinks.json): before the static
+// middleware, which skips dot folders.
+app.use(assetLinksHandler(path.join(__dirname, 'server', 'android', 'assetlinks.json')));
 app.use(staticAssets(path.join(__dirname, 'public')));
 // Library pictures keep their file name when an image is regenerated, so a day, not a year.
 app.use('/imglib', express.static(path.join(__dirname, 'public', 'imglib'), { maxAge: '1d' }));

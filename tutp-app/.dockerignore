@@ -17,3 +17,7 @@ tests/**
 # image library: full-size originals and run logs stay out of the Cloud Run image (the page loads public/imglib/*.webp)
 scripts/imglib/library/originals/
 scripts/imglib/library/*.jsonl
+
+# Android app project files and scripts: not needed in the Cloud Run image
+android/
+scripts/android/

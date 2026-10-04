@@ -1,0 +1,41 @@
+{
+  "packageId": "online.tutp.app",
+  "host": "tutp.online",
+  "name": "Tut-P",
+  "launcherName": "Tut-P",
+  "display": "standalone",
+  "orientation": "default",
+  "themeColor": "#005bbf",
+  "themeColorDark": "#005bbf",
+  "navigationColor": "#005bbf",
+  "navigationColorDark": "#005bbf",
+  "navigationDividerColor": "#005bbf",
+  "navigationDividerColorDark": "#005bbf",
+  "backgroundColor": "#005bbf",
+  "enableNotifications": false,
+  "startUrl": "/",
+  "iconUrl": "https://tutp.online/images/icons/icon-512.png",
+  "maskableIconUrl": "https://tutp.online/images/icons/icon-512-maskable.png",
+  "webManifestUrl": "https://tutp.online/manifest.json",
+  "splashScreenFadeOutDuration": 300,
+  "signingKey": {
+    "path": "REPLACED-BY-build.ps1",
+    "alias": "tutp-upload"
+  },
+  "appVersionName": "1.0.0",
+  "appVersionCode": 1,
+  "shortcuts": [],
+  "generatorApp": "bubblewrap-cli",
+  "fallbackType": "customtabs",
+  "features": {},
+  "alphaDependencies": {
+    "enabled": false
+  },
+  "enableSiteSettingsShortcut": false,
+  "isChromeOSOnly": false,
+  "isMetaQuest": false,
+  "fullScopeUrl": "https://tutp.online/",
+  "minSdkVersion": 21,
+  "additionalTrustedOrigins": [],
+  "retainedBundles": []
+}
