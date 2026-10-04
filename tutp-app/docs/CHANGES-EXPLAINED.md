@@ -1,5 +1,23 @@
 # Changes explained
 
+## 2026-10-04 - android prep (built, tested, not live)
+
+**What changed**
+- The website is now installable and ready to be wrapped as an Android app: the manifest has an id and scope, and a small service worker (`/sw.js`) only shows an offline page when a page load fails. It never stores API answers, sign-in or child data.
+- `/.well-known/assetlinks.json` is served (correct content type, no redirect) for the app `online.tutp.app`. It holds a zero placeholder until the Play signing fingerprint exists; `scripts/android/set-fingerprint.mjs` fills it in.
+- Android project files: `android/twa-manifest.json` and `scripts/android/build.ps1` (for Vet; checks tools, creates the upload keystore outside the repo, asks for passwords itself, builds the `.aab`).
+- Three DRAFT pages, marked for legal review and hidden from search engines: `/privacy/`, `/terms/`, `/delete-account/`. They follow what the code really does (`docs/play-store/code-audit.md`); the DPDP consent wording is a marked placeholder.
+- `docs/play-store/`: listing text in English, Telugu and Hindi, Data safety answers, content rating answers, target-audience recommendation, screenshot list, feature graphic spec.
+- No change to any existing feature or model prompt.
+
+**What is live**
+- Live now: story image library (revision 00376-muj). Nothing of this round is live.
+- Built and tested: revision tutp-demo-00381-hit (tag anrel, 0 percent traffic, no E2E_REPLAY, CHIP_HASH_SALT:2). The full e2e suite passed twice in a row on the preview 00380-ban (same image); 22 new unit tests and 10 new e2e checks pass. Lighthouse 11.7.1 PWA category 100 on the preview (newer Lighthouse versions dropped that category: performance 79, accessibility 96, best practices 100, SEO 100 on the home page). Goes live when the founder runs `scripts/release-an.ps1`.
+
+**What is next**
+- The founder list is in the release report: Play account, fingerprint, package id decision, Play Billing decision, legal review, native-speaker review of the Telugu and Hindi text, screenshots.
+- Found while auditing and not fixed: `/api/upload` has no sign-in check and writes to a public bucket; no in-app delete-account path. Both are in docs/BACKLOG.md.
+
 ## 2026-10-04 - story image library (built, tested, not live)
 
 **What changed**
