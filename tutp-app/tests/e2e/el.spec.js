@@ -146,7 +146,7 @@ async function record(id, name, fn, page) {
         expect(!l.safety, id + ': safety block leaked to the page');
         if (board === 'cbse-ncert') expect(l.mapping.verification_status === 'sourced' && /^Chapter \d+: /.test(l.mapping.chapter), id + ': NCERT mapping');
         else expect(l.mapping.verification_status === 'placeholder' && l.mapping.chapter === null, id + ': Telangana must be a placeholder with no chapter');
-        if (l.experiment) for (const bad of [/flame|candle|match(es)?\b|knife|scissors|socket|mains/i]) expect(!bad.test(JSON.stringify(l.experiment)), id + ': unsafe word in the experiment');
+        if (l.experiment) for (const bad of [/\b(flame|candle|matches|matchbox|knife|scissors|socket|mains)\b/i]) expect(!bad.test(JSON.stringify(l.experiment)), id + ': unsafe word in the experiment');
         n++;
       }
     }

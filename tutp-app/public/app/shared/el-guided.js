@@ -361,8 +361,15 @@
   }
 
   // ---------------- reset / show-hide sync with the page ----------------
+  // The observer watches the class attribute it also edits, so it acts only
+  // when the hidden state really changed (setting a class always queues a
+  // record, even with the same value, which would loop forever).
+  var wasHidden = results.classList.contains('hidden');
   new MutationObserver(function () {
-    if (results.classList.contains('hidden')) {
+    var hiddenNow = results.classList.contains('hidden');
+    if (hiddenNow === wasHidden) return;
+    wasHidden = hiddenNow;
+    if (hiddenNow) {
       results.classList.remove('el-guided-on'); body.classList.add('hidden'); body.replaceChildren(); S = null; token++;
       if (vids) vids.replaceChildren();
     } else if (!results.classList.contains('el-guided-on')) notesVideos();

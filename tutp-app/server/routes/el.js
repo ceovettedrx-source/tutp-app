@@ -230,7 +230,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
         try {
           const testFamily = await isTestFamily(session.familyId);
           const mode = replayMode(testFamily, req.get('x-e2e-mode'));
-          const fixtureMode = testFamily && mode === 'replay';
+          const fixtureMode = testFamily && mode !== 'live';   // replay and record: the hand-written YouTube fixtures
           const out = await videosFor({ concept, lang, session, fixtureMode, quota: fixtureMode && req.get('x-e2e-yt') === 'quota' });
           res.set('Cache-Control', 'private, max-age=300');
           res.json(out);
@@ -261,7 +261,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
         try {
           const testFamily = await isTestFamily(session.familyId);
           const mode = replayMode(testFamily, req.get('x-e2e-mode'));
-          const fixtureMode = testFamily && mode === 'replay';
+          const fixtureMode = testFamily && mode !== 'live';   // replay and record: the hand-written YouTube fixtures
           const concept = { id: 'topic:' + topic.toLowerCase(), title: topic, grade, aliases: [], subject };
           res.set('Cache-Control', 'private, max-age=300');
           res.json(await videosFor({ concept, lang, session, fixtureMode, quota: fixtureMode && req.get('x-e2e-yt') === 'quota' }));

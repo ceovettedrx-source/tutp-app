@@ -68,6 +68,14 @@ search yet — step 2 deferred as a fast-follow since it needs new web-search
 capability and relevance verification, which was too risky to rush before 
 Monday's launch).
 
+**v2 (2026-10-05, docs/specs/experiential-learning-v2.md)**: Guided Discovery
+pilot (Science, Class 6-10, 12 concepts: predict, try at home or in a PhET
+simulation, notice, hint ladder, name it, videos, teach-back, spaced
+revisits) and one shared video service (2 in the user's language, 2 English,
+1 best-in-world; key-part segments; YouTube-compliant embeds). Topics with no
+pilot lesson keep the notes flow above. Videos need a `YOUTUBE_API_KEY`
+secret; without it the video section is hidden (never a "not available" line).
+
 **Pedagogy grounding**: best-fit feature for real Panchpadi grounding — should 
 implement Aditi (connect to prior knowledge) as a genuine engagement hook, not 
 an informational disclaimer-style callout. Reference Panchpadi explicitly; 
