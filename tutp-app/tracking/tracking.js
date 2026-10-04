@@ -38,6 +38,13 @@ export function trackShareClicked(familyId) {
 export function trackImageReported(familyId, studentId, { imageId }) {
   trackEvent(EVENTS.IMAGE_REPORTED, { familyId, studentId, properties: { feature: 'storytelling', image_id: imageId } });
 }
+// A story of a lesson that is not maths got no library picture: the lesson's
+// normalized concept (server/image-library.js normalizeConcept: no names, no
+// numbers), how many library pictures were offered (0 = none matched) and the
+// language. No student id. scripts/imglib/missing-concepts.mjs ranks these.
+export function trackStoryImageMissing(familyId, { concept, offered, language }) {
+  trackEvent(EVENTS.STORY_IMAGE_MISSING, { familyId, properties: { feature: 'storytelling', concept, offered, language } });
+}
 // feature is fixed to 'visual_tutor' rather than added to FEATURES: FEATURES
 // is also /api/homework's allow-list, which shouldn't accept this value.
 export function trackVisualTutorCall(familyId, { mode, outcome, steps, model, inputTokens, outputTokens, stopReason = null }) {

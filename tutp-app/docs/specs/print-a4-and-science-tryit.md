@@ -1,0 +1,10 @@
+# Round print-a4-and-science-tryit (small)
+
+1. Print: story-modal.js prints through its own `printStory()` (class `sm-printing` on html), story-modal.css gets a named `@page story { size: A4; margin: 12mm }`, a static (no scroll, no fixed height) layout, scenes that flow (no break-inside on a scene, heading kept with its first lines, break-inside avoid on the picture block only), pictures capped at 70 mm, body 11 pt, Try Together answer last.
+2. Print test (`tests/e2e/print-a4.spec.js`, own static server, no preview needed): renders chromosome (science, library picture), a maths story with a picture and a short story to PDF at A4 and Legal; own PDF reader (`tests/e2e/pdf-ink.js`) measures each page; asserts chromosome <= 2 pages at A4 and no page but the last more than 40% empty.
+3. Science try-together: prompt rule (concept or simple count grounded in the story, never arithmetic from a percentage or composition fact) + validator rule `percentQuestionIssue` in story-schema.js (non-maths subject, "percent of N" question), fed through the existing one retry.
+4. Scene 3: the validator needs 1-3 sentences in every scene (the retry hint names it); when the retry still has a longer scene it is trimmed to 3 sentences at a sentence boundary, never mid-sentence. Prompt: terms stay in the lesson's language, the explanation in the story language.
+5. Subject: validateStory gets `ctx.maths` (from the reply's own visual/equations and the lesson text): maths when the story has a groups/numberLine/barModel/factFamily/venn picture or equations; science otherwise.
+6. Library coverage: a non-maths story with no library picture logs `story.image_missing` with the normalized concept (title words, lowercased, no ids, no text of the child); `scripts/imglib/missing-concepts.mjs` prints the top 30 of the last 30 days.
+7. Tests: unit (schema, library, concept), print render, story.spec in replay; one live smoke only because prompts change. Release: no-traffic revision without E2E_REPLAY, CHIP_HASH_SALT:2, tag `parel`, `scripts/release-pa.ps1` modelled on release-il.ps1, not run.
+8. Not touched: Round 4, other worktrees, traffic, main.

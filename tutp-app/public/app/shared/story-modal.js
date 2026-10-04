@@ -9,7 +9,7 @@
 // Page helpers used at click time only (all defined by homework-modal.js or
 // the page script): attachFilePickerMulti, callHomeworkApi, startStagedLoading,
 // submitFeedback, showWhatsappSharePrompt (not on the child page),
-// showFreeLimitModal, printResult.
+// showFreeLimitModal. Printing is its own (printStory), not the page's printResult.
 //
 // The reply (server/story-schema.js) is { title, gradeSubjectTag,
 // readMinutes, scenes[], visual|null, equations[], tryTogether|null,
@@ -56,6 +56,27 @@
         return e;
     }
     function $(id) { return document.getElementById(id); }
+
+    // Save as PDF / Print. The page's own print helper hides everything but a
+    // marked element and leaves the modal's fixed box and scroll area around
+    // it, which cut a long story off; here the class sm-printing on <html>
+    // switches on the print layout in story-modal.css (A4, flowing pages).
+    // Library pictures load lazily, so they are loaded first (at most 1.5 s).
+    function printStory() {
+        var root = document.documentElement;
+        var pending = Array.prototype.filter.call(document.querySelectorAll('#storyModal .sm-lib-img'), function (img) {
+            img.loading = 'eager';
+            return !img.complete;
+        }).map(function (img) {
+            return new Promise(function (done) { img.addEventListener('load', done); img.addEventListener('error', done); });
+        });
+        var done = function () { root.classList.remove('sm-printing'); window.removeEventListener('afterprint', done); };
+        Promise.race([Promise.all(pending), new Promise(function (r) { setTimeout(r, 1500); })]).then(function () {
+            root.classList.add('sm-printing');
+            window.addEventListener('afterprint', done);
+            window.print();
+        });
+    }
 
     // ---------------------------------------------------------------- markup
     var MARKUP = ''
@@ -540,7 +561,7 @@
         var printBtn = el('button', 'sm-btn sm-btn-ghost');
         printBtn.type = 'button';
         printBtn.innerHTML = '<span class="material-symbols-outlined" aria-hidden="true">print</span>Save as PDF / Print';
-        printBtn.addEventListener('click', function () { printResult('storyModalResults'); });
+        printBtn.addEventListener('click', printStory);
         bar.appendChild(printBtn);
         box.appendChild(bar);
 

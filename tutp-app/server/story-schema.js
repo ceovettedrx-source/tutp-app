@@ -283,7 +283,69 @@ export function questionValue(question) {
   return solveArithmetic(tail[1].trim() + ' =');
 }
 
-// raw (parsed JSON) -> { ok: true, story, fixed } or { ok: false, issues }.
+// Sentences of a scene text, for the "scene 3 is 1 to 3 sentences" rule. A
+// sentence ends at . ! ? । or ॥ (with a closing quote or bracket) followed by
+// a space; a decimal (3.5), an initial (A. Rao) and the usual abbreviations
+// (Dr. Fig. e.g. i.e. etc. vs. No.) do not end one, and neither does "...".
+const ABBREV = /(?:^|[\s(])(?:Dr|Mr|Mrs|Ms|Prof|St|Fig|Figs|No|Nos|vs|etc|approx|e\.g|i\.e|Sr|Jr)\.$/i;
+const INITIAL = /(?:^|[\s(])[A-Z]\.$/;
+export function splitSentences(text) {
+  const t = String(text || '').trim();
+  if (!t) return [];
+  const out = [];
+  let start = 0;
+  const re = /[.!?।॥]+['"’”)\]]*(?=\s+\S)/g;
+  let m;
+  while ((m = re.exec(t))) {
+    const end = m.index + m[0].length;
+    const so_far = t.slice(start, end);
+    if (/^\s*[a-z]/.test(t.slice(end))) continue; // "'Why?' asked Meera." is one sentence
+    if (/^\.{2,}/.test(m[0]) && !/[!?।॥]/.test(m[0])) continue; // an ellipsis
+    if (m[0][0] === '.' && (ABBREV.test(so_far) || INITIAL.test(so_far))) continue;
+    out.push(t.slice(start, end).trim());
+    start = end;
+  }
+  const rest = t.slice(start).trim();
+  if (rest) out.push(rest);
+  return out;
+}
+// The first n sentences, cut only at a sentence boundary.
+export function trimToSentences(text, n) {
+  return splitSentences(text).slice(0, n).join(' ');
+}
+const MAX_SCENE3_SENTENCES = 3;
+
+// Is the lesson maths? By its own subject tag first ("Class 5 · Maths ·
+// Fractions", in any of the story languages), else by what the story carries:
+// a maths picture or equations. Used by the percentage rule below and by the
+// library-coverage log.
+const MATHS_WORD = /math|arithmetic|algebra|geometry|गणित|గణిత|கணித|ಗಣಿತ|ഗണിത|গণিত|ગણિત|ਗਣਿਤ|ଗଣିତ|matem|mathémat|رياضيات/i;
+const OTHER_SUBJECT_WORD = /scien|evs\b|environment|biolog|physic|chemi|social|histor|geograph|civic|econom|english|language|grammar|literature|computer|विज्ञान|विज्ञ|సైన్స్|విజ్ఞాన|అంగ్ల|அறிவியல்|सामाजिक|సాంఘిక|சமூக/i;
+export function isMathsStory({ tag, visual, equations }) {
+  const t = String(tag || '');
+  if (MATHS_WORD.test(t)) return true;
+  if (OTHER_SUBJECT_WORD.test(t)) return false;
+  return !!((visual && visual.type !== 'library') || (equations && equations.length));
+}
+
+// A try-together question for a lesson that is not maths must not be
+// arithmetic built from a percentage: "40% of 50 units" treats a mass share
+// as a count. A question that names a percentage together with another number
+// is flagged (a plain "what percent ...?" with no numbers is a recall question
+// and passes). Returns the issue text, or '' when fine.
+const PERCENT_WORD = /%|％|per\s?cent|percentage|శాతం|प्रतिशत|फीसदी|சதவீதம்|ಶೇಕಡಾ|ശതമാനം|শতাংশ|टक्के|ટકા|ਪ੍ਰਤੀਸ਼ਤ/i;
+export function percentQuestionIssue(question) {
+  const q = asciiDigits(String(question || ''));
+  if (!PERCENT_WORD.test(q)) return '';
+  const rest = q.replace(/\d+(?:[.,]\d+)?\s*(?:%|％|per\s?cent|percentage|శాతం|प्रतिशत|फीसदी|சதவீதம்|ಶೇಕಡಾ|ശതമാനം|শতাংশ|टक्के|ટકા|ਪ੍ਰਤੀਸ਼ਤ)/gi, ' ');
+  if (!/\d/.test(rest)) return '';
+  return 'the try-together question builds arithmetic from a percentage; for a lesson that is not maths ask a conceptual question or a simple count grounded in the story (for example how many chromatids 3 replicated chromosomes have), never a "percent of a number" sum, because a percentage in science is a share, not a count';
+}
+
+// raw (parsed JSON) -> { ok: true, story, fixed, visualSource, maths, concept }
+// or { ok: false, issues }. ctx.final = this is the last try (after the one
+// retry): a scene 3 of more than 3 sentences is trimmed at a sentence
+// boundary instead of being an issue.
 export function validateStory(raw, ctx = {}) {
   const issues = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, issues: ['not an object'] };
@@ -393,6 +455,24 @@ export function validateStory(raw, ctx = {}) {
   // A sum written in a scene must be right, and agree with the equations list.
   issues.push(...sceneEquationIssues(scenes.map((s) => s.text), equations));
 
+  // Scene 3 (the big idea) is 1 to 3 sentences. Asked again once; on the last
+  // try it is cut after its third sentence, never in the middle of one.
+  const scene3 = scenes.find((s) => s.label === 'mathMoment') || scenes[2];
+  if (scene3) {
+    const n = splitSentences(scene3.text).length;
+    if (n > MAX_SCENE3_SENTENCES) {
+      if (ctx.final) { scene3.text = trimToSentences(scene3.text, MAX_SCENE3_SENTENCES); fixed++; }
+      else issues.push(`scene 3 has ${n} sentences; write it in 1 to 3 short sentences (technical terms stay in the lesson's language, the explanation in the story language)`);
+    }
+  }
+
+  // A lesson that is not maths: no percentage arithmetic in the try-together.
+  const maths = isMathsStory({ tag: str(raw.gradeSubjectTag, 80), visual, equations });
+  if (!maths && tryTogether) {
+    const pq = percentQuestionIssue(tryTogether.question);
+    if (pq) issues.push(pq);
+  }
+
   // The try-together question is a NEW problem: it must not reuse both
   // numbers of the fact-family picture.
   if (tryTogether && visual && visual.type === 'factFamily') {
@@ -410,6 +490,8 @@ export function validateStory(raw, ctx = {}) {
     ok: true,
     fixed,
     visualSource,
+    maths,
+    concept: typeof raw.concept === 'string' ? raw.concept.slice(0, 80) : '',
     story: {
       title,
       gradeSubjectTag: str(raw.gradeSubjectTag, 80) || '',

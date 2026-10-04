@@ -11,6 +11,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { recordingKey } from '../../server/model-replay.js';
+import { validateStory } from '../../server/story-schema.js';
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'recordings');
 
@@ -83,6 +84,59 @@ const STORIES = {
   },
 };
 
+// Retry pairs (round print-a4-and-science-tryit): the first reply fails a
+// check, so the server asks once more with a hint naming the issues; the
+// second reply's recording is keyed by that hint, which is worked out here with
+// the same validator the server uses. Replayed whatever the run mode.
+//   percent    a science story whose try-together is "40% of 50": sent back,
+//              the second reply asks how many chromatids 3 chromosomes have
+//   longScene  scene 3 has 5 sentences in both replies: after the retry it is
+//              trimmed to its first 3 sentences (X-Story-Fixed 1 or more)
+export const RETRY_TOPICS = {
+  percent: 'Chromosomes: what a chromosome is made of (e2e science percent retry)',
+  longScene: 'The cell cycle: why a cell divides (e2e long scene 3 retry)',
+};
+const BIG_IDEA_LONG = 'A cell divides so that the body can grow and heal. Before it divides, it copies every chromosome. The copies stay joined at the centromere. Then they are pulled apart into two new cells. Each new cell gets a full set.';
+const science = (over) => ({
+  title: 'Meera and the two threads', gradeSubjectTag: 'Class 10 · Science · Chromosomes', concept: 'chromosomes', readMinutes: 2,
+  scenes: scenes(
+    'Meera sat on the veranda while her grandmother unrolled two skeins of red wool for the Sankranti kites.',
+    'That night Meera read about chromosomes and could not picture how one becomes two without tangling.',
+    'After copying, a chromosome is two sister chromatids joined at the centromere. They stay joined until the cell divides.',
+    'Meera tied two strings in the middle and pulled them apart, and the idea finally made sense to her.'),
+  visual: null, equations: [],
+  tryTogether: { question: 'A cell has 3 chromosomes and copies each one. How many chromatids does the cell have now?', answer: '6 chromatids' },
+  parentPrompt: 'Ask your child to show the centromere with two strings.',
+  ...over,
+});
+const withScene3 = (s, text) => ({ ...s, scenes: s.scenes.map((x) => (x.label === 'mathMoment' ? { ...x, text } : x)) });
+export const RETRIES = {
+  percent: {
+    topic: RETRY_TOPICS.percent,
+    first: science({ tryTogether: { question: 'A chromosome weighs 50 units and 40% of it is DNA. How many units of DNA is that?', answer: '20 units' } }),
+    second: science({}),
+    firstIssues() { return validateStory(this.first).issues || []; },
+  },
+  longScene: {
+    topic: RETRY_TOPICS.longScene,
+    first: withScene3(science({}), BIG_IDEA_LONG),
+    second: withScene3(science({}), BIG_IDEA_LONG),
+    firstIssues() { return validateStory(this.first).issues || []; },
+  },
+};
+const reply = (name, story) => ({ id: 'msg_handwritten_' + name, type: 'message', role: 'assistant', model: 'claude-haiku-4-5', content: [{ type: 'text', text: JSON.stringify(story) }], stop_reason: 'end_turn', usage: { input_tokens: 0, output_tokens: 0 } });
+export function retryFiles(name) {
+  const pair = RETRIES[name];
+  const issues = pair.firstIssues();
+  const hint = 'Your previous reply failed these checks: ' + issues.join('; ') + '. Reply again with the complete JSON in exactly the shape given, fixing them.';
+  const text = `Lesson: ${pair.topic}`;
+  return {
+    first: reply(name + '-1', pair.first), second: reply(name + '-2', pair.second),
+    key1: recordingKey('storytelling', { messages: [{ role: 'user', content: [{ type: 'text', text }] }] }, 'English'),
+    key2: recordingKey('storytelling', { messages: [{ role: 'user', content: [{ type: 'text', text }, { type: 'text', text: hint }] }] }, 'English'),
+  };
+}
+
 export { STORIES };
 export const keyFor = (topic, lang = 'English') => recordingKey('storytelling', { messages: [{ role: 'user', content: [{ type: 'text', text: `Lesson: ${topic}` }] }] }, lang);
 // The library story is also asked in Telugu, to check the legend language (the
@@ -101,5 +155,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const key = keyFor(TOPICS[name], lang);
     fs.writeFileSync(path.join(DIR, `${key}.json`), JSON.stringify({ status: 200, data: replyFor(name) }) + '\n');
     console.log(name, lang, key);
+  }
+  for (const [name, pair] of Object.entries(RETRIES)) {
+    const { first, second, key1, key2 } = retryFiles(name);
+    fs.writeFileSync(path.join(DIR, `${key1}.json`), JSON.stringify({ status: 200, data: first }) + '\n');
+    fs.writeFileSync(path.join(DIR, `${key2}.2.json`), JSON.stringify({ status: 200, data: second }) + '\n');
+    console.log(name, 'retry pair', key1, key2 + '.2', 'issues:', pair.firstIssues().join(' | '));
   }
 }

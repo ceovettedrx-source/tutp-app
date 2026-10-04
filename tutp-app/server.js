@@ -57,9 +57,9 @@ function inReadingOrder(boxes) {
 import {
   initTracking, trackSessionStarted, trackSessionCompleted,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
-  trackShareClicked, trackImageReported
+  trackShareClicked, trackImageReported, trackStoryImageMissing
 } from './tracking/tracking.js';
-import { loadLibrary, storyLibraryContext, createHiddenCache, classNumber, promptLine, IMAGE_REPORTED, REPORT_WINDOW_DAYS } from './server/image-library.js';
+import { loadLibrary, storyLibraryContext, createHiddenCache, classNumber, promptLine, IMAGE_REPORTED, REPORT_WINDOW_DAYS, missingConceptFor } from './server/image-library.js';
 import { FEATURES } from './tracking/events.js';
 import { classifyFeedback, autoResolveTooComplex, escalateToFounder } from './tracking/feedback-pipeline.js';
 import { getCharacterSVG } from './server/services/illustration/characters.js';
@@ -6517,6 +6517,9 @@ app.post('/api/homework', async (req, res) => {
     if (feature === 'storytelling') {
       let raw = extractStoryJson(result.data);
       const storyCtx = { library: libraryCtx };
+      // The last try (after the one retry) trims a scene 3 of more than 3
+      // sentences at a sentence boundary instead of failing on it.
+      const finalCtx = { ...storyCtx, final: true };
       let check = validateStory(raw, storyCtx);
       let retried = 0;
       if (!check.ok) {
@@ -6526,9 +6529,11 @@ app.post('/api/homework', async (req, res) => {
         const again = await callModel();
         if (again.ok) {
           const raw2 = extractStoryJson(again.data);
-          const check2 = validateStory(raw2, storyCtx);
+          const check2 = validateStory(raw2, finalCtx);
           if (check2.ok || !raw) { raw = raw2; check = check2; }
         }
+        // the retry gave nothing better: the first reply, with scene 3 trimmed if that was its only fault
+        if (!check.ok && raw) { const last = validateStory(raw, finalCtx); if (last.ok) check = last; }
       }
       const story = check.ok ? check.story : salvageStory(raw);
       if (!story) {
@@ -6547,6 +6552,10 @@ app.post('/api/homework', async (req, res) => {
         feature, durationSeconds: null,
         extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none', ...(check.ok && story.visual && story.visual.type === 'library' ? { story_image: story.visual.id } : {}) },
       });
+      // Library coverage: a lesson that is not maths and got no library picture
+      // (test families are not counted).
+      const missing = testFamily ? '' : missingConceptFor(check, story, { childName: studentRow && studentRow.name });
+      if (missing) trackStoryImageMissing(session.familyId, { concept: missing, offered: libraryCtx ? libraryCtx.candidates.length : 0, language: lang });
       sendTiming(200);
       // Same envelope as every other feature: the page reads the first text block.
       return res.json(e2eExtras({ ...result.data, content: [{ type: 'text', text: JSON.stringify(story) }] }));

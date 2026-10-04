@@ -8,6 +8,7 @@ export const EVENTS = {
   SHARE_CLICKED: 'share.clicked',
   VISUAL_TUTOR_CALL: 'visual_tutor.call',
   IMAGE_REPORTED: 'image.reported',
+  STORY_IMAGE_MISSING: 'story.image_missing',
 };
 export const FEATURES = {
   HOMEWORK_HELP: 'homework_help',

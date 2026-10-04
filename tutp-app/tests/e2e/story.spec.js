@@ -29,6 +29,8 @@
 //   s12 feedback is inline at the end of the story (no fixed popup) and posts a
 //       storytelling row with the joined scene texts; s12b the same at 360 px
 //   s13 Tamil: Tamil script, Noto Sans Tamil first, sonnet-5
+//   s18 science try-together "percent of 50" is sent back once; s19 scene 3 of 5
+//       sentences is cut after its third (hand-written replies, always replayed)
 //   (s2/s7/s13 also check: non-English -> claude-sonnet-5, s8 English -> haiku, one
 //   word (visual.itemNoun) for the counted things; the stories are written to
 //   output/story-*.txt and what each call cost to output/story-cost.json)
@@ -40,6 +42,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { e2eMode } from './e2e-mode.js';
 import { nounStem } from '../../server/story-schema.js';
+import { RETRIES } from './recordings-handwritten.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const args = process.argv.slice(2);
@@ -540,6 +543,40 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(text.includes('8 + 6 = 14') && !text.includes('8 + 6 = 15'), 'the wrong sum is still on the page: ' + text);
     await page.evaluate(() => closeStoryModal());
     return 'retry 1, the shown scenes say 8 + 6 = 14';
+  }, page);
+
+  // s18/s19: hand-written reply pairs (recordings-handwritten.mjs RETRIES), always replayed.
+  const replayed = async (language, topic) => {
+    const force = (route) => route.continue({ headers: { ...route.request().headers(), 'x-e2e-mode': 'replay' } });
+    const HW = /\/api\/homework(\?|$)/;
+    await page.route(HW, force);
+    try { await tell(page, language, topic); } finally { await page.unroute(HW, force); }
+    return lastStory(net);
+  };
+
+  await record('s18', 'science try-together: "percent of 50" is sent back once, the count question is shown', async () => {
+    const r = await replayed('English', RETRIES.percent.topic);
+    expect(r.status === 200 && r.story, 'no story reply: status ' + r.status);
+    expect(r.headers['x-story-retry'] === '1', 'X-Story-Retry ' + r.headers['x-story-retry'] + ' (the percentage question did not trigger the retry)');
+    expect(r.headers['x-story-format'] === 'ok', 'X-Story-Format ' + r.headers['x-story-format']);
+    const q = await page.$eval('#storyModalResults .sm-try-q', (e) => e.textContent);
+    expect(!/%|percent/i.test(q) && /chromatids/.test(q), 'the try-together is still the percentage question: ' + q);
+    await page.evaluate(() => closeStoryModal());
+    return 'retry 1, try-together: ' + q;
+  }, page);
+
+  await record('s19', 'scene 3 of 5 sentences in both replies is cut after its third sentence (never mid-sentence)', async () => {
+    const r = await replayed('English', RETRIES.longScene.topic);
+    expect(r.status === 200 && r.story, 'no story reply: status ' + r.status);
+    expect(r.headers['x-story-retry'] === '1', 'X-Story-Retry ' + r.headers['x-story-retry']);
+    expect(r.headers['x-story-format'] === 'ok', 'X-Story-Format ' + r.headers['x-story-format']);
+    expect(Number(r.headers['x-story-fixed']) >= 1, 'X-Story-Fixed ' + r.headers['x-story-fixed'] + ' (the trim was not counted)');
+    const scene3 = await page.$$eval('#storyModalResults .sm-scene-text', (es) => es[2].textContent);
+    const n = (scene3.match(/[.!?]\s|[.!?]$/g) || []).length;
+    expect(n === 3 && scene3.endsWith('.') && scene3.startsWith('A cell divides'), 'scene 3 on the page: ' + scene3);
+    expect(!scene3.includes('Then they are pulled apart'), 'a fourth sentence is still shown');
+    await page.evaluate(() => closeStoryModal());
+    return 'retry 1, trimmed to 3 sentences';
   }, page);
 
   await record('s9', 'no voice: "Read aloud together" hint, no play button, no error text; a voice: play/stop, no hint', async () => {

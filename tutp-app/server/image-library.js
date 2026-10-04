@@ -100,6 +100,62 @@ export function storyLibraryContext(lib, { text, classNum, langName, hidden }) {
   };
 }
 
+// Library coverage: a story of a lesson that is not maths and got no library
+// picture is logged as STORY_IMAGE_MISSING with the lesson's concept, so the
+// founder can see which pictures to make next (scripts/imglib/missing-concepts.mjs).
+export const STORY_IMAGE_MISSING = 'story.image_missing';
+
+// The model's concept ("Photosynthesis", "water cycle") or the topic part of
+// the story's subject tag ("Class 7 · Science · Water Cycle" -> "Water Cycle")
+// -> a lowercase concept of at most 5 words and 50 characters: letters and
+// hyphens only (digits, symbols and punctuation dropped), a plural s dropped
+// from long Latin words, so "Chromosomes" and "chromosome" count together.
+// '' when nothing usable is left, or when it looks personal: an e-mail or a
+// long number, or the child's name (childName) as a word.
+export function topicFromTag(tag) {
+  const parts = String(tag || '').split(/[·•|\/]/).map((s) => s.trim()).filter(Boolean);
+  return parts.length >= 3 ? parts[parts.length - 1] : '';
+}
+export function normalizeConcept(text, { childName = '' } = {}) {
+  const raw = String(text || '').normalize('NFC');
+  if (!raw.trim() || /@|\d{4,}/.test(raw)) return '';
+  const names = String(childName || '').normalize('NFC').toLowerCase().split(/[^\p{L}\p{M}]+/u).filter((n) => n.length >= 2);
+  const plain = raw.toLowerCase().replace(/[^\p{L}\p{M}\s-]+/gu, ' ').split(/[\s-]+/).filter(Boolean);
+  if (!plain.length || plain.some((w) => names.includes(w))) return '';
+  const words = plain.map((w) => (/^[a-z]{5,}$/.test(w) && /s$/.test(w) && !/(ss|us|is)$/.test(w) ? w.slice(0, -1) : w));
+  const out = words.slice(0, 5).join(' ').slice(0, 50).trim();
+  return out.length >= 3 ? out : '';
+}
+
+// The concept to log for a checked story (validateStory's result and its
+// story), or '' when nothing is missing: the story is a maths story, it has a
+// library picture, it failed its checks, or no usable concept is left.
+export function missingConceptFor(check, story, { childName = '' } = {}) {
+  if (!check || !check.ok || !story || check.maths || (story.visual && story.visual.type === 'library')) return '';
+  return normalizeConcept(check.concept || topicFromTag(story.gradeSubjectTag), { childName });
+}
+
+// STORY_IMAGE_MISSING rows ({family_id, properties: {concept, offered}, created_at})
+// -> the most requested concepts in the window, most first:
+// [{ concept, count, families, noCandidate }]; noCandidate = how many of the
+// stories had no library picture offered at all (offered 0).
+export function topMissingConcepts(rows, { now = Date.now(), windowDays = REPORT_WINDOW_DAYS, limit = 30 } = {}) {
+  const since = now - windowDays * 86400000;
+  const by = new Map();
+  for (const r of rows || []) {
+    const p = (r && r.properties) || {};
+    const at = Date.parse(r && r.created_at);
+    if (typeof p.concept !== 'string' || !p.concept || !(at >= since)) continue;
+    const e = by.get(p.concept) || { concept: p.concept, count: 0, families: new Set(), noCandidate: 0 };
+    e.count++;
+    if (r.family_id != null) e.families.add(String(r.family_id));
+    if (!p.offered) e.noCandidate++;
+    by.set(p.concept, e);
+  }
+  return [...by.values()].map((e) => ({ concept: e.concept, count: e.count, families: e.families.size, noCandidate: e.noCandidate }))
+    .sort((a, b) => b.count - a.count || b.families - a.families || a.concept.localeCompare(b.concept)).slice(0, limit);
+}
+
 // usage_events rows ({family_id, properties: {image_id}, created_at}) -> the
 // ids reported by at least `threshold` distinct families in the window.
 // notBefore: { id: ms } ignores the reports made before that image was last

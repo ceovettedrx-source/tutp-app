@@ -186,9 +186,50 @@
   .sm-btn { padding: 10px 14px; }
 }
 
+/* ---- print / Save as PDF. printStory() (story-modal.js) puts the class
+   sm-printing on <html>; everything else on the page is dropped, the modal's
+   fixed box, scroll area and heights are undone, and the story flows over as
+   many pages as it needs. A4 with 12 mm margins (a named page, so the page's
+   other prints keep theirs); body 11 pt. A scene may break across pages (its
+   heading stays with its first lines); the picture block (picture + legend)
+   and the two cards never break. */
+@page story { size: A4; margin: 12mm; }
 @media print {
   .sm-no-print, .sm-reveal, .sm-answer { display: none !important; }
   .sm-print-only { display: block !important; break-inside: avoid; }
-  .sm-scene, .sm-try, .sm-ask, .sm-visual { break-inside: avoid; }
-  .sm-results { font-size: 12pt; }
+  .sm-try, .sm-ask, .sm-visual { break-inside: avoid; }
+  .sm-results { font-size: 11pt; }
+
+  html.sm-printing, html.sm-printing body { margin: 0 !important; padding: 0 !important; min-height: 0 !important; height: auto !important; background: #fff !important; overflow: visible !important; }
+  html.sm-printing body > *:not(#storyModal) { display: none !important; }
+  html.sm-printing #storyModal, html.sm-printing #storyModal * { visibility: visible !important; }
+  html.sm-printing #storyModal { position: static !important; display: block !important; inset: auto; height: auto !important; max-height: none !important; overflow: visible !important; background: #fff !important; page: story; }
+  html.sm-printing .sm-backdrop, html.sm-printing .sm-head, html.sm-printing .sm-sub, html.sm-printing #storyModalForm { display: none !important; }
+  html.sm-printing .sm-panel { position: static !important; display: block; width: auto !important; max-width: none !important; height: auto !important; max-height: none !important; overflow: visible !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+  html.sm-printing .sm-results { position: static !important; width: auto !important; padding: 0 !important; margin: 0 !important; overflow: visible !important; color: #111; font-size: 11pt; }
+  html.sm-printing .sm-results[data-script="latin"] { line-height: 1.5; }
+  html.sm-printing .sm-results[data-script]:not([data-script="latin"]) { line-height: 1.8; }
+  html.sm-printing .sm-title-block { margin: 0 0 6pt; }
+  html.sm-printing .sm-title { font-size: 17pt; break-after: avoid; }
+  html.sm-printing .sm-meta { font-size: 9pt; }
+
+  /* a scene: a plain block with its number at the left, so it can break between pages */
+  html.sm-printing .sm-scene { display: block; position: relative; padding: 7pt 0 7pt 34pt; break-inside: auto; }
+  html.sm-printing .sm-num { position: absolute; left: 0; top: 7pt; margin: 0; width: 24pt; height: 24pt; font-size: 11pt; }
+  html.sm-printing .sm-scene-label { break-after: avoid; font-size: 8pt; }
+  html.sm-printing .sm-scene-text { margin: 1pt 0 0; orphans: 3; widows: 3; }
+  html.sm-printing .sm-scene > .sm-visual { margin: 6pt 0 0; }
+
+  /* pictures: at most 70 mm tall, the legend stays with its picture */
+  html.sm-printing .sm-visual { margin-top: 6pt; padding: 8pt; break-inside: avoid; }
+  html.sm-printing .sm-svg { max-height: 70mm; }
+  html.sm-printing .sm-lib-stage { width: fit-content; max-width: 100%; margin: 0 auto; }
+  html.sm-printing .sm-lib-img { width: auto; max-width: 100%; max-height: 70mm; margin: 0 auto; }
+  html.sm-printing .sm-lib-legend { margin-top: 6pt; gap: 3pt; grid-template-columns: 1fr 1fr; column-gap: 12pt; }
+  html.sm-printing .sm-lib-item { font-size: 10pt; line-height: 1.3; }
+  html.sm-printing .sm-lib-foot { margin-top: 5pt; }
+  html.sm-printing .sm-venn-stage { min-height: 120px; }
+  html.sm-printing .sm-eqs { margin-top: 8pt; }
+  html.sm-printing .sm-try, html.sm-printing .sm-ask, html.sm-printing .sm-print-only { margin-top: 8pt; padding: 8pt 12pt; }
+  html.sm-printing .sm-foot { margin-top: 8pt; }
 }
