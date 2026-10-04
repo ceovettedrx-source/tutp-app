@@ -118,17 +118,23 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
     const { id: _id, title: _title, grade: _grade, version: _version, sim: _sim, simUrls: _simUrls, safety: _safety, ...words } = source;
     const system = `You translate a children's science lesson into ${lang} for a parent and child in India. Keep the exact JSON structure and every key. Translate only the sentences. Keep numbers, and keep names of household items simple and familiar. Write the way a friendly teacher speaks to a Class 6 to 10 child. Reply ONLY with the JSON object.`;
     const model = MODELS.el_translate;
-    const r = await callClaude({
-      feature: 'el_translate', variant: lang, familyId: session.familyId, mode, recordings: req._elRecordings, cost: req._elCost,
-      body: { model, ...modelSettings(model), max_tokens: 14000, system, messages: [{ role: 'user', content: JSON.stringify({ title: lesson.title, ...words }) }] },
-    });
-    if (!r.ok) { console.error('el: translate failed', { status: r.status, lang, lesson: lesson.id }); return null; }
-    const text = ((r.data.content || []).find((b) => b.type === 'text') || {}).text || '';
-    const a = text.indexOf('{'), b = text.lastIndexOf('}');
-    let parsed;
-    try { parsed = JSON.parse(text.slice(a, b + 1)); } catch { console.error('el: translate unparseable', lesson.id, lang, 'stop_reason', r.data.stop_reason, 'output_tokens', r.data.usage && r.data.usage.output_tokens); return null; }
-    const merged = mergeText(lesson, parsed);
-    if (!validateLesson(merged).ok) return null;
+    // Two tries: a reply whose JSON cannot be read is asked for once more (the
+    // second reply gets its own recording, attempt 2).
+    let merged = null;
+    for (let attempt = 1; attempt <= 2 && !merged; attempt++) {
+      const r = await callClaude({
+        feature: 'el_translate', variant: lang, attempt, familyId: session.familyId, mode, recordings: req._elRecordings, cost: req._elCost,
+        body: { model, ...modelSettings(model), max_tokens: 14000, system, messages: [{ role: 'user', content: JSON.stringify({ title: lesson.title, ...words }) }] },
+      });
+      if (!r.ok) { console.error('el: translate failed', { status: r.status, lang, lesson: lesson.id, attempt }); return null; }
+      const text = ((r.data.content || []).find((b) => b.type === 'text') || {}).text || '';
+      const a = text.indexOf('{'), b = text.lastIndexOf('}');
+      let parsed;
+      try { parsed = JSON.parse(text.slice(a, b + 1)); } catch { console.error('el: translate unparseable', lesson.id, lang, 'attempt', attempt, 'stop_reason', r.data.stop_reason, 'output_tokens', r.data.usage && r.data.usage.output_tokens); continue; }
+      const candidate = mergeText(lesson, parsed);
+      if (validateLesson(candidate).ok) merged = candidate;
+    }
+    if (!merged) return null;
     if (!testFamily) translations.set(key, merged);     // test families never share the cache, so a recording run always makes its call
     return merged;
   }
