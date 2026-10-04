@@ -31,7 +31,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { e2eMode } from './e2e-mode.js';
+import { e2eMode, RECORDINGS } from './e2e-mode.js';
 import { CONCEPTS } from '../../server/el/concepts.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -372,6 +372,11 @@ async function record(id, name, fn, page) {
     const r = await api(page, `/api/el/lesson/${pickConcept}?studentId=${studentId}&language=Telugu&board=cbse-ncert`);
     expect(r.status() === 200, 'status ' + r.status());
     const te = await r.json();
+    // page.request calls bypass the context's response hook, so save the recordings here.
+    if (e2e.mode === 'record') for (const rec of te._recordings || []) {
+      if (rec.status !== 200 || !/^[0-9a-f]{32}$/.test(rec.key)) continue;
+      fs.writeFileSync(path.join(RECORDINGS, `${rec.key}${rec.attempt > 1 ? '.' + rec.attempt : ''}.json`), JSON.stringify({ status: rec.status, data: rec.data }) + '\n');
+    }
     expect(te.translated === true, 'not translated (missing recording? run E2E_MODE=record once)');
     expect(TELUGU.test(te.predict.question), 'question is not Telugu');
     expect(te.predict.correctIndex === en.predict.correctIndex, 'correct index changed');

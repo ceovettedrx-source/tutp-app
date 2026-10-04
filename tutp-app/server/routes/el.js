@@ -129,7 +129,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
     try { parsed = JSON.parse(text.slice(a, b + 1)); } catch { console.error('el: translate unparseable', lesson.id, lang); return null; }
     const merged = mergeText(lesson, parsed);
     if (!validateLesson(merged).ok) return null;
-    if (mode !== 'replay' || !testFamily) translations.set(key, merged);
+    if (!testFamily) translations.set(key, merged);     // test families never share the cache, so a recording run always makes its call
     return merged;
   }
 

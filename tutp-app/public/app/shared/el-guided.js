@@ -32,11 +32,14 @@
       else if (k === 'on') { for (var ev in props.on) el.addEventListener(ev, props.on[ev]); }
       else if (props[k] !== false && props[k] != null) el.setAttribute(k, props[k]);
     }
-    for (var i = 2; i < arguments.length; i++) {
-      var c = arguments[i];
-      if (c == null || c === false) continue;
-      el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-    }
+    (function add(list) {
+      for (var i = 0; i < list.length; i++) {
+        var c = list[i];
+        if (c == null || c === false) continue;
+        if (Array.isArray(c)) { add(c); continue; }
+        el.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+      }
+    })(Array.prototype.slice.call(arguments, 2));
     return el;
   }
   function btn(label, onClick, cls) { return h('button', { type: 'button', class: 'el-btn ' + (cls || ''), text: label, on: { click: onClick } }); }
