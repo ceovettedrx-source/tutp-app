@@ -15,14 +15,15 @@ import { fileURLToPath } from 'url';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const RECORDINGS = path.join(HERE, 'recordings');
-const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor)(\?|$)/;
+const MODEL_ROUTE = /\/api\/(homework|homework-notes|visual-tutor|el\/teachback|el\/lesson\/[a-z-]+)(\?|$)/;
 
 export function e2eMode(spec) {
   const mode = ['replay', 'record', 'live'].includes(process.env.E2E_MODE) ? process.env.E2E_MODE : 'replay';
   const state = { spec, mode, usd: 0, calls: 0, saved: 0, pending: [] };
 
   async function onResponse(resp) {
-    if (!MODEL_ROUTE.test(resp.url()) || resp.request().method() !== 'POST') return;
+    // el/lesson is a GET (its translation call is the model call); the rest are POSTs.
+    if (!MODEL_ROUTE.test(resp.url()) || (resp.request().method() !== 'POST' && !/\/api\/el\/lesson\//.test(resp.url()))) return;
     state.calls++;
     state.usd += Number(resp.headers()['x-model-usd'] || 0);
     if (mode !== 'record') return;

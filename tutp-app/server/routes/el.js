@@ -42,10 +42,10 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
   const familyKey = (req) => 'family:' + String((getSession(req) || {}).familyId);
   const limiter = (max, windowMs = 10 * 60 * 1000, message = 'Too many requests, please wait a few minutes.') =>
     rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false, keyGenerator: familyKey, message: { error: message } });
-  const lessonLimiter = limiter(40);
+  const lessonLimiter = limiter(120);
   const teachLimiter = limiter(30);
-  const eventLimiter = limiter(200);
-  const videoLimiter = limiter(40);
+  const eventLimiter = limiter(300);
+  const videoLimiter = limiter(120);
 
   const translations = new Map();   // conceptId|lang -> lesson
 
@@ -156,7 +156,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
             feature: 'el_teachback', variant: lang, familyId: session.familyId, studentId: body.studentId, mode, recordings, cost,
             body: { model, ...modelSettings(model), max_tokens: 300, system, messages: [{ role: 'user', content: text }] },
           });
-          if (testFamily) res.set('X-Model-Usd', String(cost.usd));
+          if (testFamily) { res.set('X-Model-Usd', String(cost.usd)); res.set('X-El-Model', model); res.set('X-El-Max-Tokens', '300'); }
           if (!r.ok) {
             console.error('el: teachback model call failed', { status: r.status });
             return res.status(502).json({ error: 'Could not make a question right now.' });
