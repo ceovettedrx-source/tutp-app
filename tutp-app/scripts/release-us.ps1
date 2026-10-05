@@ -1,15 +1,16 @@
-# release-us.ps1 - moves production traffic of tutp-demo to the usrel revision
+# release-us.ps1 - moves production traffic of tutp-demo to the upsec2 revision
 # (upload security: /api/upload needs a signed-in member of the family, files
 # are read only through 15 minute signed urls, registration photos move to the
-# family's folder, the home page no longer uploads before login) with checks
+# family's folder, the home page no longer uploads before login, HEIC is
+# converted to JPEG on the server) with checks
 # before and after, an automatic rollback to the revision that was live when the
 # script started, and a fast-forward of main when everything passed. Modelled on
 # release-an.ps1 / release-il.ps1. Written by Claude Code, NOT run by Claude Code.
 #
 # Run in PowerShell (no secrets, run by Vet):
-#   powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\wt-upsec\tutp-app\scripts\release-us.ps1"
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\AppData\Local\Google\Cloud SDK\tutp-upsec\tutp-app\scripts\release-us.ps1"
 # Read-only check of the git step alone (fetch, rev-parse, ancestor test; no gcloud, nothing changed):
-#   powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\wt-upsec\tutp-app\scripts\release-us.ps1" -GitSelfTest
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\AppData\Local\Google\Cloud SDK\tutp-upsec\tutp-app\scripts\release-us.ps1" -GitSelfTest
 #
 # AFTER this release: run scripts\storage\make-private.ps1 (checks first, prints what
 # it changes, asks y/n). Not before: the old code needs the bucket public.
@@ -18,7 +19,7 @@
 # Only the traffic split changes (--to-revisions, never --update-tags or
 # --set-tags). Safe to run again: it only changes what is not already right.
 # OldRev is read at run time (the revision holding 100% now), NewRev is the
-# revision the usrel tag points to and must equal $NewRev below.
+# revision the upsec2 tag points to and must equal $NewRev below.
 #
 # If main has moved since this branch was cut (another release fast-forwarded
 # it), the script stops in the pre-checks, before any traffic moves, and says
@@ -37,10 +38,11 @@ $Service    = 'tutp-demo'
 $Region     = 'us-central1'
 $NewRev     = 'tutp-demo-US_REV_TO_BE_FILLED'          # release candidate, tagged usrel
 $Commit     = 'US_COMMIT_TO_BE_FILLED'   # the tested commit (full sha); the branch must contain it
-$Branch     = 'upload-security'          # fast-forwarded into main on success
-$RepoDir    = 'C:\Users\user\wt-upsec'
+$Branch     = 'upload-security-v2'       # fast-forwarded into main on success
+$RepoDir    = 'C:\Users\user\AppData\Local\Google\Cloud SDK\tutp-upsec'
 $SaltRef    = 'CHIP_HASH_SALT:2'             # required secret reference (version 2)
-$TagUrl     = 'https://usrel---tutp-demo-vs4743puka-uc.a.run.app'
+$TagName    = 'upsec2'
+$TagUrl     = 'https://upsec2---tutp-demo-vs4743puka-uc.a.run.app'
 $SiteUrl    = 'https://tutp.online'          # the real domain, also checked after the switch
 
 function Stop-Release($msg) {
@@ -207,8 +209,8 @@ try {
         $OldRev = ''
     }
 
-    $tagged = $traffic | Where-Object { $_.Tag -eq 'usrel' } | Select-Object -First 1
-    if (-not $tagged -or $tagged.Revision -ne $NewRev) { Stop-Release "the usrel tag does not point to $NewRev." }
+    $tagged = $traffic | Where-Object { $_.Tag -eq $TagName } | Select-Object -First 1
+    if (-not $tagged -or $tagged.Revision -ne $NewRev) { Stop-Release "the $TagName tag does not point to $NewRev." }
 
     # Revision exists and is Ready.
     $conds = Invoke-Gcloud @('run', 'revisions', 'describe', $NewRev, "--region=$Region", '--format=value(status.conditions)')
@@ -224,10 +226,23 @@ try {
         Stop-Release "$NewRev does not reference $SaltRef (CHIP_HASH_SALT must be pinned to version 2)."
     }
     if ($desc -match 'E2E_REPLAY') { Stop-Release "$NewRev has E2E_REPLAY set; it must not be on a revision that gets traffic." }
+    # Answer/Explain v2 stays on: the flag must be set to 1 on the release revision (never inherited).
+    if ($desc -notmatch 'ANSWER_V2_ENABLED\s+1(\s|$)') { Stop-Release "$NewRev does not have ANSWER_V2_ENABLED=1 (v2 is live and must stay on)." }
+    # The commit running live now must be inside the tested commit (git-sha label of the live revision).
+    if ($OldRev) {
+        $oldLabels = Invoke-Gcloud @('run', 'revisions', 'describe', $OldRev, "--region=$Region", '--format=value(metadata.labels)')
+        if ($oldLabels -match 'git-sha=([0-9a-f]{40})') {
+            $liveSha = $Matches[1]
+            $anc = Invoke-Git @('merge-base', '--is-ancestor', $liveSha, $Commit)
+            if ($anc.Code -ne 0) { Stop-Release "the live revision $OldRev runs commit $liveSha, which is not contained in the tested commit $Commit (merge main and re-test)." }
+        } else {
+            Write-Host "NOTE: live revision $OldRev has no git-sha label; the live commit could not be compared." -ForegroundColor Yellow
+        }
+    }
 } catch {
     Stop-Release "pre-check error: $($_.Exception.Message)"
 }
-Write-Host 'Pre-checks OK: branch contains the tested commit, main fast-forwardable, traffic split, usrel tag, revision Ready, CHIP_HASH_SALT version 2, no E2E_REPLAY.' -ForegroundColor Green
+Write-Host 'Pre-checks OK: branch contains the tested commit, main fast-forwardable, traffic split, upsec2 tag, revision Ready, CHIP_HASH_SALT version 2, no E2E_REPLAY, ANSWER_V2_ENABLED=1, live commit inside the tested commit.' -ForegroundColor Green
 
 # --- 2. Smoke check on the usrel URL ----------------------------------------
 $code = Get-HttpStatus $TagUrl
@@ -247,6 +262,7 @@ if ($alreadyNew) {
     Write-Host "  to   : $NewRev (100%)"
     Write-Host '  tags : not changed'
     Write-Host "  auto-rollback to $OldRev if a check after the switch fails"
+    Write-Host '  (a rollback moves traffic only; never send traffic to tutp-demo-00292-v54, its ANSWER_V2_ENABLED is 0)'
     $answer = Read-Host 'Type YES to continue (anything else aborts)'
     if ($answer -cne 'YES') { Stop-Release 'not confirmed.' }
 
