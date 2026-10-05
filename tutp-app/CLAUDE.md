@@ -104,8 +104,14 @@
   no rebuild) and give the founder that revision's name:
 
   ```
-  gcloud run deploy tutp-demo --region=us-central1 --image=<image@sha256 of the tested revision> --remove-env-vars=E2E_REPLAY --no-traffic --tag=preview --quiet
+  gcloud run deploy tutp-demo --region=us-central1 --image=<image@sha256 of the tested revision> --remove-env-vars=E2E_REPLAY --update-env-vars=ANSWER_V2_ENABLED=1 --no-traffic --tag=preview --quiet
   ```
+
+  Always set `ANSWER_V2_ENABLED` explicitly, never inherit it from the
+  template: `=1` on a release revision (as above and in `deploy.sh`), and
+  `--remove-env-vars=ANSWER_V2_ENABLED` on an e2e preview (the specs switch v2
+  on by header). To roll v2 back, change the env var, then run `update-traffic`
+  to the NEW revision it creates; an env change alone moves no traffic.
 
   Even if one slipped through, replay only ever answers test families.
 

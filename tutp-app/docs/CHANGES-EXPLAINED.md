@@ -1,5 +1,12 @@
 # Changes explained
 
+## 2026-10-05 - homework help v2 is live on 00398-vim
+
+- Live: Answer Please + Explain Please v2 on `tutp-demo-00398-vim` (100% traffic, `ANSWER_V2_ENABLED=1`, commit 16ccee6). Main is fast-forwarded to 16ccee6 and pushed.
+- Stray revision: `tutp-demo-00292-v54` (`ANSWER_V2_ENABLED=0`, latestCreated) came from an env-change rollback run by mistake after the traffic move. It serves 0% and must NEVER get traffic. It is also the service template, so a deploy that inherits env would carry the flag at 0.
+- Fix: `deploy.sh` and the release command in CLAUDE.md now set `ANSWER_V2_ENABLED` explicitly (`=1` for a release; e2e previews use `--remove-env-vars=ANSWER_V2_ENABLED`). The one-off `scripts/release-el.ps1` was left alone (pinned to 00393).
+- Correct rollback: change the env var (`gcloud run services update tutp-demo --region=us-central1 --update-env-vars ANSWER_V2_ENABLED=0`), THEN `update-traffic` to the new revision it creates (the service is pinned to a named revision, so the env change alone moves nothing). Never send traffic to 00292-v54 as it stands.
+
 ## 2026-10-05 - homework help v2: Answer Please + Explain Please (built, tested, not live)
 
 **What changed**
@@ -9,7 +16,7 @@
 
 **What is live**
 - Live now: experiential learning v2 (00393-huf, commit c3d9863); nothing of this round is live. Earlier note that live was 00376-muj was wrong, and the first release revision 00391-yig was built before experiential learning was on main, so it must not get traffic. Main (51706e0) is now merged into this branch (16ccee6): conflicts in server.js, knowledgeGraph.js, e2e-mode.js and run.js were resolved keeping both features, and the recordings and LAST_LIVE took main's version.
-- Release revision: tutp-demo-00398-vim (tag aev2, 0 percent traffic, label git-sha=16ccee6, `ANSWER_V2_ENABLED=1`, no `E2E_REPLAY`, no YOUTUBE_API_KEY like live; every other env var, secret and the service account equal to live 00393-huf). Same image digest as the tested 00397-ver. The live commit c3d9863 is an ancestor of 16ccee6. Built behind `ANSWER_V2_ENABLED` (new path on) with the old `/api/homework` untouched when it is 0. Rollback: `gcloud run services update tutp-demo --region=us-central1 --update-env-vars ANSWER_V2_ENABLED=0`.
+- Release revision: tutp-demo-00398-vim (tag aev2, 0 percent traffic, label git-sha=16ccee6, `ANSWER_V2_ENABLED=1`, no `E2E_REPLAY`, no YOUTUBE_API_KEY like live; every other env var, secret and the service account equal to live 00393-huf). Same image digest as the tested 00397-ver. The live commit c3d9863 is an ancestor of 16ccee6. Built behind `ANSWER_V2_ENABLED` (new path on) with the old `/api/homework` untouched when it is 0. Rollback: env change THEN `update-traffic` to the new revision (see the entry above; the env change alone moves no traffic).
 - Tests: migration 031 (explain_cache, illustrations, private bucket) applied. After the merge: full e2e suite, all 11 specs including el, passed twice in a row (runs 3 and 4) in replay on the no-traffic preview 00397-ver (tag aev2); run 1 also passed and run 2 died on a Playwright "guid not bound" crash after login checks a-f passed (not an app failure, not counted). Model spend: $0.0000 per spec in replay; the 4-test live smoke set ran once in run 1 (models.js changed vs LAST_LIVE) for $0.0265. Recording the 15 answer-explain specs earlier cost $0.1846 (26 calls). Unit 305/305 (the el test "a lesson file that fails the gate loses its experiment at load" fails in a checkout path with a space, because it uses an undecoded URL pathname; it passes in a path without spaces). The preview runs with the flag unset (specs switch v2 on by header); the revision that gets traffic has `ANSWER_V2_ENABLED=1` and no `E2E_REPLAY`.
 - Upload security: signed picture URLs now come from one shared helper (`server/lib/signed-url.js`); `/api/upload` itself was not changed.
 

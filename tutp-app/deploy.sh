@@ -5,7 +5,8 @@
 # existing production service and --set-env-vars wipes all existing
 # env vars/secrets (CRON_TOKEN, RESEND_API_KEY, SUPABASE_SERVICE_ROLE_KEY,
 # ADMIN_TOKEN, etc). Env var/secret changes must be made deliberately and
-# separately, never as part of a routine deploy.
+# separately, never as part of a routine deploy. (One exception: the additive
+# --update-env-vars=ANSWER_V2_ENABLED=1 below, which changes nothing else.)
 #
 # tutp-demo's traffic is pinned to a named revision, not tracking "latest"
 # — so `gcloud run deploy` alone builds a new revision but does NOT move
@@ -32,7 +33,10 @@ cd "$(dirname "$0")"
 REGION=us-central1
 SERVICE=tutp-demo
 
-gcloud run deploy "$SERVICE" --source . --region="$REGION"
+# ANSWER_V2_ENABLED is set explicitly (1) so a release never inherits it from
+# the service template, which a stray rollback revision (00292-v54, flag 0,
+# 2026-10-05) can leave at 0. --update-env-vars touches only this one var.
+gcloud run deploy "$SERVICE" --source . --region="$REGION" --update-env-vars=ANSWER_V2_ENABLED=1
 
 # Identify the revision this deploy actually just created — independently
 # of gcloud run deploy's own (unreliable, in pinned-traffic mode) summary,
