@@ -43,3 +43,42 @@
 
 **What is next**
 - After the switch: main is fast-forwarded by the script. Non-urgent ideas are in docs/BACKLOG.md.
+
+## 2026-10-05 - experiential learning v2 started, answer-explain-v2 parked
+
+- answer-explain-v2 is parked as WIP (commit 80b6b78 on branch answer-explain-v2, pushed). It is not merged into main, not deployed, and untouched by this work.
+- Left out of that commit: four log files, docs/.last-summary and a stray pasted-command file in the parent folder. The pre-commit secret scan passed, nothing was flagged.
+
+## 2026-10-05 - experiential learning v2 (Guided Discovery + shared video service)
+
+**What changed**
+- Parents can pick one of 12 Science lessons (Class 6-10) in the Experiential Learning window, or type a topic that matches one: the child guesses first (the guess locks), does a kitchen experiment or plays a PhET simulation, says what they noticed, gets up to 3 hints, learns the science word, watches videos and explains it back. One follow-up question comes from the cheapest model (max 300 tokens). Revisit questions show on the parent dashboard on day 3, 10 and 30. Any other topic or photo runs the old notes flow, unchanged.
+- One shared video service (2 in the user's language, 2 English, 1 best in the world; key-part segments from description chapters or Gemini; Key part / Watch full video; nocookie embeds, no autoplay, YouTube title link; tutp_hosted sorts before youtube).
+
+**Video root cause (recorded before the fix)**
+- "Video matching for this lesson isn't available yet" was a hardcoded `<p>` in `public/app/{mother,father,family-member,child}/index.html` (the results block of `#experientialModalResults`, lines about 590 / 724 / 738). No video search existed anywhere in the code; it was not an empty list, a swallowed key or a wrong query. It is replaced by `#experientialModalVideos`, filled by the service; an empty list shows nothing.
+
+**What is live**
+- Nothing is live yet. The release candidate is revision `tutp-demo-00393-huf` (tag `elrel`, https://elrel---tutp-demo-vs4743puka-uc.a.run.app), the image that passed e2e twice on the preview `elprev` (00390-zug). It has no E2E_REPLAY and an env identical to the live revision (checked by hash of names and secret references; values never read). Production is still 100% on `tutp-demo-00376-muj`.
+- Why: auto mode refused `gcloud run services update-traffic` (as CLAUDE.md says it does). Nothing else was tried. main is NOT fast-forwarded; the branch is `experiential-learning-v2` at 1e5c6a1, pushed.
+- Founder: run `powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\wt-el-v2\tutp-app\scripts\release-el.ps1"` (checks, YES prompt, auto-rollback, fast-forwards main). Then tell Claude Code to verify `status.traffic`.
+
+**Tests**
+- Unit: 243 of 243 pass. E2E (`tests/e2e/el.spec.js`, e0-e16) passed in record mode, then the full suite passed twice in a row on the preview (run 1 with the live smoke set, $0.027; run 2 replay only, $0). The el spec itself spent $0.0004 recording; one-time lesson generation about $0.21 (23 calls plus one earlier magnets test, sonnet-5).
+- Not tested: real YouTube. The project has no YouTube key, so video tests run on hand-written fixtures (`tests/e2e/recordings/yt-fixture.json`, test families only). The Gemini segment path is covered by unit tests with a stubbed API; no Gemini call was made against a real video.
+
+**Founder to-dos**
+1. YouTube: enable `youtube.googleapis.com`, create a key limited to the YouTube Data API, store it as secret `youtube-api-key`, attach with `gcloud run services update tutp-demo --region=us-central1 --update-secrets=YOUTUBE_API_KEY=youtube-api-key:latest`. Until then, the video section is hidden everywhere and the log says `video.no_key`. I did not create a credential or enable an API tonight (outside the overnight guardrails).
+2. Gemini segments need the Cloud Run service account to read secret `gemini-api-key` (it is not granted today; the code then quietly skips Gemini).
+3. Telangana SCERT chapters: scert.telangana.gov.in was unreachable (connection and certificate errors), so all 12 Telangana mappings are placeholders with no chapter. Fill from the official textbook list.
+4. Review the 12 lessons' wording once; the "steel spoon" in the magnets lesson depends on the spoon (many stainless spoons are not magnetic).
+
+**Placeholder mappings**: all 12 Telangana (above). NCERT mappings are sourced: chapter number and title read from the official ncert.nic.in contents pages, topic found inside the chapter PDF (Class 6 Ch 4 and 9; Class 7 Ch 2, 3, 7, 11; Class 8 Ch 5 (friction, floating) and 6; Class 9 Ch 6 and 10; Class 10 Ch 9). NCF competency codes are null, not guessed. Misconceptions are marked placeholder (no citation attached).
+**Excluded concepts**: none (12 of 12 served; target was 10).
+**Safety-gate drops** (docs/specs/el-v2-safety-report.md): home experiments dropped for force-pressure (sharp pencil point), friction (the word "sharp" in a safety sentence, a deliberate false positive) and density-floating (a fact error: a potato sinks); those three are sim-only. Circuit has no home experiment (batteries are not on the whitelist) and is sim-only. 8 experiments passed.
+**Guardrails kept**: no migration, no schema change, no data deleted, no secret touched or printed, no force-push, no change to auth, payments or Razorpay code (the free-limit check is only called). One note: the free limit counts a guided lesson once, when the teach-back is done.
+**Other facts**: no CSP exists in the app, so no frame-src change was needed. All 9 PhET html5 URLs return 200. Specs: docs/specs/experiential-learning-v2.md, docs/specs/ad-free-video-library.md (spec only).
+
+**Where I stopped / next**
+- Stopped at the traffic move (blocked). Next: founder runs release-el.ps1; Claude verifies and checks main = branch tip.
+- Part 3 (phone-sensor experiments) is NOT started: it starts only after Parts 1 and 2 are live.

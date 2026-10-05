@@ -1,0 +1,102 @@
+{
+  "id": "magnets",
+  "title": "Magnets",
+  "predict": {
+    "question": "If you bring a magnet near a steel spoon, an iron nail, and a coin, what will happen?",
+    "options": [
+      {
+        "text": "Magnet pulls the iron nail strongly but may not pull the coin at all",
+        "misconceptionId": null
+      },
+      {
+        "text": "Magnet pulls all three metal objects equally, since it attracts every metal",
+        "misconceptionId": "in-misc-sci-el-magnets-01"
+      },
+      {
+        "text": "Magnet pulls nothing unless it touches the exact middle of the object",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "Magnets attract only magnetic metals like iron and steel, not all metals such as most coins."
+  },
+  "experiment": {
+    "title": "Testing the Magnet",
+    "items": [
+      "magnet",
+      "iron nail",
+      "steel spoon",
+      "coin",
+      "paper clip",
+      "fridge magnet",
+      "string"
+    ],
+    "steps": [
+      "Predict which items the magnet will pull and which it won't.",
+      "Bring the magnet near the iron nail, steel spoon, coin, and paper clip one by one.",
+      "Note which objects get pulled and which don't.",
+      "Tie a string to a second magnet (or use a fridge magnet) and bring its ends near the first magnet's ends.",
+      "Flip one magnet around and bring the ends close again.",
+      "Notice if the magnets pull together or push apart each time."
+    ],
+    "adultSteps": [],
+    "note": "Keep magnets away from mobile phones, cards, and pacemakers; do not let a child swallow small magnets."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "Which object surprised you the most?",
+      "What happened when you turned the magnet around?",
+      "Can you guess why the coin didn't move?"
+    ],
+    "avoid": [
+      "Don't say 'magnets attract all metals' or explain poles before they try flipping it themselves."
+    ]
+  },
+  "notice": {
+    "question": "What did you see happen with each object and with the two magnets?",
+    "lookFor": "Child notices iron/steel objects get pulled but the coin doesn't, and that the two magnets sometimes pull together and sometimes push apart depending on which ends face each other."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look closely at which metal objects actually move toward the magnet."
+    },
+    {
+      "level": 2,
+      "text": "Compare the nail's behaviour with the coin's behaviour."
+    },
+    {
+      "level": 3,
+      "text": "Now compare how the two magnet ends behave when you flip one around."
+    }
+  ],
+  "reveal": {
+    "explanation": "Magnets attract only certain metals like iron, steel, nickel and cobalt — not all metals, so a coin made of copper or brass won't be pulled. Every magnet has two poles, a north and a south end. When two like poles (N-N or S-S) face each other, they push apart; when unlike poles (N-S) face each other, they pull together.",
+    "term": "Magnetic poles",
+    "termMeaning": "The two ends of a magnet where its pulling force is strongest, and which decide attraction or repulsion between magnets."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a magnet picks up a nail but not a coin, and why two magnets sometimes push each other away."
+  },
+  "revisits": [
+    {
+      "question": "Will a magnet pick up an aluminium foil ball?",
+      "answer": "No, aluminium is not magnetic."
+    },
+    {
+      "question": "If you bring the same pole of two magnets together, what happens?",
+      "answer": "They repel (push apart)."
+    }
+  ],
+  "grade": 6,
+  "version": 1,
+  "sim": {
+    "slugs": []
+  },
+  "simUrls": [],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

@@ -1,0 +1,140 @@
+{
+  "at": "2026-10-04T20:13:29.027Z",
+  "spend": {
+    "calls": 23,
+    "usd": 0.19072000000000003,
+    "tokensIn": 29175,
+    "tokensOut": 13237
+  },
+  "results": [
+    {
+      "id": "separation",
+      "title": "Separation of substances",
+      "grade": 6,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "shadows",
+      "title": "Light and shadows",
+      "grade": 7,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "magnets",
+      "title": "Magnets",
+      "grade": 6,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "circuit",
+      "title": "A simple electric circuit",
+      "grade": 7,
+      "status": "included",
+      "experiment": "none",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "acids-bases",
+      "title": "Acids, bases and indicators",
+      "grade": 7,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "heat-transfer",
+      "title": "How heat travels",
+      "grade": 7,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "force-pressure",
+      "title": "Force and pressure",
+      "grade": 8,
+      "status": "included",
+      "experiment": "dropped",
+      "reasons": [
+        "rule: forbidden word \"sharp\" in: Turn the pencil so the sharp point faces down and press with the same steady for",
+        "review: Pressing a sharp pencil point with force risks poking/puncturing a finger if it slips"
+      ],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "friction",
+      "title": "Friction",
+      "grade": 8,
+      "status": "included",
+      "experiment": "dropped",
+      "reasons": [
+        "rule: forbidden word \"sharp\" in: Make sure the toy car has no small sharp edges and the table area is clear."
+      ],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "sound",
+      "title": "Sound and vibration",
+      "grade": 9,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "density-floating",
+      "title": "Density and floating",
+      "grade": 8,
+      "status": "included",
+      "experiment": "dropped",
+      "reasons": [
+        "facts: A potato actually sinks in plain water since its density is slightly greater than water; the experiment/prediction incorrectly implies it floats or floats more readily than a marble."
+      ],
+      "factIssues": [
+        "A potato actually sinks in plain water since its density is slightly greater than water; the experiment/prediction incorrectly implies it floats or floats more readily than a marble."
+      ],
+      "attempts": 1
+    },
+    {
+      "id": "inertia",
+      "title": "Inertia (Newton's first law)",
+      "grade": 9,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    },
+    {
+      "id": "refraction",
+      "title": "Refraction of light",
+      "grade": 10,
+      "status": "included",
+      "experiment": "pass",
+      "reasons": [],
+      "factIssues": [],
+      "attempts": 1
+    }
+  ]
+}

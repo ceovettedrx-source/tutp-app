@@ -1,0 +1,85 @@
+{
+  "id": "circuit",
+  "title": "A simple electric circuit",
+  "predict": {
+    "question": "If you connect a bulb to a cell using just ONE wire (from one terminal of the cell to the bulb), will the bulb light up?",
+    "options": [
+      {
+        "text": "Yes, one wire is enough because current flows out and lights the bulb",
+        "misconceptionId": "in-misc-sci-el-circuit-01"
+      },
+      {
+        "text": "No, the bulb will not light because the current has no complete path back to the cell",
+        "misconceptionId": null
+      },
+      {
+        "text": "Yes, but it will be dimmer than with two wires",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 1,
+    "why": "Current needs a closed loop; with only one wire the path is broken and no current flows."
+  },
+  "experiment": null,
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "What path do you think the current takes?",
+      "What happens if the loop is broken anywhere?",
+      "Where did the current start and where did it end?"
+    ],
+    "avoid": [
+      "Don't say 'you need two wires' before they test it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see in the simulation with one wire versus two wires forming a loop?",
+    "lookFor": "Child notices the bulb only lights when wires connect in an unbroken loop from one cell terminal, through bulb and switch, back to the other terminal"
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look at where the wire starts and where it ends on the cell."
+    },
+    {
+      "level": 2,
+      "text": "Compare the one-wire setup with a setup that goes all the way back to the cell."
+    },
+    {
+      "level": 3,
+      "text": "Current needs to return to the cell to keep flowing - is there a path back?"
+    }
+  ],
+  "reveal": {
+    "explanation": "Electric current flows only when there is a complete, unbroken path called a circuit. A cell pushes current out of one terminal, through wires and the bulb, and back into its other terminal. If any part of this loop is missing or broken, like an open switch, current stops and the bulb goes dark. A switch is just a controlled gap you can open or close in this loop.",
+    "term": "circuit",
+    "termMeaning": "A closed path through which electric current can flow continuously"
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a bulb needs two wires connected properly to the cell, using the idea of a 'loop' or 'path'."
+  },
+  "revisits": [
+    {
+      "question": "If you cut the wire on only one side of a working circuit, will the bulb still glow?",
+      "answer": "No, because the loop is broken and current cannot flow"
+    },
+    {
+      "question": "Why does flipping a switch off turn off a bulb even though the wires are still there?",
+      "answer": "The switch creates a gap in the circuit, breaking the loop so current stops flowing"
+    }
+  ],
+  "grade": 7,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "circuit-construction-kit-dc"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/circuit-construction-kit-dc/latest/circuit-construction-kit-dc_all.html"
+  ],
+  "safety": {
+    "experiment": "none",
+    "reasons": []
+  }
+}

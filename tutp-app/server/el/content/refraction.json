@@ -1,0 +1,101 @@
+{
+  "id": "refraction",
+  "title": "Refraction of light",
+  "predict": {
+    "question": "If you put a pencil slanting into a glass of water, what will it look like at the water surface?",
+    "options": [
+      {
+        "text": "It will look bent at the surface, but it is still straight",
+        "misconceptionId": null
+      },
+      {
+        "text": "It will actually bend because water bends the pencil",
+        "misconceptionId": "in-misc-sci-el-refraction-01"
+      },
+      {
+        "text": "It will look exactly the same as outside water",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "Light rays change direction when passing from water to air, so the part seen through water appears shifted, making the pencil look bent even though it is straight."
+  },
+  "experiment": {
+    "title": "Bent pencil trick",
+    "items": [
+      "glass",
+      "water",
+      "pencil"
+    ],
+    "steps": [
+      "Fill the glass half with water",
+      "Hold the pencil slanting and dip half of it into the water",
+      "Look at the pencil from the side, at eye level with the water surface",
+      "Pull the pencil out and check it is straight",
+      "Put it back in and look again from different angles"
+    ],
+    "adultSteps": [],
+    "note": "Use a steady table and avoid spilling water near any electrical items."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "What exactly looks different at the surface - above or below the line?",
+      "Did the pencil change when you took it out of the water?",
+      "Why do you think only the water part looks shifted?"
+    ],
+    "avoid": [
+      "Don't say light bends because it slows down, let them notice and guess first"
+    ]
+  },
+  "notice": {
+    "question": "What did you see happen to the pencil at the water line?",
+    "lookFor": "The pencil appears to jump or shift at the surface, but is straight when removed; the bending is only an optical appearance."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look closely right at the surface line, not the whole pencil."
+    },
+    {
+      "level": 2,
+      "text": "Compare the pencil's look in air versus after dipping it - does it change when pulled out?"
+    },
+    {
+      "level": 3,
+      "text": "Light changes direction when it moves from water into air, which shifts how we see the part underwater."
+    }
+  ],
+  "reveal": {
+    "explanation": "Light travels at different speeds in air and water. When it passes from water into air at an angle, it bends at the boundary. Our eyes assume light travels in straight lines, so the underwater part of the pencil appears shifted, making it look bent. The pencil itself never bends.",
+    "term": "Refraction",
+    "termMeaning": "The bending of light as it passes from one transparent medium into another."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a straight pencil looks bent in water, using the word 'refraction'."
+  },
+  "revisits": [
+    {
+      "question": "Why does a swimming pool look shallower than it actually is?",
+      "answer": "Light bends as it leaves water and enters air, making the bottom appear closer to the surface than it really is."
+    },
+    {
+      "question": "Why do your legs look shorter when standing in clear pool water?",
+      "answer": "Refraction at the water surface bends light from your legs, making the underwater part appear shifted and shorter."
+    }
+  ],
+  "grade": 10,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "bending-light"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/bending-light/latest/bending-light_all.html"
+  ],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

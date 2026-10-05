@@ -1,0 +1,269 @@
+{
+  "_note": "Telangana (TS SCERT) mappings for the Guided Discovery pilot are PLACEHOLDERS: scert.telangana.gov.in could not be reached on 2026-10-05 (connection failed / certificate error), so no chapter title or number is stated. Fill them from the official SCERT textbook list, then set verification_status to sourced.",
+  "records": [
+    {
+      "id": "in-map-telangana-el-separation",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-separation-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-shadows",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-shadows-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-magnets",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-magnets-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-circuit",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-circuit-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-acids-bases",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-acids-bases-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-heat-transfer",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-heat-transfer-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-force-pressure",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-force-pressure-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-friction",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-friction-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-sound",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-sound-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-density-floating",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-density-floating-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-inertia",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-inertia-lo-001",
+      "target_node_type": "LearningOutcome"
+    },
+    {
+      "id": "in-map-telangana-el-refraction",
+      "type": "StateMapping",
+      "state": "telangana",
+      "scf_code": "unstructured",
+      "textbook_chapter": null,
+      "grade": null,
+      "medium": [
+        "telugu",
+        "english",
+        "urdu"
+      ],
+      "alignment_type": "unknown",
+      "verification_status": "placeholder",
+      "source": {
+        "document": "TS SCERT Science textbooks (not yet read)",
+        "url": "https://scert.telangana.gov.in",
+        "license_tier": "tier-3-restricted"
+      },
+      "target_node_id": "in-ncf2023-science-el-refraction-lo-001",
+      "target_node_type": "LearningOutcome"
+    }
+  ]
+}

@@ -1,0 +1,782 @@
+{
+ "separation": [
+  {
+   "id": "fxt01axxxxx",
+   "title": "Separation of substances (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Separation of substances.\n0:00 Introduction\n1:00 Separation of substances explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt01bxxxxx",
+   "title": "Separation of substances experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt01cxxxxx",
+   "title": "Separation of substances for Class 6",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Separation of substances.\n0:00 Introduction\n1:00 Separation of substances explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt01dxxxxx",
+   "title": "Separation of substances quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt01exxxxx",
+   "title": "Separation of substances (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Separation of substances.\n0:00 Introduction\n1:00 Separation of substances explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt01fxxxxx",
+   "title": "REJECT Separation of substances prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "shadows": [
+  {
+   "id": "fxt02axxxxx",
+   "title": "Light and shadows (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Light and shadows.\n0:00 Introduction\n1:00 Light and shadows explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt02bxxxxx",
+   "title": "Light and shadows experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt02cxxxxx",
+   "title": "Light and shadows for Class 7",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Light and shadows.\n0:00 Introduction\n1:00 Light and shadows explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt02dxxxxx",
+   "title": "Light and shadows quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt02exxxxx",
+   "title": "Light and shadows (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Light and shadows.\n0:00 Introduction\n1:00 Light and shadows explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt02fxxxxx",
+   "title": "REJECT Light and shadows prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "magnets": [
+  {
+   "id": "fxt03axxxxx",
+   "title": "Magnets (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Magnets.\n0:00 Introduction\n1:00 Magnets explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt03bxxxxx",
+   "title": "Magnets experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt03cxxxxx",
+   "title": "Magnets for Class 6",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Magnets.\n0:00 Introduction\n1:00 Magnets explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt03dxxxxx",
+   "title": "Magnets quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt03exxxxx",
+   "title": "Magnets (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Magnets.\n0:00 Introduction\n1:00 Magnets explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt03fxxxxx",
+   "title": "REJECT Magnets prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "circuit": [
+  {
+   "id": "fxt04axxxxx",
+   "title": "A simple electric circuit (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at A simple electric circuit.\n0:00 Introduction\n1:00 A simple electric circuit explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt04bxxxxx",
+   "title": "A simple electric circuit experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt04cxxxxx",
+   "title": "A simple electric circuit for Class 7",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at A simple electric circuit.\n0:00 Introduction\n1:00 A simple electric circuit explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt04dxxxxx",
+   "title": "A simple electric circuit quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt04exxxxx",
+   "title": "A simple electric circuit (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at A simple electric circuit.\n0:00 Introduction\n1:00 A simple electric circuit explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt04fxxxxx",
+   "title": "REJECT A simple electric circuit prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "acids-bases": [
+  {
+   "id": "fxt05axxxxx",
+   "title": "Acids, bases and indicators (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Acids, bases and indicators.\n0:00 Introduction\n1:00 Acids, bases and indicators explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt05bxxxxx",
+   "title": "Acids, bases and indicators experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt05cxxxxx",
+   "title": "Acids, bases and indicators for Class 7",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Acids, bases and indicators.\n0:00 Introduction\n1:00 Acids, bases and indicators explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt05dxxxxx",
+   "title": "Acids, bases and indicators quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt05exxxxx",
+   "title": "Acids, bases and indicators (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Acids, bases and indicators.\n0:00 Introduction\n1:00 Acids, bases and indicators explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt05fxxxxx",
+   "title": "REJECT Acids, bases and indicators prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "heat-transfer": [
+  {
+   "id": "fxt06axxxxx",
+   "title": "How heat travels (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at How heat travels.\n0:00 Introduction\n1:00 How heat travels explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt06bxxxxx",
+   "title": "How heat travels experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt06cxxxxx",
+   "title": "How heat travels for Class 7",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at How heat travels.\n0:00 Introduction\n1:00 How heat travels explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt06dxxxxx",
+   "title": "How heat travels quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt06exxxxx",
+   "title": "How heat travels (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at How heat travels.\n0:00 Introduction\n1:00 How heat travels explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt06fxxxxx",
+   "title": "REJECT How heat travels prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "force-pressure": [
+  {
+   "id": "fxt07axxxxx",
+   "title": "Force and pressure (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Force and pressure.\n0:00 Introduction\n1:00 Force and pressure explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt07bxxxxx",
+   "title": "Force and pressure experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt07cxxxxx",
+   "title": "Force and pressure for Class 8",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Force and pressure.\n0:00 Introduction\n1:00 Force and pressure explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt07dxxxxx",
+   "title": "Force and pressure quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt07exxxxx",
+   "title": "Force and pressure (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Force and pressure.\n0:00 Introduction\n1:00 Force and pressure explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt07fxxxxx",
+   "title": "REJECT Force and pressure prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "friction": [
+  {
+   "id": "fxt08axxxxx",
+   "title": "Friction (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Friction.\n0:00 Introduction\n1:00 Friction explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt08bxxxxx",
+   "title": "Friction experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt08cxxxxx",
+   "title": "Friction for Class 8",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Friction.\n0:00 Introduction\n1:00 Friction explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt08dxxxxx",
+   "title": "Friction quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt08exxxxx",
+   "title": "Friction (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Friction.\n0:00 Introduction\n1:00 Friction explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt08fxxxxx",
+   "title": "REJECT Friction prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "sound": [
+  {
+   "id": "fxt09axxxxx",
+   "title": "Sound and vibration (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Sound and vibration.\n0:00 Introduction\n1:00 Sound and vibration explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt09bxxxxx",
+   "title": "Sound and vibration experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt09cxxxxx",
+   "title": "Sound and vibration for Class 9",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Sound and vibration.\n0:00 Introduction\n1:00 Sound and vibration explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt09dxxxxx",
+   "title": "Sound and vibration quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt09exxxxx",
+   "title": "Sound and vibration (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Sound and vibration.\n0:00 Introduction\n1:00 Sound and vibration explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt09fxxxxx",
+   "title": "REJECT Sound and vibration prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "density-floating": [
+  {
+   "id": "fxt10axxxxx",
+   "title": "Density and floating (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Density and floating.\n0:00 Introduction\n1:00 Density and floating explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt10bxxxxx",
+   "title": "Density and floating experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt10cxxxxx",
+   "title": "Density and floating for Class 8",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Density and floating.\n0:00 Introduction\n1:00 Density and floating explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt10dxxxxx",
+   "title": "Density and floating quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt10exxxxx",
+   "title": "Density and floating (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Density and floating.\n0:00 Introduction\n1:00 Density and floating explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt10fxxxxx",
+   "title": "REJECT Density and floating prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "inertia": [
+  {
+   "id": "fxt11axxxxx",
+   "title": "Inertia (Newton's first law) (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Inertia (Newton's first law).\n0:00 Introduction\n1:00 Inertia (Newton's first law) explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt11bxxxxx",
+   "title": "Inertia (Newton's first law) experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt11cxxxxx",
+   "title": "Inertia (Newton's first law) for Class 9",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Inertia (Newton's first law).\n0:00 Introduction\n1:00 Inertia (Newton's first law) explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt11dxxxxx",
+   "title": "Inertia (Newton's first law) quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt11exxxxx",
+   "title": "Inertia (Newton's first law) (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Inertia (Newton's first law).\n0:00 Introduction\n1:00 Inertia (Newton's first law) explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt11fxxxxx",
+   "title": "REJECT Inertia (Newton's first law) prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ],
+ "refraction": [
+  {
+   "id": "fxt12axxxxx",
+   "title": "Refraction of light (Telugu)",
+   "channel": "Test Channel a",
+   "duration": 600,
+   "description": "In this video we look at Refraction of light.\n0:00 Introduction\n1:00 Refraction of light explained\n4:30 Summary and quick quiz\n",
+   "language": "te"
+  },
+  {
+   "id": "fxt12bxxxxx",
+   "title": "Refraction of light experiment (Telugu)",
+   "channel": "Test Channel b",
+   "duration": 600,
+   "description": "A short experiment.",
+   "language": "te",
+   "fixtureSegment": {
+    "start": 40,
+    "end": 240,
+    "moments": [
+     {
+      "t": 40,
+      "label": "The set-up"
+     },
+     {
+      "t": 140,
+      "label": "What happens"
+     }
+    ]
+   }
+  },
+  {
+   "id": "fxt12cxxxxx",
+   "title": "Refraction of light for Class 10",
+   "channel": "Test Channel c",
+   "duration": 600,
+   "description": "In this video we look at Refraction of light.\n0:00 Introduction\n1:00 Refraction of light explained\n4:30 Summary and quick quiz\n",
+   "language": "en"
+  },
+  {
+   "id": "fxt12dxxxxx",
+   "title": "Refraction of light quick demo",
+   "channel": "Test Channel d",
+   "duration": 600,
+   "description": "A short demo with no chapters.",
+   "language": "en"
+  },
+  {
+   "id": "fxt12exxxxx",
+   "title": "Refraction of light (best in the world)",
+   "channel": "Test Channel e",
+   "duration": 600,
+   "description": "In this video we look at Refraction of light.\n0:00 Introduction\n1:00 Refraction of light explained\n4:30 Summary and quick quiz\n",
+   "language": "hi",
+   "best": true
+  },
+  {
+   "id": "fxt12fxxxxx",
+   "title": "REJECT Refraction of light prank video",
+   "channel": "Test Channel f",
+   "duration": 600,
+   "description": "Off topic.",
+   "language": "en"
+  }
+ ]
+}

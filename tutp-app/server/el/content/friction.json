@@ -1,0 +1,87 @@
+{
+  "id": "friction",
+  "title": "Friction",
+  "predict": {
+    "question": "You push a toy car with the same force on a rough towel and on a smooth table. What happens?",
+    "options": [
+      {
+        "text": "Car travels less distance on towel, more on smooth table",
+        "misconceptionId": null
+      },
+      {
+        "text": "Car travels the same distance on both because smooth surface has no friction",
+        "misconceptionId": "in-misc-sci-el-friction-01"
+      },
+      {
+        "text": "Car travels more on towel, less on smooth table",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 0,
+    "why": "Rough surfaces grip more and oppose sliding more strongly, slowing the car faster than a smooth surface does."
+  },
+  "experiment": null,
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "Which surface did the car stop quicker on?",
+      "Why do you think it slowed down faster there?",
+      "Does smooth really mean no friction, or just less friction?"
+    ],
+    "avoid": [
+      "Don't say 'friction is more on rough surface' before they notice it themselves"
+    ]
+  },
+  "notice": {
+    "question": "What did you see about how far the car travelled on each surface?",
+    "lookFor": "Child observes the car stops sooner on towel (rough) and goes farther on tray (smooth), noticing a difference, not an absence."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Look at where the car stopped each time, not just how it started."
+    },
+    {
+      "level": 2,
+      "text": "Compare the distance travelled on towel versus on the tray surface."
+    },
+    {
+      "level": 3,
+      "text": "The surface that stopped it quicker is pushing back against its motion more."
+    }
+  ],
+  "reveal": {
+    "explanation": "Friction is a force that acts between two touching surfaces and opposes sliding motion. Rough surfaces have more friction because their tiny bumps catch against each other. Smooth surfaces still have some friction, just less of it, which is why the car still eventually stops. The surface and texture of both objects decide how much friction there is.",
+    "term": "Friction",
+    "termMeaning": "A force between two surfaces in contact that resists their relative sliding motion."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a ball rolls farther on a smooth floor than on a carpet, using the word friction."
+  },
+  "revisits": [
+    {
+      "question": "Why is it easier to slide a box on a tiled floor than on a carpet?",
+      "answer": "Tiled floor is smoother, so it has less friction than the rough carpet."
+    },
+    {
+      "question": "Does a perfectly polished glass surface have zero friction?",
+      "answer": "No, it still has some friction, just a very small amount, not none."
+    }
+  ],
+  "grade": 8,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "friction"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/friction/latest/friction_all.html"
+  ],
+  "safety": {
+    "experiment": "dropped",
+    "reasons": [
+      "rule: forbidden word \"sharp\" in: Make sure the toy car has no small sharp edges and the table area is clear."
+    ]
+  }
+}

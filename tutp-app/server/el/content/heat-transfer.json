@@ -1,0 +1,103 @@
+{
+  "id": "heat-transfer",
+  "title": "How heat travels",
+  "predict": {
+    "question": "You put a steel spoon and a wooden spoon on a table at room temperature for an hour, then touch both. What will you feel?",
+    "options": [
+      {
+        "text": "The steel spoon feels colder than the wooden spoon",
+        "misconceptionId": "in-misc-sci-el-heat-transfer-01"
+      },
+      {
+        "text": "Both feel the same temperature, but steel feels colder because it pulls heat from your hand faster",
+        "misconceptionId": null
+      },
+      {
+        "text": "The wooden spoon feels colder than the steel spoon",
+        "misconceptionId": null
+      }
+    ],
+    "correctIndex": 1,
+    "why": "Both spoons are at the same room temperature, but steel conducts heat away from your warm hand much faster than wood, making it feel colder."
+  },
+  "experiment": {
+    "title": "Spoon touch test",
+    "items": [
+      "steel spoon",
+      "wooden spoon",
+      "plastic spoon",
+      "tray"
+    ],
+    "steps": [
+      "Place all three spoons on a tray on the table for 1 hour so they reach room temperature",
+      "Touch each spoon one by one with the same finger",
+      "Ask: which feels coldest? which feels warmest?",
+      "Now hold the steel spoon in your fist for one minute and feel it again",
+      "Notice if it feels less cold now"
+    ],
+    "adultSteps": [],
+    "note": "Make sure all spoons are at safe room temperature, not heated or chilled."
+  },
+  "parentCard": {
+    "role": "coach, do not teach",
+    "say": [
+      "Which spoon felt coldest at first touch?",
+      "Why do you think steel felt colder if they were all at the same temperature?",
+      "What happened when you held the steel spoon for a while?"
+    ],
+    "avoid": [
+      "Don't say 'steel is just naturally cold'",
+      "Don't explain conduction before they guess"
+    ]
+  },
+  "notice": {
+    "question": "What did you feel when you touched the three spoons, and how did the steel spoon feel after holding it a while?",
+    "lookFor": "Noticing steel feels coldest at first but warms up in hand, while wood stays the same, showing steel moves heat away fast."
+  },
+  "hints": [
+    {
+      "level": 1,
+      "text": "Think about how fast each material lets heat move through it."
+    },
+    {
+      "level": 2,
+      "text": "Compare how quickly your hand loses warmth to steel versus to wood."
+    },
+    {
+      "level": 3,
+      "text": "The spoon that feels colder is the one pulling heat out of your hand fastest, not the one that is actually colder."
+    }
+  ],
+  "reveal": {
+    "explanation": "Heat always flows from a hotter object to a colder one until both reach the same temperature. All three spoons were at the same room temperature, but steel lets heat flow through it much faster than wood or plastic. So steel pulls heat away from your warm hand quickly, making it feel cold, even though it isn't colder. This fast movement of heat through a solid material is called conduction.",
+    "term": "Conduction",
+    "termMeaning": "Heat transfer through direct contact, especially fast in metals."
+  },
+  "teachBack": {
+    "prompt": "Explain to a younger sibling why a steel spoon feels colder than a wooden spoon even though both are at the same temperature."
+  },
+  "revisits": [
+    {
+      "question": "Why does a metal railing feel colder than a wooden bench on a winter morning?",
+      "answer": "Metal conducts heat away from your hand faster than wood, even though both are at the same cold temperature."
+    },
+    {
+      "question": "Why do we use wooden handles on cooking pans instead of metal handles?",
+      "answer": "Wood conducts heat slowly, so the handle stays cool even when the metal pan is hot."
+    }
+  ],
+  "grade": 7,
+  "version": 1,
+  "sim": {
+    "slugs": [
+      "energy-forms-and-changes"
+    ]
+  },
+  "simUrls": [
+    "https://phet.colorado.edu/sims/html/energy-forms-and-changes/latest/energy-forms-and-changes_all.html"
+  ],
+  "safety": {
+    "experiment": "pass",
+    "reasons": []
+  }
+}

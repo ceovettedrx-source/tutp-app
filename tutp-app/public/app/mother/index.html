@@ -11,6 +11,7 @@
 <link href="/css/story-modal.css" rel="stylesheet"/>
 <link href="/css/dashboard-cards.css" rel="stylesheet"/>
 <link href="/css/baseline-survey.css" rel="stylesheet"/>
+<link href="/css/el-guided.css" rel="stylesheet"/>
 <style>
         body { background-color: #f7f9ff; color: #181c20; }
         .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
@@ -721,7 +722,7 @@
 </div>
 <div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-2">Step-by-step notes</div>
 <ol id="experientialModalNotes" class="list-decimal pl-5 space-y-2 text-[15px] text-on-surface leading-relaxed"></ol>
-<p class="text-xs text-on-surface-variant mt-4 mb-0">Video matching for this lesson isn't available yet — these are text-only notes.</p>
+<div id="experientialModalVideos"></div>
 <div class="text-center mt-5 no-print">
 <button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetExperientialModal()">↺ Try another lesson</button>
 </div>
@@ -731,6 +732,7 @@
 </div>
 <script src="/app/shared/homework-modal.js"></script>
 <script src="/app/shared/story-modal.js"></script>
+<script src="/app/shared/el-guided.js"></script>
 <script src="/app/shared/notes-card.js"></script>
 <script src="/app/shared/search-chips.js"></script>
 <script>
