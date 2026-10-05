@@ -5,6 +5,8 @@
 - Live: Answer Please + Explain Please v2 on `tutp-demo-00398-vim` (100% traffic, `ANSWER_V2_ENABLED=1`, commit 16ccee6). Main is fast-forwarded to 16ccee6 and pushed.
 - Stray revision: `tutp-demo-00292-v54` (`ANSWER_V2_ENABLED=0`, latestCreated) came from an env-change rollback run by mistake after the traffic move. It serves 0% and must NEVER get traffic. It is also the service template, so a deploy that inherits env would carry the flag at 0.
 - Fix: `deploy.sh` and the release command in CLAUDE.md now set `ANSWER_V2_ENABLED` explicitly (`=1` for a release; e2e previews use `--remove-env-vars=ANSWER_V2_ENABLED`). The one-off `scripts/release-el.ps1` was left alone (pinned to 00393).
+- Template fixed (founder-approved): `gcloud run services update --update-env-vars=ANSWER_V2_ENABLED=1` created `tutp-demo-00293-tsd` (flag 1, same image digest as 00398-vim, 0% traffic), now latestCreated; traffic read fresh is still 100% on 00398-vim.
+- 00292-v54 (flag 0) stays at 0% and must never get traffic; main is fast-forwarded to fc8a10c.
 - Correct rollback: change the env var (`gcloud run services update tutp-demo --region=us-central1 --update-env-vars ANSWER_V2_ENABLED=0`), THEN `update-traffic` to the new revision it creates (the service is pinned to a named revision, so the env change alone moves nothing). Never send traffic to 00292-v54 as it stands.
 
 ## 2026-10-05 - homework help v2: Answer Please + Explain Please (built, tested, not live)
