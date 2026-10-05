@@ -39,6 +39,7 @@ import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signC
 import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
+import * as uploads from './server/uploads.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
@@ -2568,32 +2569,83 @@ app.get('/api/stats', requireAdmin, async (req, res) => {
 });
 
 // ------------------------------------------------------------------
-// File upload — child photos, subject workbook photos. Client sends
-// base64 JSON (no multer needed); we upload to Supabase Storage
-// server-side so storage keys never reach the browser.
+// File upload (round upload-security, server/uploads.js). Client sends base64
+// JSON (no multer needed); the server checks who is asking, reads the file
+// type from the bytes, picks a random name and uploads to Supabase Storage,
+// so neither storage keys nor object names are ever the client's. Only the
+// object path is returned; reading goes through /api/files/open (signed url).
+//   family session  -> families/<family_id>/<uuid>.<ext> (a studentId must be
+//                      a child of that family)
+//   teacher session -> teachers/<teacher_id>/... (purpose: 'teacher')
+//   registration    -> registration/<phone hash>/... with a verified Firebase
+//                      token (purpose: 'registration'); /api/register moves it
 // ------------------------------------------------------------------
 app.post('/api/upload', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
-    const { filename, contentType, dataBase64 } = req.body || {};
-    if (!filename || !dataBase64) return res.status(400).json({ error: 'Missing filename or file data' });
+    const { dataBase64, studentId, purpose, regIdToken } = req.body || {};
+    let scope; let owner;
+    if (purpose === 'registration') {
+      let decoded;
+      try { decoded = await getFirebaseAuth().verifyIdToken(String(regIdToken || '')); } catch (err) { decoded = null; }
+      if (!decoded?.phone_number) return res.status(401).json({ error: 'Phone verification expired — please verify your number again.' });
+      scope = 'registration'; owner = uploads.phoneHash(decoded.phone_number);
+    } else {
+      const session = getSession(req);
+      if (!session) return sendSessionExpired(res);
+      if (purpose === 'teacher') {
+        if (!session.teacherId) return sendForbidden(res);
+        scope = 'teachers'; owner = String(session.teacherId);
+      } else {
+        if (!session.familyId) return sendForbidden(res);
+        if (studentId != null && studentId !== '' && !(await studentBelongsToSession(session, studentId))) return sendForbidden(res);
+        scope = 'families'; owner = String(session.familyId);
+      }
+    }
 
-    const buffer = Buffer.from(dataBase64, 'base64');
-    if (buffer.length > 8 * 1024 * 1024) return res.status(400).json({ error: 'File too large (max 8MB)' });
+    if (typeof dataBase64 === 'string' && dataBase64.length > Math.ceil(uploads.MAX_BYTES * 4 / 3) + 16) return res.status(413).json({ error: 'File too large (max 8MB)' });
+    const buffer = uploads.decodeBase64(dataBase64);
+    if (!buffer) return res.status(400).json({ error: 'Missing or invalid file data' });
+    if (buffer.length > uploads.MAX_BYTES) return res.status(413).json({ error: 'File too large (max 8MB)' });
+    const type = uploads.sniffType(buffer);
+    if (!type) return res.status(415).json({ error: 'Only JPEG, PNG, WebP, HEIC or PDF files can be uploaded' });
 
-    const safeName = filename.replace(/[^a-zA-Z0-9_.-]/g, '_');
-    const objectPath = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
-
-    const { error: uploadErr } = await supabase.storage
-      .from('family-uploads')
-      .upload(objectPath, buffer, { contentType: contentType || 'application/octet-stream' });
+    const objectPath = uploads.newObjectPath(scope, owner, type.ext);
+    const { error: uploadErr } = await supabase.storage.from(uploads.BUCKET).upload(objectPath, buffer, { contentType: type.mime, upsert: false });
     if (uploadErr) throw uploadErr;
-
-    const { data: pub } = supabase.storage.from('family-uploads').getPublicUrl(objectPath);
-    res.json({ ok: true, url: pub.publicUrl });
+    res.json({ ok: true, path: objectPath, url: scope === 'registration' ? null : uploads.OPEN_ROUTE + encodeURIComponent(objectPath) });
   } catch (err) {
     console.error('Upload error:', err);
-    res.status(500).json({ error: 'Could not upload file: ' + (err.message || '') });
+    res.status(500).json({ error: 'Could not upload file' });
+  }
+});
+
+// A short-lived (15 minute) signed url for one stored file, after the same
+// membership check as the upload: the path must sit under the caller's own
+// family (or teacher) folder. 302 to the url, or ?format=json for { url,
+// expiresIn }. Old bare-name objects are never opened from here (their rows
+// are signed by the route that lists them, see uploads.toReadable). ?ttl=
+// (1-120 s) exists only on an E2E_REPLAY preview and only for test families,
+// so the e2e suite can see a url expire.
+app.get('/api/files/open', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session) return sendSessionExpired(res);
+    const parsed = uploads.parseObjectPath(String(req.query.path || ''));
+    if (!parsed) return res.status(400).json({ error: 'Invalid file path' });
+    if (!uploads.canRead(session, parsed)) return sendForbidden(res);
+    let seconds = uploads.SIGNED_URL_SECONDS;
+    const ttl = Number(req.query.ttl);
+    if (process.env.E2E_REPLAY === '1' && ttl >= 1 && ttl <= 120 && await isTestFamily(session.familyId)) seconds = Math.floor(ttl);
+    let url;
+    try { url = await uploads.signPath(supabase, parsed.path, seconds); } catch (err) { return res.status(404).json({ error: 'File not found' }); }
+    res.set('Cache-Control', 'private, no-store');
+    if (req.query.format === 'json') return res.json({ url, expiresIn: seconds });
+    res.redirect(302, url);
+  } catch (err) {
+    console.error('File open error:', err);
+    res.status(500).json({ error: 'Could not open the file' });
   }
 });
 
@@ -2691,8 +2743,23 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     // A family on the e2e suite's test numbers stays out of every metric.
     if (isTestPhone(verifiedPhone)) payload.is_test = true;
     else delete payload.is_test;
+    // Only files this verified phone uploaded are kept (a client-sent url or
+    // path is dropped); they move into the family's folder below.
+    const registrationFiles = uploads.collectRegistrationFiles(payload, verifiedPhone);
     const { data, error } = await supabase.from('family_registrations').insert({ data: payload }).select('id').single();
     if (error) throw error;
+    if (registrationFiles.length) {
+      try {
+        const moved = await uploads.adoptRegistrationFiles(supabase, registrationFiles, data.id);
+        if (Object.keys(moved).length) {
+          const { error: moveErr } = await supabase.from('family_registrations')
+            .update({ data: uploads.rewriteRegistrationFiles(payload, moved) }).eq('id', data.id);
+          if (moveErr) console.error('Could not save moved registration file paths (registration itself still succeeded):', moveErr.message);
+        }
+      } catch (err) {
+        console.error('Could not move registration files (registration itself still succeeded):', err.message);
+      }
+    }
 
     // Best-effort: the registration itself is already saved above, so a
     // students/family_members-table hiccup here shouldn't fail the whole signup.
@@ -5703,6 +5770,17 @@ app.post('/api/homework-assignments', async (req, res) => {
     const allowed = (sections || []).some(cs => normText(cs.grade) === normText(grade) && normText(cs.section) === normText(section));
     if (!allowed) return res.status(403).json({ error: 'You are not registered to teach this grade/section' });
 
+    // The attachment must be a file this teacher uploaded (teachers/<their id>/...).
+    let attachmentPath = null;
+    if (attachmentUrl) {
+      const kind = uploads.storedKind(String(attachmentUrl), process.env.SUPABASE_URL);
+      const parsed = kind.kind === 'path' ? uploads.parseObjectPath(kind.path) : null;
+      if (!parsed || parsed.scope !== 'teachers' || parsed.owner !== String(teacher_id)) {
+        return res.status(400).json({ error: 'Invalid attachment — please attach the file again' });
+      }
+      attachmentPath = parsed.path;
+    }
+
     const { data, error } = await supabase.from('homework').insert({
       teacher_id,
       grade: String(grade).trim().slice(0, 40),
@@ -5710,7 +5788,7 @@ app.post('/api/homework-assignments', async (req, res) => {
       subject: subject ? String(subject).trim().slice(0, 60) : null,
       title: String(title).trim().slice(0, 200),
       description: description ? String(description).trim().slice(0, 4000) : null,
-      attachment_url: attachmentUrl || null
+      attachment_url: attachmentPath
     }).select('id').single();
     if (error) throw error;
 
@@ -5841,9 +5919,12 @@ async function homeworkForStudent(student) {
   if (statusErr) throw statusErr;
   const doneSet = new Set((statuses || []).filter(s => s.is_done).map(s => s.homework_id));
 
-  return matched.map(h => ({
+  // attachment_url holds an object path (new rows) or an old public url; the
+  // reader gets a 15 minute signed url either way (server/uploads.js).
+  const signed = await Promise.all(matched.map(h => uploads.toReadable(supabase, h.attachment_url, process.env.SUPABASE_URL)));
+  return matched.map((h, i) => ({
     id: h.id, subject: h.subject, title: h.title, description: h.description,
-    attachment_url: h.attachment_url, created_at: h.created_at,
+    attachment_url: signed[i], created_at: h.created_at,
     teacher_name: teacherNameById[h.teacher_id] || null, is_done: doneSet.has(h.id)
   })).sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 }

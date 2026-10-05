@@ -322,11 +322,11 @@
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, dataBase64: dataUrl.split(',')[1] })
+        body: JSON.stringify({ purpose: 'teacher', dataBase64: dataUrl.split(',')[1] })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || 'Upload failed');
-      attachmentUrl = data.url;
+      attachmentUrl = data.path;
       statusEl.textContent = '✓ ' + file.name + ' attached';
     } catch (err) {
       statusEl.textContent = 'Could not attach that file — please try again.';
