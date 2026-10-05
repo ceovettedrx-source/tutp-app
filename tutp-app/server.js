@@ -40,6 +40,7 @@ import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import * as uploads from './server/uploads.js';
+import { isHeic, heicToJpeg } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
@@ -2604,11 +2605,18 @@ app.post('/api/upload', async (req, res) => {
     }
 
     if (typeof dataBase64 === 'string' && dataBase64.length > Math.ceil(uploads.MAX_BYTES * 4 / 3) + 16) return res.status(413).json({ error: 'File too large (max 8MB)' });
-    const buffer = uploads.decodeBase64(dataBase64);
+    let buffer = uploads.decodeBase64(dataBase64);
     if (!buffer) return res.status(400).json({ error: 'Missing or invalid file data' });
     if (buffer.length > uploads.MAX_BYTES) return res.status(413).json({ error: 'File too large (max 8MB)' });
-    const type = uploads.sniffType(buffer);
+    let type = uploads.sniffType(buffer);
     if (!type) return res.status(415).json({ error: 'Only JPEG, PNG, WebP, HEIC or PDF files can be uploaded' });
+    // HEIC is converted to JPEG here, so no HEIC file is ever stored (server/lib/heic.js).
+    if (type.ext === 'heic') {
+      const jpeg = await heicToJpeg(buffer);
+      if (!jpeg.ok) return res.status(415).json({ error: jpeg.message, code: 'heic_' + jpeg.reason });
+      buffer = jpeg.buffer;
+      type = { mime: 'image/jpeg', ext: 'jpg' };
+    }
 
     const objectPath = uploads.newObjectPath(scope, owner, type.ext);
     const { error: uploadErr } = await supabase.storage.from(uploads.BUCKET).upload(objectPath, buffer, { contentType: type.mime, upsert: false });
@@ -5807,7 +5815,11 @@ app.get('/api/teacher/:id/homework-assignments', async (req, res) => {
     const { data, error } = await supabase.from('homework')
       .select('*').eq('teacher_id', req.params.id).order('created_at', { ascending: false });
     if (error) throw error;
-    res.json({ homework: data || [] });
+    // attachment_url holds an object path or an old public url; this teacher
+    // (checked above) gets a 15 minute signed url for it (server/uploads.js).
+    const rows = data || [];
+    const signed = await Promise.all(rows.map(h => uploads.toReadable(supabase, h.attachment_url, process.env.SUPABASE_URL)));
+    res.json({ homework: rows.map((h, i) => ({ ...h, attachment_url: signed[i] })) });
   } catch (err) {
     console.error('Get teacher homework error:', err);
     res.status(500).json({ error: 'Could not fetch homework' });
@@ -6466,6 +6478,15 @@ app.post('/api/homework', async (req, res) => {
     const session = await requireOwnStudent(req, res, studentId);
     if (!session) return;
     timer.mark('auth');
+    // A HEIC file (whatever type the browser claimed) is turned into JPEG before
+    // the model sees it; if that can't be done the parent gets a clear message.
+    for (const a of attachments) {
+      if (!isHeic(Buffer.from(a.base64.slice(0, 64), 'base64'))) continue;
+      const jpeg = await heicToJpeg(Buffer.from(a.base64, 'base64'));
+      if (!jpeg.ok) return res.status(415).json({ error: jpeg.message, code: 'heic_' + jpeg.reason });
+      a.mediaType = 'image/jpeg';
+      a.base64 = jpeg.buffer.toString('base64');
+    }
 
     const feature = body.feature === undefined ? FEATURES.HOMEWORK_HELP : body.feature;
     if (!PROMPT_FEATURES.includes(feature)) {

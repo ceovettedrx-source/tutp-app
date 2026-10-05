@@ -2,6 +2,7 @@
 // Pure helpers and the storage calls; the routes and the session checks live in
 // server.js. Nothing here trusts a client-sent name, type or path.
 import crypto from 'crypto';
+import { signedUrl } from './lib/signed-url.js';
 
 export const BUCKET = 'family-uploads';
 export const MAX_BYTES = 8 * 1024 * 1024;
@@ -83,10 +84,13 @@ export function storedKind(value, supabaseUrl) {
   return { kind: 'other' };
 }
 
+// Signing is done by the one shared helper (server/lib/signed-url.js); it logs
+// and returns null on any failure, which becomes a throw here so callers keep
+// their "could not sign" branches.
 export async function signPath(supabase, objectPath, seconds = SIGNED_URL_SECONDS) {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(objectPath, seconds);
-  if (error || !data?.signedUrl) throw error || new Error('no signed url');
-  return data.signedUrl;
+  const url = await signedUrl(supabase, BUCKET, objectPath, seconds);
+  if (!url) throw new Error('could not sign ' + BUCKET + ' object');
+  return url;
 }
 
 // A stored value as a link a reader can use now. New paths and old public urls

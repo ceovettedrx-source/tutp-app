@@ -22,6 +22,8 @@
 //      only) stops working after 5 s
 //   u5 home page attach: no /api/upload request, the file waits in
 //      sessionStorage, and after login the dashboard opens it in the modal
+//   u6 HEIC: stored as a JPEG (signed url, jpeg bytes); a too-large HEIC gets
+//      a clear 415 on /api/upload and on /api/homework (no model call)
 //
 // Output: tests/e2e/output/uploads-results.json, FAIL_<test>.png. Exit 1 on
 // any failure.
@@ -176,6 +178,30 @@ const open = (page, p, q = '') => api(page, 'GET', '/api/files/open?format=json&
       const red = await pageA.evaluate(async (p) => { const x = await fetch(p, { redirect: 'manual' }); return { type: x.type }; }, '/api/files/open?path=' + encodeURIComponent(pathA));
       eq(red.type, 'opaqueredirect', 'redirect form');
       return `expired after 5.5 s (late status ${late.status})`;
+    }, pageA);
+
+    await record('u6', 'HEIC is converted to JPEG before it is stored; a too-large or broken one gets a clear message', async () => {
+      const heic = fs.readFileSync(path.join(__dirname, '..', 'fixtures', 'sample.heic'));
+      const ok = await upload(pageA, { dataBase64: heic.toString('base64'), contentType: 'image/heic' });
+      eq(ok.status, 200, 'heic upload');
+      if (!new RegExp(`^families/${meA.familyId}/[0-9a-f-]{36}\\.jpg$`).test(ok.body.path)) throw new Error('stored as ' + ok.body.path);
+      const r = await open(pageA, ok.body.path);
+      const file = await fetch(r.body.url);
+      eq(file.status, 200, 'signed url');
+      eq(file.headers.get('content-type'), 'image/jpeg', 'content type');
+      eq(Buffer.from(await file.arrayBuffer()).subarray(0, 3).toString('hex'), 'ffd8ff', 'jpeg bytes');
+      const big = Buffer.from(heic);
+      const at = big.indexOf('ispe', 0, 'latin1');
+      big.writeUInt32BE(20000, at + 8); big.writeUInt32BE(20000, at + 12);
+      const huge = await upload(pageA, { dataBase64: big.toString('base64') });
+      eq(huge.status, 415, 'too large heic');
+      eq(huge.body.code, 'heic_too_large', 'code');
+      if (!/take it again|smaller/i.test(huge.body.error)) throw new Error('message: ' + huge.body.error);
+      // the model route turns HEIC bytes into JPEG too (even when they claim image/jpeg); a refusal never reaches the model
+      const hw = await api(pageA, 'POST', '/api/homework', { studentId: meA.children[0].id, text: 'help', attachments: [{ mediaType: 'image/jpeg', base64: big.toString('base64') }] });
+      eq(hw.status, 415, 'homework with a too-large heic');
+      eq(hw.body.code, 'heic_too_large', 'homework code');
+      return ok.body.path + ' (jpeg)';
     }, pageA);
 
     await ctxA.close(); await ctxB.close();

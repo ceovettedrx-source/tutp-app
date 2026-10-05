@@ -69,13 +69,14 @@ test('who may read: only the owner family or teacher; registration files never',
 });
 
 const SB = 'https://abcd.supabase.co';
-const legacy = `${SB}/storage/v1/object/public/family-uploads/1759000000000-k3j9x2-my%20photo.jpg`;
+const legacy = `${SB}/storage/v1/object/public/family-uploads/1759000000000-k3j9x2-my_photo.jpg`;
 
 test('old public urls are recognised (same project only) and decoded', () => {
-  assert.equal(u.legacyPathFromUrl(legacy, SB), '1759000000000-k3j9x2-my photo.jpg');
+  assert.equal(u.legacyPathFromUrl(legacy, SB), '1759000000000-k3j9x2-my_photo.jpg');
+  assert.equal(u.legacyPathFromUrl(legacy.replace('my_photo', 'my%20photo'), SB), '1759000000000-k3j9x2-my photo.jpg');
   assert.equal(u.legacyPathFromUrl(legacy.replace('abcd', 'evil'), SB), null);
   assert.equal(u.legacyPathFromUrl('https://example.com/a.jpg', SB), null);
-  assert.deepEqual(u.storedKind(legacy, SB), { kind: 'legacy', path: '1759000000000-k3j9x2-my photo.jpg' });
+  assert.deepEqual(u.storedKind(legacy, SB), { kind: 'legacy', path: '1759000000000-k3j9x2-my_photo.jpg' });
   assert.deepEqual(u.storedKind(`families/16/${UUID}.png`, SB), { kind: 'path', path: `families/16/${UUID}.png` });
   assert.deepEqual(u.storedKind(u.OPEN_ROUTE + encodeURIComponent(`families/16/${UUID}.png`), SB), { kind: 'path', path: `families/16/${UUID}.png` });
   assert.equal(u.storedKind('https://example.com/a.jpg', SB).kind, 'other');
@@ -96,12 +97,22 @@ function fakeSupabase({ fail = false } = {}) {
 test('old public-url rows and new paths become 15 minute signed urls', async () => {
   const sb = fakeSupabase();
   const a = await u.toReadable(sb, legacy, SB);
-  assert.match(a, /\/object\/sign\/family-uploads\/1759000000000-k3j9x2-my photo\.jpg\?token=/);
+  assert.match(a, /\/object\/sign\/family-uploads\/1759000000000-k3j9x2-my_photo\.jpg\?token=/);
   const b = await u.toReadable(sb, `teachers/${UUID}/${UUID}.pdf`, SB);
   assert.match(b, /\/object\/sign\//);
   assert.deepEqual(sb.calls.map(c => c.s), [900, 900]);
   assert.equal(await u.toReadable(sb, null, SB), null);
   assert.equal(await u.toReadable(sb, 'https://example.com/a.jpg', SB), 'https://example.com/a.jpg');
+});
+
+test('signing goes through the shared helper: a name it refuses is never signed', async () => {
+  // the old uploader always replaced characters outside [A-Za-z0-9_.-] with "_",
+  // so a real old name is accepted; a name with a space is refused by safeObjectPath
+  const sb = fakeSupabase();
+  const odd = legacy.replace('my_photo', 'my%20photo');
+  assert.equal(await u.toReadable(sb, odd, SB), odd);
+  assert.deepEqual(sb.calls, []);
+  await assert.rejects(() => u.signPath(sb, '../x.jpg'));
 });
 
 test('a signing failure keeps an old public url working and hides a new path', async () => {
