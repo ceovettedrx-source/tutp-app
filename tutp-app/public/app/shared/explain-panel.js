@@ -259,7 +259,7 @@
         panel.appendChild(l);
         window.TutpAnswerStudentId = ctx.studentId;
         api('/api/explain-please', {
-            studentId: ctx.studentId, question: q.q_text, qType: q.q_type, subject: ctx.subject || '',
+            studentId: ctx.studentId, question: q.context || q.q_text, qType: q.q_type, subject: ctx.subject || '',
             language: ctx.language, concept_key: q.concept_key || undefined, concept_sig: q.concept_sig || undefined
         }).then(function (r) {
             if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || ('Server returned ' + r.status)); });

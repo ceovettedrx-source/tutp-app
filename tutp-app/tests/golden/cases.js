@@ -35,4 +35,16 @@ export const CASES = [
     expect: [{ q: 1, value: 20, unit: /మీ\s*\/\s*సె|m\s*\/\s*s/i }], types: { 1: 'numerical' } },
   { id: 'g10-c10-bio-en-ts', cls: 'Class 10', board: 'state', subject: 'biology', lang: 'English', script: 'latin',
     text: 'Differentiate between aerobic and anaerobic respiration. (4 marks)', expect: [], types: { 1: 'difference' } },
+  // Content pages: school text with NO questions (2026-10-06 regression). The
+  // answer must be status ok, mode content, idea cards about the page, and
+  // Explain must work on the first card. `about` must appear in the cards.
+  { id: 'g11-c7-textbook-en-cbse', cls: 'Class 7', board: 'cbse', subject: 'science', lang: 'English', script: 'latin', content: true, about: /photosynthesis|chlorophyll/i,
+    text: 'CHAPTER 1 Nutrition in plants. Photosynthesis. Green plants make their own food in the leaves by a process called photosynthesis. The plant takes in carbon dioxide from the air through tiny pores called stomata and water from the soil. The green pigment chlorophyll traps energy from sunlight. The leaf changes carbon dioxide and water into glucose and releases oxygen. Extra glucose is stored as starch.',
+    expect: [] },
+  { id: 'g12-c6-notebook-en-ts', cls: 'Class 6', board: 'state', subject: 'science', lang: 'English', script: 'latin', content: true, about: /water cycle|evaporat|condensat/i,
+    text: 'The Water Cycle. Evaporation: sun heats water in seas and rivers, it becomes vapour. Condensation: vapour rises, cools and forms tiny drops = clouds. Precipitation: drops get heavy and fall as rain, hail or snow. Collection: water flows into rivers, lakes and sea again.',
+    expect: [] },
+  { id: 'g13-c7-textbook-te-ts', cls: 'Class 7', board: 'state', subject: 'biology', lang: 'Telugu', script: 'telugu', content: true, about: /కిరణజన్య|పత్రహరితం|క్లోరోఫిల్/,
+    text: 'కిరణజన్య సంయోగక్రియ. ఆకుపచ్చ మొక్కలు తమ ఆహారాన్ని తామే తయారు చేసుకుంటాయి. ఆకులలోని పత్రహరితం (క్లోరోఫిల్) సూర్యకాంతి శక్తిని గ్రహిస్తుంది. మొక్క గాలి నుండి కార్బన్ డయాక్సైడ్ ను, నేల నుండి నీటిని తీసుకుని గ్లూకోజ్ ను తయారు చేసి ఆక్సిజన్ ను విడుదల చేస్తుంది.',
+    expect: [] },
 ];

@@ -40,7 +40,7 @@ import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import * as uploads from './server/uploads.js';
-import { isHeic, heicToJpeg } from './server/lib/heic.js';
+import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
@@ -6425,6 +6425,7 @@ function isValidHomeworkContentBlock(block) {
 }
 
 const HOMEWORK_ATTACHMENT_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+const HEIC_CLAIMED_TYPES = ['image/heic', 'image/heif'];
 const HOMEWORK_MAX_TEXT = 4000;
 
 // What the parent typed and attached. Current pages send
@@ -6472,7 +6473,9 @@ app.post('/api/homework', async (req, res) => {
     if (attachments.length > 2) {
       return res.status(400).json({ error: 'At most 2 photo/PDF attachments are allowed per request.' });
     }
-    if (!attachments.every(a => HOMEWORK_ATTACHMENT_TYPES.includes(a.mediaType) && typeof a.base64 === 'string' && a.base64.length > 0)) {
+    // image/heic and image/heif are accepted here only so the conversion below
+    // can run; none of them ever reaches the model.
+    if (!attachments.every(a => (HOMEWORK_ATTACHMENT_TYPES.includes(a.mediaType) || HEIC_CLAIMED_TYPES.includes(a.mediaType)) && typeof a.base64 === 'string' && a.base64.length > 0)) {
       return res.status(400).json({ error: 'Invalid attachment' });
     }
     const session = await requireOwnStudent(req, res, studentId);
@@ -6481,11 +6484,15 @@ app.post('/api/homework', async (req, res) => {
     // A HEIC file (whatever type the browser claimed) is turned into JPEG before
     // the model sees it; if that can't be done the parent gets a clear message.
     for (const a of attachments) {
-      if (!isHeic(Buffer.from(a.base64.slice(0, 64), 'base64'))) continue;
-      const jpeg = await heicToJpeg(Buffer.from(a.base64, 'base64'));
-      if (!jpeg.ok) return res.status(415).json({ error: jpeg.message, code: 'heic_' + jpeg.reason });
-      a.mediaType = 'image/jpeg';
-      a.base64 = jpeg.buffer.toString('base64');
+      if (isHeic(Buffer.from(a.base64.slice(0, 64), 'base64'))) {
+        const jpeg = await heicToJpeg(Buffer.from(a.base64, 'base64'));
+        if (!jpeg.ok) return res.status(415).json({ error: jpeg.message, code: 'heic_' + jpeg.reason });
+        a.mediaType = 'image/jpeg';
+        a.base64 = jpeg.buffer.toString('base64');
+      } else if (HEIC_CLAIMED_TYPES.includes(a.mediaType)) {
+        // Claimed HEIC but the bytes are not: never forward that type to the model.
+        return res.status(415).json({ error: HEIC_MESSAGES.failed, code: 'heic_failed' });
+      }
     }
 
     const feature = body.feature === undefined ? FEATURES.HOMEWORK_HELP : body.feature;

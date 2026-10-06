@@ -123,6 +123,15 @@ await render({ schema: 2, status: 'unreadable', questions: [] });
 check('h25 unreadable photo: asks for a clearer photo, no cards', /another photo/.test(await page.locator('.ae-msg').textContent()) && (await page.locator('.ae-card').count()) === 0);
 await render({ schema: 2, status: 'not_homework', questions: [] });
 check('h26 non-academic photo: says so, no cards', /does not look like/.test(await page.locator('.ae-msg').textContent()) && (await page.locator('.ae-card').count()) === 0);
+await render({ schema: 2, status: 'unreadable', questions: [], retake_text: 'Please retake the photo closer, flat and sharp.' });
+check('h28 unreadable shows the retake request the model wrote', /retake the photo closer/.test(await page.locator('.ae-msg').textContent()) && (await page.locator('.ae-card').count()) === 0);
+await render({
+  schema: 2, status: 'ok', mode: 'content', subject: 'Science', page_text: 'Green plants make food by photosynthesis.',
+  questions: [{ q_text: 'Photosynthesis', q_type: 'short', marks: null, blocks: [{ type: 'text', text: 'Plants make food from sunlight, water and carbon dioxide.' }], keywords: [], diagram: null, unit_direction_note: '', script: 'latin', context: 'Photosynthesis: Plants make food.', concept_key: 'c7-science-photosynthesis', concept_sig: 'x' }],
+  extracted_questions: [], concept_explanation: 'Green plants make food by photosynthesis.',
+});
+check('h29 content page: an idea card with no marks, no "check the answer" box', (await page.locator('.ae-card').count()) === 1 && /Idea 1/.test(await page.locator('.ae-qno').textContent()) && (await page.locator('.ae-marks').count()) === 0 && (await page.locator('.ae-soon').count()) === 0);
+check('h30 content page: the Explain button is there', (await page.locator('.ae-cta button', { hasText: 'Explain' }).count()) === 1);
 const xss = JSON.parse(JSON.stringify(g7.ans.answer));
 xss.questions[0].q_text = '<img src=x onerror="window.pwned=1"> question';
 xss.questions[0].diagram = { template: 'flow_steps', svg: '<svg xmlns="http://www.w3.org/2000/svg" onload="window.pwned=2"><script>window.pwned=3</script></svg>' };

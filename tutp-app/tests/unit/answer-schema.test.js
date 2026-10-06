@@ -133,3 +133,58 @@ test('the answer prompt: language rules, board, batch range, box rule only with 
   assert.match(batch, /questions 5 to 8/);
   assert.match(batch, /Show on photo/);
 });
+
+// A page with no questions (textbook, notebook notes): content mode, 2026-10-06.
+const contentReply = () => ({
+  status: 'ok', mode: 'content', subject: 'Science',
+  page_text: 'Green plants make their own food in the leaves by photosynthesis, using sunlight, water and carbon dioxide.',
+  concepts: [
+    { title: 'Photosynthesis', summary: 'Plants make food from sunlight, water and carbon dioxide.', concept_key: 'C7-Science Photosynthesis' },
+    { title: 'Chlorophyll', summary: 'The green pigment that traps sunlight.', concept_key: 'c7-science-chlorophyll' },
+  ],
+});
+
+test('a content page is ok: idea cards, page text for the notes, no extracted questions', () => {
+  const r = validateAnswer(contentReply());
+  assert.equal(r.ok, true);
+  const a = r.answer;
+  assert.equal(a.status, 'ok');
+  assert.equal(a.mode, 'content');
+  assert.equal(a.questions.length, 2);
+  assert.equal(a.questions[0].q_text, 'Photosynthesis');
+  assert.equal(a.questions[0].marks, null);
+  assert.equal(a.questions[0].concept_key, 'c7-science-photosynthesis');
+  assert.match(a.questions[0].context, /^Photosynthesis: Plants make food/);
+  assert.equal(a.questions[0].blocks[0].type, 'text');
+  assert.deepEqual(a.extracted_questions, []);
+  assert.match(a.concept_explanation, /photosynthesis/);
+});
+
+test('a content page with text but no usable idea still gets one card; with neither it is invalid', () => {
+  const r = validateAnswer({ status: 'ok', mode: 'content', subject: 'Science', page_text: 'The water cycle: evaporation, condensation, precipitation.', concepts: [{ title: '' }] });
+  assert.equal(r.ok, true);
+  assert.equal(r.answer.questions.length, 1);
+  assert.equal(validateAnswer({ status: 'ok', mode: 'content', concepts: [] }).ok, false);
+});
+
+test('a content page is never merged with a second batch', () => {
+  const a = validateAnswer(contentReply()).answer;
+  const b = validateAnswer(contentReply()).answer;
+  assert.equal(mergeAnswers([a, b]).questions.length, 2);
+});
+
+test('unreadable keeps the retake request written in the parent language', () => {
+  const r = validateAnswer({ status: 'unreadable', questions: [], retake_text: 'దయచేసి ఫోటోను దగ్గరగా మళ్లీ తీయండి.' });
+  assert.equal(r.answer.status, 'unreadable');
+  assert.match(r.answer.retake_text, /ఫోటో/);
+});
+
+test('the answer prompt accepts any school page and only refuses clearly non-school pictures', () => {
+  const { system } = buildHomeworkRequest({ feature: 'answer_v2', lang: 'English', childContext: 'Asha · Class 7', text: '', attachments: [], photos: [], extra: { board: 'cbse', range: null } });
+  assert.match(system, /textbook page, a page of notebook notes/);
+  assert.match(system, /"mode":"content"/);
+  assert.match(system, /ONLY a picture that is clearly not school material/);
+  assert.match(system, /retake_text/);
+  const batch2 = buildHomeworkRequest({ feature: 'answer_v2', lang: 'English', childContext: 'x', text: '', attachments: [], photos: [], extra: { board: 'cbse', range: { from: 5, to: 8 } } }).system;
+  assert.match(batch2, /another call reads that page/);
+});

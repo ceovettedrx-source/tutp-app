@@ -56,7 +56,7 @@ export async function runCase(c, { mode = 'replay' } = {}) {
   if (ans.kind === 'ok' && ans.answer.questions.length) {
     const q = ans.answer.questions[0];
     const exSystem = explainPrompt({ lang: c.lang, childContext, board: c.board, subject: c.subject, qType: q.q_type, conceptKey: q.concept_key });
-    const baseContent = [{ type: 'text', text: explainUserText(q.q_text) }];
+    const baseContent = [{ type: 'text', text: explainUserText(q.context || q.q_text) }];
     let attempts = 0;
     const callEx = async (hint) => {
       const r = await callClaude({ feature: 'explain_v2', variant: c.lang, attempt: ++attempts, mode, recordings, cost, body: explainRequestBody({ system: exSystem, content: baseContent, hint }) });
@@ -85,6 +85,16 @@ export function checkCase(c, run) {
   if (a.status !== 'ok') return { failures: [`answer status ${a.status}`] };
   const qs = a.questions;
   if (!qs.length) failures.push('no questions');
+  if (c.content) {
+    // A page with no questions: idea cards and page text, nothing marked or keyworded.
+    if (a.mode !== 'content') failures.push(`mode ${a.mode}, expected content`);
+    if (!a.concept_explanation) failures.push('no page text for the notes');
+    if (a.extracted_questions.length) failures.push('content page has extracted questions');
+    if (c.about && !c.about.test(JSON.stringify(qs))) failures.push('cards do not mention the page');
+    qs.forEach((q, i) => { const s = scriptOf(q.q_text + ' ' + q.context); if (s !== c.script) failures.push(`idea ${i + 1}: script ${s}, expected ${c.script}`); });
+    if (!explain) failures.push('explain: ' + (run.explainIssues.join('; ') || 'none'));
+    return { failures };
+  }
   for (const e of c.expect) {
     const q = qs[e.q - 1];
     if (!q) { failures.push(`q${e.q}: missing`); continue; }

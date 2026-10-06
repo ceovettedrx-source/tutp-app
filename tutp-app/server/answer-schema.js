@@ -107,6 +107,45 @@ function compatReasoning(blocks, note) {
   return (why && why.why_text) || note || '';
 }
 
+// A page that teaches but has no questions (textbook text, notebook notes).
+// Each main idea becomes a card shaped like a question (q_text = the idea's
+// name, one text block = its summary, `context` = what Explain is asked about)
+// so the page's cards, Explain buttons and concept signing work unchanged.
+// `concept_explanation` carries the page text, which is what Notes please
+// builds from; `extracted_questions` stays empty, so notes never fall back to
+// the idea names.
+const MAX_PAGE_TEXT = 1400;
+function validateContent(raw, subject) {
+  const pageText = str(raw.page_text, MAX_PAGE_TEXT);
+  const list = (Array.isArray(raw.concepts) ? raw.concepts : []).slice(0, 4);
+  const questions = [];
+  for (const c of list) {
+    const title = str(c && c.title, 200), summary = str(c && c.summary, 600);
+    if (!title || !summary) continue;
+    questions.push({
+      q_text: title, q_type: 'short', marks: null,
+      blocks: [{ type: 'text', text: summary }], keywords: [], diagram: null, unit_direction_note: '',
+      script: scriptOf(title + ' ' + summary), context: (title + ': ' + summary).slice(0, 800),
+      concept_key: normalizeConceptKey(c.concept_key),
+    });
+  }
+  if (!questions.length && !pageText) return { ok: false, issues: ['a content page needs "concepts" (title and summary each) or "page_text"'] };
+  if (!questions.length) {
+    // Text but no usable idea: one card from the text itself, so Explain still works.
+    const t = pageText.slice(0, 200);
+    questions.push({
+      q_text: subject || t.slice(0, 60), q_type: 'short', marks: null,
+      blocks: [{ type: 'text', text: t }], keywords: [], diagram: null, unit_direction_note: '',
+      script: scriptOf(pageText), context: pageText.slice(0, 800), concept_key: '',
+    });
+  }
+  return { ok: true, fixed: 0, answer: {
+    schema: 2, status: 'ok', mode: 'content', subject, questions, page_text: pageText,
+    extracted_questions: [], concept_explanation: pageText || questions.map((q) => q.context).join(' ').slice(0, MAX_PAGE_TEXT),
+    aditiApplicable: false, aditiHook: null,
+  } };
+}
+
 // raw: the parsed model JSON. opts: { board, photos: [{ index, width, height }] }
 // allowEmpty: a batch (questions 5-8) may have no questions at all.
 export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty = false } = {}) {
@@ -116,8 +155,10 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
   if (!ANSWER_STATUSES.includes(status)) return { ok: false, issues: [`status must be one of ${ANSWER_STATUSES.join(', ')}`] };
   const subject = str(raw.subject, 60);
   if (status !== 'ok') {
-    return { ok: true, fixed: 0, answer: { schema: 2, status, mode: 'questions', subject, questions: [], extracted_questions: [] } };
+    const retake = status === 'unreadable' ? str(raw.retake_text, 300) : '';
+    return { ok: true, fixed: 0, answer: { schema: 2, status, mode: 'questions', subject, questions: [], extracted_questions: [], ...(retake ? { retake_text: retake } : {}) } };
   }
+  if (raw.mode === 'content') return validateContent(raw, subject);
   const all = Array.isArray(raw.questions) ? raw.questions : null;
   if (all && !all.length && allowEmpty) {
     const more = Number.isInteger(raw.more_questions) && raw.more_questions > 0 && raw.more_questions < 1000 ? { more_questions: raw.more_questions } : {};
@@ -184,7 +225,7 @@ export function answerCorrectionHint(issues) {
 // that has one; a status other than "ok" in the first batch wins.
 export function mergeAnswers(list) {
   const first = list[0];
-  if (!first || first.status !== 'ok') return first;
+  if (!first || first.status !== 'ok' || first.mode === 'content') return first;
   const questions = list.flatMap((a) => a.questions || []).slice(0, MAX_QUESTIONS);
   const more = list.reduce((n, a) => n + (a.more_questions || 0), 0) + Math.max(0, list.flatMap((a) => a.questions || []).length - MAX_QUESTIONS);
   return {

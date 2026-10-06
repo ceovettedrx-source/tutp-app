@@ -170,8 +170,9 @@
         var c = el('article', 'ae-card');
         c.dataset.qi = String(index);
         var head = el('div', 'ae-head');
-        head.appendChild(el('span', 'ae-qno', 'Question ' + (index + 1)));
-        head.appendChild(el('span', 'ae-marks', q.marks + (q.marks === 1 ? ' mark' : ' marks')));
+        // A content page (no questions) has one card per main idea, no marks.
+        head.appendChild(el('span', 'ae-qno', (ctx.mode === 'content' ? 'Idea ' : 'Question ') + (index + 1)));
+        if (q.marks != null) head.appendChild(el('span', 'ae-marks', q.marks + (q.marks === 1 ? ' mark' : ' marks')));
         c.appendChild(head);
         var qt = el('p', 'ae-qtext', q.q_text);
         qt.dataset.script = q.script || 'latin';
@@ -276,19 +277,21 @@
         area.innerHTML = '';
         area.classList.add('ae-root');
         if (parsed.status === 'unreadable') {
-            area.appendChild(message('We could not read this photo clearly enough to answer it. Please take another photo in good light, with the whole page in the frame and the camera held steady.'));
+            // The model writes the retake request in the parent's language.
+            area.appendChild(message(parsed.retake_text || 'We could not read this photo clearly enough to answer it. Please take another photo in good light, with the whole page in the frame and the camera held steady.'));
             return;
         }
         if (parsed.status === 'not_homework') {
-            area.appendChild(message('This does not look like a homework or exam question. Please attach a photo of the question page, or type the question.'));
+            area.appendChild(message('This does not look like school work. Please attach a photo of the question page, the textbook page or the notebook page, or type the question.'));
             return;
         }
         var qs = parsed.questions || [];
         ctx.subject = parsed.subject || '';
+        ctx.mode = parsed.mode === 'content' ? 'content' : 'questions';
         ensureFonts(qs.map(function (q) { return q.script; }).filter(Boolean));
         qs.forEach(function (q, i) { area.appendChild(card(q, i, ctx)); });
         if (parsed.more_questions) area.appendChild(message('There are ' + parsed.more_questions + ' more question(s) on this homework than shown here. Send the rest in another photo.'));
-        area.appendChild(comingSoon(ctx));
+        if (ctx.mode !== 'content') area.appendChild(comingSoon(ctx));
     }
 
     window.TutpAnswer = { render: render, ensureFonts: ensureFonts, post: post, el: el, btn: btn, diagramNode: diagramNode };
