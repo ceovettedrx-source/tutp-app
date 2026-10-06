@@ -1,5 +1,22 @@
 # Changes explained
 
+## 2026-10-06 - upload security v2 (built, tested, not live)
+
+**What changed**
+- Upload security (2026-10-04 entry below) is merged with homework help v2 and everything else on main. One helper, `server/lib/signed-url.js`, now signs every file link; `server/uploads.js` no longer has its own signing.
+- A photo taken on an iPhone (HEIC) is turned into a JPEG on the server before it is stored or sent to the model. If it cannot be converted (too large or broken) the parent sees a clear message and no model call is made.
+- The teacher homework list shows 15 minute signed links, also for old rows that still hold a public link. No read path returns a public family-uploads link any more.
+- `scripts/storage/count-public-urls.sql` is one read-only query: per table and column, how many rows still hold a public family-uploads link, plus the number of objects in the bucket. Vet runs it in the Supabase SQL editor before and after making the bucket private.
+
+**What is live**
+- Live now: homework help v2 on `00398-vim` (commit 16ccee6, `ANSWER_V2_ENABLED=1`). Nothing of this round is live; traffic has not moved.
+- Release revision: `tutp-demo-00404-xab`, tag `upsec2`, 0 percent, label git-sha 0b5ff7a, `ANSWER_V2_ENABLED=1`, no `E2E_REPLAY`, same image as the tested `00403-mok`; env names, secrets (CHIP_HASH_SALT:2) and service account equal to live. 16ccee6 is an ancestor of the branch and of the tested commit; main (fc8a10c) is an ancestor too, so main can fast-forward.
+- Tests: unit 322/323 (the one failure is the known el test in a path with a space). Full e2e on the preview (00403-mok, flag unset, replay): run 1 in groups (nine specs, then login, family and uploads on their own after a Playwright crash and the uploads fix) passed, run 2 passed all 12 specs in one go. Model spend $0.0000 (replay only; no prompt or model file changed). The uploads spec now signs in without the captcha like the other specs, so a preview host not in Firebase's authorized domains works.
+- A first preview (00402-rom) inherited `ANSWER_V2_ENABLED=1` from the service and failed homework, chips and answer-explain with `no_recording`; previews must run with the flag removed.
+
+**What is next**
+- Founder: run `scripts\release-us.ps1`, then the bucket steps (`count-public-urls.sql`, `make-private.ps1`).
+
 ## 2026-10-05 - homework help v2 is live on 00398-vim
 
 - Live: Answer Please + Explain Please v2 on `tutp-demo-00398-vim` (100% traffic, `ANSWER_V2_ENABLED=1`, commit 16ccee6). Main is fast-forwarded to 16ccee6 and pushed.

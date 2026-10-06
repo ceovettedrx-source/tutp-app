@@ -4,7 +4,7 @@
 # because the old code writes and shows public urls that stop working the
 # moment the bucket is private.
 #
-#   powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\wt-upsec\tutp-app\scripts\storage\make-private.ps1"
+#   powershell -NoProfile -ExecutionPolicy Bypass -File "C:\Users\user\AppData\Local\Google\Cloud SDK\tutp-upsec\tutp-app\scripts\storage\make-private.ps1"
 #   -CountOnly   : only the checks and the object counts (nothing is asked, nothing is changed)
 #   -Revert      : sets the bucket back to public (use if something breaks after the change)
 #

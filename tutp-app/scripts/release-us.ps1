@@ -36,8 +36,8 @@ $ErrorActionPreference = 'Stop'
 
 $Service    = 'tutp-demo'
 $Region     = 'us-central1'
-$NewRev     = 'tutp-demo-US_REV_TO_BE_FILLED'          # release candidate, tagged usrel
-$Commit     = 'US_COMMIT_TO_BE_FILLED'   # the tested commit (full sha); the branch must contain it
+$NewRev     = 'tutp-demo-00404-xab'          # release candidate, tagged upsec2
+$Commit     = '0b5ff7a32b88f801c8a39104e8e28e5d41344bf7'   # the tested commit (full sha); the branch must contain it
 $Branch     = 'upload-security-v2'       # fast-forwarded into main on success
 $RepoDir    = 'C:\Users\user\AppData\Local\Google\Cloud SDK\tutp-upsec'
 $SaltRef    = 'CHIP_HASH_SALT:2'             # required secret reference (version 2)
@@ -244,12 +244,12 @@ try {
 }
 Write-Host 'Pre-checks OK: branch contains the tested commit, main fast-forwardable, traffic split, upsec2 tag, revision Ready, CHIP_HASH_SALT version 2, no E2E_REPLAY, ANSWER_V2_ENABLED=1, live commit inside the tested commit.' -ForegroundColor Green
 
-# --- 2. Smoke check on the usrel URL ----------------------------------------
+# --- 2. Smoke check on the upsec2 URL ----------------------------------------
 $code = Get-HttpStatus $TagUrl
 if ($code -ne 200) { Stop-Release "GET $TagUrl returned $code (expected 200). Traffic not moved." }
 $tagWhy = Test-UploadGate $TagUrl
-if ($tagWhy) { Stop-Release "usrel URL: $tagWhy. Traffic not moved." }
-Write-Host 'Smoke check OK: usrel URL returned 200 and refuses an unsigned upload and file open with 401.' -ForegroundColor Green
+if ($tagWhy) { Stop-Release "upsec2 URL: $tagWhy. Traffic not moved." }
+Write-Host 'Smoke check OK: upsec2 URL returned 200 and refuses an unsigned upload and file open with 401.' -ForegroundColor Green
 
 if ($alreadyNew) {
     Write-Host ''
