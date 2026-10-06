@@ -101,6 +101,20 @@ const open = (page, p, q = '') => api(page, 'GET', '/api/files/open?format=json&
 
 (async () => {
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS, slowMo: HEADLESS ? 0 : 30 });
+  // Same test-only hook as family.spec.js: the fictional test numbers sign in
+  // without the captcha, so a preview host that is not in Firebase's
+  // authorized domains still works.
+  const newCtx = async () => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
+      const resp = await route.fetch();
+      const hook = 'const auth = getAuth(app);';
+      const body = (await resp.text()).replace(hook, hook + ' auth.settings.appVerificationDisabledForTesting = true;');
+      if (!body.includes('appVerificationDisabledForTesting')) throw new Error('phone-auth.js hook not found');
+      await route.fulfill({ response: resp, body });
+    });
+    return ctx;
+  };
   try {
     const anon = await browser.newContext();
     await record('u1', 'no sign-in: upload and open are refused', async () => {
@@ -114,9 +128,9 @@ const open = (page, p, q = '') => api(page, 'GET', '/api/files/open?format=json&
       return '401 x5';
     });
 
-    const ctxA = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const ctxA = await newCtx();
     const pageA = await ctxA.newPage();
-    const ctxB = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const ctxB = await newCtx();
     const pageB = await ctxB.newPage();
     await login(pageA, PHONES.motherA, '/app/mother/');
     await login(pageB, PHONES.motherB, '/app/mother/');
@@ -206,7 +220,7 @@ const open = (page, p, q = '') => api(page, 'GET', '/api/files/open?format=json&
 
     await ctxA.close(); await ctxB.close();
 
-    const ctxH = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+    const ctxH = await newCtx();
     const home = await ctxH.newPage();
     await record('u5', 'home page attach waits in the tab, dashboard opens it after login', async () => {
       const uploadsSeen = [];
