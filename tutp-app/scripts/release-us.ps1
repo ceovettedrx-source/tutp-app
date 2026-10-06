@@ -36,8 +36,8 @@ $ErrorActionPreference = 'Stop'
 
 $Service    = 'tutp-demo'
 $Region     = 'us-central1'
-$NewRev     = 'tutp-demo-00404-xab'          # release candidate, tagged upsec2
-$Commit     = '0b5ff7a32b88f801c8a39104e8e28e5d41344bf7'   # the tested commit (full sha); the branch must contain it
+$NewRev     = 'tutp-demo-00407-gev'          # release candidate, tagged upsec2
+$Commit     = 'afd2f2e949e90396b93b9f713dfe7b1944d926fc'   # the tested commit (full sha); the branch must contain it
 $Branch     = 'upload-security-v2'       # fast-forwarded into main on success
 $RepoDir    = 'C:\Users\user\AppData\Local\Google\Cloud SDK\tutp-upsec'
 $SaltRef    = 'CHIP_HASH_SALT:2'             # required secret reference (version 2)

@@ -1,5 +1,24 @@
 # Changes explained
 
+## 2026-10-06 - answer v2 accepts any school page (built, tested, not live)
+
+**What was wrong**
+- A phone check on tutp.online (live 00398-vim, v2 on) with a page that teaches but has no questions (textbook or notebook notes) said "does not look like homework" for Explain and "notes could not be made" for Notes. The photo reached the model; the v2 prompt only knew "questions" or "not homework". Notes failed only because that answer had no questions. It is not an upload-security problem: no request ever reached upsec2.
+- A file labelled HEIC was refused with 400 before the server's HEIC conversion ran.
+
+**What changed**
+- Answer v2 now accepts any school content: question pages, worksheets, exam papers, textbook pages, notebook notes, small, forwarded (WhatsApp) and screenshot photos. `not_homework` is only for clearly non-school pictures (selfie, landscape, receipt).
+- A page with no questions comes back as a content page: 1 to 4 idea cards (one per main idea, with an Explain button, no marks, no "check the answer" box) and the page text. Notes please builds from that page text with zero questions. Explain works on each idea.
+- Unreadable photos now show a "take it again closer, flat, sharp, good light" request written by the model in the parent's language.
+- HEIC labelled image/heic or image/heif is converted to JPEG first. A file labelled HEIC whose bytes are not HEIC gets a clear 415.
+- Rollback without code: `ANSWER_V2_ENABLED=0` (the old Homework Help path). Revision `tutp-demo-00405-qoh`, tag `v2off`, is the 00398-vim image with the flag off, deployed with no traffic.
+
+**Tests**
+- Unit: 331 tests, 330 pass (the one failure is the known checkout-path-with-a-space test). New: content mode in the answer schema, merge, prompt and unreadable retake text. UI harness 33 checks (content card, retake text). Golden set 13 cases (3 new content pages: English textbook, English notebook, Telugu textbook), recorded live.
+- Live smoke `tests/e2e/photo-live.spec.js` (real model, release revision, about $0.22): worksheet photo, notes, 500 px photo, HEIC, landscape, and four no-question pages: printed textbook page, handwritten notebook page, WhatsApp-size photo (50 KB), 500 x 566 screenshot. Each content page gives idea cards, notes from the page text and an explanation about the page.
+- Full e2e twice on the no-traffic preview `upsec3p` (00406-ref, replay, model spend $0.0000). Run 1: every spec passed except `login`, which crashed after its checks with Playwright's "guid not bound" error; run alone it passed (24 checks). Run 2: `login` crashed the same way and `story` timed out once on its first page load while a deploy was running; both passed when run alone. Both runs count as grouped runs.
+- The live photo smoke passed twice on the release revision `tutp-demo-00407-gev` (tag `upsec2`, tested image digest redeployed without `E2E_REPLAY`, `ANSWER_V2_ENABLED=1`, label git-sha afd2f2e): 9 of 9 both times, $0.22 and $0.19. The HEIC sample is converted and read by the model (it is not a school picture, so the answer is `not_homework`).
+
 ## 2026-10-06 - upload security v2 (built, tested, not live)
 
 **What changed**
