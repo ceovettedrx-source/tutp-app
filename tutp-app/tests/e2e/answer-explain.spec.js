@@ -15,12 +15,12 @@
 //   a1  typed numerical question: one card, marks chip, formula with "why" toggle, final answer 60 km/h, keywords highlighted
 //   a2  "why" toggle and Notebook toggle (ruled lines)
 //   a3  a question with no numbers ("differentiate"): compare table, 2 columns, numbered rows
-//   a4  8 questions in one Telugu photo: 8 cards, batched in two calls, Telugu script, Telugu font loaded, Explain only on tap
+//   a4  8 questions in one Telugu photo: 8 cards, batched in two calls, Telugu script, Telugu font loaded; no explain call before the Explain tap, then one for each of the 8 questions (img1: Explain please explains every question)
 //   a5  unreadable (blurred) photo: asks for a clearer photo, no cards, no guessing
 //   a6  non-academic photo: says so, no cards
 //   a7  mixed-language page: 3 cards, each in its own script
-//   a8  Explain (Pro): tabs 30 sec / Full / Exam traps, misconception box without a Knowledge Graph label, tonight card, "I asked" logs, check question feedback logs
-//   a9  free vs Pro, on the real API payloads: the free reply has no paid field (and none of the paid text); Pro has all; the free page shows one upsell card
+//   a8  Explain please (Pro): the layers In 30 seconds / The full explanation / Exam traps stacked (no tabs), misconception box without a Knowledge Graph label, tonight card, "I asked" logs, check question feedback logs
+//   a9  free vs Pro, on the real API payloads: the free reply has no paid field (and none of the paid text) but its picture status; Pro has all; the free page shows one upsell card
 //   a10 picture, no key: fallback with the reason logged, shimmer gone, the diagram stays, answer never waited
 //   a11 picture with the mock provider: shimmer, then the picture (signed URL, private bucket), second call is a cache hit (no model call, picture ready at once)
 //   a12 print view: tools hidden, notebook rules kept, diagram shown while the picture is not ready
@@ -229,10 +229,12 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     const marks = await page.$$eval('.ae-marks', (e) => e.map((x) => x.textContent.trim()));
     expect(marks.length === 8, 'marks chips ' + marks.length);
     await page.screenshot({ path: path.join(OUT, 'answer-explain-te-8.png'), fullPage: true });
-    // Explain on tap, per question
+    // img1: one tap on an answer card's Explain button switches to Explain please, which explains
+    // EVERY question of the photo at once, each shown as it arrives; no further tap.
     await page.locator('.ae-cta button', { hasText: 'Explain' }).nth(4).click();
-    await page.locator('.ae-explain h3').first().waitFor({ timeout: 180000 });
-    expect(pro.seen.requests.slice(before).filter((x) => x.endsWith('/api/explain-please')).length === 1, 'exactly one explain call expected after one tap');
+    await page.locator('#hwExplainBlock .ae-explain h3').nth(7).waitFor({ timeout: 240000 });
+    expect(pro.seen.requests.slice(before).filter((x) => x.endsWith('/api/explain-please')).length === 8, 'Explain please should ask once for each of the 8 questions');
+    expect(await page.locator('#hwExplainBlock .ae-explain-card').count() === 8, 'not 8 explanation cards');
     return `8 cards; response ${r.ms} ms; server ${JSON.stringify(r.steps)}; fixed ${r.headers['x-answer-fixed']}`;
   }, page);
 
@@ -260,7 +262,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
   }, page);
 
   // ---- a8: Explain, Pro. Uses a typed question so the answer carries a signed concept key.
-  await record('a8', 'Explain (Pro): tabs, misconception without a KG label, tonight card, I asked, check question', async () => {
+  await record('a8', 'Explain please (Pro): the three layers stacked, misconception without a KG label, tonight card, I asked, check question', async () => {
     await ask(page, { text: SPEED_Q });
     const explainResp = page.waitForResponse((r) => /\/api\/explain-please$/.test(r.url()), { timeout: 180000 });
     await page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
@@ -268,15 +270,14 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(er.status() === 200, 'explain status ' + er.status());
     const view = await er.json();
     await page.locator('.ae-explain h3').first().waitFor({ timeout: 30000 });
-    expect((await page.locator('.ae-explain [role=tab]').allTextContents()).join() === '30 sec,Full,Exam traps', 'tabs');
-    await page.locator('.ae-explain [role=tab]', { hasText: 'Full' }).click();
-    expect((await page.locator('.ae-explain [role=tabpanel]:visible').innerText()).length > 80, 'full tab empty');
-    await page.locator('.ae-explain [role=tab]', { hasText: 'Exam traps' }).click();
-    expect(await page.locator('.ae-explain [role=tabpanel]:visible li').count() === 3, 'traps not 3');
+    // img1: Explain please shows every layer straight away (no tabs, no extra tap)
+    expect((await page.locator('.ae-explain .ae-layer-h').allTextContents()).join() === 'In 30 seconds,The full explanation,Exam traps', 'layers');
+    expect(await page.locator('.ae-explain [role=tab]').count() === 0, 'tabs in Explain please mode');
+    expect((await page.locator('.ae-explain .ae-layer').nth(1).innerText()).length > 80, 'full explanation empty');
+    expect(await page.locator('.ae-explain .ae-layer li').count() === 3, 'traps not 3');
     expect(await page.locator('.ae-miscon').isVisible(), 'no misconception box');
     expect(!(await page.locator('.ae-explain').innerText()).includes('Knowledge Graph'), 'a "Knowledge Graph" label on a model-sourced misconception');
     expect(await page.locator('.ae-tonight li').count() === 2, 'tonight card needs 2 questions');
-    expect(await page.locator('.ae-hero .ae-hero-label').count() >= 1, 'no label chips over the picture');
     await page.locator('.ae-tonight button', { hasText: 'I asked' }).click();
     await expectEvent(pro, 'parent_asked');
     const cq = view.check_question;
@@ -318,7 +319,9 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     proPayload = p.json;
     for (const k of ['full', 'traps', 'misconception', 'parent_questions', 'check_question', 'illustration']) expect(k in p.json, 'Pro reply lacks ' + k);
     const freeKeys = Object.keys(f.json).filter((k) => k !== '_recordings').sort().join();
-    expect(freeKeys === 'concept_key,locked,quick,tier,title,upsell', 'free keys: ' + freeKeys);
+    // img1: a free reply also carries the picture's status (the page polls it; one picture a day is shown in full)
+    expect(freeKeys === 'concept_key,illustration,locked,quick,tier,title,upsell', 'free keys: ' + freeKeys);
+    expect(Object.keys(f.json.illustration).join() === 'status', 'the free picture object holds more than its status: ' + Object.keys(f.json.illustration));
     expect(f.json.tier === 'free' && f.json.locked === true, 'free flags');
     expect(f.json.upsell.label === 'Pro ₹500/month', 'upsell label');
     for (const secret of [p.json.full, p.json.traps[0], p.json.check_question.q, p.json.parent_questions[0].q, p.json.misconception.text, p.json.illustration.labels[0].text]) {
@@ -326,16 +329,18 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       expect(!JSON.stringify({ ...f.json, _recordings: undefined }).includes(secret), 'free reply leaks: ' + secret.slice(0, 40));
     }
     expect(!/scene_prompt/.test(JSON.stringify({ ...p.json, _recordings: undefined })), 'the image prompt is sent to the browser');
+    // img1: a free family may poll (it gets the picture, or a blurred preview): never a 403 any more
     const pic = await api(free.page, `/api/illustration/${encodeURIComponent(f.json.concept_key)}?studentId=${free.studentId}`, null, 'GET');
-    expect(pic.status === 403, 'a free family may not poll pictures: ' + pic.status);
+    expect(pic.status === 200, 'a free family polling a picture: ' + pic.status);
     // The free page: the real free payload through the real page code.
     await free.page.route('**/api/homework', async (route) => route.fulfill({ status: 200, contentType: 'application/json', body: ans.text }));
     await ask(free.page, { text: SPEED_Q });
     await free.page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
     await free.page.locator('.ae-explain h3').first().waitFor({ timeout: 180000 });
-    expect(await free.page.locator('.ae-explain [role=tab]').count() === 1, 'free page shows more than the 30 sec tab');
+    expect(await free.page.locator('.ae-explain .ae-layer-h').count() === 1, 'free page shows more than the 30 second layer');
+    expect(await free.page.locator('[data-role=explain-upsell]').count() === 1, 'not exactly one upsell card');
     expect((await free.page.locator('.ae-upsell').innerText()).includes('Pro ₹500/month'), 'no upsell card');
-    expect(await free.page.locator('.ae-tonight, .ae-hero, .ae-check, .ae-miscon').count() === 0, 'paid blocks on the free page');
+    expect(await free.page.locator('.ae-tonight, .ae-check, .ae-miscon').count() === 0, 'paid blocks on the free page');
     await free.page.screenshot({ path: path.join(OUT, 'answer-explain-free.png'), fullPage: true });
     await free.page.unroute('**/api/homework');
     return 'free keys ' + freeKeys;
@@ -351,11 +356,12 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     // in the page: no shimmer, no console error from the picture
     await ask(page, { text: SPEED_Q });
     await page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
-    await page.locator('.ae-explain .ae-hero').waitFor({ timeout: 180000 });
-    await page.waitForTimeout(500);
-    expect(await page.locator('.ae-hero .ae-shimmer').count() === 0, 'shimmer still shown on a fallback');
-    expect(await page.locator('.ae-hero').getAttribute('data-ready') === '0', 'hero marked ready without a picture');
-    expect(await page.locator('.ae-hero img').count() === 0, 'an image without a provider');
+    await page.locator('.ae-explain h3').first().waitFor({ timeout: 180000 });
+    await page.waitForTimeout(1500);
+    // img1: with no picture and no diagram to show instead, the figure is simply gone
+    expect(await page.locator('.tp-pic-shimmer').count() === 0, 'shimmer still shown on a fallback');
+    expect(await page.locator('.tp-pic img').count() === 0, 'an image without a provider');
+    expect(await page.locator('.tp-pic[data-state=ready], .tp-pic[data-state=blurred]').count() === 0, 'a picture was shown without a provider');
     return 'reason ' + poll.json.reason;
   }, page);
 
@@ -389,19 +395,20 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     // and through the page: shimmer, then the picture
     await ask(img.page, { text: SPEED_Q });
     await img.page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
-    await img.page.locator('.ae-explain .ae-hero').waitFor({ timeout: 180000 });
-    await img.page.waitForFunction(() => document.querySelector('.ae-hero').dataset.ready === '1', null, { timeout: 30000 });
-    expect(await img.page.locator('.ae-hero img').evaluate((i) => i.naturalWidth > 0), 'image did not load');
-    expect(await img.page.locator('.ae-hero .ae-shimmer').count() === 0, 'shimmer after the picture');
+    await img.page.locator('.ae-explain .tp-pic').waitFor({ timeout: 180000 });
+    await img.page.waitForFunction(() => document.querySelector('.tp-pic').dataset.state === 'ready', null, { timeout: 30000 });
+    expect(await img.page.locator('.tp-pic img').first().evaluate((i) => i.naturalWidth > 0), 'image did not load');
+    expect(await img.page.locator('.tp-pic .tp-pic-shimmer').count() === 0, 'shimmer after the picture');
+    expect(await img.page.locator('.tp-pic .tp-pic-label').count() >= 1, 'no label chips over the picture');
     return `ready, signed URL ok, cache ${second.headers['x-explain-cache']}`;
   }, () => img && img.page);
 
   // ---- a12: print
   await record('a12', 'print view: tools hidden, notebook rules kept, diagram shown while the picture is not ready', async () => {
     await ask(page, { text: DIFF_Q });
-    await page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
-    await page.locator('.ae-explain .ae-hero').waitFor({ timeout: 180000 });
     await page.locator('.ae-card button', { hasText: 'Notebook' }).first().click();
+    await page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
+    await page.locator('.ae-explain h3').first().waitFor({ timeout: 180000 });
     // The real print button marks the panel as the print target (the page's own printResult); the dialog itself is stubbed.
     await page.evaluate(() => { window.print = () => {}; });
     await page.locator('.ae-explain .ae-tools button', { hasText: 'Print' }).first().click();
@@ -411,9 +418,8 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       expect(await page.locator('.ae-tools:visible').count() === 0, 'tools printed');
       expect(await page.locator('.ae-cta:visible').count() === 0, 'explain button printed');
       expect(/repeating-linear-gradient/.test(await page.locator('.ae-body').first().evaluate((e) => getComputedStyle(e).backgroundImage)), 'notebook rules not printed');
-      const shown = await page.locator('.ae-explain [role=tabpanel]:visible').count();
-      const total = await page.locator('.ae-explain [role=tabpanel]').count();
-      expect(shown === 3, `not all three layers printed (visible ${shown} of ${total})`);
+      const shown = await page.locator('.ae-explain .ae-layer:visible').count();
+      expect(shown === 3, `not all three layers printed (visible ${shown} of 3)`);
       await page.screenshot({ path: path.join(OUT, 'answer-explain-print.png'), fullPage: true });
     } finally { await page.emulateMedia({ media: 'screen' }); }
   }, page);
@@ -443,6 +449,8 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(ex.status === 404, 'explain-please without the flag: ' + ex.status);
     const ev = await api(p, '/api/answer-events', { event: 'parent_asked', studentId: pro.studentId });
     expect(ev.status === 404, 'answer-events without the flag: ' + ev.status);
+    const rq = await api(p, '/api/illustration/request', { studentId: pro.studentId, picture: { concept_key: 'c9-physics-speed', scene_prompt: 'A boy runs.', sig: 'x' } });
+    expect(rq.status === 404, 'illustration request without the flag: ' + rq.status);
     const old = await api(p, '/api/homework', { feature: 'homework_help', text: '24 + 13 = ?', language: 'English', studentId: pro.studentId, attachments: [] });
     expect(old.status === 200, 'old path status ' + old.status + ' ' + old.text.slice(0, 120));
     const oldJson = JSON.parse(JSON.parse(old.text).content[0].text);
