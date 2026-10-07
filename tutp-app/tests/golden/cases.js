@@ -5,7 +5,11 @@
 // replayed by tests/unit/golden.test.js on every unit run).
 //   lang    explain-in language, set to the question's own language so the
 //           check "explain language = question language" is meaningful
-//   script  the script the question is written in
+//   script  the script of the parent text (explanations, idea cards, notes): the script of `lang`
+//   pageScript  img1: the script the page is written in when it differs from `script` (an English
+//           page for a Telugu-speaking parent); the child's notebook answers stay in it, and the
+//           parent text must carry the key terms bilingual, Telugu word (English term)
+//   notes   also run "Notes please" for the case
 //   expect  numerical answers worked out by hand: { q (1-based), value, unit }
 //   types   q_type the question must get, by question number
 export const CASES = [
@@ -46,5 +50,18 @@ export const CASES = [
     expect: [] },
   { id: 'g13-c7-textbook-te-ts', cls: 'Class 7', board: 'state', subject: 'biology', lang: 'Telugu', script: 'telugu', content: true, about: /కిరణజన్య|పత్రహరితం|క్లోరోఫిల్/,
     text: 'కిరణజన్య సంయోగక్రియ. ఆకుపచ్చ మొక్కలు తమ ఆహారాన్ని తామే తయారు చేసుకుంటాయి. ఆకులలోని పత్రహరితం (క్లోరోఫిల్) సూర్యకాంతి శక్తిని గ్రహిస్తుంది. మొక్క గాలి నుండి కార్బన్ డయాక్సైడ్ ను, నేల నుండి నీటిని తీసుకుని గ్లూకోజ్ ను తయారు చేసి ఆక్సిజన్ ను విడుదల చేస్తుంది.',
+    expect: [] },
+  // img1 Telugu quality cases (the founder reviews these three by hand, docs/golden-telugu-review.md).
+  // g14: an English textbook page for a Telugu-speaking parent: idea cards and notes in Telugu,
+  // key terms bilingual. g15: an English-medium worksheet: notebook answers in English, the rest in
+  // Telugu. g16: a Telugu textbook page, everything in Telugu.
+  { id: 'g14-c6-textbook-en-page-te-parent', cls: 'Class 6', board: 'state', subject: 'science', lang: 'Telugu', script: 'telugu', pageScript: 'latin', content: true, notes: true, about: /కిరణజన్య|photosynthesis|chlorophyll|పత్రహరితం/i,
+    text: 'Photosynthesis. Green plants make their own food in their leaves. The leaves take in carbon dioxide from the air, and the roots take in water from the soil. Chlorophyll, the green pigment in the leaves, traps the energy of sunlight. Using this energy, the plant changes carbon dioxide and water into glucose, which is its food, and releases oxygen into the air. This process is called photosynthesis.',
+    expect: [] },
+  { id: 'g15-c7-maths-en-worksheet-te-parent', cls: 'Class 7', board: 'state', subject: 'maths', lang: 'Telugu', script: 'telugu', pageScript: 'latin', notes: true,
+    text: '1. A tank can hold 240 litres of water. It is 3/4 full. How many litres of water are in the tank? (2 marks)   2. Add: 2/5 + 1/5. (1 mark)',
+    expect: [{ q: 1, value: 180 }, { q: 2, value: 3, frac: '3/5' }], types: { 1: 'numerical' } },
+  { id: 'g16-c9-social-te-textbook-te-parent', cls: 'Class 9', board: 'state', subject: 'social', lang: 'Telugu', script: 'telugu', content: true, notes: true, about: /రాజ్యాంగం/,
+    text: 'భారత రాజ్యాంగం. భారత రాజ్యాంగం 1950 జనవరి 26న అమలులోకి వచ్చింది. రాజ్యాంగం మన దేశానికి అత్యున్నత చట్టం. ఇందులో పౌరుల ప్రాథమిక హక్కులు మరియు ప్రాథమిక విధులు ఉన్నాయి. సమానత్వపు హక్కు, స్వేచ్ఛా హక్కు, మత స్వాతంత్ర్యపు హక్కు వంటివి ప్రాథమిక హక్కులు. ప్రతి పౌరుడు రాజ్యాంగాన్ని గౌరవించాలి.',
     expect: [] },
 ];

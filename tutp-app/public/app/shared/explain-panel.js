@@ -1,27 +1,29 @@
-// Explain Please panel (docs/specs/answer-explain-v2.md section B). Opened
-// from an answer card's "Explain" button; asks POST /api/explain-please only
-// then. The server decides what this family may see (free: title and the 30
-// second layer; Pro: everything), so a free reply simply has no other fields.
+// Explain Please (docs/specs/answer-explain-v2.md section B, img1 changes).
 //
-//   TutpExplain.toggle(cardEl, question, buttonEl, ctx)
+// Two ways to show it, one builder:
+//   TutpExplain.explainAll(area, parsed, ctx)    "Explain please" mode: EVERY question or idea of
+//                                                the photo gets its full explanation straight away,
+//                                                all requested in parallel, each one shown as soon as
+//                                                it arrives. No Explain tap.
+//   TutpExplain.toggle(cardEl, question, buttonEl, ctx)   the older one-card panel opened from an
+//                                                answer card, used only when the mode chips are not
+//                                                on the page.
+// Both ask POST /api/explain-please. The server decides what this family may see
+// (free: title, the 30 second layer and the picture; Pro: everything), so a free
+// reply simply has no other fields.
 //
-// Pro layout: hero picture with HTML label chips on top (the picture itself
-// never has text), layer tabs (30 sec / Full / Exam traps), misconception
-// box (the "Tut-P Knowledge Graph" source line only when source is "kg"),
-// previous/next tiles, the dark "tonight, 2 minutes" card with "I asked", a
-// one-question check, Save to notes, PDF. The picture is polled from
-// GET /api/illustration/:key; until it is ready (or when it falls back) the
-// diagram the answer already drew is shown, and print uses that too.
+// Pro layout (stacked in Explain please mode, tabs in the one-card panel): the
+// picture (shared component, public/app/shared/concept-picture.js, labels on top as
+// HTML), the 30 second / full / exam traps layers, the misconception box (the "Tut-P
+// Knowledge Graph" source line only when source is "kg"), previous/next tiles, the
+// dark "tonight, 2 minutes" parent card with "I asked", a one-question check, Save
+// to notes, PDF. Until the picture is ready (or when there is none) the diagram the
+// answer already drew is shown, and print uses that too.
 (function () {
     'use strict';
 
     var A = window.TutpAnswer;
     var el = A.el, btn = A.btn;
-    var POS = {
-        'top-left': [18, 16], 'top': [50, 14], 'top-right': [82, 16], 'left': [16, 50], 'center': [50, 50], 'right': [84, 50],
-        'bottom-left': [18, 84], 'bottom': [50, 86], 'bottom-right': [82, 84]
-    };
-    var POLL_MS = 2000, POLL_MAX = 30;
     var uid = 0;
 
     function api(path, body) {
@@ -29,56 +31,38 @@
     }
 
     function hero(view, q, ctx) {
-        var box = el('div', 'ae-hero');
-        box.dataset.ready = '0';
-        var svgWrap = el('div', 'ae-hero-svg');
-        if (q.diagram && q.diagram.svg) {
-            var n = A.diagramNode(q.diagram.svg);
-            if (n) svgWrap.appendChild(n);
-        }
-        box.appendChild(svgWrap);
-        var shimmer = el('div', 'ae-shimmer');
-        shimmer.setAttribute('aria-hidden', 'true');
-        box.appendChild(shimmer);
-        (view.illustration.labels || []).forEach(function (l) {
-            var p = POS[l.position] || POS.center;
-            var chip = el('span', 'ae-hero-label', l.text);
-            chip.style.left = p[0] + '%';
-            chip.style.top = p[1] + '%';
-            box.appendChild(chip);
-        });
-        function showImage(url) {
-            var img = el('img');
-            img.alt = '';
-            img.onload = function () { box.dataset.ready = '1'; shimmer.remove(); };
-            img.onerror = function () { shimmer.remove(); };
-            img.src = url;
-            box.insertBefore(img, svgWrap);
-        }
-        var st = view.illustration;
-        if (st.status === 'ready' && st.url) showImage(st.url);
-        else if (st.status === 'fallback') shimmer.remove();
-        else poll(0);
-        function poll(n) {
-            if (n >= POLL_MAX) { shimmer.remove(); return; }
-            setTimeout(function () {
-                // the panel may have been replaced (a new result) while we waited
-                if (!box.isConnected) return;
-                fetch('/api/illustration/' + encodeURIComponent(view.concept_key) + '?studentId=' + encodeURIComponent(ctx.studentId), { credentials: 'same-origin' })
-                    .then(function (r) { return r.ok ? r.json() : { status: 'fallback' }; })
-                    .then(function (s) {
-                        if (s.status === 'ready' && s.url) showImage(s.url);
-                        else if (s.status === 'pending') poll(n + 1);
-                        else shimmer.remove();
-                    })
-                    .catch(function () { shimmer.remove(); });
-            }, POLL_MS);
-        }
-        return box;
+        if (!window.TutpPicture || !view.illustration) return null;
+        var host = el('div', 'ae-hero-host');
+        var fallback = q.diagram && q.diagram.svg ? A.diagramNode(q.diagram.svg) : null;
+        window.TutpPicture.mount(host, { concept_key: view.concept_key, status: view.illustration.status },
+            { studentId: ctx.studentId, surface: 'explain' },
+            { labels: view.illustration.labels || [], fallback: fallback, variant: 'hero', alt: view.title });
+        return host;
     }
 
-    function tabs(view) {
+    // The three layers as tabs (one-card panel) or stacked (Explain please mode).
+    function layers(view, stacked) {
         var wrap = el('div');
+        var trapsList = null;
+        if (!view.locked) {
+            trapsList = el('ol');
+            trapsList.style.margin = '0'; trapsList.style.paddingLeft = '20px';
+            view.traps.forEach(function (t) { var li = el('li', null, t); li.style.marginBottom = '6px'; trapsList.appendChild(li); });
+        }
+        if (stacked) {
+            var sec = function (title, node) {
+                var s = el('section', 'ae-layer');
+                s.appendChild(el('h4', 'ae-layer-h', title));
+                s.appendChild(node);
+                wrap.appendChild(s);
+            };
+            sec('In 30 seconds', el('p', null, view.quick));
+            if (!view.locked) {
+                sec('The full explanation', el('p', null, view.full));
+                sec('Exam traps', trapsList);
+            }
+            return wrap;
+        }
         var list = el('div', 'ae-tabs ae-noprint');
         list.setAttribute('role', 'tablist');
         var defs = [{ id: 'quick', label: '30 sec' }];
@@ -116,10 +100,7 @@
         panels.quick.appendChild(el('p', null, view.quick));
         if (!view.locked) {
             panels.full.appendChild(el('p', null, view.full));
-            var ol = el('ol');
-            ol.style.margin = '0'; ol.style.paddingLeft = '20px';
-            view.traps.forEach(function (t) { var li = el('li', null, t); li.style.marginBottom = '6px'; ol.appendChild(li); });
-            panels.traps.appendChild(ol);
+            panels.traps.appendChild(trapsList);
         }
         wrap.appendChild(list);
         defs.forEach(function (d) { wrap.appendChild(panels[d.id]); });
@@ -227,9 +208,16 @@
         panel.innerHTML = '';
         panel.appendChild(el('h3', null, view.title));
         panel.dataset.script = q.script || 'latin';
-        if (!view.locked) panel.appendChild(hero(view, q, ctx));
-        panel.appendChild(tabs(view));
-        if (view.locked) { panel.appendChild(upsell(view)); return; }
+        panel.dataset.locked = view.locked ? '1' : '0';
+        var h = hero(view, q, ctx);
+        if (h) panel.appendChild(h);
+        panel.appendChild(layers(view, ctx.layout === 'stacked'));
+        if (view.locked) {
+            // In Explain please mode one upsell closes the whole list, not one per question.
+            if (!ctx.sharedUpsell) panel.appendChild(upsell(view));
+            if (typeof ctx.onLocked === 'function') ctx.onLocked(view);
+            return;
+        }
         var m = misconception(view); if (m) panel.appendChild(m);
         var t = tiles(view); if (t) panel.appendChild(t);
         panel.appendChild(tonight(view, ctx));
@@ -258,7 +246,7 @@
         l.setAttribute('role', 'status');
         panel.appendChild(l);
         window.TutpAnswerStudentId = ctx.studentId;
-        api('/api/explain-please', {
+        return api('/api/explain-please', {
             studentId: ctx.studentId, question: q.context || q.q_text, qType: q.q_type, subject: ctx.subject || '',
             language: ctx.language, concept_key: q.concept_key || undefined, concept_sig: q.concept_sig || undefined
         }).then(function (r) {
@@ -290,5 +278,45 @@
         load(panel, q, ctx);
     }
 
-    window.TutpExplain = { toggle: toggle };
+    // Explain please mode: one card per question or idea, each with its full explanation,
+    // every one requested at once and filled in as it arrives.
+    function explainAll(area, parsed, ctx) {
+        area.innerHTML = '';
+        area.classList.add('ae-root');
+        var qs = parsed.questions || [];
+        var content = parsed.mode === 'content';
+        var c = {
+            studentId: ctx.studentId, language: ctx.language, subject: parsed.subject || '', layout: 'stacked', sharedUpsell: true,
+            onLocked: function (view) { lockedView = lockedView || view; showUpsell(); }
+        };
+        var lockedView = null, upsellEl = null;
+        function showUpsell() {
+            if (upsellEl || !lockedView) return;
+            upsellEl = upsell(lockedView);
+            upsellEl.dataset.role = 'explain-upsell';
+            area.appendChild(upsellEl);
+        }
+        qs.forEach(function (q, i) {
+            var card = el('article', 'ae-card ae-explain-card');
+            card.dataset.qi = String(i);
+            var head = el('div', 'ae-head');
+            head.appendChild(el('span', 'ae-qno', (content ? 'Idea ' : 'Question ') + (i + 1)));
+            card.appendChild(head);
+            var qt = el('p', 'ae-qtext', q.q_text);
+            qt.dataset.script = q.script || 'latin';
+            card.appendChild(qt);
+            var panel = el('section', 'ae-explain');
+            panel.setAttribute('aria-live', 'polite');
+            card.appendChild(panel);
+            area.appendChild(card);
+            load(panel, q, c);
+        });
+        if (parsed.more_questions) {
+            var m = el('div', 'ae-msg', 'There are ' + parsed.more_questions + ' more question(s) on this homework than shown here. Send the rest in another photo.');
+            m.setAttribute('role', 'status');
+            area.appendChild(m);
+        }
+    }
+
+    window.TutpExplain = { toggle: toggle, explainAll: explainAll };
 })();

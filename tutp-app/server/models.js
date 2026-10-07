@@ -38,6 +38,13 @@ export function storyModel(lang) {
   return lang === 'English' ? MODELS.story_english : MODELS.story_other;
 }
 
+// "Notes please" the same way (img1 Telugu quality pass): haiku's Telugu notes held a
+// letter of a wrong script, a nonsense word and repeated phrases in the recorded review
+// cases, so any language other than English goes to sonnet-5.
+export function notesModel(lang) {
+  return lang === 'English' ? MODELS.homework_notes : MODELS.story_other;
+}
+
 // Extra request settings per model: sonnet-5 thinks by default, which can
 // use up max_tokens before the JSON (round 1), so its text-only calls run at
 // low effort, like the photo calls. haiku-4-5 takes no thinking settings.

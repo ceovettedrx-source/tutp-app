@@ -136,6 +136,14 @@
     var L = S.lesson;
     var chapter = L.mapping && L.mapping.chapter ? ('NCERT Class ' + L.mapping.grade + ', ' + L.mapping.chapter) : ('Class ' + L.grade);
     body.appendChild(h('div', { class: 'el-head' }, h('h4', { class: 'el-title', text: L.title }), h('div', { class: 'el-chapter', text: chapter })));
+    // img1: the lesson's concept picture, made once per lesson and kept across the steps.
+    if (L.picture && window.TutpPicture) {
+      if (!S.picHost) {
+        S.picHost = h('div', { class: 'el-picture' });
+        window.TutpPicture.mount(S.picHost, L.picture, { studentId: S.studentId, surface: 'el' }, { variant: 'hero', alt: L.title });
+      }
+      body.appendChild(S.picHost);
+    }
     body.appendChild(stepper());
     var fn = [stepPredict, stepTry, stepNotice, stepExplain, stepName, stepVideos, stepTeach][S.step];
     body.appendChild(fn());

@@ -36,6 +36,7 @@ import { callClaude } from './server/anthropic.js';
 import { MODELS, modelSettings, storyModel } from './server/models.js';
 import { runAnswer, answerRequestBody } from './server/answer-run.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
+import { pictureFor } from './server/services/concept-picture.js';
 import { initModelCost } from './server/model-cost.js';
 import { replayMode } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
@@ -6642,7 +6643,12 @@ app.post('/api/homework', async (req, res) => {
       if (run.kind === 'ok') {
         // The checked answer goes back in the same envelope the page already
         // reads; every question's concept_key is signed so Explain can trust it.
-        const answer = { ...run.answer, questions: run.answer.questions.map(q => (q.concept_key ? { ...q, concept_sig: signConceptKey(q.concept_key) } : q)) };
+        // img1: a theory question (or idea card) also gets a signed `picture` for the
+        // shared concept picture; the page hands it to /api/illustration/request.
+        const answer = { ...run.answer, questions: run.answer.questions.map(({ scene_prompt, ...q }) => {
+          const pic = q.concept_key ? pictureFor(q.concept_key, scene_prompt) : null;
+          return q.concept_key ? { ...q, concept_sig: signConceptKey(q.concept_key), ...(pic ? { picture: pic } : {}) } : q;
+        }) };
         v2Status = answer.status;
         res.set('X-Answer-Status', answer.status);
         res.set('X-Answer-Fixed', String(run.fixed || 0));
@@ -6693,7 +6699,14 @@ app.post('/api/homework', async (req, res) => {
           if (check2.ok || !raw) { raw = raw2; check = check2; }
         }
       }
-      const story = check.ok ? check.story : salvageStory(raw);
+      const checkedStory = check.ok ? check.story : salvageStory(raw);
+      // img1: the story gets the shared concept picture, unless a curated library
+      // picture already illustrates it (those stay free and are never generated).
+      const story = checkedStory && (() => {
+        const { concept_key: storyKey, scene_prompt: storyScene, ...rest } = checkedStory;
+        const pic = answerV2Enabled(req) && !(rest.visual && rest.visual.type === 'library') ? pictureFor(storyKey, storyScene) : null;
+        return pic ? { ...rest, picture: pic } : rest;
+      })();
       if (!story) {
         console.error('storytelling: nothing usable after the retry', { language: lang, issues: check.issues });
         if (testFamily) res.set('X-Model-Usd', String(cost.usd));

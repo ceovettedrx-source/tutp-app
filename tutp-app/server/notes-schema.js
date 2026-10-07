@@ -4,7 +4,7 @@
 // defence in depth, not the only guard.
 
 export const NOTES_LIMITS_CHARS = {
-  title: 80, keyIdea: 240, step: 170, problem: 220, answer: 90, term: 40, meaning: 150,
+  title: 80, keyIdea: 240, step: 170, problem: 220, answer: 90, term: 60, meaning: 150,
   mistake: 170, remember: 170, q: 170, a: 130, tell: 320,
 };
 const MAX = { method: 5, exampleSteps: 5, terms: 4, mistakes: 3, quick: 2 };
@@ -71,6 +71,10 @@ export function normalizeNotes(o) {
   if (quick.length) out.quick_check = quick;
   const tell = cleanText(o.tell_your_child, L.tell);
   if (tell) out.tell_your_child = tell;
+  // img1: the concept picture. The route turns these two into a signed `picture`.
+  const pic = o.picture && typeof o.picture === 'object' ? o.picture : {};
+  const picKey = cleanText(pic.concept_key, 60), picScene = cleanText(pic.scene_prompt, 400);
+  if (picKey && picScene) { out.concept_key = picKey; out.scene_prompt = picScene; }
   return out;
 }
 

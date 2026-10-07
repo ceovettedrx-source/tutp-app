@@ -66,15 +66,10 @@
 .ae-explain { margin-top: 14px; border: 1px solid var(--ae-line); border-radius: 12px; background: var(--ae-ground); padding: 14px; }
 .ae-explain h3 { margin: 0 0 6px; font-size: 19px; font-weight: 800; overflow-wrap: anywhere; }
 .ae-loading { color: var(--ae-muted); font-weight: 700; padding: 12px 0; }
-.ae-hero { position: relative; border-radius: 12px; overflow: hidden; background: #EAF2FC; aspect-ratio: 16 / 9; margin: 8px 0 12px; }
-.ae-hero img, .ae-hero .ae-hero-svg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.ae-hero .ae-hero-svg { display: flex; align-items: center; justify-content: center; padding: 8px; }
-.ae-hero .ae-hero-svg svg { max-height: 100%; width: auto; }
-.ae-hero[data-ready="1"] .ae-hero-svg { display: none; }
-.ae-hero-label { position: absolute; background: #fff; color: var(--ae-ink); border: 1px solid var(--ae-blue); border-radius: 999px; padding: 4px 12px; font-size: 13px; font-weight: 700; max-width: 45%; transform: translate(-50%, -50%); text-align: center; }
-.ae-shimmer { position: absolute; inset: 0; background: linear-gradient(100deg, rgba(255,255,255,0) 30%, rgba(255,255,255,.7) 50%, rgba(255,255,255,0) 70%); background-size: 200% 100%; animation: ae-shimmer 1.4s linear infinite; }
-@keyframes ae-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
-@media (prefers-reduced-motion: reduce) { .ae-shimmer { animation: none; } }
+/* The picture (shimmer, labels, blurred upsell) is styled by public/app/shared/concept-picture.js. */
+.ae-explain-card .ae-explain { margin-top: 0; }
+.ae-layer { margin: 0 0 12px; }
+.ae-layer-h { margin: 0 0 4px; font-size: 13px; font-weight: 800; letter-spacing: .02em; color: var(--ae-blue); }
 .ae-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 10px; }
 .ae-tab { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 2px solid var(--ae-line); background: #fff; font: inherit; font-size: 14px; font-weight: 700; color: var(--ae-ink); cursor: pointer; }
 .ae-tab[aria-selected="true"] { background: var(--ae-blue); border-color: var(--ae-blue); color: #fff; }
@@ -107,11 +102,11 @@
 @media (max-width: 480px) { .ae-card { padding: 14px; } .ae-tiles { grid-template-columns: 1fr; } .ae-tools .ae-btn { flex: 1 1 auto; } }
 
 @media print {
-  .ae-noprint, .ae-shimmer { display: none !important; }
+  .ae-noprint { display: none !important; }
   .ae-card, .ae-explain { break-inside: avoid; border-color: #999; background: #fff !important; }
   .ae-notebook .ae-body, .ae-tonight, .ae-miscon, .ae-final, .ae-kw, .ae-chip, .ae-marks { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .ae-tonight { background: #fff !important; color: #111 !important; border: 1px solid #333; }
   .ae-tonight h4, .ae-tonight .ae-hint { color: #111 !important; }
-  .ae-hero[data-ready="0"] .ae-hero-svg { display: flex !important; }
+  .tp-pic:not([data-state="ready"]) .tp-pic-fallback { display: flex !important; }
   .ae-panel[hidden] { display: block !important; }
 }

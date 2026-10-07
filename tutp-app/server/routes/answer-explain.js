@@ -1,9 +1,13 @@
 // Answer Please / Explain Please v2 routes (docs/specs/answer-explain-v2.md).
 // Everything here is behind ANSWER_V2_ENABLED (flag off = 404, and the old
 // /api/homework path is untouched).
-//   POST /api/explain-please        one concept, on tap; free gets quick only (server/tier-gate.js)
-//   GET  /api/illustration/:key     poll for the picture (paid only), signed URL when ready
-//   POST /api/answer-events         answer_check_interest | parent_asked | explain_check
+//   POST /api/explain-please        one concept (the page asks for every question of a photo
+//                                   at once in Explain please mode); free gets quick only (server/tier-gate.js)
+//   GET  /api/illustration/:key     poll for the picture: signed URL when ready; a free family
+//                                   gets one picture a day in full, a blurred preview otherwise
+//   POST /api/illustration/request  start the picture a surface's signed `picture` describes
+//   POST /api/answer-events         answer_check_interest | parent_asked | explain_check |
+//                                   picture_upsell_view | picture_upsell_click
 // plus helpers server.js uses for /api/homework: answerV2Enabled(),
 // loadStudentContext(), signConceptKey().
 import crypto from 'crypto';
@@ -20,6 +24,7 @@ import { replayMode } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
 import { getLearningComponent, getNeighbors } from '../services/knowledgeGraph.js';
 import { createIllustrationService } from '../services/illustration-service.js';
+import { createConceptPictures, verifyPicture } from '../services/concept-picture.js';
 import { e2eOverrides, imageEnv } from '../e2e-overrides.js';
 
 // The Messages API body of one Explain Please call (also used by the golden-set runner).
@@ -32,7 +37,8 @@ export function explainRequestBody({ system, content, hint = null }) {
 export const answerV2Enabled = (req, env = process.env) =>
   env.ANSWER_V2_ENABLED === '1' || env.ANSWER_V2_ENABLED === 'true' || e2eOverrides(req, env).answerV2;
 
-export const ANSWER_EVENTS = ['answer_check_interest', 'parent_asked', 'explain_check'];
+export const ANSWER_EVENTS = ['answer_check_interest', 'parent_asked', 'explain_check', 'picture_upsell_view', 'picture_upsell_click'];
+const PICTURE_SURFACES = ['explain', 'notes', 'story', 'answer', 'el', 'exam_prep'];
 const KEY_RE = /^[a-z0-9][a-z0-9-]{2,59}$/;
 
 // A concept_key the server has seen come out of an answer is signed, so the
@@ -96,11 +102,12 @@ async function kgExtras({ cls, subject, state, title, lang }) {
 export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents, illustrations }) {
   const familyKey = (req) => 'family:' + String((getSession(req) || {}).familyId);
   const explainLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false,
+    // Explain please now explains every question of a photo at once (8 at most), so 60.
+    windowMs: 10 * 60 * 1000, max: 60, standardHeaders: true, legacyHeaders: false,
     keyGenerator: familyKey, message: { error: 'Too many explanations in a short time. Please wait a few minutes and try again.' },
   });
   const pollLimiter = rateLimit({
-    windowMs: 10 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false,
+    windowMs: 10 * 60 * 1000, max: 400, standardHeaders: true, legacyHeaders: false,
     keyGenerator: familyKey, message: { error: 'Too many requests.' },
   });
   const eventsLimiter = rateLimit({
@@ -112,6 +119,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       .then(({ error }) => { if (error) console.error(name + ' log failed:', error.message); }, () => {});
   };
   const illus = illustrations || createIllustrationService({ supabase, logEvent: (n, p) => logEvent(n, null, null, p) });
+  const pictures = createConceptPictures({ supabase, illus });
   const isPaid = async (studentId) => (await getPaidStatusForStudents([studentId]))[studentId].active;
   const off = (res) => res.status(404).json({ error: 'not_found' });
 
@@ -195,11 +203,11 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           res.set('X-Explain-Cache', cache);
           logEvent('explain.generated', session.familyId, studentId, { cache, language: lang, tier: paid ? 'pro' : 'free', concept_key: explain.concept_key });
 
-          let illustration = null, kg = null;
-          if (paid) {
-            illustration = await illus.request(explain.concept_key, explain.illustration.scene_prompt, { env: imageEnv(ov) });
-            kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
-          }
+          // Every family gets a picture (img1); what a free family may SEE is decided
+          // when the page polls it (server/services/concept-picture.js).
+          const illustration = await pictures.request({ key: explain.concept_key, scene: explain.illustration.scene_prompt, env: imageEnv(ov) });
+          let kg = null;
+          if (paid) kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
           const view = explainView(explain, { paid, illustration, kg });
           if (testFamily && replay.mode !== 'replay') res.set('X-Model-Usd', String(cost.usd));
           res.json(res.locals.extras ? res.locals.extras(view) : view);
@@ -226,9 +234,12 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       if (!own) return;
       pollLimiter(req, res, async () => {
         try {
-          if (!(await isPaid(studentId))) return res.status(403).json({ error: 'pro_only' });
+          // img1: every family may poll. A free family gets the full picture for one
+          // concept a day and a blurred preview (no link to the real file) for the rest.
+          const ov = e2eOverrides(req);
+          const paid = await isPaid(studentId);
           res.set('Cache-Control', 'no-store');
-          res.json(await illus.status(key, { env: imageEnv(e2eOverrides(req)) }));
+          res.json(await pictures.status({ familyId: session.familyId, studentId, key, paid, env: imageEnv(ov), run: ov.keySuffix }));
         } catch (err) {
           console.error('illustration: poll error:', err && err.message);
           if (!res.headersSent) res.status(500).json({ error: 'Server error' });
@@ -236,6 +247,40 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       });
     } catch (err) {
       console.error('illustration: poll error:', err && err.message);
+      if (!res.headersSent) res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // A surface's `picture: { concept_key, scene_prompt, sig }` (signed by the route that
+  // made the reply) comes back here; the picture is started if nobody has made it yet.
+  // Answers { status, concept_key } (the key carries the e2e suffix on a preview).
+  app.post('/api/illustration/request', async (req, res) => {
+    if (!answerV2Enabled(req)) return off(res);
+    try {
+      const body = req.body || {};
+      const pic = body.picture && typeof body.picture === 'object' ? body.picture : {};
+      const key = normalizeConceptKey(pic.concept_key);
+      const scene = typeof pic.scene_prompt === 'string' ? pic.scene_prompt : '';
+      if (!key || !scene) return res.status(400).json({ error: 'Bad picture' });
+      const session = getSession(req);
+      if (!session) return sendSessionExpired(res);
+      const own = await requireOwnStudent(req, res, body.studentId);
+      if (!own) return;
+      if (!verifyPicture(key, scene, pic.sig)) return res.status(400).json({ error: 'Bad picture' });
+      pollLimiter(req, res, async () => {
+        try {
+          const ov = e2eOverrides(req);
+          const keyed = ov.keySuffix ? key.slice(0, 50).replace(/-+$/, '') + '-' + ov.keySuffix : key;
+          const st = await pictures.request({ key: keyed, scene, env: imageEnv(ov) });
+          res.set('Cache-Control', 'no-store');
+          res.json({ status: st.status, concept_key: keyed });
+        } catch (err) {
+          console.error('illustration: request error:', err && err.message);
+          if (!res.headersSent) res.status(500).json({ error: 'Server error' });
+        }
+      });
+    } catch (err) {
+      console.error('illustration: request error:', err && err.message);
       if (!res.headersSent) res.status(500).json({ error: 'Server error' });
     }
   });
@@ -253,6 +298,9 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
         const props = {};
         if (typeof body.concept_key === 'string' && KEY_RE.test(body.concept_key)) props.concept_key = body.concept_key;
         if (body.event === 'explain_check') props.correct = body.correct === true;
+        if (body.event === 'picture_upsell_view' || body.event === 'picture_upsell_click') {
+          props.surface = PICTURE_SURFACES.includes(body.surface) ? body.surface : 'unknown';
+        }
         logEvent(body.event, session.familyId, body.studentId, props);
         res.status(204).end();
       });

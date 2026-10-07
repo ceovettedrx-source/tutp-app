@@ -11,6 +11,7 @@
 //     the knowledge graph's when a record matches (source 'kg')
 // Unit tests: tests/unit/explain-schema.test.js.
 import crypto from 'crypto';
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
 
 export const POSITIONS = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
 export const IMAGE_SUFFIX = 'No text, no letters, no numbers, no labels, no signs anywhere in the picture.';
@@ -72,6 +73,8 @@ export function validateExplain(raw) {
   const ill = raw.illustration && typeof raw.illustration === 'object' ? raw.illustration : {};
   const scene = str(ill.scene_prompt, 500);
   if (!scene) issues.push('illustration.scene_prompt is empty');
+  // img1 (server/lang-check.js): a letter of a wrong script inside a word is a hard issue.
+  if (foreignScriptIn([title, quick, full, traps, raw.misconception, pq, cq, ill.labels])) issues.push(FOREIGN_SCRIPT_HINT);
   if (issues.length) return { ok: false, issues };
 
   const order = shuffled(options, conceptKey + '|' + str(cq.q, 500));

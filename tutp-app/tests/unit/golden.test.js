@@ -16,8 +16,9 @@ for (const c of CASES) {
 }
 
 test('the golden set covers what the brief asks for', () => {
-  assert.equal(CASES.length, 13);
-  assert.equal(CASES.filter((c) => c.content).length, 3);              // pages with no questions
+  assert.equal(CASES.length, 16);
+  assert.equal(CASES.filter((c) => c.content).length, 5);              // pages with no questions
+  assert.equal(CASES.filter((c) => c.lang === 'Telugu' && c.notes).length, 3);   // img1: the three Telugu cases for hand review
   const classes = CASES.map((c) => Number(c.cls.match(/\d+/)[0]));
   assert.ok(Math.min(...classes) <= 3 && Math.max(...classes) >= 10);
   for (const s of ['maths', 'physics', 'biology', 'social', 'english']) assert.ok(CASES.some((c) => c.subject === s), s);

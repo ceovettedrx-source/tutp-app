@@ -3,8 +3,9 @@
 // Gating happens HERE, on the server: a free family's response never holds
 // the gated fields, so nothing can be unlocked from the browser.
 //
-//   Free  full Answer Please, Explain: concept_key, title, quick
-//   Pro+  Explain: also the illustration, full, traps, misconception,
+//   Free  full Answer Please, Explain: concept_key, title, quick, and the
+//         picture's status (one picture a day in full, the rest blurred)
+//   Pro+  Explain: also the picture's labels, full, traps, misconception,
 //         prev/next, parent questions (the "tonight" card) and the check question
 // Unit tests: tests/unit/tier-gate.test.js.
 
@@ -14,7 +15,10 @@ export const UPSELL = { label: 'Pro ₹500/month', text: 'Unlock the full explan
 // `illustration` is { status, url? } from the illustration service.
 export function explainView(explain, { paid, illustration = null, kg = null } = {}) {
   const base = { concept_key: explain.concept_key, title: explain.title, quick: explain.quick };
-  if (!paid) return { ...base, tier: 'free', locked: true, upsell: UPSELL };
+  // img1: a free family also gets the picture's status (the page polls it; the
+  // server shows one picture a day in full and blurs the rest, see
+  // server/services/concept-picture.js). No labels and no link here.
+  if (!paid) return { ...base, tier: 'free', locked: true, upsell: UPSELL, illustration: { status: illustration ? illustration.status : 'pending' } };
   const view = {
     ...base, tier: 'pro', locked: false,
     full: explain.full,
@@ -31,4 +35,4 @@ export function explainView(explain, { paid, illustration = null, kg = null } = 
 
 // The fields a free explain response must never carry (checked by tests and
 // by the e2e on the real payload).
-export const PAID_ONLY_FIELDS = ['full', 'traps', 'misconception', 'parent_questions', 'check_question', 'illustration', 'prev_link', 'next_link'];
+export const PAID_ONLY_FIELDS = ['full', 'traps', 'misconception', 'parent_questions', 'check_question', 'prev_link', 'next_link'];

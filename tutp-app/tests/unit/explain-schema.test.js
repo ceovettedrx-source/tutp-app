@@ -65,10 +65,12 @@ test('concept keys', () => {
   assert.equal(normalizeConceptKey('a'.repeat(100)).length <= 60, true);
 });
 
-test('free view: only concept_key, title and quick, never a paid field, with the upsell', () => {
+test('free view: concept_key, title, quick and the picture status, never a paid field, with the upsell', () => {
   const e = validateExplain(good()).explain;
-  const v = explainView(e, { paid: false });
-  assert.deepEqual(Object.keys(v).sort(), ['concept_key', 'locked', 'quick', 'tier', 'title', 'upsell']);
+  const v = explainView(e, { paid: false, illustration: { status: 'ready', url: 'https://x/y.png' } });
+  assert.deepEqual(Object.keys(v).sort(), ['concept_key', 'illustration', 'locked', 'quick', 'tier', 'title', 'upsell']);
+  // the picture itself is polled (one a day in full, the rest blurred); no link and no labels here
+  assert.deepEqual(v.illustration, { status: 'ready' });
   for (const f of PAID_ONLY_FIELDS) assert.equal(f in v, false, f);
   assert.equal(v.upsell.label, 'Pro ₹500/month');
   assert.equal(v.upsell, UPSELL);

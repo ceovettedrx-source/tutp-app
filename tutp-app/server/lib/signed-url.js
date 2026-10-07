@@ -51,3 +51,16 @@ export async function uploadPrivate(supabase, bucket, objectPath, buffer, conten
     return false;
   }
 }
+
+// The bytes of a file in a private bucket (server side only), or null.
+export async function downloadPrivate(supabase, bucket, objectPath) {
+  if (!supabase || !bucket || !safeObjectPath(objectPath)) return null;
+  try {
+    const { data, error } = await supabase.storage.from(bucket).download(objectPath);
+    if (error || !data) { console.error('signed-url: download failed', { bucket, error: error && error.message }); return null; }
+    return Buffer.from(await data.arrayBuffer());
+  } catch (err) {
+    console.error('signed-url: download error', { bucket, error: err && err.message });
+    return null;
+  }
+}

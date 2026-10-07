@@ -10,6 +10,7 @@
 
 import { notesPrompt, notesUserText } from './notes-prompts.js';
 import { answerPrompt } from './answer-prompts.js';
+import { languageBlock, bilingualTerms } from './language-rule.js';
 
 export const HOMEWORK_LANGUAGES =['English', 'Hindi', 'Telugu', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
 
@@ -89,10 +90,10 @@ function storytellingPrompt({ lang, childContext, libraryCandidates = [] }) {
 ${libraryCandidates.map((l) => '     ' + l).join('\n')}` : '';
   return `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read it aloud before homework time.
 Ground this in NCF-SE 2023's Panchpadi teaching sequence. The story does two stages at once: Bodha (conceptual understanding) by explaining the lesson's actual content, framed through Prayoga (application) by connecting it to a real-life situation a child would recognise.
-SOURCE WORDING: only the lesson's technical terms, names and numbers stay exactly as written in the lesson, in its original language; never translate or change those. Everything else, above all the explanation of the lesson's idea, is written in ${lang}, in simple natural everyday language a child can follow, with numbers as digits. Never paste or closely copy a sentence or paragraph of the textbook: explain the idea in your own simple words.
+SOURCE WORDING: only the lesson's technical terms, names and numbers stay exactly as written in the lesson, in its original language; never translate or change those. Everything else, above all the explanation of the lesson's idea, is written in ${lang}, in simple natural everyday language a child can follow, with numbers as digits. Never paste or closely copy a sentence or paragraph of the textbook: explain the idea in your own simple words.${bilingualTerms(lang) ? ' ' + bilingualTerms(lang) : ''}
 A REAL STORY: one named child as the main character, in a home, market or local festival setting a child in India would recognise (for example Diwali, Sankranti, Ugadi, Bonalu or a kitchen). The story has a conflict, something the character wants or needs and cannot get yet, and a resolution: the lesson's idea is what solves it, and the story ends warmly.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"title":"short story title in ${lang}","gradeSubjectTag":"the lesson's own class, subject and topic, e.g. Class 5 · Maths · Fractions","readMinutes":2,"scenes":[{"label":"hook","text":"..."},{"label":"problem","text":"..."},{"label":"mathMoment","text":"..."},{"label":"wrapUp","text":"..."}],"visual":{"type":"groups","itemNoun":"laddus","icon":"🟠","total":24,"groups":[6,6,6,6]},"equations":["..."],"tryTogether":{"question":"...","answer":"..."},"parentPrompt":"..."}
+{"title":"short story title in ${lang}","gradeSubjectTag":"the lesson's own class, subject and topic, e.g. Class 5 · Maths · Fractions","readMinutes":2,"scenes":[{"label":"hook","text":"..."},{"label":"problem","text":"..."},{"label":"mathMoment","text":"..."},{"label":"wrapUp","text":"..."}],"visual":{"type":"groups","itemNoun":"laddus","icon":"🟠","total":24,"groups":[6,6,6,6]},"equations":["..."],"tryTogether":{"question":"...","answer":"..."},"parentPrompt":"...","concept_key":"c<class>-<subject>-<concept>","scene_prompt":"ONE English sentence of at most 25 words describing the story's big idea as a simple, friendly everyday picture, with no words, letters, numbers or signs in it"}
 Rules:
 1. Exactly 4 scenes, in this order, with these labels: hook (the character and the setting), problem (the conflict: what the character needs and cannot get yet, which needs the lesson's idea), mathMoment ("the big idea": the lesson's idea itself, explained in simple ${lang} through what the character does, with only the technical terms, names and numbers kept in the lesson's own language, never a pasted textbook paragraph; for a lesson that is not maths this is its key idea), wrapUp (the resolution, where the idea solves the conflict). Each scene is 1 to 3 short sentences in ${lang}.
 2. visual: every maths lesson gets ONE picture, chosen by the lesson; use null for a lesson that is not maths unless a LIBRARY PICTURE below fits exactly. All numbers are whole numbers of 1 or more. The types:
@@ -109,6 +110,7 @@ SIGN: every multiplication, in equations, scenes and the try-together question a
 5. parentPrompt: one short line to the parent in ${lang}: a tiny action or question to continue together.
 6. readMinutes is a whole number from 1 to 5.
 7. Inside any text, write what a character says with single quotes like 'this', never with double quotes, so the JSON stays valid.
+8. concept_key: a lowercase English slug "c<class>-<subject>-<concept>" (a-z, 0-9 and "-", at most 60 characters) naming the lesson's CONCEPT, for example "c9-physics-distance-vs-displacement". scene_prompt is English, not ${lang}.${languageBlock(lang, { terms: false }) ? '\n' + languageBlock(lang, { terms: false }) : ''}
 Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
 }
 

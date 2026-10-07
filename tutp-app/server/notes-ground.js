@@ -2,6 +2,8 @@
 // and does the quick check use new numbers? Pure functions, no I/O. A failed
 // check triggers at most one retry in server/routes/chips.js.
 
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
+
 const STOP = new Set(['what', 'which', 'with', 'from', 'that', 'this', 'there', 'their', 'have', 'find', 'write', 'fill', 'blank', 'blanks', 'answer', 'answers', 'following', 'question', 'questions', 'give', 'make', 'each', 'when', 'then', 'than', 'into', 'about', 'using', 'solve', 'complete', 'homework']);
 
 const scriptOf = (ch) => {
@@ -46,7 +48,9 @@ function operatorsIn(text) {
 // homework numbers).
 export function checkNotes(notes, homework) {
   const reasons = [];
-  if (!notes || notes.plain || !homework) return { ok: true, reasons };
+  // A letter of a wrong script inside a word (img1, server/lang-check.js): always checked, even with no homework text.
+  if (notes && !notes.plain && foreignScriptIn(notes)) reasons.push('foreign_script');
+  if (!notes || notes.plain || !homework) return { ok: reasons.length === 0, reasons };
   // Title, key idea and the worked example's problem: a good key idea for a
   // numbers-only homework names the skill in words ("split one factor and keep
   // both sides equal") and has no digits, so the example problem carries the
@@ -89,5 +93,6 @@ export function correctionHint(reasons, homework) {
   if (reasons.includes('quick_reuse')) {
     parts.push('Your quick_check repeated numbers from the homework. Use completely different numbers.');
   }
+  if (reasons.includes('foreign_script')) parts.push(FOREIGN_SCRIPT_HINT);
   return parts.join(' ');
 }

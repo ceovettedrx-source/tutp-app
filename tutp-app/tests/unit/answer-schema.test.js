@@ -125,7 +125,12 @@ test('extractAnswerJson reads the first text block', () => {
 test('the answer prompt: language rules, board, batch range, box rule only with photos', () => {
   const base = { feature: 'answer_v2', lang: 'Hindi', childContext: 'Asha · Class 9', text: '', attachments: [] };
   const p = buildHomeworkRequest({ ...base, extra: { board: 'cbse' } }).system;
-  assert.match(p, /ONLY the commentary to the parent, "why_text" and "unit_direction_note", is written in Hindi/);
+  // img1 language rule: the child's notebook answer in the page's language, everything the parent reads in Hindi
+  assert.match(p, /what the child WRITES in the exam notebook .* stays in the language of the page as written/);
+  assert.match(p, /"why_text", "unit_direction_note" and, on a content page, every idea's "title" and "summary", is written in Hindi/);
+  assert.match(p, /write the Hindi word first and the term exactly as the page or question writes it in brackets/);
+  assert.match(p, /विस्थापन \(Displacement\)/);
+  assert.match(p, /"scene_prompt"/);
   assert.match(p, /CBSE exam/);
   assert.match(p, /never guess at text you cannot read/);
   assert.doesNotMatch(p, /Show on photo/);

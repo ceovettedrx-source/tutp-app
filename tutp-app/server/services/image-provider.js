@@ -8,7 +8,8 @@
 //   IMAGE_PROVIDER=mock   a fixed tiny PNG (e2e only; MOCK_IMAGE_DELAY_MS to slow it)
 //   otherwise             Gemini, when GEMINI_IMAGE_API_KEY is set
 //                         (Cloud Run: secretKeyRef from the Secret Manager
-//                         secret "gemini-image-api-key"); null when there is no key.
+//                         existing secret "gemini-api-key"; no second secret is
+//                         ever made); null when there is no key.
 // Other env: GEMINI_IMAGE_MODEL (model id), IMAGE_GEN_ENABLED ("1" turns
 // generation on), IMAGE_GEN_DAILY_CAP (pictures per day; default 50).
 // The prompt always ends with the no-text suffix; labels are only ever an

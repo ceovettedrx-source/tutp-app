@@ -75,6 +75,7 @@ window.TUTP_CHIP_MESSAGES = {
     let hasResult = false;
     let lastParsed = null;
     let lastTyped = '';
+    let explainBuilt = null;      // { parsed, lang } of the Explain please block on screen
     let openToken = 0;            // bumped on every open/reset: stale answers are dropped
     let loggedImpressions = null;
     const notesCache = new Map(); // language -> { subject, notes }
@@ -231,6 +232,13 @@ window.TUTP_CHIP_MESSAGES = {
         block.appendChild(p);
     }
 
+    // The signed concept key of the photo's first question or idea, so Notes shows the same
+    // picture as Answer and Explain (the server checks the signature).
+    function firstConcept(parsed) {
+        const q = parsed && parsed.schema === 2 && Array.isArray(parsed.questions) ? parsed.questions[0] : null;
+        return q && q.concept_key && q.concept_sig ? { concept_key: q.concept_key, concept_sig: q.concept_sig } : {};
+    }
+
     async function loadNotes() {
         const l = lang();
         if (notesCache.has(l)) { showNotes(notesCache.get(l)); return; }
@@ -243,7 +251,7 @@ window.TUTP_CHIP_MESSAGES = {
             const res = await fetch('/api/homework-notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId: sessionStorage.getItem('tutp_student_id'), language: l, questions, topic })
+                body: JSON.stringify({ studentId: sessionStorage.getItem('tutp_student_id'), language: l, questions, topic, ...firstConcept(parsed) })
             });
             if (token !== openToken) return;
             if (!res.ok) throw new Error('notes ' + res.status);
@@ -267,12 +275,38 @@ window.TUTP_CHIP_MESSAGES = {
         }
     }
 
+    // Explain please (answer-explain v2 replies): every question or idea of the photo
+    // is explained in full at once, in its own block next to the answers, all requested
+    // in parallel and shown as each arrives (docs/specs/img1.md). A reply without the v2
+    // cards keeps the old behaviour (the "Why?" details open).
+    function explainBlock() {
+        let block = $('hwExplainBlock');
+        if (block) return block;
+        block = document.createElement('div');
+        block.id = 'hwExplainBlock';
+        block.className = 'hidden';
+        block.setAttribute('aria-live', 'polite');
+        $('hwModalResults').insertBefore(block, $('hwModalHomeworkResultBlock'));
+        return block;
+    }
+    const v2Explain = () => !!(lastParsed && lastParsed.schema === 2 && lastParsed.status === 'ok' && window.TutpExplain && typeof window.TutpExplain.explainAll === 'function');
+    function showExplain() {
+        const l = lang();
+        const block = explainBlock();
+        if (explainBuilt && explainBuilt.parsed === lastParsed && explainBuilt.lang === l) return;
+        explainBuilt = { parsed: lastParsed, lang: l };
+        window.TutpExplain.explainAll(block, lastParsed, { studentId: sessionStorage.getItem('tutp_student_id'), language: l });
+    }
+
     function applyMode() {
         const notes = selectedId === 'notes';
+        const explainOn = selectedId === 'explain' && v2Explain();
         const block = notesBlock();
         block.classList.toggle('hidden', !notes);
-        $('hwModalHomeworkResultBlock').classList.toggle('hidden', notes);
+        if ($('hwExplainBlock') || explainOn) explainBlock().classList.toggle('hidden', !explainOn);
+        $('hwModalHomeworkResultBlock').classList.toggle('hidden', notes || explainOn);
         if (notes) { loadNotes(); return; }
+        if (explainOn) { showExplain(); return; }
         setDetailsOpen(selectedId === 'explain');
     }
 
@@ -286,11 +320,13 @@ window.TUTP_CHIP_MESSAGES = {
             lastParsed = null;
             lastTyped = '';
             selectedId = null;
+            explainBuilt = null;
             notesCache.clear();
             loggedImpressions = new Set();
             const row = $('hwChipRow');
             if (!row) return;
             if ($('hwNotesBlock')) $('hwNotesBlock').classList.add('hidden');
+            if ($('hwExplainBlock')) { $('hwExplainBlock').classList.add('hidden'); $('hwExplainBlock').replaceChildren(); }
             place(false);
             if (mode !== 'homework') { row.classList.add('hidden'); return; }
             const token = openToken;
@@ -312,6 +348,8 @@ window.TUTP_CHIP_MESSAGES = {
             hasResult = true;
             lastParsed = parsed;
             lastTyped = typed || '';
+            explainBuilt = null;
+            if ($('hwExplainBlock')) $('hwExplainBlock').replaceChildren();
             const chip = config && config.chips.find((c) => c.intent === typedIntent);
             if (chip) selectedId = chip.id;
             paintSelection();
@@ -319,14 +357,30 @@ window.TUTP_CHIP_MESSAGES = {
             if ($('hwChipRow') && config) $('hwChipRow').classList.remove('hidden');
             applyMode();
         },
+        // Switch to a mode from outside (an answer card's Explain button). Returns true when the
+        // mode chip exists and the result is on screen, so the caller knows the click was handled.
+        show(id, index) {
+            const chip = config && config.chips.find((c) => c.id === id);
+            if (!chip || !hasResult) return false;
+            if (id === 'explain' && !v2Explain()) return false;
+            selectedId = id;
+            paintSelection();
+            logEvents([{ kind: 'tap', chip: chip.id, intent: chip.intent }]);
+            applyMode();
+            const card = document.querySelector('#hwExplainBlock [data-qi="' + (Number.isInteger(index) ? index : 0) + '"]');
+            if (card && card.scrollIntoView) card.scrollIntoView({ block: 'start' });
+            return true;
+        },
         reset() {
             openToken++;
             hasResult = false;
             lastParsed = null;
             selectedId = null;
+            explainBuilt = null;
             notesCache.clear();
             paintSelection();
             if ($('hwNotesBlock')) $('hwNotesBlock').classList.add('hidden');
+            if ($('hwExplainBlock')) { $('hwExplainBlock').classList.add('hidden'); $('hwExplainBlock').replaceChildren(); }
             $('hwModalHomeworkResultBlock') && $('hwModalHomeworkResultBlock').classList.remove('hidden');
             if ($('hwChipRow')) place(false);
         }
@@ -336,6 +390,6 @@ window.TUTP_CHIP_MESSAGES = {
         // The chip row and the notes follow the "Explain in" language.
         if (!e.target || e.target.id !== 'hwModalLang' || !config) return;
         renderChips();
-        if (hasResult && selectedId === 'notes') applyMode();
+        if (hasResult && (selectedId === 'notes' || selectedId === 'explain')) applyMode();
     });
 })();

@@ -149,6 +149,12 @@ window.TUTP_NOTES_MESSAGES = {
         if (str(d.title)) head.appendChild(el('h3', 'nd-title', str(d.title)));
         root.appendChild(head);
 
+        // img1: the concept's picture (shared with Answer, Explain and Story). Nothing is shown
+        // when the server sent none, or cannot make one.
+        if (d.picture && window.TutpPicture) {
+            window.TutpPicture.mount(root, d.picture, { studentId: sessionStorage.getItem('tutp_student_id'), surface: 'notes' }, { variant: 'hero', alt: str(d.title) });
+        }
+
         if (str(d.key_idea)) {
             const s = el('section', 'nd-idea');
             const h = el('h4', 'nd-label'); h.append(icon('lightbulb'), document.createTextNode(t('nd.keyIdea')));

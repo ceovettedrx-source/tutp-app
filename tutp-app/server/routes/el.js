@@ -20,6 +20,8 @@ import { createVideoService, makeReviewer } from '../video/service.js';
 import { searchVideos } from '../video/youtube.js';
 import { segmentFromChapters, segmentFromGemini, geminiKeyFromSecretManager } from '../video/segments.js';
 import { fixtureSearch, fixtureSegment } from '../video/fixtures.js';
+import { elPicture } from '../el/scenes.js';
+import { answerV2Enabled } from './answer-explain.js';
 
 export const EL_EVENTS = ['predict_correct', 'hints_used', 'teach_back_done', 'sim_opened', 'revisit_done'];
 const SKIP_KEYS = new Set(['id', 'level', 'correctIndex', 'misconceptionId', 'adultSteps', 'slugs', 'version', 'grade', 'simUrls', 'safety', 'term_en']);
@@ -90,6 +92,9 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
           const testFamily = await isTestFamily(session.familyId);
           const { safety, ...pub } = out;
           const body = { ...pub, language: lang, translated, mapping, attribution: 'PhET Interactive Simulations, University of Colorado Boulder, CC-BY 4.0' };
+          // img1: the lesson's concept picture (shared with Explain, Notes and Story).
+          const pic = answerV2Enabled(req) ? elPicture(lesson.id) : null;
+          if (pic) body.picture = pic;
           if (testFamily && req._elRecordings && req._elRecordings.length) body._recordings = req._elRecordings;
           if (testFamily) res.set('X-Model-Usd', String(req._elCost && req._elCost.usd || 0));
           res.json(body);

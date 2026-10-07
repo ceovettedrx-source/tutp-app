@@ -10,10 +10,12 @@ import { buildHomeworkRequest, HOMEWORK_LANGUAGES } from '../prompts/homework-pr
 import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
 import { checkNotes, correctionHint } from '../notes-ground.js';
 import { callClaude } from '../anthropic.js';
-import { MODELS, modelSettings } from '../models.js';
+import { notesModel, modelSettings } from '../models.js';
 import { replayMode } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
 import { normalizeNotes, plainNotes } from '../notes-schema.js';
+import { answerV2Enabled, verifyConceptKey } from './answer-explain.js';
+import { pictureFor } from '../services/concept-picture.js';
 
 const MAX_QUESTIONS = 8;
 const MAX_QUESTION_CHARS = 600;
@@ -60,6 +62,16 @@ export function parseNotes(data) {
   const plain = plainNotes(o);
   if (plain) console.warn('notes: plain fallback (reply has no usable structure)');
   return plain;
+}
+
+// img1: the notes' concept picture. The concept key the Answer reply signed (when the
+// page sends it) wins over the model's own slug, so Answer, Explain and Notes show one
+// shared picture; the model's scene describes it. Plain notes get none.
+export function withNotesPicture(notes, { givenKey = '', enabled = false } = {}) {
+  if (!notes || notes.plain) return notes;
+  const { concept_key, scene_prompt, ...rest } = notes;
+  const pic = enabled ? pictureFor(givenKey || concept_key, scene_prompt) : null;
+  return pic ? { ...rest, picture: pic } : rest;
 }
 
 // The text the notes are written from: the numbered questions, else the topic.
@@ -121,7 +133,9 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
       const own = await requireOwnStudent(req, res, body.studentId);
       if (!own) return;
       const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
-      const cacheKey = crypto.createHash('sha256').update([body.studentId, lang, text].join('\u0000')).digest('hex');
+      const givenKey = typeof body.concept_key === 'string' && /^[a-z0-9][a-z0-9-]{2,59}$/.test(body.concept_key) && verifyConceptKey(body.concept_key, body.concept_sig) ? body.concept_key : '';
+      const picturesOn = answerV2Enabled(req);
+      const cacheKey = crypto.createHash('sha256').update([body.studentId, lang, text, givenKey, picturesOn ? 'p' : ''].join('\u0000')).digest('hex');
       const cached = notesCache.get(cacheKey);
       if (cached) { res.set('X-Notes-Cache', 'hit'); return res.json(cached); }
       notesLimiter(req, res, () => notesDailyLimiter(req, res, async () => {
@@ -137,7 +151,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
           const testFamily = await isTestFamily(session.familyId);
           const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
           const cost = { usd: 0 };
-          const model = MODELS.homework_notes;
+          const model = notesModel(lang);
           const callModel = async (attempt = 1, userContent = content) => {
             const r = await callClaude({
               feature: 'notes', variant: lang, attempt,
@@ -177,6 +191,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
           res.set('X-Notes-Retry', retried ? (usedRetry ? 'used' : 'kept-first') : 'no');
           if (testFamily) res.set('X-Model-Usd', String(cost.usd));
           res.set('X-Notes-Format', notes.plain ? 'plain' : 'structured');
+          notes = withNotesPicture(notes, { givenKey, enabled: picturesOn });
           notesCache.set(cacheKey, notes);
           res.json(extras(notes));
         } catch (err) {

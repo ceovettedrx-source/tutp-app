@@ -11,6 +11,8 @@
 
 import { solveArithmetic, evaluate } from './arith-check.js';
 import { pickIcon, iconForNoun } from './story-icons.js';
+import { normalizeConceptKey, cleanScenePrompt } from './explain-schema.js';
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
 
 export const SCENE_LABELS = ['hook', 'problem', 'mathMoment', 'wrapUp'];
 const MAX_VISUAL_TOTAL = 1000; // the page draws at most 60 items and counts the rest
@@ -402,6 +404,9 @@ export function validateStory(raw, ctx = {}) {
     }
   }
 
+  // img1 (server/lang-check.js): a letter of a wrong script inside a word is a hard issue.
+  if (foreignScriptIn([title, scenes.map((s) => s.text), equations, tryTogether, parentPrompt])) issues.push(FOREIGN_SCRIPT_HINT);
+
   if (issues.length) return { ok: false, issues };
 
   const words = scenes.map(s => s.text).join(' ').split(/\s+/).length;
@@ -419,6 +424,9 @@ export function validateStory(raw, ctx = {}) {
       equations: equations.map(timesSign),
       tryTogether: tryTogether && { ...tryTogether, question: timesSign(tryTogether.question) },
       parentPrompt,
+      // img1: the concept picture (server.js turns these two into a signed `picture`).
+      concept_key: normalizeConceptKey(raw.concept_key),
+      scene_prompt: cleanScenePrompt(raw.scene_prompt),
     },
   };
 }

@@ -177,6 +177,11 @@
         var qt = el('p', 'ae-qtext', q.q_text);
         qt.dataset.script = q.script || 'latin';
         c.appendChild(qt);
+        // img1: a theory question or an idea gets a small picture (shared with Explain, Notes
+        // and Story for the same concept); a numerical question keeps its SVG diagram below.
+        if (q.picture && q.q_type !== 'numerical' && window.TutpPicture) {
+            window.TutpPicture.mount(c, q.picture, { studentId: ctx.studentId, surface: 'answer' }, { variant: 'small', alt: q.q_text });
+        }
 
         var body = el('div', 'ae-body');
         body.dataset.script = q.script || 'latin';
@@ -236,6 +241,9 @@
         var ex = btn('Explain', 'ae-btn-primary');
         ex.setAttribute('aria-expanded', 'false');
         ex.addEventListener('click', function () {
+            // With the mode chips on the page, Explain please is a mode of its own: every
+            // question is explained there, so this button just switches to it.
+            if (window.TutpChips && typeof window.TutpChips.show === 'function' && window.TutpChips.show('explain', index)) return;
             if (!window.TutpExplain) return;
             window.TutpExplain.toggle(c, q, ex, ctx);
         });

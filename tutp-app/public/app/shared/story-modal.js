@@ -235,7 +235,8 @@
             visual: p.visual && VISUAL_TYPES[p.visual.type] ? p.visual : null,
             equations: Array.isArray(p.equations) ? p.equations : [],
             tryTogether: p.tryTogether && p.tryTogether.question ? p.tryTogether : null,
-            parentPrompt: p.parentPrompt || p.abhyasaPrompt || ''
+            parentPrompt: p.parentPrompt || p.abhyasaPrompt || '',
+            picture: p.picture && p.picture.concept_key ? p.picture : null
         };
     }
 
@@ -551,6 +552,12 @@
         if (story.minutes) meta.appendChild(el('span', 'sm-read', story.minutes + ' min read'));
         if (meta.childNodes.length) head.appendChild(meta);
         box.appendChild(head);
+
+        // img1: the story's concept picture (shared with Explain, Notes and Answer). Library
+        // pictures are drawn below as before; a story with one has no `picture`.
+        if (story.picture && window.TutpPicture) {
+            window.TutpPicture.mount(box, story.picture, { studentId: sessionStorage.getItem('tutp_student_id'), surface: 'story' }, { variant: 'hero', alt: story.title });
+        }
 
         var ol = el('ol', 'sm-scenes');
         story.scenes.forEach(function (s, i) {

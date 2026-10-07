@@ -19,7 +19,8 @@ import { solveArithmetic } from './arith-check.js';
 import { buildDiagram } from './services/diagrams.js';
 import { scriptOf, fontStack } from './lang-fonts.js';
 import { checkBox, MAX_QUESTIONS } from './homework-boxes.js';
-import { normalizeConceptKey } from './explain-schema.js';
+import { normalizeConceptKey, cleanScenePrompt } from './explain-schema.js';
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
 
 export const ANSWER_STATUSES = ['ok', 'unreadable', 'not_homework'];
 const MAX_TEXT = 1200;
@@ -127,6 +128,7 @@ function validateContent(raw, subject) {
       blocks: [{ type: 'text', text: summary }], keywords: [], diagram: null, unit_direction_note: '',
       script: scriptOf(title + ' ' + summary), context: (title + ': ' + summary).slice(0, 800),
       concept_key: normalizeConceptKey(c.concept_key),
+      scene_prompt: cleanScenePrompt(c.scene_prompt),
     });
   }
   if (!questions.length && !pageText) return { ok: false, issues: ['a content page needs "concepts" (title and summary each) or "page_text"'] };
@@ -196,9 +198,12 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
       marks: resolveMarks({ questionText: qText, modelMarks: q.marks, qType, board }),
       blocks, keywords, diagram, unit_direction_note: note, script,
       concept_key: normalizeConceptKey(q.concept_key),
+      // img1: a theory question gets a small picture; a numerical one keeps its SVG diagram.
+      scene_prompt: qType === 'numerical' ? '' : cleanScenePrompt(q.scene_prompt),
       ...(box ? { photo: q.photo, box } : {}),
     });
   });
+  if (!issues.length && foreignScriptIn(questions.map((q) => [q.q_text, q.blocks, q.keywords, q.unit_direction_note]))) issues.push(FOREIGN_SCRIPT_HINT);
   if (issues.length) return { ok: false, issues };
   if (!questions.length) return { ok: false, issues: ['no usable question'] };
 
