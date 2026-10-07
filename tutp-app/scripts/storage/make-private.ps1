@@ -117,12 +117,12 @@ else { Write-Host 'Public objects        : 0 (the bucket is already private)' -F
 if ($CountOnly) { exit 0 }
 
 # --- 4. what will change, ask --------------------------------------------------
-$want = -not $Revert
+$want = [bool]$Revert   # the wanted value of the bucket's public flag: private by default, public only with -Revert
 if ([bool]$b.public -eq $want) { Write-Host "The bucket is already public = $want. Nothing to do." -ForegroundColor Yellow; exit 0 }
 Write-Host ''
 Write-Host 'About to change:' -ForegroundColor Cyan
 Write-Host "  bucket $Bucket : public $($b.public) -> $want"
-if ($want) {
+if (-not $want) {
     Write-Host '  no object is deleted, moved or renamed'
     Write-Host '  old public urls (without a token) stop working at once; the app keeps working because it now hands out signed urls (15 minutes)'
 } else {
@@ -138,7 +138,7 @@ try {
 } catch { Write-Host "FAILED: $($_.Exception.Message). Check the bucket in the Supabase dashboard (Storage)." -ForegroundColor Red; exit 1 }
 if ([bool]$after.public -ne $want) { Write-Host "NOT APPLIED: the bucket still reports public = $($after.public)." -ForegroundColor Red; exit 1 }
 Write-Host "Bucket public = $($after.public)." -ForegroundColor Green
-if ($want -and $script:sample) {
+if ((-not $want) -and $script:sample) {
     $code = Get-Status "$Base/storage/v1/object/public/$Bucket/$($script:sample)" 'Get' $null
     if ($code -eq 200) { Write-Host 'WARNING: an old public url still returns 200. Check the bucket in the Supabase dashboard.' -ForegroundColor Red; exit 1 }
     Write-Host "Check OK: an old public url now returns $code (not 200)." -ForegroundColor Green
