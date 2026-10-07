@@ -152,6 +152,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ }
     return { status: r.status, headers: Object.fromEntries(r.headers.entries()), text, json };
   }, { url, body, method });
+  // The events a page sent (and the server's answers), waiting a few seconds for the first one.
+  async function waitEvents(who, name, timeoutMs = 8000) {
+    const t0 = Date.now();
+    while (Date.now() - t0 < timeoutMs) {
+      const found = who.seen.events.filter((e) => e.event === name);
+      if (found.length) return found;
+      await sleep(200);
+    }
+    return [];
+  }
   const explainReqs = (who, from) => who.seen.requests.slice(from).filter((x) => x.m === 'POST' && x.p === '/api/explain-please');
 
   let pro = null, free = null;
@@ -288,7 +298,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const blurredGet = free.seen.illustrationGets.find((g) => g.text.includes('"blurred":true'));
     expect(blurredGet, 'no blurred reply from the server');
     expect(!/token=|\/object\/sign|https?:\/\//.test(blurredGet.text.replace(/data:image\/png;base64,[A-Za-z0-9+/=]+/, '')), 'the blurred reply carries a link: ' + blurredGet.text.slice(0, 200));
-    const ev = free.seen.events.filter((e) => e.event === 'picture_upsell_view');
+    const ev = await waitEvents(free, 'picture_upsell_view');
     expect(ev.length >= 1 && ev[0].status === 204 && ev[0].surface === 'answer', 'picture_upsell_view not logged: ' + JSON.stringify(ev));
     // Explain please for the same two concepts: the same picture states, still one full picture
     await chip(free.page, 'explain');
@@ -337,12 +347,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     expect(r.status() === 200, 'story status ' + r.status());
     const story = JSON.parse((await r.json()).content[0].text);
     await page.locator('#storyModalResults').waitFor({ state: 'visible', timeout: 180000 });
-    if (story.visual && story.visual.type === 'library') return 'library picture, no generated one (by design)';
+    if (story.visual && story.visual.type === 'library') { await page.keyboard.press('Escape'); return 'library picture, no generated one (by design)'; }
     expect(story.picture && story.picture.sig && story.picture.concept_key, 'the story has no signed picture');
     expect(!('scene_prompt' in story) && !('concept_key' in story), 'raw picture fields left on the story');
     await page.locator('#storyModalResults .tp-pic[data-state=ready]').waitFor({ timeout: 90000 });
     expect(await page.locator('#storyModalResults .tp-pic img').first().evaluate((i) => i.naturalWidth > 0), 'story picture did not load');
     await page.screenshot({ path: path.join(OUT, 'img1-story-picture.png'), fullPage: true });
+    await page.keyboard.press('Escape');   // close the modal so the next test can use the page
+    await page.locator('#storyModal .sm-panel').waitFor({ state: 'hidden', timeout: 10000 });
     return 'picture ' + story.picture.concept_key;
   }, page);
 

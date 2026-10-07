@@ -243,7 +243,9 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     const r = await ask(page, { file: 'te-8-blurred.jpg', language: 'English' });
     expect(r.status === 200, 'status ' + r.status);
     expect(r.headers['x-answer-status'] === 'unreadable', 'X-Answer-Status ' + r.headers['x-answer-status']);
-    expect(/another photo/i.test(await page.locator('.ae-msg').first().innerText()), 'no clearer-photo message');
+    // the model writes the retake request in the parent's language (its own words), else the page's English default
+    const msg = (await page.locator('.ae-msg').first().innerText()).trim();
+    expect(msg.length >= 20 && /photo|picture|image|clear|sharp|light/i.test(msg), 'no clearer-photo message: ' + msg);
     expect(await cards(page).count() === 0, 'cards on an unreadable photo');
   }, page);
 
