@@ -152,6 +152,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     let json = null; try { json = JSON.parse(text); } catch { /* not JSON */ }
     return { status: r.status, headers: Object.fromEntries(r.headers.entries()), text, json };
   }, { url, body, method });
+  async function closeStory() {
+    await page.evaluate(() => document.querySelector('#storyModal [data-sm="close"]').click());
+    await page.locator('#storyModal .sm-panel').waitFor({ state: 'hidden', timeout: 10000 });
+  }
   // The events a page sent (and the server's answers), waiting a few seconds for the first one.
   async function waitEvents(who, name, timeoutMs = 8000) {
     const t0 = Date.now();
@@ -347,14 +351,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     expect(r.status() === 200, 'story status ' + r.status());
     const story = JSON.parse((await r.json()).content[0].text);
     await page.locator('#storyModalResults').waitFor({ state: 'visible', timeout: 180000 });
-    if (story.visual && story.visual.type === 'library') { await page.keyboard.press('Escape'); return 'library picture, no generated one (by design)'; }
+    if (story.visual && story.visual.type === 'library') { await closeStory(); return 'library picture, no generated one (by design)'; }
     expect(story.picture && story.picture.sig && story.picture.concept_key, 'the story has no signed picture');
     expect(!('scene_prompt' in story) && !('concept_key' in story), 'raw picture fields left on the story');
     await page.locator('#storyModalResults .tp-pic[data-state=ready]').waitFor({ timeout: 90000 });
     expect(await page.locator('#storyModalResults .tp-pic img').first().evaluate((i) => i.naturalWidth > 0), 'story picture did not load');
     await page.screenshot({ path: path.join(OUT, 'img1-story-picture.png'), fullPage: true });
-    await page.keyboard.press('Escape');   // close the modal so the next test can use the page
-    await page.locator('#storyModal .sm-panel').waitFor({ state: 'hidden', timeout: 10000 });
+    await closeStory();   // so the next test can use the page
     return 'picture ' + story.picture.concept_key;
   }, page);
 
