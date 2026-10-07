@@ -84,7 +84,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     });
     return ctx;
   };
-  const V2 = { v2: true, keySuffix: RUN };
+  const V2 = { v2: true, image: 'none', keySuffix: RUN };   // no key: the revision may bind a real one, a9/a10 test the no-key path
 
   async function signIn(who, opts = V2, viewport) {
     const ctx = await newCtx(opts, viewport);
@@ -326,7 +326,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(Object.keys(f.json.illustration).join() === 'status', 'the free picture object holds more than its status: ' + Object.keys(f.json.illustration));
     expect(f.json.tier === 'free' && f.json.locked === true, 'free flags');
     expect(f.json.upsell.label === 'Pro ₹500/month', 'upsell label');
-    for (const secret of [p.json.full, p.json.traps[0], p.json.check_question.q, p.json.parent_questions[0].q, p.json.misconception.text, p.json.illustration.labels[0].text]) {
+    for (const secret of [p.json.full, p.json.traps[0], p.json.check_question.q, p.json.parent_questions[0].q, p.json.misconception.text, p.json.illustration.labels[0].text].filter((s) => String(s).length >= 12)) {   // a one-word trap or label also appears in the free title legitimately
       // record mode adds _recordings (the raw model reply, never sent to browsers in production)
       expect(!JSON.stringify({ ...f.json, _recordings: undefined }).includes(secret), 'free reply leaks: ' + secret.slice(0, 40));
     }

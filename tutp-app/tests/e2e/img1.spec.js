@@ -307,7 +307,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Explain please for the same two concepts: the same picture states, still one full picture
     await chip(free.page, 'explain');
     await free.page.locator('#hwExplainBlock .ae-explain h3').nth(1).waitFor({ timeout: 240000 });
-    await free.page.waitForFunction(() => document.querySelectorAll('#hwExplainBlock .tp-pic[data-state=ready], #hwExplainBlock .tp-pic[data-state=blurred]').length === 2, null, { timeout: 90000 });
+    await free.page.waitForFunction(() => document.querySelectorAll('#hwExplainBlock .tp-pic[data-state=ready], #hwExplainBlock .tp-pic[data-state=blurred]').length === 2, null, { timeout: 90000 }).catch(async (e) => {
+      const st = await free.page.$$eval('#hwExplainBlock .tp-pic', (f) => f.map((x) => x.dataset.state + '/' + x.dataset.surface));
+      throw new Error('Explain pictures stuck: ' + st.join() + '; polls ' + JSON.stringify(free.seen.illustrationGets.slice(-6).map((g) => g.key + ' ' + g.status + ' ' + g.text.slice(0, 60))));
+    });
     const s2 = await free.page.$$eval('#hwExplainBlock .tp-pic', (f) => f.map((x) => x.dataset.state).sort());
     expect(s2.join() === 'blurred,ready', 'Explain please states ' + s2.join());
     expect(await free.page.locator('#hwExplainBlock [data-role=explain-upsell]').count() === 1, 'one Pro upsell card expected under the explanations');

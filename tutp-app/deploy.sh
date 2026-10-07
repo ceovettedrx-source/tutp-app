@@ -7,9 +7,10 @@
 # ADMIN_TOKEN, etc). Env var/secret changes must be made deliberately and
 # separately, never as part of a routine deploy. (The exceptions are additive:
 # --update-env-vars=ANSWER_V2_ENABLED=1,IMAGE_GEN_ENABLED=1 and
-# --update-secrets=GEMINI_IMAGE_API_KEY=gemini-api-key:latest below. Both only
+# --update-secrets=GEMINI_IMAGE_API_KEY=gemini-imagelib-key:latest below. Both only
 # add or overwrite the named entries and change nothing else. The picture key
-# is the existing secret gemini-api-key; gemini-image-api-key is never created.)
+# is the existing secret gemini-imagelib-key; gemini-image-api-key is never created.
+# (gemini-api-key has no version; only the video segments code reads it.)
 #
 # tutp-demo's traffic is pinned to a named revision, not tracking "latest"
 # — so `gcloud run deploy` alone builds a new revision but does NOT move
@@ -42,7 +43,7 @@ SERVICE=tutp-demo
 # IMAGE_GEN_ENABLED=1 and the GEMINI_IMAGE_API_KEY binding turn the concept
 # pictures on (docs/specs/img1.md); without the key a picture falls back to the
 # SVG diagram or nothing, so a missing secret never breaks an answer.
-gcloud run deploy "$SERVICE" --source . --region="$REGION" --update-env-vars=ANSWER_V2_ENABLED=1,IMAGE_GEN_ENABLED=1 --update-secrets=GEMINI_IMAGE_API_KEY=gemini-api-key:latest
+gcloud run deploy "$SERVICE" --source . --region="$REGION" --update-env-vars=ANSWER_V2_ENABLED=1,IMAGE_GEN_ENABLED=1 --update-secrets=GEMINI_IMAGE_API_KEY=gemini-imagelib-key:latest
 
 # Identify the revision this deploy actually just created — independently
 # of gcloud run deploy's own (unreliable, in pinned-traffic mode) summary,

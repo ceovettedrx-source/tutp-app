@@ -9,8 +9,9 @@ const req = (h) => ({ get: (k) => h[k.toLowerCase()] });
 const ALL = { 'x-e2e-answer-v2': '1', 'x-e2e-image': 'mock', 'x-e2e-key-suffix': 'Run-42!!extra-long' };
 
 test('production (no E2E_REPLAY) ignores every header', () => {
-  assert.deepEqual(e2eOverrides(req(ALL), {}), { answerV2: false, imageMock: false, keySuffix: '' });
-  assert.deepEqual(e2eOverrides(req(ALL), { E2E_REPLAY: '0' }), { answerV2: false, imageMock: false, keySuffix: '' });
+  assert.deepEqual(e2eOverrides(req(ALL), {}), { answerV2: false, imageMock: false, imageNone: false, keySuffix: '' });
+  assert.deepEqual(e2eOverrides(req(ALL), { E2E_REPLAY: '0' }), { answerV2: false, imageMock: false, imageNone: false, keySuffix: '' });
+  assert.equal(e2eOverrides(req({ 'x-e2e-image': 'none' }), {}).imageNone, false);
   assert.equal(answerV2Enabled(req(ALL), {}), false);
 });
 
@@ -39,6 +40,16 @@ test('the mock image environment is only built when asked', () => {
   assert.equal(m.IMAGE_GEN_ENABLED, '1');
   assert.equal(m.A, 'x');
   assert.ok(Number(m.MOCK_IMAGE_DELAY_MS) > 0);
+});
+
+test('X-E2E-Image: none removes the image key for that request only', () => {
+  const o = e2eOverrides(req({ 'x-e2e-image': 'none' }), { E2E_REPLAY: '1' });
+  assert.equal(o.imageNone, true);
+  assert.equal(o.imageMock, false);
+  const env = { GEMINI_IMAGE_API_KEY: 'k', IMAGE_GEN_ENABLED: '1' };
+  const e = imageEnv(o, env);
+  assert.equal(e.GEMINI_IMAGE_API_KEY, '');
+  assert.equal(env.GEMINI_IMAGE_API_KEY, 'k');
 });
 
 test('a signed concept key verifies; another key, a forged or missing signature does not', () => {

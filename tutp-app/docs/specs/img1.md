@@ -10,10 +10,10 @@ Branch `img1`, cut from main `3ecf7de` (upload security and answer v2 live on 00
 
 ## A. Gemini image key (no new secret)
 
-- Bind `GEMINI_IMAGE_API_KEY` from the existing secret `gemini-api-key` (the imglib pipeline and `server/video/segments.js` already use it). `gemini-image-api-key` is never created.
+- Bind `GEMINI_IMAGE_API_KEY` directly from the existing secret `gemini-imagelib-key:latest` (founder decision 2026-10-07; no copy into `gemini-api-key`, which stays untouched). `gemini-image-api-key` is never created.
 - The code already reads `GEMINI_IMAGE_API_KEY` (`server/services/image-provider.js`); only the binding and `IMAGE_GEN_ENABLED=1` are missing.
-- Checked read-only today: secret `gemini-api-key` exists; the service account `1096750497923-compute@developer` already holds `secretAccessor` on it, so no IAM change.
-- Deploy: previews and release use `--update-secrets=GEMINI_IMAGE_API_KEY=gemini-api-key:latest` and `--update-env-vars=IMAGE_GEN_ENABLED=1` (update flags only, never `--set-*`). `deploy.sh` and `scripts/release-img1.ps1` carry them explicitly, with a pre-check that the secret exists and a post-check that the revision lists the binding (name only, no values).
+- 2026-10-07: `gemini-api-key` has no version; only `server/video/segments.js` reads it at runtime (REST call, so video segments quietly skip Gemini). `gemini-imagelib-key` has 1 enabled version; `secretAccessor` for `1096750497923-compute@developer` was granted on that secret only.
+- Deploy: previews and release use `--update-secrets=GEMINI_IMAGE_API_KEY=gemini-imagelib-key:latest` and `--update-env-vars=IMAGE_GEN_ENABLED=1` (update flags only, never `--set-*`). `deploy.sh` and `scripts/release-img1.ps1` carry them explicitly, with a pre-check that the secret exists and a post-check that the revision lists the binding (name only, no values).
 - Previews run with `E2E_REPLAY=1` and `IMAGE_PROVIDER=mock`; one live check on the preview with the real key makes a single picture (about 0.04 USD) and confirms a signed URL opens. The traffic revision keeps no mock and no replay.
 - Fix the stale text in `docs/CHANGES-EXPLAINED.md` line 60 and the header comment of `image-provider.js` that name `gemini-image-api-key`.
 
@@ -96,3 +96,16 @@ Not touched: upload/storage code, payments, login, migrations (no new table: `il
 Which language is L when the page and the parent setting differ (for example an English textbook page, parent set to Telugu)?
 - Option A (recommended): L = the parent's explain-in language. The parent can read all of it; the page's own sentence is quoted once. A child copying the model answer into an English exam gets the English wording from the quote and key terms in brackets.
 - Option B: L = the page's language. The child can copy the answer, but a parent who is not fluent in that language cannot read it.
+
+## Founder decisions of 2026-10-07 (approved; replace the earlier A/B question)
+
+1. **Explain please differs from Answer please.** Explain please renders, for every question or idea of the photo, the picture, the three layers (30 seconds, full explanation, exam traps) stacked, the misconception, the parent "tonight, 2 minutes" card and the one-question check, all requested at once and each card shown as it arrives; no extra Explain tap (an answer card's Explain button now switches to Explain please). Answer please shows the answers or idea cards only.
+2. **Language rule (not A or B).** The notebook answers the child writes stay in the PAGE language; explanations, notes, stories, idea-card summaries and the parent cards are in the parent's explain-in language; key terms are bilingual, `స్థానభ్రంశం (Displacement)`. The same rule for every card from one photo (`server/prompts/language-rule.js`, used by the answer, explain, notes and story prompts). The one-question check stays in the page language (it is for the child).
+3. **Free tier.** One generated picture per family per day in full; every further generated picture comes back from the server as a 24 pixel preview (never the real file), blurred, with "See every picture in Pro"; curated library pictures stay free. `usage_events` `picture_upsell_view` and `picture_upsell_click` (with the surface). The day's picture is counted in `usage_events` `picture_shown`.
+4. **Done = phone check**: three photos on the img1 revision (relative-motion textbook page, numeric worksheet, Telugu textbook page), phone-size screenshots of Answer, Explain, Notes and Story for each on one review page.
+5. Main was fast-forwarded to `8b09994` (the make-private script fix) first.
+
+## Built beyond the first spec (found while testing)
+
+- Telugu quality: the three recorded Telugu cases showed haiku's notes with a Georgian letter inside a Telugu word, a nonsense word and repeated phrases. Fix: "Notes please" goes to sonnet-5 for every language but English (`notesModel`), a hard script check (`server/lang-check.js`) in notes, explain, answer and story (the model is asked once more), the Telugu rules and a science glossary in every prompt, and the Explain "full" rule no longer forces a scalar-versus-vector sentence.
+- `docs/golden-telugu-review.md` holds the three Telugu cases for hand review (nothing in it is marked correct).
