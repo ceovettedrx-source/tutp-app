@@ -28,8 +28,8 @@ $ErrorActionPreference = 'Stop'
 
 $Service    = 'tutp-demo'
 $Region     = 'us-central1'
-$NewRev     = 'TO_BE_FILLED'                 # release candidate, tagged preview (no E2E_REPLAY, v2 on, pictures on)
-$Commit     = 'TO_BE_FILLED'                 # the tested commit (full sha); the branch must contain it
+$NewRev     = 'tutp-demo-00418-ciz'               # release candidate, tagged preview (no E2E_REPLAY, v2 on, pictures on)
+$Commit     = 'c9f8976f4450523fa7033786a87e6da5a613ccbe'               # the tested commit (full sha); the branch must contain it
 $Branch     = 'img1'                         # fast-forwarded into main on success
 $RepoDir    = 'C:\Users\user\wt-img1'
 $SaltRef    = 'CHIP_HASH_SALT:2'             # required secret reference (version 2)
