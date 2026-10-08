@@ -597,7 +597,9 @@
 </div>
 </div>
 
+<script src="/app/shared/tts-listen.js"></script>
 <script src="/app/shared/concept-picture.js"></script>
+<script src="/app/shared/feedback-dock.js"></script>
 <script src="/app/shared/homework-modal.js"></script>
 <script src="/app/shared/story-modal.js"></script>
 <script src="/app/shared/el-guided.js"></script>
@@ -706,7 +708,7 @@
                     <button type="button" data-clear="false" style="font-size:20px;background:none;border:none;cursor:pointer;">👎</button>
                 </div>
             `;
-            document.body.appendChild(box);
+            TutpFeedbackDock.place(box, feature);   // end of the result, in the flow (replaces the fixed style above)
             let chosenSentiment = null;
             box.querySelectorAll('[data-sentiment]').forEach(btn => {
                 btn.addEventListener('click', () => {

@@ -185,15 +185,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Answer please: answers and idea cards only, nothing asked for an explanation
     expect(await page.locator('#hwModalQuestionsArea .ae-card').count() === 2, 'answer cards');
     expect(await page.locator('#hwModalQuestionsArea .ae-final').count() >= 1, 'no final answer in Answer please');
-    expect(await page.locator('#hwExplainBlock .ae-explain').count() === 0, 'explanations on screen in Answer please');
+    expect(await page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').count() === 0, 'explanations on screen in Answer please');
     expect(explainReqs(pro, from).length === 0, 'Answer please asked for an explanation');
+    // TUT-7: Listen is on every answer card, whatever voices the device has
+    expect(await page.locator('#hwModalQuestionsArea .ae-card button[data-listen]:visible').count() >= 2, 'no Listen button on the answer cards');
     await page.screenshot({ path: path.join(OUT, 'img1-answer-please.png'), fullPage: true });
     // Explain please
     await chip(page, 'explain');
-    await page.locator('#hwExplainBlock .ae-explain h3').nth(1).waitFor({ timeout: 240000 });
+    await page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').nth(1).waitFor({ timeout: 240000 });
     expect(await page.locator('#hwExplainBlock').isVisible(), 'Explain block hidden');
     expect(!(await page.locator('#hwModalHomeworkResultBlock').isVisible()), 'the answers are still shown next to the explanations');
     expect(await page.locator('#hwExplainBlock .ae-explain-card').count() === 2, 'not one explanation card per question');
+    expect(await page.locator('#hwExplainBlock button[data-listen]:visible').count() >= 2, 'no Listen button on the explanations');
     expect(await page.locator('#hwExplainBlock .ae-layer').count() === 6, 'three layers per question expected');
     expect(await page.locator('#hwExplainBlock .ae-miscon').count() === 2, 'misconception box per question');
     expect(await page.locator('#hwExplainBlock .ae-tonight').count() === 2, '"tonight" card per question');
@@ -222,11 +225,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     try {
       await ask(pro, { text: TWO_Q });
       await chip(page, 'explain');
-      await page.locator('#hwExplainBlock .ae-explain h3').first().waitFor({ timeout: 240000 });
+      await page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').first().waitFor({ timeout: 240000 });
       const loading = await page.locator('#hwExplainBlock .ae-loading').count();
-      const done = await page.locator('#hwExplainBlock .ae-explain h3').count();
+      const done = await page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').count();
       expect(done === 1 && loading === 1, `expected one finished card and one still preparing, got ${done} and ${loading}`);
-      await page.locator('#hwExplainBlock .ae-explain h3').nth(1).waitFor({ timeout: 60000 });
+      await page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').nth(1).waitFor({ timeout: 60000 });
     } finally { await page.unroute('**/api/explain-please'); }
   }, page);
 
@@ -240,7 +243,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     expect(!TELUGU.test(cells), 'the notebook answer was written in Telugu: ' + cells.slice(0, 120));
     expect(await page.locator('#hwModalQuestionsArea .ae-qtext').first().getAttribute('data-script') === 'latin', 'question script');
     await chip(page, 'explain');
-    await page.locator('#hwExplainBlock .ae-explain h3').first().waitFor({ timeout: 240000 });
+    await page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').first().waitFor({ timeout: 240000 });
     const ex = await page.locator('#hwExplainBlock').innerText();
     expect(TELUGU.test(await page.locator('#hwExplainBlock .ae-layer').first().innerText()), 'the explanation is not in Telugu');
     expect(BRACKET_TERM.test(ex), 'no bilingual key term (Telugu word (English term)) in the explanation: ' + ex.slice(0, 300));
@@ -306,7 +309,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     expect(ev.length >= 1 && ev[0].status === 204 && ev[0].surface === 'answer', 'picture_upsell_view not logged: ' + JSON.stringify(ev));
     // Explain please for the same two concepts: the same picture states, still one full picture
     await chip(free.page, 'explain');
-    await free.page.locator('#hwExplainBlock .ae-explain h3').nth(1).waitFor({ timeout: 240000 });
+    await free.page.locator('#hwExplainBlock .ae-explain:not(:has(.ae-loading))').nth(1).waitFor({ timeout: 240000 });
     await free.page.waitForFunction(() => document.querySelectorAll('#hwExplainBlock .tp-pic[data-state=ready], #hwExplainBlock .tp-pic[data-state=blurred]').length === 2, null, { timeout: 90000 }).catch(async (e) => {
       const st = await free.page.$$eval('#hwExplainBlock .tp-pic', (f) => f.map((x) => x.dataset.state + '/' + x.dataset.surface));
       throw new Error('Explain pictures stuck: ' + st.join() + '; polls ' + JSON.stringify(free.seen.illustrationGets.slice(-6).map((g) => g.key + ' ' + g.status + ' ' + g.text.slice(0, 60))));

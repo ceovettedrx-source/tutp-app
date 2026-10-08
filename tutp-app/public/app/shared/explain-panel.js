@@ -206,7 +206,7 @@
 
     function build(panel, view, q, ctx) {
         panel.innerHTML = '';
-        panel.appendChild(el('h3', null, view.title));
+        if (!ctx.ideaTitle) panel.appendChild(el('h3', null, view.title));
         panel.dataset.script = q.script || 'latin';
         panel.dataset.locked = view.locked ? '1' : '0';
         var h = hero(view, q, ctx);
@@ -230,6 +230,12 @@
             save.disabled = ok;
         });
         bar.appendChild(save);
+        // TUT-7: Listen reads the quick explanation (and the full one when it is unlocked).
+        if (window.TutpListen) {
+            bar.appendChild(window.TutpListen.button(function () {
+                return [view.title, view.quick, view.full].filter(Boolean).join('. ');
+            }, ctx.language || 'English', { className: 'ae-btn' }));
+        }
         var pr = btn('PDF / Print');
         pr.addEventListener('click', function () {
             if (typeof window.printResult !== 'function') { window.print(); return; }
@@ -287,6 +293,9 @@
         var content = parsed.mode === 'content';
         var c = {
             studentId: ctx.studentId, language: ctx.language, subject: parsed.subject || '', layout: 'stacked', sharedUpsell: true,
+            // TUT-18: an idea card already shows the idea's own title, so the explanation does
+            // not print a second, different concept title under it.
+            ideaTitle: content,
             onLocked: function (view) { lockedView = lockedView || view; showUpsell(); }
         };
         var lockedView = null, upsellEl = null;

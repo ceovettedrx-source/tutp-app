@@ -1,0 +1,35 @@
+# Runs the e2e suite from Cloud Build (stable network), against a no-traffic preview.
+#   gcloud builds submit --no-source --config=cloudbuild-e2e.yaml \
+#     --substitutions=_BRANCH=polish1,_URL=https://preview---tutp-demo-vs4743puka-uc.a.run.app,_RUNS=2
+# _FLAGS defaults to --replay-only (no model spend). Use _FLAGS="" for the live smoke set.
+# The repo is public, so the branch is cloned without credentials. Output goes to the build log.
+substitutions:
+  _BRANCH: main
+  _URL: https://preview---tutp-demo-vs4743puka-uc.a.run.app
+  _RUNS: '2'
+  _FLAGS: --replay-only
+steps:
+  - id: e2e
+    name: mcr.microsoft.com/playwright:v1.63.0-noble
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -u
+        git clone --depth 1 --branch "$_BRANCH" https://github.com/ceovettedrx-source/tutp-app.git /w || exit 1
+        cd /w
+        echo "commit $(git rev-parse --short HEAD) on $_BRANCH"
+        npm ci --no-audit --no-fund || exit 1
+        fail=0
+        for n in $(seq 1 "$_RUNS"); do
+          echo "=== run $n of $_RUNS: $_URL $_FLAGS"
+          node tests/e2e/run.js "$_URL" --headless $_FLAGS
+          rc=$?
+          echo "=== run $n exit $rc"
+          [ $rc -ne 0 ] && fail=1
+        done
+        exit $fail
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+timeout: 3600s

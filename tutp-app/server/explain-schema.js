@@ -11,11 +11,16 @@
 //     the knowledge graph's when a record matches (source 'kg')
 // Unit tests: tests/unit/explain-schema.test.js.
 import crypto from 'crypto';
-import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT, romanizedHindiIn, ROMANIZED_HINDI_HINT } from './lang-check.js';
+import { wrongFacts, factHint } from './fact-guard.js';
 
 export const POSITIONS = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
 export const IMAGE_SUFFIX = 'No text, no letters, no numbers, no labels, no signs anywhere in the picture.';
 const TEXT_WORDS = /\b(text|texts|word|words|letter|letters|number|numbers|numeral|numerals|digit|digits|label|labels|labelled|labeled|caption|captions|sign|signs|signboard|write|writes|written|writing|title|alphabet|font|handwriting|speech bubble|equation|formula)\b/i;
+
+// TUT-18: a picture label is a science term for a region of the picture. A possessive or a
+// verb phrase ("Today's roti", "steam rises") is an analogy word, not a term: dropped.
+const ANALOGY_LABEL = /['’]s\b|\b(rises?|falls?|goes|go|comes?|moves?|flows?|is|are|becomes?)\b/i;
 
 const str = (v, max = 1500) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
@@ -75,12 +80,17 @@ export function validateExplain(raw) {
   if (!scene) issues.push('illustration.scene_prompt is empty');
   // img1 (server/lang-check.js): a letter of a wrong script inside a word is a hard issue.
   if (foreignScriptIn([title, quick, full, traps, raw.misconception, pq, cq, ill.labels])) issues.push(FOREIGN_SCRIPT_HINT);
+  // TUT-18: one language per reply (no Hindi in Latin letters) and no known wrong fact.
+  if (romanizedHindiIn([title, quick, full, traps, raw.misconception, pq, cq])) issues.push(ROMANIZED_HINDI_HINT);
+  const facts = wrongFacts([title, quick, full, traps, raw.misconception, pq, cq]);
+  if (facts.length) issues.push(factHint(facts));
   if (issues.length) return { ok: false, issues };
 
   const order = shuffled(options, conceptKey + '|' + str(cq.q, 500));
   const newOptions = order.map((i) => options[i]);
   const labels = (Array.isArray(ill.labels) ? ill.labels : []).slice(0, 4)
-    .map((l) => ({ text: str(l && l.text, 24), position: POSITIONS.includes(l && l.position) ? l.position : 'center' })).filter((l) => l.text);
+    .map((l) => ({ text: str(l && l.text, 24), position: POSITIONS.includes(l && l.position) ? l.position : 'center' }))
+    .filter((l) => l.text && !ANALOGY_LABEL.test(l.text));
   return {
     ok: true,
     explain: {

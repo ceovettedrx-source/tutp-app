@@ -64,13 +64,28 @@ export function parseNotes(data) {
   return plain;
 }
 
+// Two concept slugs ("c7-geography-wind-and-pressure") name the same concept when they are
+// equal or at least half the words of the shorter one are shared (class and subject ignored).
+export function sameConcept(a, b) {
+  if (a === b) return true;
+  const words = (k) => String(k).replace(/^c\d+-[a-z]+-/, '').split('-').filter((w) => w.length > 2 && !['and', 'the', 'for'].includes(w));
+  const wa = words(a), wb = words(b);
+  if (!wa.length || !wb.length) return false;
+  const shared = wa.filter((w) => wb.includes(w)).length;
+  return shared / Math.min(wa.length, wb.length) >= 0.5;
+}
+
 // img1: the notes' concept picture. The concept key the Answer reply signed (when the
 // page sends it) wins over the model's own slug, so Answer, Explain and Notes show one
 // shared picture; the model's scene describes it. Plain notes get none.
+// TUT-18: the first question's picture is shared only when the notes are about that same
+// concept; notes on another topic of the page (wind and pressure after atmosphere layers)
+// get a picture of their own.
 export function withNotesPicture(notes, { givenKey = '', enabled = false } = {}) {
   if (!notes || notes.plain) return notes;
   const { concept_key, scene_prompt, ...rest } = notes;
-  const pic = enabled ? pictureFor(givenKey || concept_key, scene_prompt) : null;
+  const key = givenKey && (!concept_key || sameConcept(givenKey, concept_key)) ? givenKey : (concept_key || givenKey);
+  const pic = enabled ? pictureFor(key, scene_prompt) : null;
   return pic ? { ...rest, picture: pic } : rest;
 }
 

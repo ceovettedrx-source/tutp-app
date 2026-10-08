@@ -212,21 +212,8 @@
         });
         tools.appendChild(nb);
         var bcp = BCP[q.script] || 'en-IN';
-        var listen = btn('Listen');
-        listen.hidden = true;
-        haveVoice(bcp, function (ok) { listen.hidden = !ok; });
-        var speaking = false;
-        listen.addEventListener('click', function () {
-            if (speaking) { window.speechSynthesis.cancel(); speaking = false; listen.textContent = 'Listen'; return; }
-            window.speechSynthesis.cancel();
-            var u = new SpeechSynthesisUtterance(spokenText(q));
-            u.lang = bcp;
-            u.onend = u.onerror = function () { speaking = false; listen.textContent = 'Listen'; };
-            speaking = true;
-            listen.textContent = 'Stop';
-            window.speechSynthesis.speak(u);
-        });
-        tools.appendChild(listen);
+        // TUT-7: server voice first, then the browser's, then a visible note; never hidden.
+        tools.appendChild(window.TutpListen.button(function () { return spokenText(q); }, bcp, { className: 'ae-btn' }));
         var pr = btn('PDF / Print');
         pr.addEventListener('click', function () {
             if (typeof window.printResult !== 'function') { window.print(); return; }

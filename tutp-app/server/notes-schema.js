@@ -4,7 +4,7 @@
 // defence in depth, not the only guard.
 
 export const NOTES_LIMITS_CHARS = {
-  title: 80, keyIdea: 240, step: 170, problem: 220, answer: 90, term: 60, meaning: 150,
+  title: 80, keyIdea: 240, step: 170, problem: 220, answer: 220, term: 60, meaning: 150,
   mistake: 170, remember: 170, q: 170, a: 130, tell: 320,
 };
 const MAX = { method: 5, exampleSteps: 5, terms: 4, mistakes: 3, quick: 2 };
@@ -26,7 +26,10 @@ export function cleanText(v, max) {
   if (s.length <= max) return s;
   const cut = s.slice(0, max);
   const sp = cut.lastIndexOf(' ');
-  return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s,;:]+$/, '') + '…';
+  // Cut at the last full sentence when there is one, and never end on a dangling "and", "the"...
+  const stop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('। '));
+  if (stop > max * 0.5) return cut.slice(0, stop + 1);
+  return (sp > max * 0.6 ? cut.slice(0, sp) : cut).replace(/[\s,;:]+$/, '').replace(/(\s+(and|or|but|the|a|an|of|to|in|on|with|for|by|as|is|are|than|that|which))+$/i, '') + '…';
 }
 
 const list = (v, max, each) => (Array.isArray(v) ? v : []).map(each).filter(Boolean).slice(0, max);

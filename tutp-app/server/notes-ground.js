@@ -2,7 +2,8 @@
 // and does the quick check use new numbers? Pure functions, no I/O. A failed
 // check triggers at most one retry in server/routes/chips.js.
 
-import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT, romanizedHindiIn, ROMANIZED_HINDI_HINT } from './lang-check.js';
+import { wrongFacts, factHint } from './fact-guard.js';
 
 const STOP = new Set(['what', 'which', 'with', 'from', 'that', 'this', 'there', 'their', 'have', 'find', 'write', 'fill', 'blank', 'blanks', 'answer', 'answers', 'following', 'question', 'questions', 'give', 'make', 'each', 'when', 'then', 'than', 'into', 'about', 'using', 'solve', 'complete', 'homework']);
 
@@ -50,6 +51,9 @@ export function checkNotes(notes, homework) {
   const reasons = [];
   // A letter of a wrong script inside a word (img1, server/lang-check.js): always checked, even with no homework text.
   if (notes && !notes.plain && foreignScriptIn(notes)) reasons.push('foreign_script');
+  // TUT-18: no Hindi in Latin letters, and no known wrong fact (server/fact-guard.js).
+  if (notes && !notes.plain && romanizedHindiIn(notes)) reasons.push('romanized_hindi');
+  if (notes && !notes.plain) for (const id of wrongFacts(notes)) reasons.push('fact:' + id);
   if (!notes || notes.plain || !homework) return { ok: reasons.length === 0, reasons };
   // Title, key idea and the worked example's problem: a good key idea for a
   // numbers-only homework names the skill in words ("split one factor and keep
@@ -94,5 +98,8 @@ export function correctionHint(reasons, homework) {
     parts.push('Your quick_check repeated numbers from the homework. Use completely different numbers.');
   }
   if (reasons.includes('foreign_script')) parts.push(FOREIGN_SCRIPT_HINT);
+  if (reasons.includes('romanized_hindi')) parts.push(ROMANIZED_HINDI_HINT);
+  const facts = reasons.filter((r) => r.startsWith('fact:')).map((r) => r.slice(5));
+  if (facts.length) parts.push(factHint(facts));
   return parts.join(' ');
 }

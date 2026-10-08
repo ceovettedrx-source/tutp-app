@@ -730,7 +730,9 @@
 
 </div>
 </div>
+<script src="/app/shared/tts-listen.js"></script>
 <script src="/app/shared/concept-picture.js"></script>
+<script src="/app/shared/feedback-dock.js"></script>
 <script src="/app/shared/homework-modal.js"></script>
 <script src="/app/shared/story-modal.js"></script>
 <script src="/app/shared/el-guided.js"></script>
@@ -853,7 +855,7 @@
                     <button type="button" data-clear="false" style="font-size:20px;background:none;border:none;cursor:pointer;">👎</button>
                 </div>
             `;
-            document.body.appendChild(box);
+            TutpFeedbackDock.place(box, feature);   // end of the result, in the flow (replaces the fixed style above)
             let chosenSentiment = null;
             box.querySelectorAll('[data-sentiment]').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -910,7 +912,7 @@
                 <a href="${waUrl}" target="_blank" rel="noopener" id="fbShareLink" style="display:inline-block;background:#25D366;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Share on WhatsApp</a>
                 <button type="button" id="fbShareDismiss" style="display:block;margin-top:8px;background:none;border:none;color:#666;font-size:12px;cursor:pointer;padding:0;">Not now</button>
             `;
-            document.body.appendChild(box);
+            TutpFeedbackDock.place(box, 'share');
             box.querySelector('#fbShareLink').addEventListener('click', () => {
                 fetch('/api/track/share-clicked', {
                     method: 'POST',

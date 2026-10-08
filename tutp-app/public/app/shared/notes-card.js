@@ -56,8 +56,13 @@ window.TUTP_NOTES_MESSAGES = {
 .nd-ex .nd-problem{font-size:16px;font-weight:700}
 .nd-ex ol{margin:8px 0 0 20px;color:var(--nd-soft)}
 .nd-ex li{margin:0 0 4px}
-.nd-ans{display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:5px 12px 5px 8px;border-radius:999px;background:#89fa9b;color:#002108;font-weight:700}
-.nd-ans small{font-size:12px;font-weight:600;opacity:.8}
+.nd-ans{display:flex;width:fit-content;max-width:100%;align-items:flex-start;gap:6px;margin-top:10px;padding:6px 12px 6px 8px;border-radius:16px;background:#89fa9b;color:#002108;font-weight:700;overflow-wrap:break-word}
+.nd-ans small{flex:none;font-size:12px;font-weight:600;opacity:.8;white-space:nowrap;overflow-wrap:normal;line-height:24px}
+.nd-ans-v{flex:1 1 auto;min-width:0}
+.nd-listen{margin-top:10px;min-height:40px;padding:6px 14px;border:1px solid var(--nd-line);border-radius:999px;background:#fff;color:var(--nd-ink);font:inherit;font-weight:600;cursor:pointer}
+.nd-listen:focus-visible{outline:3px solid var(--nd-blue);outline-offset:2px}
+.nd .tl-wrap{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.nd .tl-note{font-size:13px;color:var(--nd-soft)}
 .nd-terms dl{display:grid;gap:8px}
 .nd-term{padding:8px 10px;background:#fff;border:1px solid var(--nd-line);border-radius:12px}
 .nd-term dt{display:inline-block;padding:1px 10px;border-radius:999px;background:#d8e2ff;color:#004493;font-weight:700;font-size:14px}
@@ -87,6 +92,7 @@ window.TUTP_NOTES_MESSAGES = {
   .nd{background:#fff;border:0;border-radius:0;padding:0;color:#000;font-size:12pt}
   .nd .material-symbols-outlined,.nd-quick summary .material-symbols-outlined{display:none}
   .nd-sec,.nd-idea,.nd-ex,.nd-caution,.nd-rem,.nd-say,.nd-term,.nd-quick details{break-inside:avoid;page-break-inside:avoid}
+  .nd-noprint{display:none!important}
   .nd-kicker{background:none;border:1px solid #000;color:#000}
   .nd-idea,.nd-caution,.nd-say,.nd-ex,.nd-term,.nd-quick details{background:#fff;border-color:#000}
   .nd-idea mark{background:none;font-weight:700}
@@ -149,6 +155,16 @@ window.TUTP_NOTES_MESSAGES = {
         if (str(d.title)) head.appendChild(el('h3', 'nd-title', str(d.title)));
         root.appendChild(head);
 
+        // TUT-7: Listen reads the card in the "Explain in" language; never hidden.
+        if (window.TutpListen) {
+            const say = [str(d.title), str(d.key_idea), arr(d.method).map(str).join('. '),
+                d.worked_example ? [str(d.worked_example.problem), arr(d.worked_example.steps).map(str).join('. '), str(d.worked_example.answer)].join('. ') : '',
+                str(d.remember)].filter(Boolean).join('. ');
+            const lw = window.TutpListen.button(() => say, (opts && opts.speechLang) || lang, { className: 'nd-listen' });
+            lw.className += ' nd-noprint';
+            head.appendChild(lw);
+        }
+
         // img1: the concept's picture (shared with Answer, Explain and Story). Nothing is shown
         // when the server sent none, or cannot make one.
         if (d.picture && window.TutpPicture) {
@@ -180,7 +196,7 @@ window.TUTP_NOTES_MESSAGES = {
             if (str(ex.answer)) {
                 const chip = el('div', 'nd-ans');
                 const small = el('small', null, t('nd.answer'));
-                chip.append(icon('check_circle'), small, document.createTextNode(str(ex.answer)));
+                chip.append(icon('check_circle'), small, el('span', 'nd-ans-v', str(ex.answer)));
                 box.appendChild(chip);
             }
             s.appendChild(box);

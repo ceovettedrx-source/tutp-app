@@ -146,7 +146,7 @@
         if (panel) panel.focus();
     }
     function closeStoryModal() {
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        window.TutpListen.stop();
         var m = $('storyModal');
         if (m) m.classList.add('sm-hidden');
         if (openerEl && openerEl.focus) { try { openerEl.focus(); } catch (e) { /* element gone */ } }
@@ -154,7 +154,7 @@
     }
     function resetStoryModal() {
         build();
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        window.TutpListen.stop();
         $('storyModalForm').classList.remove('sm-hidden');
         $('storyModalResults').classList.add('sm-hidden');
         $('storyModalResults').textContent = '';
@@ -182,32 +182,32 @@
         var voices = ('speechSynthesis' in window) ? window.speechSynthesis.getVoices() : [];
         return voices.find(function (v) { return v.lang && v.lang.toLowerCase().indexOf(bcp) === 0; }) || null;
     }
-    // Shows the play button when this device has a voice for the language, and
-    // otherwise a "read aloud together" hint (never an error).
+    // TUT-7: the play button is never hidden. It plays the server voice (TutpListen), then
+    // the browser's voice; only when both fail does the "read aloud together" hint show.
+    // Returns true when this device has its own voice, which is when the story starts by
+    // itself (a server clip can't autoplay without a tap).
     function setupAudio(box, text, lang) {
         currentText = text;
         currentBcp = (LANGS[lang] || LANGS.English).bcp;
         return waitForSpeechVoices().then(function () {
-            var play = box.querySelector('#storyModalPlayBtn');
             var hint = box.querySelector('#storyModalTtsNote');
-            var has = 'speechSynthesis' in window && !!voiceFor(currentBcp);
-            if (play) play.classList.toggle('sm-hidden', !has);
-            if (hint) hint.classList.toggle('sm-hidden', has);
-            return has;
+            if (hint) hint.classList.add('sm-hidden');
+            return 'speechSynthesis' in window && !!voiceFor(currentBcp);
         });
     }
     function playStory() {
-        if (!('speechSynthesis' in window) || !currentText) return;
-        window.speechSynthesis.cancel();
-        var utter = new SpeechSynthesisUtterance(currentText);
-        var v = voiceFor(currentBcp);
-        if (v) utter.voice = v;
-        utter.onend = function () { toggleAudio(false); };
-        window.speechSynthesis.speak(utter);
-        toggleAudio(true);
+        if (!currentText) return;
+        var hint = $('storyModalTtsNote');
+        if (hint) hint.classList.add('sm-hidden');
+        window.TutpListen.speak(currentText, currentBcp, {
+            onloading: function () { toggleAudio(true); },
+            onstart: function () { toggleAudio(true); },
+            onend: function () { toggleAudio(false); },
+            onfail: function () { toggleAudio(false); if (hint) hint.classList.remove('sm-hidden'); }
+        });
     }
     function stopStory() {
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        window.TutpListen.stop();
         toggleAudio(false);
     }
     function toggleAudio(playing) {
@@ -628,7 +628,7 @@
         stop.addEventListener('click', stopStory);
         var hint = el('p', 'sm-coach sm-hidden');
         hint.id = 'storyModalTtsNote';
-        hint.appendChild(el('strong', null, 'Read aloud together. '));
+        hint.appendChild(el('strong', null, 'Audio is not available right now. Read aloud together. '));
         hint.appendChild(document.createTextNode('Take turns reading each scene, and let your child guess what happens next.'));
         audio.appendChild(play); audio.appendChild(stop); audio.appendChild(hint);
         box.appendChild(audio);

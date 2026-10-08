@@ -22,6 +22,26 @@ export function foreignScript(text) {
   return '';
 }
 
+// TUT-18: Hindi written in Latin letters ("Agar ek jagah ... mein"), which is neither the
+// parent's language nor the page's. Two different romanized-Hindi words in one text is
+// enough; ordinary English never contains them.
+export const ROMANIZED_HINDI_HINT = 'Your previous reply mixed in Hindi written in English letters (for example "mein", "hai", "agar"). Write every string in one language only: the language asked for, in its own script. Never write Hindi, Telugu or any Indian language in Latin letters.';
+const ROMAN_HI = new Set(['agar', 'mein', 'hai', 'hain', 'kya', 'aur', 'nahi', 'nahin', 'jaisa', 'kaise', 'kyun', 'kyunki', 'bhi', 'wala', 'wali', 'aaj', 'jagah', 'paani', 'hawa', 'garmi', 'sardi', 'hoga', 'hogi', 'karo', 'karna', 'kiya', 'liye', 'saath', 'sabse', 'zyada', 'yeh', 'woh', 'iska', 'uska', 'lekin']);
+
+export function romanizedHindi(text) {
+  const hits = new Set();
+  for (const w of String(text || '').toLowerCase().match(/[a-z]+/g) || []) if (ROMAN_HI.has(w)) hits.add(w);
+  return hits.size >= 2;
+}
+
+export function romanizedHindiIn(value, depth = 0) {
+  if (depth > 6 || value == null) return false;
+  if (typeof value === 'string') return romanizedHindi(value);
+  if (Array.isArray(value)) return value.some((v) => romanizedHindiIn(v, depth + 1));
+  if (typeof value === 'object') return Object.values(value).some((v) => romanizedHindiIn(v, depth + 1));
+  return false;
+}
+
 export function foreignScriptIn(value, depth = 0) {
   if (depth > 6 || value == null) return '';
   if (typeof value === 'string') return foreignScript(value);

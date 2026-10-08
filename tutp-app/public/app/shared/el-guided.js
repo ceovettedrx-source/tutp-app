@@ -146,7 +146,15 @@
     }
     body.appendChild(stepper());
     var fn = [stepPredict, stepTry, stepNotice, stepExplain, stepName, stepVideos, stepTeach][S.step];
-    body.appendChild(fn());
+    var stepNode = fn();
+    // TUT-7: Listen reads what is on screen in this step, in the chosen language; never hidden.
+    if (window.TutpListen) {
+      body.appendChild(window.TutpListen.button(function () {
+        var t = [L.title, stepNode.innerText || stepNode.textContent || ''].join('. ');
+        return t.replace(/\b(Listen|Stop|Loading\.\.\.)\b/g, ' ');
+      }, lang(), { className: 'el-btn' }));
+    }
+    body.appendChild(stepNode);
   }
 
   function optionButtons(onPick, opts) {

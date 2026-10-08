@@ -147,7 +147,8 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
 
           let explain = null, cache = 'miss';
           if (given) {
-            const { data } = await supabase.from('explain_cache').select('payload').eq('concept_key', keyed(given)).eq('language', lang).maybeSingle();
+            // TUT-18: a stored explanation from an older prompt version is not served again.
+            const { data } = await supabase.from('explain_cache').select('payload').eq('concept_key', keyed(given)).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
             if (data && data.payload) { explain = data.payload; cache = 'hit'; }
           }
           const testFamily = await isTestFamily(session.familyId);
@@ -192,7 +193,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             explain.concept_key = keyed(explain.concept_key);
             const key = explain.concept_key;
             // Another question may already have this concept: keep the stored one.
-            const { data: existing } = await supabase.from('explain_cache').select('payload').eq('concept_key', key).eq('language', lang).maybeSingle();
+            const { data: existing } = await supabase.from('explain_cache').select('payload').eq('concept_key', key).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
             if (existing && existing.payload) { explain = existing.payload; cache = 'concept-hit'; }
             else {
               const { error } = await supabase.from('explain_cache').upsert({ concept_key: key, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }, { onConflict: 'concept_key,language' });

@@ -45,6 +45,7 @@ import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
+import { registerTtsRoutes } from './server/routes/tts.js';
 import { createChipLog, CHIP_IDS } from './server/chips/log.js';
 import { classifyIntent } from './server/chips/intent.js';
 
@@ -6765,6 +6766,7 @@ app.post('/api/homework', async (req, res) => {
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
 registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
+registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 registerElRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, checkFreeLimit, freeLimitMessage, trackSessionStarted, trackSessionCompleted });
 
 // ------------------------------------------------------------------

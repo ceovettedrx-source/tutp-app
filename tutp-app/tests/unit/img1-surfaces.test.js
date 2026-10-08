@@ -69,7 +69,7 @@ test('Explain: labels and commentary in the explain-in language; the check quest
   const p = explainPrompt({ lang: 'Telugu', childContext: ctx.childContext });
   assert.match(p, /each one short Telugu word or two in Telugu's own script/);
   assert.match(p, /The check question itself is written for the child, in the language of the question/);
-  assert.equal(EXPLAIN_PROMPT_VERSION, 'explain-v2.2');
+  assert.equal(EXPLAIN_PROMPT_VERSION, 'explain-v2.3');
 });
 
 test('Answer: a theory question carries a cleaned scene prompt, a numerical one never does; ideas too', () => {
@@ -90,8 +90,10 @@ test('Notes: the model\'s picture fields are kept, then become one signed pictur
   assert.equal('concept_key' in out, false);
   assert.equal('scene_prompt' in out, false);
   assert.ok(verifyPicture(out.picture.concept_key, out.picture.scene_prompt, out.picture.sig));
-  // the key the Answer reply signed wins, so Answer, Explain and Notes share one picture
-  assert.equal(withNotesPicture(notes, { givenKey: 'c7-science-leaves', enabled: true }).picture.concept_key, 'c7-science-leaves');
+  // the key the Answer reply signed wins when the notes are about the same concept (TUT-18), so
+  // Answer, Explain and Notes share one picture; notes on another topic keep their own
+  assert.equal(withNotesPicture(notes, { givenKey: 'c7-science-photosynthesis-in-leaves', enabled: true }).picture.concept_key, 'c7-science-photosynthesis-in-leaves');
+  assert.equal(withNotesPicture(notes, { givenKey: 'c7-science-leaves', enabled: true }).picture.concept_key, 'c7-science-photosynthesis');
   // flag off: no picture, and the helper fields are gone
   const off = withNotesPicture(notes, { enabled: false });
   assert.equal('picture' in off, false);

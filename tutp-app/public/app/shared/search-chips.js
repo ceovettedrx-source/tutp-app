@@ -210,7 +210,7 @@ window.TUTP_CHIP_MESSAGES = {
         block.replaceChildren();
         if (data && data.version === 2 && window.TutpNotesCard) {
             setBoxLook(block, false);
-            block.appendChild(window.TutpNotesCard.render(data, { lang: chipLang() }));
+            block.appendChild(window.TutpNotesCard.render(data, { lang: chipLang(), speechLang: lang() }));
             return;
         }
         setBoxLook(block, true);

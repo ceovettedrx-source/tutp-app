@@ -210,6 +210,33 @@ function parseReply(data) {
       return `${r.cards} card(s); result mentions 37`;
     }, page);
 
+    // TUT-17: the "How was this?" box sits below the result, in the flow, and
+    // covers nothing (it was a fixed bottom-right box on top of the text).
+    await record('k1b', 'feedback box ("How was this?") below the result at 390 px, covers no content', async () => {
+      await page.setViewportSize({ width: 390, height: 700 });
+      try {
+        const s = await page.evaluate(() => {
+          const box = document.querySelector('#hwModalResults .tutp-fb-dock');
+          if (!box) return { missing: true };
+          const cs = getComputedStyle(box);
+          const b = box.getBoundingClientRect();
+          const covered = [...document.querySelectorAll('#hwModalResults *')]
+            .filter((e) => !box.contains(e) && e.children.length === 0 && (e.innerText || '').trim())
+            .filter((e) => { const r = e.getBoundingClientRect(); return r.width && r.height && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top; })
+            .map((e) => (e.innerText || '').trim().slice(0, 30));
+          const last = document.getElementById('hwModalResults').lastElementChild;
+          return { position: cs.position, covered, isLast: last === box, width: Math.round(b.width) };
+        });
+        if (s.missing) throw new Error('no feedback box inside #hwModalResults');
+        if (s.position !== 'static') throw new Error('box is position:' + s.position);
+        if (s.covered.length) throw new Error('box covers: ' + s.covered.join(' | '));
+        if (!s.isLast) throw new Error('box is not the last thing in the result');
+        return `static, last in the result, ${s.width}px wide, covers nothing`;
+      } finally {
+        await page.setViewportSize({ width: 1280, height: 900 });
+      }
+    }, page);
+
     await record('p5', 'typed question (no photo): no "Explain on photo" buttons, no photo panel', async () => {
       const s = await page.evaluate(() => ({
         buttons: document.querySelectorAll('#hwModalQuestionsArea [data-role="explain-photo"], [data-role="check-mistakes"]').length,

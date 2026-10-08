@@ -22,8 +22,9 @@
 //   s7  Hindi language lesson: Devanagari stack and line height 1.9
 //   s8  English science: keyboard (Tab reaches "Show answer", Escape closes, focus
 //       returns to the opener)
-//   s9  no voice -> a "Read aloud together" hint and no play button, never a
-//       "No <language> voice" error; a voice -> play or stop button, no hint
+//   s9  no browser voice -> play stays visible; when the server voice fails too,
+//       "Audio is not available" shows (never a "No <language> voice" error);
+//       a voice -> play or stop button, no hint
 //   s10 an older { story, abhyasaPrompt } reply still renders, as scenes
 //   s11 a failed request shows the page's error box (the modal stays usable)
 //   s12 feedback is inline at the end of the story (no fixed popup) and posts a
@@ -542,26 +543,39 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     return 'retry 1, the shown scenes say 8 + 6 = 14';
   }, page);
 
-  await record('s9', 'no voice: "Read aloud together" hint, no play button, no error text; a voice: play/stop, no hint', async () => {
+  await record('s9', 'no browser voice: play is never hidden, a failed server voice shows "Audio is not available"; a voice: play/stop, no hint', async () => {
     const ctxA = await newCtx({ width: 1280, height: 900 }, () => {
       Object.defineProperty(window, 'speechSynthesis', { value: { getVoices: () => [], cancel() {}, speak() {}, onvoiceschanged: null }, configurable: true });
     });
     const a = await ctxA.newPage();
     // reuse the session: copy cookies from the signed-in context
     await ctxA.addCookies(await page.context().cookies());
+    // the server voice fails (503), so the last fallback line must show
+    const ttsReqs = [];
+    await a.route(/\/api\/tts(\?|$)/, (route) => {
+      try { ttsReqs.push(JSON.parse(route.request().postData() || '{}')); } catch (e) { ttsReqs.push({}); }
+      route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'tts_unavailable' }) });
+    });
     await a.goto(BASE + DASH.mother);
     await a.waitForFunction(() => typeof window.openStorytellingModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
     await tell(a, 'Telugu', MATHS_TOPIC);
     await a.waitForTimeout(2200); // the voice list wait is 1.5 s
-    const noVoice = await a.evaluate(() => ({
+    const before = await a.evaluate(() => ({
       hint: !document.getElementById('storyModalTtsNote').classList.contains('sm-hidden'),
+      play: !document.getElementById('storyModalPlayBtn').classList.contains('sm-hidden'),
+    }));
+    expect(before.play && !before.hint, 'before a tap: ' + JSON.stringify(before));
+    await a.click('#storyModalPlayBtn');
+    await a.waitForFunction(() => !document.getElementById('storyModalTtsNote').classList.contains('sm-hidden'), null, { timeout: 15000 });
+    const after = await a.evaluate(() => ({
       hintText: document.getElementById('storyModalTtsNote').textContent,
       play: !document.getElementById('storyModalPlayBtn').classList.contains('sm-hidden'),
       all: document.getElementById('storyModal').textContent,
     }));
-    expect(noVoice.hint && /Read aloud together/.test(noVoice.hintText), 'no coach hint: ' + noVoice.hintText);
-    expect(!noVoice.play, 'the play button is shown with no voice');
-    expect(!/No Telugu voice|can't read stories aloud/i.test(noVoice.all), 'the old voice error is on screen');
+    expect(/Audio is not available/.test(after.hintText), 'no fallback line: ' + after.hintText);
+    expect(after.play, 'the play button was hidden after the failure');
+    expect(!/No Telugu voice|can't read stories aloud/i.test(after.all), 'the old voice error is on screen');
+    expect(ttsReqs.length >= 1 && ttsReqs[0].lang === 'te-IN' && String(ttsReqs[0].text || '').length > 20, 'tts request: ' + JSON.stringify(ttsReqs[0] || null).slice(0, 120));
     await ctxA.close();
 
     const ctxB = await newCtx({ width: 1280, height: 900 }, () => {
