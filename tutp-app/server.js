@@ -35,6 +35,7 @@ import { extractStoryJson, validateStory, salvageStory } from './server/story-sc
 import { callClaude } from './server/anthropic.js';
 import { MODELS, modelSettings, storyModel } from './server/models.js';
 import { runAnswer, answerRequestBody } from './server/answer-run.js';
+import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { initModelCost } from './server/model-cost.js';
@@ -6654,6 +6655,12 @@ app.post('/api/homework', async (req, res) => {
         v2Status = answer.status;
         res.set('X-Answer-Status', answer.status);
         res.set('X-Answer-Fixed', String(run.fixed || 0));
+        res.set('X-Answer-Format-Mixed', String(formatMismatches(answer.questions)));
+        // TUT-28: the model's own answer had another value than the math engine's (the engine's is shown).
+        if (run.mismatches) {
+          supabase.from('usage_events').insert({ event_name: 'answer.mismatch', family_id: session.familyId, student_id: studentId, properties: { count: run.mismatches, language: lang } })
+            .then(({ error }) => { if (error) console.error('answer.mismatch log failed:', error.message); }, () => {});
+        }
         res.set('X-Answer-Batched', v2Batch ? '1' : '0');
         result = { kind: 'ok', data: { ...run.data, content: [{ type: 'text', text: JSON.stringify(answer) }] }, attempts: run.calls };
       } else if (run.kind === 'invalid') {
