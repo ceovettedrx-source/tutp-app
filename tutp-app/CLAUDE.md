@@ -41,6 +41,14 @@
 - Definition of done for every feature or fix:
   1. Before code: read the repo and write a one-page spec (files touched,
      edge cases, test list). Founder approves before any edit.
+     **Every spec has a "What can go wrong" section, written BEFORE any
+     code** (founder rule, 2026-10-09; TUT-19 was a cache keyed by concept
+     that showed one question's explanation under another). For each cache
+     key, language rule, picture, cost and data path the feature touches:
+     how it can break, and the test that catches it, including adversarial
+     cases (e.g. several questions with the same concept but different
+     numbers; same text in two languages; same photo twice; a free and a
+     paid family). A spec without this section does not go to the founder.
   2. Done = the automated e2e suite passes on a no-traffic preview
      revision. A claim of done without a passing run is not done.
   3. Founder's time goes to approval and a final look only. Test numbers,
