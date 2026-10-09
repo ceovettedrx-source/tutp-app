@@ -478,6 +478,8 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(n === 8, 'cards ' + n);
     await pro.page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
     await pro.page.waitForFunction(() => document.querySelectorAll('#hwExplainBlock .ae-explain-card').length === 8 && document.querySelectorAll('#hwExplainBlock .ae-explain-card [data-inv="card.steps"], #hwExplainBlock .ae-explain-card [data-inv="card.could-not-check"]').length === 8, null, { timeout: 240000 });
+    // the last reply's body may still be being read when its card appears
+    for (let w = 0; w < 50 && photo.length < 8; w++) await pro.page.waitForTimeout(100);
     pro.page.off('response', onResp);
     expect(photo.length === 8, 'explain calls ' + photo.length);
     const texts = await pro.page.$$eval('#hwExplainBlock .ae-explain-card', (cs) => cs.map((c) => ({
