@@ -1,6 +1,7 @@
 # TUT-27: Notes as icon cards (fixed block types, importance levels). Replaces TUT-19 item 3.
 
-Status: DRAFT for founder approval. No code until approved. Ships inside polish1. No live spend.
+Status: DRAFT for founder approval. No code until approved. Moved from polish1 to branch `polish2` (polish1 shipped without it, revision 00429-cik). No live spend.
+Scope note: TUT-28 changes the Answer please cards (own block types); this spec changes Notes, Explain and exam prep. The two touch different files except `inventory.json` and `run.js`, so they build one after the other on polish2.
 Issue: TUT-27 (reference: the Telugu "7 steps of a survey" screenshot).
 
 ## What exists today (read 2026-10-09)
