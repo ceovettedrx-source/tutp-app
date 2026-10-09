@@ -15,7 +15,7 @@
 // which is the rollback-friendly part of the ANSWER_V2_ENABLED flag.
 // Unit tests: tests/unit/answer-schema.test.js.
 import { Q_TYPES, resolveMarks } from './answer-marks.js';
-import { solveArithmetic } from './arith-check.js';
+import { engineBlocks, reasoningIn, blockStrings } from './answer-arithmetic.js';
 import { buildDiagram } from './services/diagrams.js';
 import { scriptOf, fontStack } from './lang-fonts.js';
 import { checkBox, MAX_QUESTIONS } from './homework-boxes.js';
@@ -70,28 +70,6 @@ export function answerText(blocks) {
     if (b.type === 'compare_table') return b.rows.map((r) => r.join(' ')).join(' ');
     return [...b.given, b.find, ...b.formula.map((f) => f.text), ...b.substitution, b.final_answer].join(' ');
   }).join(' ');
-}
-
-function lastNumber(s) {
-  const m = String(s || '').replace(/(\d),(?=\d{3}\b)/g, '$1').match(/-?\d+(?:\.\d+)?/g);
-  return m ? Number(m[m.length - 1]) : null;
-}
-
-// The final answer of a plain-arithmetic question, recomputed in code.
-function fixArithmetic(qText, blocks) {
-  const want = solveArithmetic(qText);
-  if (want == null) return { blocks, checked: 0, fixed: 0 };
-  const i = blocks.findIndex((b) => b.type === 'steps');
-  const j = i >= 0 ? i : blocks.findIndex((b) => b.type === 'text');
-  if (j < 0) return { blocks, checked: 0, fixed: 0 };
-  const field = blocks[j].type === 'steps' ? 'final_answer' : 'text';
-  const cur = blocks[j][field];
-  if (lastNumber(cur) === want) return { blocks, checked: 1, fixed: 0 };
-  const m = [...String(cur).matchAll(/-?\d+(?:\.\d+)?/g)].pop();
-  const next = m ? cur.slice(0, m.index) + want + cur.slice(m.index + m[0].length) : String(want);
-  const out = blocks.slice();
-  out[j] = { ...blocks[j], [field]: next };
-  return { blocks: out, checked: 1, fixed: 1 };
 }
 
 // What the old page code reads: one line of answer, one of reasoning.
@@ -150,7 +128,9 @@ function validateContent(raw, subject) {
 
 // raw: the parsed model JSON. opts: { board, photos: [{ index, width, height }] }
 // allowEmpty: a batch (questions 5-8) may have no questions at all.
-export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty = false } = {}) {
+// degrade: the last attempt, a card with working-out text keeps only its clean final answer.
+// -> also `mismatches`: how many engine-built cards had a model answer of another value.
+export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty = false, degrade = false } = {}) {
   const issues = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, issues: ['the reply is not a JSON object'] };
   const status = raw.status === undefined ? 'ok' : raw.status;
@@ -169,7 +149,8 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
   if (!all || !all.length) return { ok: false, issues: ['"questions" must be a non-empty array when status is "ok" (use "unreadable" or "not_homework" otherwise)'] };
 
   const byPhoto = new Map((photos || []).map((p) => [p.index, p]));
-  let fixed = 0;
+  const mathsPage = /math/i.test(subject);
+  let fixed = 0, mismatches = 0;
   const questions = [];
   all.slice(0, MAX_QUESTIONS).forEach((q, i) => {
     const where = `question ${i + 1}`;
@@ -181,10 +162,17 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
     if (!rawBlocks.length) issues.push(`${where}: blocks is empty`);
     if (!blocks.length) return;
     const qType = Q_TYPES.includes(q.q_type) ? q.q_type : 'short';
-    const arith = fixArithmetic(qText, blocks);
-    blocks = arith.blocks; fixed += arith.fixed;
+    // TUT-28: plain arithmetic the engine reads is built in code (one format, the value only,
+    // "checked"); everything else keeps the model's card, minus any working-out it left in.
+    const built = engineBlocks(qText, blocks);
+    if (built) { blocks = built.blocks; if (built.mismatch) { fixed++; mismatches++; } }
+    else if (blockStrings(blocks).some(reasoningIn) || strList(q.keywords, 8).some(reasoningIn)) {
+      const steps = blocks.find((b) => b.type === 'steps');
+      if (degrade && steps && !reasoningIn(steps.final_answer)) blocks = [{ type: 'text', text: steps.final_answer }];
+      else { issues.push(`${where}: the answer contains your own working-out ("let me", "check:", a second "Answer:"). Write only the finished answer for the exam`); return; }
+    }
     const hay = answerText(blocks).toLowerCase();
-    const keywords = [...new Set(strList(q.keywords, 8).filter((k) => k.length <= 60 && hay.includes(k.toLowerCase())))];
+    const keywords = built ? [] : [...new Set(strList(q.keywords, 8).filter((k) => k.length <= 60 && hay.includes(k.toLowerCase())))];
     const script = scriptOf(qText + ' ' + hay);
     let diagram = null;
     if (q.diagram && typeof q.diagram === 'object') {
@@ -199,7 +187,9 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
       blocks, keywords, diagram, unit_direction_note: note, script,
       concept_key: normalizeConceptKey(q.concept_key),
       // img1: a theory question gets a small picture; a numerical one keeps its SVG diagram.
-      scene_prompt: qType === 'numerical' ? '' : cleanScenePrompt(q.scene_prompt),
+      // TUT-28: never on arithmetic (engine-built) and never per card on a maths page.
+      scene_prompt: qType === 'numerical' || built || mathsPage ? '' : cleanScenePrompt(q.scene_prompt),
+      ...(built ? { checked: true } : {}),
       ...(box ? { photo: q.photo, box } : {}),
     });
   });
@@ -217,7 +207,7 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
     })),
     concept_explanation: null, aditiApplicable: false, aditiHook: null,
   };
-  return { ok: true, answer, fixed };
+  return { ok: true, answer, fixed, mismatches };
 }
 
 // The one retry's hint.

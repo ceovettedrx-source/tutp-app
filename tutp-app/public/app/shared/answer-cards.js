@@ -69,8 +69,31 @@
         return ul;
     }
 
-    function stepsBlock(b, kws) {
+    // TUT-28 chrome strings in every language the app offers (TUT-24: drafts until a native speaker has read them).
+    var LABELS = {
+        en: { answer: 'Answer', working: 'Working', checked: 'Checked', words: 'Words examiners look for' },
+        te: { answer: 'సమాధానం', working: 'లెక్క విధానం', checked: 'సరిచూశాం', words: 'పరీక్షకులు చూసే పదాలు' },
+        hi: { answer: 'उत्तर', working: 'हल', checked: 'जाँचा हुआ', words: 'परीक्षक जो शब्द देखते हैं' },
+        ta: { answer: 'விடை', working: 'செய்முறை', checked: 'சரிபார்க்கப்பட்டது', words: 'தேர்வாளர்கள் பார்க்கும் சொற்கள்' },
+        mr: { answer: 'उत्तर', working: 'कृती', checked: 'तपासले', words: 'परीक्षक पाहतात ते शब्द' },
+        es: { answer: 'Respuesta', working: 'Procedimiento', checked: 'Comprobado', words: 'Palabras que busca el examinador' },
+        fr: { answer: 'Réponse', working: 'Calcul', checked: 'Vérifié', words: 'Mots que cherche l’examinateur' },
+        de: { answer: 'Antwort', working: 'Rechenweg', checked: 'Geprüft', words: 'Wörter, die Prüfer suchen' },
+        ar: { answer: 'الإجابة', working: 'خطوات الحل', checked: 'تم التحقق', words: 'كلمات يبحث عنها المصحّح' }
+    };
+    var CODES = { English: 'en', Telugu: 'te', Hindi: 'hi', Tamil: 'ta', Marathi: 'mr', Spanish: 'es', French: 'fr', German: 'de', Arabic: 'ar' };
+    window.TUTP_ANSWER_LABELS = LABELS;
+    function T(ctx, key) {
+        var c = CODES[ctx && ctx.language] || 'en';
+        return (LABELS[c] && LABELS[c][key]) || LABELS.en[key];
+    }
+    // data-inv="<surface>.<element>": the feature-inventory e2e (tests/e2e/inventory.spec.js) asserts them in every language.
+    function inv(node, name) { node.setAttribute('data-inv', name); return node; }
+
+    function stepsBlock(b, kws, ctx, checked) {
         var wrap = el('div', 'ae-block');
+        // an engine-built card (TUT-28) has only the working line and the answer
+        var bare = !(b.given && b.given.length) && !b.find && !(b.formula && b.formula.length);
         if (b.given && b.given.length) { wrap.appendChild(el('p', 'ae-label', 'Given')); wrap.appendChild(listOf(b.given, kws)); }
         if (b.find) { wrap.appendChild(el('p', 'ae-label', 'To find')); var f = el('p'); highlighted(f, b.find, kws); wrap.appendChild(f); }
         if (b.formula && b.formula.length) {
@@ -99,10 +122,11 @@
                 wrap.appendChild(row);
             });
         }
-        if (b.substitution && b.substitution.length) { wrap.appendChild(el('p', 'ae-label', 'Substitute')); wrap.appendChild(listOf(b.substitution, kws)); }
-        var fin = el('div', 'ae-final');
-        fin.appendChild(el('b', null, 'Answer: '));
+        if (b.substitution && b.substitution.length) { wrap.appendChild(el('p', 'ae-label', bare ? T(ctx, 'working') : 'Substitute')); wrap.appendChild(listOf(b.substitution, kws)); }
+        var fin = inv(el('div', 'ae-final'), 'answer.card.answer');
+        fin.appendChild(el('b', null, T(ctx, 'answer') + ': '));
         highlighted(fin, b.final_answer, kws);
+        if (checked) fin.appendChild(inv(el('span', 'ae-checked', '✓ ' + T(ctx, 'checked')), 'answer.card.checked'));
         wrap.appendChild(fin);
         return wrap;
     }
@@ -167,7 +191,7 @@
     }
 
     function card(q, index, ctx) {
-        var c = el('article', 'ae-card');
+        var c = inv(el('article', 'ae-card'), 'answer.card');
         c.dataset.qi = String(index);
         var head = el('div', 'ae-head');
         // A content page (no questions) has one card per main idea, no marks.
@@ -186,7 +210,7 @@
         var body = el('div', 'ae-body');
         body.dataset.script = q.script || 'latin';
         q.blocks.forEach(function (b) {
-            body.appendChild(b.type === 'steps' ? stepsBlock(b, q.keywords) : b.type === 'compare_table' ? tableBlock(b, q.keywords) : textBlock(b, q.keywords));
+            body.appendChild(b.type === 'steps' ? stepsBlock(b, q.keywords, ctx, q.checked === true) : b.type === 'compare_table' ? tableBlock(b, q.keywords) : textBlock(b, q.keywords));
         });
         c.appendChild(body);
 
@@ -197,7 +221,7 @@
         if (q.unit_direction_note) c.appendChild(el('p', 'ae-note', q.unit_direction_note));
         if (q.keywords && q.keywords.length) {
             var kr = el('div', 'ae-kwrow');
-            kr.appendChild(el('span', 'ae-label', 'Words examiners look for:'));
+            kr.appendChild(el('span', 'ae-label', T(ctx, 'words') + ':'));
             q.keywords.forEach(function (k) { kr.appendChild(el('span', 'ae-chip', k)); });
             c.appendChild(kr);
         }

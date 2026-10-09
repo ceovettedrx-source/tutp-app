@@ -11,8 +11,8 @@
       "scriptText": ["notes.steps", "notes.tip"]
     },
     "answer": {
-      "required": ["listen", "diagram", "final-answer"],
-      "coveredBy": ["answer-explain.spec.js a1", "answer-explain.spec.js a12", "story.spec.js s9 (shared Listen)"]
+      "required": ["answer.card", "answer.card.answer", "answer.card.checked"],
+      "coveredBy": ["answer-explain.spec.js a1 (Listen)", "answer-explain.spec.js a12 (diagram)", "story.spec.js s9 (shared Listen)"]
     },
     "story": {
       "required": ["listen", "picture"],

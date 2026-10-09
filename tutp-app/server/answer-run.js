@@ -42,8 +42,8 @@ async function one({ callModel, range, board, photos }) {
     data = r.data;
     const parsed = checkReplyJson(r.data);
     if (!parsed.ok) { issues = ['the reply was not valid JSON (' + parsed.error + ')']; continue; }
-    const v = validateAnswer(extractAnswerJson(r.data), { board, photos, allowEmpty: !!range && range.from > 1 });
-    if (v.ok) return { kind: 'ok', answer: v.answer, fixed: v.fixed, data, calls };
+    const v = validateAnswer(extractAnswerJson(r.data), { board, photos, allowEmpty: !!range && range.from > 1, degrade: attempt === 2 });
+    if (v.ok) return { kind: 'ok', answer: v.answer, fixed: v.fixed, mismatches: v.mismatches || 0, data, calls };
     issues = v.issues;
   }
   return { kind: 'invalid', issues, data, calls };
@@ -56,5 +56,6 @@ export async function runAnswer({ callModel, board = 'other', photos = [], batch
   const bad = results.find((r) => r.kind !== 'ok');
   if (bad) return bad;
   const answer = mergeAnswers(results.map((r) => r.answer));
-  return { kind: 'ok', answer, data: results[0].data, calls: results.reduce((n, r) => n + r.calls, 0) };
+  const sum = (k) => results.reduce((n, r) => n + (r[k] || 0), 0);
+  return { kind: 'ok', answer, fixed: sum('fixed'), mismatches: sum('mismatches'), data: results[0].data, calls: sum('calls') };
 }

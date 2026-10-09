@@ -145,7 +145,8 @@ export function checkCase(c, run) {
     if (t === 'numerical' && !q.blocks.some((b) => b.type === 'steps')) failures.push(`q${n}: numerical without steps`);
   }
   qs.forEach((q, i) => {
-    if (!['fill', 'mcq'].includes(q.q_type) && !q.keywords.length) failures.push(`q${i + 1}: no keywords`);
+    // TUT-28: a card the math engine built (q.checked) has no exam keywords by design
+    if (!['fill', 'mcq'].includes(q.q_type) && !q.checked && !q.keywords.length) failures.push(`q${i + 1}: no keywords`);
     if (!q.marks) failures.push(`q${i + 1}: no marks`);
     const inScript = scriptOf(q.q_text);
     const pageScript = c.pageScript || c.script;

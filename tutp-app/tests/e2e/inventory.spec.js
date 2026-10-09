@@ -105,7 +105,7 @@ async function checkElements(page, scope, names, problems, where) {
   for (const f of ['answer-cards', 'concept-picture', 'tts-listen', 'explain-panel', 'notes-card']) {
     await page.addScriptTag({ url: `${BASE}/app/shared/${f}.js` });
   }
-  await page.waitForFunction(() => window.TutpExplain && window.TutpNotesCard && window.TutpListen && window.TutpPicture, null, { timeout: 20000 });
+  await page.waitForFunction(() => window.TutpExplain && window.TutpAnswer && window.TutpNotesCard && window.TutpListen && window.TutpPicture, null, { timeout: 20000 });
 
   const inv = INVENTORY.surfaces;
   for (const [i, lang] of HOMEWORK_LANGUAGES.entries()) {
@@ -182,8 +182,29 @@ async function checkElements(page, scope, names, problems, where) {
       if (nwide > 1) problems.push(`notes: sideways scroll of ${nwide}px at 360 px`);
       if (s.code === 'ar' && (await page.locator('.nd').first().getAttribute('dir')) !== 'rtl') problems.push('notes: Arabic is not right to left');
 
+      // ---- Answer please card built by the math engine (TUT-28): answer line, checked mark, "Working" label
+      await page.evaluate(({ language }) => {
+        const root = document.getElementById('root');
+        root.innerHTML = '';
+        const area = document.createElement('div');
+        root.appendChild(area);
+        const q = { q_text: '24 + 29 + ____ = 10 + 14 + 29', q_type: 'short', marks: null, checked: true, keywords: [], script: 'latin', concept_key: 'c3-maths-sums',
+          blocks: [{ type: 'steps', given: [], find: '', formula: [], substitution: ['24 + 29 + 0 = 10 + 14 + 29'], final_answer: '0' }] };
+        window.TutpAnswer.render({ status: 'ok', mode: 'questions', subject: 'Mathematics', questions: [q] }, { area, language, studentId: 's1', childName: 'Asha' });
+      }, { language: lang });
+      await checkElements(page, '', inv.answer.required, problems, 'answer');
+      const labels = await page.evaluate(() => window.TUTP_ANSWER_LABELS);
+      const aMark = await page.locator('[data-inv="answer.card.checked"]').first().innerText().catch(() => '');
+      const aLine = await page.locator('[data-inv="answer.card.answer"]').first().innerText().catch(() => '');
+      if (!labels[s.code] || !aMark.includes(labels[s.code].checked)) problems.push(`answer: the checked mark is not in ${lang}: "${aMark}"`);
+      if (!labels[s.code] || !aLine.includes(labels[s.code].answer)) problems.push(`answer: the Answer label is not in ${lang}: "${aLine}"`);
+      if (s.code !== 'en' && (aMark.includes(labels.en.checked) || aLine.includes(labels.en.answer))) problems.push(`answer: a label fell back to English in ${lang}`);
+      if (!/\b0\b/.test(aLine)) problems.push(`answer: the answer value 0 is missing: "${aLine}"`);
+      const awide = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      if (awide > 1) problems.push(`answer: sideways scroll of ${awide}px at 360 px`);
+
       if (problems.length) throw new Error(problems.join('; '));
-      return `${cards} cards, ${inv.explain.required.length} explain + ${inv.notes.required.length} notes elements ok`;
+      return `${cards} cards, ${inv.explain.required.length} explain + ${inv.notes.required.length} notes + ${inv.answer.required.length} answer elements ok`;
     });
   }
 
@@ -193,7 +214,7 @@ async function checkElements(page, scope, names, problems, where) {
       if (!e || !Array.isArray(e.required) || !e.required.length) throw new Error('inventory has no elements for ' + surface);
     }
     const covered = Object.entries(inv).filter(([, v]) => v.coveredBy).map(([k, v]) => `${k}: ${v.coveredBy.join(' + ')}`);
-    return 'asserted here: explain, notes; asserted by existing specs: ' + covered.join('; ');
+    return 'asserted here: explain, notes, answer; also asserted by existing specs: ' + covered.join('; ');
   });
 
   console.log('[e2e:inventory] mode replay; model calls 0; model spend $0.0000');

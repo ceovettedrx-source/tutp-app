@@ -518,6 +518,44 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     return `8 cards ok; pictures ${pictures}; diagrams ${texts.filter((t) => t.diagram).length}; first-ask cache ${photo.map((c) => c.cache).join()}`;
   }, () => pro && pro.page);
 
+  // ---- a16 (TUT-28, golden): the 8-question maths photo of the ticket (Q4 = 24 + 29 + __ = 10 + 14 + 29, answer 0), Answer please
+  await record('a16', 'golden maths photo, Answer please: 8 cards in ONE format, each answer the value the engine computes and "checked", no working-out text, no picture', async () => {
+    const r = await ask(pro.page, { file: 'maths-8b.jpg', language: 'English' });
+    expect(r.status === 200 && r.headers['x-answer-status'] === 'ok', 'photo status ' + r.status);
+    expect(r.headers['x-answer-format-mixed'] === '0', 'X-Answer-Format-Mixed ' + r.headers['x-answer-format-mixed']);
+    const n = await cards(pro.page).count();
+    expect(n === 8, 'cards ' + n);
+    const got = await pro.page.$$eval('#hwModalQuestionsArea [data-inv="answer.card"]', (cs) => cs.map((c) => {
+      const fin = c.querySelector('[data-inv="answer.card.answer"]');
+      const clone = fin ? fin.cloneNode(true) : null;
+      if (clone) clone.querySelectorAll('b, .ae-checked').forEach((x) => x.remove());
+      return {
+        q: c.querySelector('.ae-qtext').textContent,
+        answer: clone ? clone.textContent.trim() : '',
+        checked: !!c.querySelector('[data-inv="answer.card.checked"]'),
+        labels: [...c.querySelectorAll('.ae-label')].map((l) => l.textContent.trim()),
+        pictures: c.querySelectorAll('figure.tp-pic').length,
+        text: c.querySelector('.ae-body').innerText,
+        kw: c.querySelectorAll('.ae-chip').length,
+      };
+    }));
+    expect(got.length === 8, 'answer.card elements ' + got.length);
+    const { parseQuestion } = await import('../../server/math-engine.js');
+    got.forEach((t, i) => {
+      const p = parseQuestion(t.q);
+      expect(p, `card ${i + 1}: the engine cannot read "${t.q}"`);
+      expect(t.answer === p.answerText, `card ${i + 1} "${t.q}": answer "${t.answer}", expected ${p.answerText}`);
+      expect(t.checked, `card ${i + 1} "${t.q}": no checked mark`);
+      expect(t.labels.join('|') === 'Working', `card ${i + 1}: labels ${t.labels.join('|')} (one format: Working only)`);
+      expect(t.pictures === 0 && t.kw === 0, `card ${i + 1}: pictures ${t.pictures}, keyword chips ${t.kw}`);
+      expect(!/\b(let me|check:|hmm|missing number)\b/i.test(t.text), `card ${i + 1}: working-out text: ${t.text.slice(0, 120)}`);
+    });
+    const q4 = got.find((t) => /24\s*\+\s*29/.test(t.q));
+    expect(q4 && q4.answer === '0', 'Q4 answer ' + (q4 && q4.answer));
+    await pro.page.screenshot({ path: path.join(OUT, 'answer-explain-tut28.png'), fullPage: true });
+    return `8 cards, one format, all checked; Q4 = ${q4.answer}; server ${JSON.stringify(r.steps)}`;
+  }, () => pro && pro.page);
+
   await e2e.finish();
   await browser.close();
   fs.writeFileSync(path.join(OUT, 'answer-explain-results.json'), JSON.stringify(results, null, 2));
