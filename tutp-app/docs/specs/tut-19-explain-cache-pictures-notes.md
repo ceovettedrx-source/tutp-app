@@ -43,6 +43,93 @@ Code facts behind this: `explain_cache` is read and written by (`concept_key`, `
 | 23 | Replay recordings | A new model call or changed request text makes replay recordings miss, so the suite fails with `no_recording`. | Fixture-keyed index (this round) covers photos; any new prompt text is recorded once on the next live run. The 8-question photo is added as a fixture with its own recording. |
 | 24 | Live check | Proving the fix needs a live model call. | Per-step spend printed; the live check uses the existing budget only, one run of the 8-question photo, and I stop and ask before any Anthropic spend. |
 
-## Still to write (after you have seen the section above)
+Founder answers (2026-10-09): table approved; unknown class = diagram only; the language list is read from the app code.
 
-Files touched, the key design (version prefix + hash of the exact question text + language), the math engine and diagram module design, the picture rule by class, the feature-inventory file format, the notes layout design, and the full test list. No code is written until you approve.
+## Facts from the code (read 2026-10-09)
+
+- Languages the app offers: `HOMEWORK_LANGUAGES` in `server/prompts/homework-prompts.js`: English, Hindi, Telugu, Tamil, Marathi, Spanish, French, German, Arabic (9). `server/chips/log.js` keeps its own copy of the same list; both are checked against one list in a test (row 5).
+- `public/app/shared/notes-card.js` has section headings for **en, te, hi only** (te and hi are drafts). The other six languages fall back to English headings today. The feature inventory will fail on this until the six are added (see Notes layout).
+- `server/arith-check.js` already solves whole-number `+ - × ÷`, brackets, `expr =`, `expr = __` and one blank. It does not handle decimals, fractions, other-script digits or words. `server/answer-schema.js` already recomputes arithmetic for Answer please.
+- `server/services/diagrams.js` already draws SVG from templates (`number_line`, `bar_model`, `flow_steps`, `path_vs_straight`, `vector_right_triangle`) with escaped labels; the model supplies template + params today.
+- `EXPLAIN_PROMPT_VERSION = 'explain-v2.3'`; the student's `class` comes from the students row (`loadStudentContext`, `classNumber`).
+- The explain route handles one question per call; `explain_cache` is unique on (`concept_key`, `language`).
+
+## Design
+
+### 1. Explain cache key (rows 1-7, 11)
+- New key = `q2:` + first 40 hex of SHA-256 of `normalizeQuestion(extractedQuestionText)`; language stays a separate column. The version prefix `q2:` means old concept-only rows are never read; they are left in place (no delete) and cleaned up later by the founder's call.
+- `normalizeQuestion`: Unicode NFKC (full-width digits to ASCII, but not other scripts' digits to ASCII, which are mapped by the engine), lower-case, collapse whitespace, strip a leading "Q2." / "2)", map `x X * ×` to `×`, `/ ÷` to `÷`, `− – —` to `-`, all blank marks (`__ ? □ [ ] ( ) …`) to one `_`. Nothing else is touched: digits, operators and the blank's position are kept.
+- The route hashes the **question text the client sends** (the extractor's text), not any model reply. The `concept_key` stays as a tag on the row and for the picture, and the signed-concept check stays.
+- Write path: `insert ... on conflict do nothing` on (`q_key`, `language`), then read back, so 8 parallel questions never overwrite each other. The existing "concept-hit: keep the stored one" step is **removed**.
+- Cache rows hold the explanation only; `q_key` and `language` are the only identifiers. Migration: add a nullable `q_key` column is **not** needed; the new key goes in the existing `concept_key` column with its prefix (no schema change, so no migration step for the founder).
+
+### 2. Math engine (rows 8-10)
+New `server/math-engine.js`, pure functions, no model:
+- `parseQuestion(text)` -> `{ kind, numbers[], operands, blankAt, answer }` or `null`. Reuses `solveArithmetic`; adds: digits of Devanagari, Telugu, Tamil and Arabic-Indic scripts mapped to ASCII, `x` between digits, and simple decimals (up to 2 places) and simple fractions `a/b` with the same four operations. Word problems are **not** parsed in this release (null = no mark).
+- `verifyCard(question, card)` -> `{ status: 'checked' | 'unchecked' | 'mismatch' }`. `checked`: the question parsed and the card's final answer (read from the card's answer field, digits normalised) equals the engine's. `unchecked`: the question did not parse (no mark, the card guard in row 8 still applies). `mismatch`: parsed but the answer differs, or the card's text contains a different result for the same sum.
+- Route behaviour: `mismatch` -> retry once with a correction hint ("the answer to X is N"); still a mismatch -> no answer shown for that card ("could not check this one"), a row in `usage_events` (`explain.mismatch`, with question hash, language, no names), and the card is not cached. `checked` -> the view gets `checked: true`, which the page renders as a small "checked" mark with an accessible label in the page language. The mark can only come from this function; the model's JSON field `checked` (if any) is dropped by the schema.
+- The number guard (row 8) uses the same parser: every number of the question must appear in the card text.
+
+### 3. Pictures by class (rows 12-17)
+- `pictureMode(classNumber)`: class 1-5 -> `context+diagram`; class 6 or higher or unknown -> `diagram`; non-maths subjects keep today's picture rule (unchanged, row 16).
+- Context picture (class 1-5 maths only): one per notes page, keyed by **concept only** (`pic:` + concept_key). The prompt gets a fixed suffix: scene of the setting only (kitchen, market, classroom), no countable objects (no fruit, coins, sweets, tallies), no numbers, no text. `cleanScenePrompt` already drops sentences with digits or text words; a new `COUNTABLE` word list also drops them, and the unit test fails if any of the 8 live questions' digits reach the prompt.
+- Diagram (all classes): drawn by `diagrams.js` from engine numbers, see 4.
+- Per-card pictures are removed for maths; the old per-question `illustration` is not requested when `pictureMode` says diagram-only.
+
+### 4. Code-drawn diagram, TUT-23 (row 15)
+- `diagrams.js` gets two new templates and an engine-driven entry: `buildMathDiagram(parsed, { font })`.
+  - addition/subtraction: `number_line` with jumps from the engine's operands;
+  - multiplication: an array/grid of rows x columns (capped at 12 x 12, bigger shows a labelled bar model);
+  - division: equal groups bar model;
+  - missing-number sums: `bar_model` with the blank drawn as "?".
+- All numbers come from `parseQuestion`; the model's own diagram params are ignored for maths. No parse = no diagram. Labels (units, names) are escaped plain text, cut to length, as today. Fonts: `lang-fonts.js` per script, so Telugu, Devanagari, Tamil and Arabic labels render.
+- Arabic: diagram `direction` stays left-to-right for number lines (maths reads LTR); text labels carry `dir=auto`.
+
+### 5. Notes layout (rows 21-22)
+- Order per page: concept picture (class 1-5 maths, or the existing concept picture for other subjects) at the top; then one card per question: question text, steps, answer with the "checked" mark when set, memory tip in the page language, the small diagram, Listen button for that card.
+- Single column, `max-width: 100%`, 360 px first; cards `break-inside: avoid; page-break-inside: avoid`; the picture prints once; Listen and other buttons get `.nd-noprint`.
+- Headings table in `notes-card.js` extended from 3 to all 9 languages (ta, mr, es, fr, de, ar added; drafts for native review, marked as drafts like te/hi). Arabic page gets `dir="rtl"` for text, with maths and diagrams kept LTR.
+- Listen per card uses the existing TTS path (Google TTS, TUT-7), one request per card, language of the card.
+
+### 6. Feature inventory (row 20)
+- File `tests/e2e/inventory.json` (checked in), shape:
+  `{ "surfaces": { "notes": { "required": ["picture", "card", "steps", "answer", "checked", "tip", "diagram", "listen", "print-button"], "perCard": ["steps","answer","tip","diagram","listen"] }, "explain": {...}, "answer": {...}, "story": {...}, "el": {...} }, "languages": "from-code" }`.
+  Each element name maps to a selector in `tests/e2e/inventory-selectors.js` (a `data-inv="notes.card.listen"` attribute on the element in the page).
+- `tests/e2e/inventory.spec.js`: for every language in `HOMEWORK_LANGUAGES` x every surface x every required element: element exists, is visible, text/media non-empty, and for text elements the script matches the page language (existing `lang-check`). Failure prints surface, language, element.
+- A unit test fails if a surface in the page code has no inventory entry, or a language in code has no message table (this is how a seventh language added later is caught).
+- Release gate: `run.js` runs the inventory spec in replay mode as part of the full suite; the release script and my own definition of done refuse to continue on a red inventory. Recorded model replies cover the model-backed elements, so it costs $0 per run; any element that needs a new model reply is recorded once, and I stop and ask before that spend.
+
+## Files touched
+
+New: `server/math-engine.js`, `server/question-key.js`, `tests/e2e/inventory.json`, `tests/e2e/inventory.spec.js`, `tests/e2e/inventory-selectors.js`, `tests/e2e/fixtures/maths-8-questions.jpg` (+ its recording), tests listed below.
+Changed: `server/routes/answer-explain.js` (key, write path, engine, picture mode), `server/explain-schema.js` (drop model `checked`, picture suffix, countable words), `server/services/diagrams.js` (math templates), `server/services/concept-picture.js` (concept-only key `pic:`), `server/prompts/explain-prompts.js` (version bump to `explain-v2.4`, correction hint), `public/app/shared/notes-card.js`, `explain-panel.js`, `answer-cards.js` (checked mark, per-card diagram and Listen, `data-inv` attributes, headings for 9 languages), `server/chips/log.js` (use the shared language list), `tests/e2e/run.js` (inventory in the full suite), `CLAUDE.md` (one line on the inventory gate).
+No database migration. Prompt change (`server/prompts/`) triggers the live smoke set under the current rule; the founder has said to skip the Anthropic smoke set this round, so I will ask before any spend and use the single 8-question photo run only.
+
+## Test list
+
+Unit (all $0):
+1. `question-key`: normalisation table (spaces, case, `x × *`, full-width digits, leading numbering) -> one key; 12 near-miss pairs -> distinct keys; key has `q2:` prefix; includes no student or family field; language not part of the hash.
+2. `math-engine`: the 8 live questions; 20 seeded wrong answers blocked; per-script digits (Devanagari, Telugu, Tamil, Arabic-Indic); blank positions; decimals, fractions; word problem -> unchecked (no mark); mark only from the engine.
+3. `math-diagram`: diagram numbers equal question numbers for the 8 questions; same concept with different numbers gives different SVG; unsupported shape -> null; `<script>`/`onload` in a label is escaped; 12 x 12 cap.
+4. `picture-mode`: class 1-5 -> context+diagram; 6+, empty, "KG", "Class ten" -> diagram only; context prompt has no digit of the question and carries the no-countable/no-number/no-text rule.
+5. `explain-route` (stubbed supabase and model): 8 parallel questions -> 8 rows; same question twice -> hit and $0; seeded old concept-only row not read; engine mismatch -> retry then "could not check", not cached, event written; free vs paid same question.
+6. `languages`: `HOMEWORK_LANGUAGES` equals the list in `chips/log.js`; every language has a notes headings table and a font; inventory has an entry for every surface.
+
+E2E (replay, $0 per run; run twice in a row on the no-traffic preview):
+7. `answer-explain` golden: the 8-question maths photo, class 4: each card has its own numbers, a "checked" mark where the engine parsed it, no other card's numbers, 1 image call, a diagram per card.
+8. Class 6 child: same photo, 0 image calls, diagrams present.
+9. Re-upload the same photo: all cache hits, spend $0.
+10. Per language (9): one maths question: card in that language, tip in that language, Listen present.
+11. `inventory.spec.js`: every surface x language x element, as in 6 above.
+12. Notes at 360 px and desktop: no sideways scroll, order picture -> cards, each card complete; print emulation: one card per page block, picture once, buttons hidden. Arabic RTL page checked too.
+13. Existing suites unchanged and green: img1 (photosynthesis/geography), answer-explain tier tests, homework, story, el.
+
+Live (the only paid step, asked first): one run of the 8-question photo, Anthropic spend estimated under $0.10; plus one image looked at by eye; Google TTS for one Telugu card Listen ($0 Anthropic).
+
+## Risks I could not remove
+
+- Native review: the six new notes-heading tables and the memory-tip wording in Tamil, Marathi, Spanish, French, German, Arabic are machine drafts until a speaker reads them (as te/hi are today).
+- Word problems get no "checked" mark in this release; only parseable sums do. The card says nothing about this to the child.
+- Old `explain_cache` rows stay in the table, unused.
+
+No code is written until you approve.
