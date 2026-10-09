@@ -65,7 +65,7 @@ export function answerDynamicPrompt({ lang, childContext, text, photos = [], boa
     `The parent language is ${lang}: wherever the rules above say "${PL}", write ${lang}.`,
     `The exam context is ${BOARD_TEXT[board] || BOARD_TEXT.other}. The child is: ${childContext}.`,
     `Scope (rule 2): ${scope}`,
-    photos.length ? `Photo sizes (rule 9): ${photoList}.` : '',
+    photos.length ? `Photo sizes (rule 9): ${photoList}. Every question you read from a photo MUST end with "photo":<attachment number>,"box":[x1,y1,x2,y2] (integer pixels in that photo), exactly as rule 9 says: each question object ends ...,"scene_prompt":"...","photo":0,"box":[x1,y1,x2,y2]}.` : '',
     bilingualTerms(lang),
     languageBlock(lang, { terms: false }),
     `Parent's instruction: ${text || 'none given'}`,

@@ -251,3 +251,13 @@ test('the model.call row keeps cache counts in properties and in the new columns
   assert.equal(failed.ok, false); assert.equal(failed.status, 400);
   initModelCost(null);
 });
+
+// Found by the live A/B (2026-10-09): with the photo rule moved into the cached block, the model
+// dropped "photo" and "box" until the request block restated them.
+test('the request block restates photo and box when photos are listed, and only then', () => {
+  const withPhoto = systemText(buildHomeworkRequest({ feature: 'answer_v2', lang: 'Telugu', childContext: 'A · Class 7', text: 'x', attachments: [], photos: [{ index: 0, width: 800, height: 600 }], extra: { board: 'state', range: null } }).system);
+  const noPhoto = systemText(buildHomeworkRequest({ feature: 'answer_v2', lang: 'Telugu', childContext: 'A · Class 7', text: 'x', attachments: [], photos: [], extra: { board: 'state', range: null } }).system);
+  assert.match(withPhoto, /MUST end with "photo":<attachment number>,"box":\[x1,y1,x2,y2\]/);
+  assert.match(withPhoto, /attachment 0 is 800 x 600 pixels/);
+  assert.doesNotMatch(noPhoto, /MUST end with "photo"/);
+});
