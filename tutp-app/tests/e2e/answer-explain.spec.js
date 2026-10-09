@@ -53,7 +53,10 @@ const SPEED_Q = 'A car travels 120 km in 2 hours. Find its average speed. (3 mar
 const DIFF_Q = 'Differentiate between distance and displacement. (4 marks)';
 
 function log(...a) { console.log('[e2e:answer]', ...a); }
+// E2E_ONLY=a15 (a0 always runs): the one live run of the TUT-19 golden photo, without the rest.
+const ONLY = (process.env.E2E_ONLY || '').split(',').map((s) => s.trim()).filter(Boolean);
 async function record(id, name, fn, page) {
+  if (ONLY.length && id !== 'a0' && !ONLY.includes(id)) return;
   try {
     const detail = await fn();
     results.push({ id, name, status: 'PASS', detail: detail || '' });
@@ -460,6 +463,57 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     void me;
     await ctx.close();
   }, null);
+
+  // ---- a15 (TUT-19, golden): the 8 maths questions of the live bug, in one photo
+  await record('a15', 'golden maths photo: 8 questions, each card has its own numbers and answer, "checked", diagrams from code, at most one picture; the same photo again is all cache hits', async () => {
+    const photo = [];                                  // every explain-please call of this test: { body, json, cache }
+    const onResp = async (r) => {
+      if (!/\/api\/explain-please$/.test(r.url())) return;
+      try { photo.push({ body: JSON.parse(r.request().postData() || '{}'), json: await r.json(), cache: r.headers()['x-explain-cache'] }); } catch { /* not JSON */ }
+    };
+    pro.page.on('response', onResp);
+    const rr = await ask(pro.page, { file: 'maths-8.jpg', language: 'English' });
+    expect(rr.status === 200 && rr.headers['x-answer-status'] === 'ok', 'photo status ' + rr.status);
+    const n = await cards(pro.page).count();
+    expect(n === 8, 'cards ' + n);
+    await pro.page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
+    await pro.page.waitForFunction(() => document.querySelectorAll('#hwExplainBlock .ae-explain-card').length === 8 && document.querySelectorAll('#hwExplainBlock .ae-explain-card [data-inv="card.steps"], #hwExplainBlock .ae-explain-card [data-inv="card.could-not-check"]').length === 8, null, { timeout: 240000 });
+    pro.page.off('response', onResp);
+    expect(photo.length === 8, 'explain calls ' + photo.length);
+    const texts = await pro.page.$$eval('#hwExplainBlock .ae-explain-card', (cs) => cs.map((c) => ({
+      q: c.querySelector('.ae-qtext').textContent,
+      steps: (c.querySelector('[data-inv="card.steps"]') || {}).innerText || '',
+      answer: (c.querySelector('[data-inv="card.answer"] .ae-answer-val') || {}).textContent || '',
+      checked: !!c.querySelector('[data-inv="card.checked"]'),
+      diagram: !!c.querySelector('[data-inv="card.diagram"] svg'),
+      hasPicture: !!c.querySelector('[data-inv="picture"]'),
+    })));
+    const { parseQuestion } = await import('../../server/math-engine.js');
+    const { buildMathDiagram } = await import('../../server/services/diagrams.js');
+    const nums = (s) => new Set((s.match(/\d+/g) || []));
+    texts.forEach((t, i) => {
+      const p = parseQuestion(t.q);
+      expect(p, `card ${i + 1}: the engine cannot read "${t.q}"`);
+      expect(t.checked && t.answer === p.answerText, `card ${i + 1} "${t.q}": answer "${t.answer}", expected ${p.answerText}, checked ${t.checked}`);
+      for (const x of p.numbers) expect(nums(t.steps).has(x), `card ${i + 1} "${t.q}": its steps lack ${x}`);
+      expect(!!buildMathDiagram(p) === t.diagram, `card ${i + 1} "${t.q}": diagram ${t.diagram}, expected ${!!buildMathDiagram(p)}`);
+      // none of ANOTHER question's own numbers (two digits or more) in this card
+      texts.forEach((o, j) => {
+        if (j === i) return;
+        const po = parseQuestion(o.q);
+        const foreign = po.numbers.filter((x) => x.length >= 2 && !p.numbers.includes(x) && x !== p.answerText && nums(t.steps).has(x));
+        expect(!foreign.length, `card ${i + 1} "${t.q}" carries card ${j + 1}'s numbers ${foreign.join()}`);
+      });
+    });
+    const pictures = await pro.page.locator('#hwExplainBlock [data-inv="picture"]').count();
+    expect(pictures <= 1, 'pictures on the page: ' + pictures);
+    expect(texts.every((t) => !t.hasPicture) || pictures <= 1, 'a picture inside a card');
+    // the same photo's questions again: every one a cache hit
+    const again = [];
+    for (const c of photo) { const r = await api(pro.page, '/api/explain-please', c.body); again.push(r.headers['x-explain-cache']); }
+    expect(again.every((h) => h === 'hit'), 'second ask not all hits: ' + again.join());
+    return `8 cards ok; pictures ${pictures}; diagrams ${texts.filter((t) => t.diagram).length}; first-ask cache ${photo.map((c) => c.cache).join()}`;
+  }, () => pro && pro.page);
 
   await e2e.finish();
   await browser.close();

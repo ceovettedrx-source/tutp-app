@@ -24,6 +24,37 @@ window.TUTP_NOTES_MESSAGES = {
         'nd.notes': 'नोट्स', 'nd.keyIdea': 'मुख्य विचार', 'nd.method': 'कैसे करें', 'nd.example': 'हल किया उदाहरण',
         'nd.answer': 'उत्तर', 'nd.terms': 'मुख्य शब्द', 'nd.mistakes': 'ध्यान रखें', 'nd.remember': 'याद रखें',
         'nd.quick': 'जल्दी जाँच', 'nd.tapAnswer': 'उत्तर देखने के लिए छुएँ', 'nd.sayIt': 'अपने बच्चे से ऐसे कहें'
+    },
+    // TUT-19: the other languages the app offers. DRAFTS until a native speaker has read them (Linear TUT-24).
+    ta: {
+        'nd.notes': 'நோட்ஸ்', 'nd.keyIdea': 'முக்கிய கருத்து', 'nd.method': 'எப்படிச் செய்வது', 'nd.example': 'தீர்த்த எடுத்துக்காட்டு',
+        'nd.answer': 'விடை', 'nd.terms': 'முக்கிய சொற்கள்', 'nd.mistakes': 'கவனம்', 'nd.remember': 'நினைவில் வையுங்கள்',
+        'nd.quick': 'விரைவுச் சோதனை', 'nd.tapAnswer': 'விடையைப் பார்க்கத் தொடுங்கள்', 'nd.sayIt': 'உங்கள் குழந்தையிடம் இப்படிச் சொல்லுங்கள்'
+    },
+    mr: {
+        'nd.notes': 'नोट्स', 'nd.keyIdea': 'मुख्य कल्पना', 'nd.method': 'कसे करावे', 'nd.example': 'सोडवलेले उदाहरण',
+        'nd.answer': 'उत्तर', 'nd.terms': 'मुख्य शब्द', 'nd.mistakes': 'सावधान', 'nd.remember': 'लक्षात ठेवा',
+        'nd.quick': 'झटपट तपासणी', 'nd.tapAnswer': 'उत्तर पाहण्यासाठी स्पर्श करा', 'nd.sayIt': 'तुमच्या मुलाला असे सांगा'
+    },
+    es: {
+        'nd.notes': 'Apuntes', 'nd.keyIdea': 'Idea clave', 'nd.method': 'Cómo se hace', 'nd.example': 'Ejemplo resuelto',
+        'nd.answer': 'Respuesta', 'nd.terms': 'Palabras clave', 'nd.mistakes': 'Ojo', 'nd.remember': 'Recuerda',
+        'nd.quick': 'Repaso rápido', 'nd.tapAnswer': 'Toca para ver la respuesta', 'nd.sayIt': 'Díselo a tu hijo así'
+    },
+    fr: {
+        'nd.notes': 'Notes', 'nd.keyIdea': 'Idée clé', 'nd.method': 'Comment faire', 'nd.example': 'Exemple résolu',
+        'nd.answer': 'Réponse', 'nd.terms': 'Mots clés', 'nd.mistakes': 'Attention', 'nd.remember': 'À retenir',
+        'nd.quick': 'Vérification rapide', 'nd.tapAnswer': 'Touchez pour voir la réponse', 'nd.sayIt': 'Dites-le ainsi à votre enfant'
+    },
+    de: {
+        'nd.notes': 'Notizen', 'nd.keyIdea': 'Kernidee', 'nd.method': 'So geht’s', 'nd.example': 'Gelöstes Beispiel',
+        'nd.answer': 'Antwort', 'nd.terms': 'Schlüsselwörter', 'nd.mistakes': 'Achtung', 'nd.remember': 'Merke',
+        'nd.quick': 'Kurzer Check', 'nd.tapAnswer': 'Tippen, um die Antwort zu sehen', 'nd.sayIt': 'So sagst du es deinem Kind'
+    },
+    ar: {
+        'nd.notes': 'ملاحظات', 'nd.keyIdea': 'الفكرة الرئيسية', 'nd.method': 'كيف تفعل ذلك', 'nd.example': 'مثال محلول',
+        'nd.answer': 'الإجابة', 'nd.terms': 'كلمات مفتاحية', 'nd.mistakes': 'انتبه', 'nd.remember': 'تذكّر',
+        'nd.quick': 'فحص سريع', 'nd.tapAnswer': 'المس لرؤية الإجابة', 'nd.sayIt': 'قل لطفلك هكذا'
     }
 };
 
@@ -32,8 +63,9 @@ window.TUTP_NOTES_MESSAGES = {
     const STYLE = `
 .nd{--nd-ink:#181c20;--nd-soft:#414754;--nd-paper:#fffaf2;--nd-line:#eadfc8;--nd-amber:#805600;--nd-hl:#ffd98a;--nd-blue:#005bbf;--nd-green:#006d2c;--nd-red:#ba1a1a;
   box-sizing:border-box;max-width:100%;margin:8px 0 0;padding:16px 14px 18px;background:var(--nd-paper);border:1px solid var(--nd-line);border-radius:20px;color:var(--nd-ink);
-  font-family:Inter,'Noto Sans Telugu','Noto Sans Devanagari','Nirmala UI','Segoe UI',system-ui,sans-serif;font-size:15px;line-height:1.55;overflow-wrap:anywhere;word-break:normal}
-.nd[lang=te],.nd[lang=hi]{line-height:1.8}
+  font-family:Inter,'Noto Sans Telugu','Noto Sans Devanagari','Noto Sans Tamil','Noto Sans Arabic','Nirmala UI','Segoe UI',system-ui,sans-serif;font-size:15px;line-height:1.55;overflow-wrap:anywhere;word-break:normal}
+.nd[lang=te],.nd[lang=hi],.nd[lang=ta],.nd[lang=mr],.nd[lang=ar]{line-height:1.8}
+.nd[dir=rtl]{text-align:right}
 .nd *{box-sizing:border-box;min-width:0}
 .nd p,.nd ol,.nd ul,.nd dl,.nd dd,.nd h3,.nd h4{margin:0;padding:0}
 .nd .material-symbols-outlined{font-size:20px;line-height:1;flex:none;vertical-align:middle}
@@ -141,6 +173,10 @@ window.TUTP_NOTES_MESSAGES = {
         const d = data || {};
         const root = el('article', 'nd');
         root.setAttribute('lang', lang);
+        if (lang === 'ar') root.setAttribute('dir', 'rtl');
+        // Each element carries data-inv="notes.<element>" for the feature-inventory e2e (tests/e2e/inventory.spec.js).
+        const inv = (node, name) => { node.setAttribute('data-inv', name); return node; };
+        inv(root, 'notes.card');
         const section = (cls, label, iconName) => {
             const s = el('section', 'nd-sec ' + cls);
             if (label) { const h = el('h4', 'nd-label'); if (iconName) h.appendChild(icon(iconName)); h.appendChild(document.createTextNode(label)); s.appendChild(h); }
@@ -162,13 +198,15 @@ window.TUTP_NOTES_MESSAGES = {
                 str(d.remember)].filter(Boolean).join('. ');
             const lw = window.TutpListen.button(() => say, (opts && opts.speechLang) || lang, { className: 'nd-listen' });
             lw.className += ' nd-noprint';
-            head.appendChild(lw);
+            head.appendChild(inv(lw, 'notes.listen'));
         }
 
         // img1: the concept's picture (shared with Answer, Explain and Story). Nothing is shown
         // when the server sent none, or cannot make one.
         if (d.picture && window.TutpPicture) {
-            window.TutpPicture.mount(root, d.picture, { studentId: sessionStorage.getItem('tutp_student_id'), surface: 'notes' }, { variant: 'hero', alt: str(d.title) });
+            const picHost = inv(el('div', 'nd-picture'), 'notes.picture');
+            root.appendChild(picHost);
+            window.TutpPicture.mount(picHost, d.picture, { studentId: sessionStorage.getItem('tutp_student_id'), surface: 'notes' }, { variant: 'hero', alt: str(d.title) });
         }
 
         if (str(d.key_idea)) {
@@ -180,7 +218,7 @@ window.TUTP_NOTES_MESSAGES = {
         }
         const method = arr(d.method).map(str).filter(Boolean);
         if (method.length) {
-            const s = section('nd-method', t('nd.method'), 'format_list_numbered');
+            const s = inv(section('nd-method', t('nd.method'), 'format_list_numbered'), 'notes.steps');
             const ol = el('ol', 'nd-steps');
             method.forEach((m) => ol.appendChild(el('li', null, m)));
             s.appendChild(ol);
@@ -194,7 +232,7 @@ window.TUTP_NOTES_MESSAGES = {
             const steps = arr(ex.steps).map(str).filter(Boolean);
             if (steps.length) { const ol = el('ol'); steps.forEach((x) => ol.appendChild(el('li', null, x))); box.appendChild(ol); }
             if (str(ex.answer)) {
-                const chip = el('div', 'nd-ans');
+                const chip = inv(el('div', 'nd-ans'), 'notes.answer');
                 const small = el('small', null, t('nd.answer'));
                 chip.append(icon('check_circle'), small, el('span', 'nd-ans-v', str(ex.answer)));
                 box.appendChild(chip);
@@ -219,7 +257,7 @@ window.TUTP_NOTES_MESSAGES = {
             root.appendChild(s);
         }
         if (str(d.remember)) {
-            const s = section('nd-rem');
+            const s = inv(section('nd-rem'), 'notes.tip');
             s.appendChild(icon('push_pin'));
             const box = el('div');
             box.append(el('h4', 'nd-label', t('nd.remember')), el('p', null, str(d.remember)));

@@ -13,8 +13,11 @@ export const UPSELL = { label: 'Pro ₹500/month', text: 'Unlock the full explan
 
 // The explain payload for this family. `explain` is the full, cached one.
 // `illustration` is { status, url? } from the illustration service.
-export function explainView(explain, { paid, illustration = null, kg = null } = {}) {
-  const base = { concept_key: explain.concept_key, title: explain.title, quick: explain.quick };
+// TUT-19 `extra`: { checked, answer, diagram, pictureKey } from the math engine and the picture
+// rule. `checked` and the context picture's key reach every family (they say whether what is
+// shown is right); the answer line, the diagram and the memory tip are Pro.
+export function explainView(explain, { paid, illustration = null, kg = null, extra = {} } = {}) {
+  const base = { concept_key: explain.concept_key, title: explain.title, quick: explain.quick, ...(extra.checked ? { checked: true } : {}), ...(extra.pictureKey ? { picture_key: extra.pictureKey } : {}) };
   // img1: a free family also gets the picture's status (the page polls it; the
   // server shows one picture a day in full and blurs the rest, see
   // server/services/concept-picture.js). No labels and no link here.
@@ -22,6 +25,9 @@ export function explainView(explain, { paid, illustration = null, kg = null } = 
   const view = {
     ...base, tier: 'pro', locked: false,
     full: explain.full,
+    ...(explain.tip ? { tip: explain.tip } : {}),
+    ...(extra.answer ? { answer: extra.answer } : {}),
+    ...(extra.diagram ? { diagram: extra.diagram } : {}),
     traps: explain.traps,
     misconception: kg && kg.misconception ? kg.misconception : explain.misconception,
     parent_questions: explain.parent_questions,
@@ -35,4 +41,4 @@ export function explainView(explain, { paid, illustration = null, kg = null } = 
 
 // The fields a free explain response must never carry (checked by tests and
 // by the e2e on the real payload).
-export const PAID_ONLY_FIELDS = ['full', 'traps', 'misconception', 'parent_questions', 'check_question', 'prev_link', 'next_link'];
+export const PAID_ONLY_FIELDS = ['tip', 'answer', 'diagram', 'full', 'traps', 'misconception', 'parent_questions', 'check_question', 'prev_link', 'next_link'];

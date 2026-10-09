@@ -45,11 +45,31 @@ export function fixtureMiddleware(req, res, next) {
   fixtureStore.run(f, next);
 }
 
+// Width x height of a base64 JPEG or PNG ('' when unknown). Pixel sizes are the same on every
+// platform, so a call on the whole photo and a call on a crop of it (p8, "Show on photo") keep
+// different fixture keys even though both name the same fixture file.
+export function imageSize(b64) {
+  try {
+    const b = Buffer.from(String(b64), 'base64');
+    if (b.length > 24 && b[0] === 0x89 && b[1] === 0x50) return `${b.readUInt32BE(16)}x${b.readUInt32BE(20)}`;
+    if (b[0] === 0xff && b[1] === 0xd8) {
+      let i = 2;
+      while (i + 9 < b.length) {
+        if (b[i] !== 0xff) { i++; continue; }
+        const m = b[i + 1];
+        if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return `${b.readUInt16BE(i + 7)}x${b.readUInt16BE(i + 5)}`;
+        i += 2 + b.readUInt16BE(i + 2);
+      }
+    }
+  } catch { /* unknown size */ }
+  return '';
+}
+
 export function fixtureKey(feature, body, variant = '', fixture = fixtureStore.getStore()) {
   if (!fixture) return null;
   const content = JSON.stringify([feature, variant, body && body.messages], (k, v) =>
     (v && typeof v === 'object' && v.type === 'image' && v.source && typeof v.source.data === 'string')
-      ? { type: 'image', fixture } : v);
+      ? { type: 'image', fixture, size: imageSize(v.source.data) } : v);
   return 'fx' + crypto.createHash('sha256').update(content).digest('hex').slice(0, 30);
 }
 

@@ -36,6 +36,19 @@ export function cleanScenePrompt(s) {
   return kept.join(' ').trim().slice(0, 400);
 }
 
+// TUT-19: the context picture of a maths page (Class 1-5) shows a setting only.
+// A sentence that names countable things, a quantity or a number word is dropped, so the
+// picture can never show "5 apples" beside a sum that says 3 + 2.
+export const MATHS_IMAGE_SUFFIX = 'Only the setting, no countable objects, no groups of things, no numbers, no text, no labels, no signs anywhere in the picture.';
+const COUNTABLE = /\b(apples?|mangos?|mangoes|bananas?|oranges?|fruits?|coins?|rupees?|notes?|sweets?|laddus?|candy|candies|chocolates?|biscuits?|marbles?|balls?|pencils?|pens?|books?|toys?|flowers?|birds?|eggs?|stones?|sticks?|beads?|buttons?|stars?|cups?|plates?|glasses|bottles?|packets?|bags?|boxes|rice|dal|oil|dozen|pairs?|groups?|rows?|piles?|bunch(?:es)?|lots?|many|few|several|some|one|two|three|four|five|six|seven|eight|nine|ten|twenty|hundred|thousand|half|each|every|equal)\b/i;
+export function mathsScenePrompt(scene, conceptKey = '') {
+  const parts = String(scene || '').split(/(?<=[.!?;])\s+|,\s+(?=with|showing|and|where)/i);
+  const kept = parts.filter((p) => p && !TEXT_WORDS.test(p) && !/\d/.test(p) && !COUNTABLE.test(p));
+  const base = kept.join(' ').trim().slice(0, 300)
+    || 'A simple, friendly everyday place in India, such as a market lane or a classroom, with nobody counting anything.';
+  return `${base} Flat, warm, child-friendly illustration. ${MATHS_IMAGE_SUFFIX}`;
+}
+
 // What is sent to the image model: the cleaned scene and the suffix, always.
 export function finalScenePrompt(scene, conceptKey = '') {
   const base = cleanScenePrompt(scene)
@@ -75,11 +88,15 @@ export function validateExplain(raw) {
     issues.push('check_question needs q, exactly 3 non-empty options and correct_index 0, 1 or 2');
   }
   if (!str(cq.right_feedback) || !str(cq.wrong_feedback)) issues.push('check_question needs right_feedback and wrong_feedback');
+  // TUT-19: both are optional. "answer" is the final result of a plain arithmetic question (the
+  // math engine checks it; the model's word is never shown as "checked"); "tip" is one short
+  // memory trick in the reply language.
+  const answer = str(raw.answer, 40), tip = str(raw.tip, 300);
   const ill = raw.illustration && typeof raw.illustration === 'object' ? raw.illustration : {};
   const scene = str(ill.scene_prompt, 500);
   if (!scene) issues.push('illustration.scene_prompt is empty');
   // img1 (server/lang-check.js): a letter of a wrong script inside a word is a hard issue.
-  if (foreignScriptIn([title, quick, full, traps, raw.misconception, pq, cq, ill.labels])) issues.push(FOREIGN_SCRIPT_HINT);
+  if (foreignScriptIn([title, quick, full, tip, traps, raw.misconception, pq, cq, ill.labels])) issues.push(FOREIGN_SCRIPT_HINT);
   // TUT-18: one language per reply (no Hindi in Latin letters) and no known wrong fact.
   if (romanizedHindiIn([title, quick, full, traps, raw.misconception, pq, cq])) issues.push(ROMANIZED_HINDI_HINT);
   const facts = wrongFacts([title, quick, full, traps, raw.misconception, pq, cq]);
@@ -94,7 +111,7 @@ export function validateExplain(raw) {
   return {
     ok: true,
     explain: {
-      concept_key: conceptKey, title, quick, full, traps,
+      concept_key: conceptKey, title, quick, full, traps, ...(answer ? { answer } : {}), ...(tip ? { tip } : {}),
       misconception: { text: str(raw.misconception && raw.misconception.text !== undefined ? raw.misconception.text : raw.misconception, 600), source: 'model' },
       parent_questions: pq,
       check_question: {

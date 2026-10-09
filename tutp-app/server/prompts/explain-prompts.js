@@ -7,9 +7,9 @@
 //   The question's own words and the child's check question stay in the page's language.
 import { languageBlock, bilingualTerms } from './language-rule.js';
 
-export const EXPLAIN_PROMPT_VERSION = 'explain-v2.3';
+export const EXPLAIN_PROMPT_VERSION = 'explain-v2.4';
 
-export function explainPrompt({ lang, childContext, board = 'other', subject = '', qType = 'short', conceptKey = '' }) {
+export function explainPrompt({ lang, childContext, board = 'other', subject = '', qType = 'short', conceptKey = '', arithmetic = false }) {
   return `You are Tut-P. A parent who is not fluent in the subject or the school's language taps "Explain" on one homework question. Explain the CONCEPT behind it so the parent can teach it tonight. The child is: ${childContext}. Subject: ${subject || 'unknown'}. Question type: ${qType}.
 
 RULES:
@@ -23,8 +23,11 @@ RULES:
 8. "check_question": {"q": "...", "options": [exactly 3 short options], "correct_index": 0, "right_feedback": "...", "wrong_feedback": "..."}: one question with NEW numbers or a new situation, never the homework question itself, with exactly one correct option.
 9. "illustration": {"scene_prompt": "...", "labels": [{"text": "...", "position": "top-left|top|top-right|left|center|right|bottom-left|bottom|bottom-right"}]}. scene_prompt is ONE English sentence describing a simple, friendly picture of the everyday example (people, objects, place), with NO words, letters, numbers, signs or labels in it and no request to write anything. The labels are separate short words that the app overlays on the picture, at most 3, each one short ${lang} word or two in ${lang}'s own script (never transliterated, never in brackets, never a sentence). LABEL RULES: a label is the science TERM for a part of the picture (never a word from the everyday example or analogy such as a roti, steam or a bus, never a verb phrase, never a possessive). Put a label only where scene_prompt itself says that part is, in that position (say "on the left, the windward slope" in scene_prompt, then label it "left"); a label must name what is really in that region (dry side on the dry side, the rainy side on the rainy side, a layer at its true height). If you are not sure of the place, leave the label out: "labels":[] is correct and often best.
 
+10. "tip": ONE short memory trick the parent can say to the child, in ${lang}, 15 words at most (a rhyme, a picture in the mind, a rule of thumb). Optional but wanted.
+11. "answer": ONLY when the homework question is plain arithmetic (numbers and + - × ÷ with perhaps one blank to fill), the final number you get by working THAT question, as digits only, such as "75", "0.75" or "3/4".${arithmetic ? ' THIS question is plain arithmetic: "answer" is required, and "full" must work this exact question step by step with its own numbers, never other example numbers.' : ''}
+
 Reply ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
-{"concept_key":"...","title":"...","quick":"...","full":"...","traps":["","",""],"misconception":"...","parent_questions":[{"q":"...","expected_answer_hint":"..."},{"q":"...","expected_answer_hint":"..."}],"check_question":{"q":"...","options":["","",""],"correct_index":0,"right_feedback":"...","wrong_feedback":"..."},"illustration":{"scene_prompt":"...","labels":[{"text":"...","position":"top"}]}}
+{"concept_key":"...","title":"...","quick":"...","full":"...","tip":"...","answer":"...","traps":["","",""],"misconception":"...","parent_questions":[{"q":"...","expected_answer_hint":"..."},{"q":"...","expected_answer_hint":"..."}],"check_question":{"q":"...","options":["","",""],"correct_index":0,"right_feedback":"...","wrong_feedback":"..."},"illustration":{"scene_prompt":"...","labels":[{"text":"...","position":"top"}]}}
 Output the JSON as a single compact line with no indentation, no line breaks and no code fence. Keep every string concise: this must fit the token budget.${languageBlock(lang, { terms: false }) ? '\n\n' + languageBlock(lang, { terms: false }) : ''}`;
 }
 

@@ -30,11 +30,51 @@
         return fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     }
 
+    // TUT-19 chrome strings, one table for every language the app offers (TUT-24: the
+    // non-English ones are drafts until a native speaker has read them). English fallback per key.
+    var MSG = {
+        en: { checked: 'Checked', answer: 'Answer', remember: 'Remember', couldNot: 'Could not check this one. Please try again or ask a teacher.' },
+        te: { checked: 'సరిచూశాం', answer: 'సమాధానం', remember: 'గుర్తుంచుకోండి', couldNot: 'దీన్ని సరిచూడలేకపోయాం. మళ్ళీ ప్రయత్నించండి.' },
+        hi: { checked: 'जाँचा हुआ', answer: 'उत्तर', remember: 'याद रखें', couldNot: 'इसे जाँच नहीं सके। फिर कोशिश करें।' },
+        ta: { checked: 'சரிபார்க்கப்பட்டது', answer: 'விடை', remember: 'நினைவில் வையுங்கள்', couldNot: 'இதைச் சரிபார்க்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.' },
+        mr: { checked: 'तपासले', answer: 'उत्तर', remember: 'लक्षात ठेवा', couldNot: 'हे तपासता आले नाही. पुन्हा प्रयत्न करा.' },
+        es: { checked: 'Comprobado', answer: 'Respuesta', remember: 'Recuerda', couldNot: 'No pudimos comprobar esta. Inténtalo de nuevo.' },
+        fr: { checked: 'Vérifié', answer: 'Réponse', remember: 'Retiens', couldNot: 'Impossible de vérifier celle-ci. Réessaie.' },
+        de: { checked: 'Geprüft', answer: 'Antwort', remember: 'Merke', couldNot: 'Diese konnten wir nicht prüfen. Bitte versuche es erneut.' },
+        ar: { checked: 'تم التحقق', answer: 'الإجابة', remember: 'تذكّر', couldNot: 'تعذّر التحقق من هذا السؤال. حاول مرة أخرى.' }
+    };
+    var CODES = { English: 'en', Telugu: 'te', Hindi: 'hi', Tamil: 'ta', Marathi: 'mr', Spanish: 'es', French: 'fr', German: 'de', Arabic: 'ar' };
+    function T(ctx, key) {
+        var c = CODES[ctx && ctx.language] || 'en';
+        return (MSG[c] && MSG[c][key]) || MSG.en[key];
+    }
+    window.TUTP_EXPLAIN_MESSAGES = MSG;
+    // Each element carries data-inv="<surface>.<element>": the feature-inventory e2e
+    // (tests/e2e/inventory.spec.js) asserts them in every language.
+    function inv(node, name) { node.setAttribute('data-inv', name); return node; }
+
+    (function addStyle() {
+        if (document.getElementById('ae-tut19-style')) return;
+        var s = document.createElement('style');
+        s.id = 'ae-tut19-style';
+        s.textContent = '' +
+            '.ae-page-picture{margin:0 0 12px}.ae-page-picture:empty{display:none}' +
+            '.ae-explain-card{box-sizing:border-box;max-width:100%;overflow-wrap:anywhere}' +
+            '.ae-answerline{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;font-weight:700}' +
+            '.ae-checked{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:999px;background:#e3f4ea;color:#006d2c;font-size:13px;font-weight:700}' +
+            '.ae-tip{margin:10px 0;padding:10px 12px;border-left:4px solid #805600;background:#fff6e3;border-radius:6px}' +
+            '.ae-tip b{display:block;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:#805600}' +
+            '.ae-diagram svg{max-width:100%;height:auto}' +
+            '.ae-explain-card[dir=rtl]{text-align:right}.ae-explain-card[dir=rtl] .ae-diagram{direction:ltr}' +
+            '@media print{.ae-explain-card{break-inside:avoid;page-break-inside:avoid}.ae-page-picture{break-inside:avoid}}';
+        document.head.appendChild(s);
+    })();
+
     function hero(view, q, ctx) {
         if (!window.TutpPicture || !view.illustration) return null;
         var host = el('div', 'ae-hero-host');
         var fallback = q.diagram && q.diagram.svg ? A.diagramNode(q.diagram.svg) : null;
-        window.TutpPicture.mount(host, { concept_key: view.concept_key, status: view.illustration.status },
+        window.TutpPicture.mount(host, { concept_key: view.picture_key || view.concept_key, status: view.illustration.status },
             { studentId: ctx.studentId, surface: 'explain' },
             { labels: view.illustration.labels || [], fallback: fallback, variant: 'hero', alt: view.title });
         return host;
@@ -52,6 +92,7 @@
         if (stacked) {
             var sec = function (title, node) {
                 var s = el('section', 'ae-layer');
+                if (title === 'The full explanation') inv(s, 'card.steps');
                 s.appendChild(el('h4', 'ae-layer-h', title));
                 s.appendChild(node);
                 wrap.appendChild(s);
@@ -204,19 +245,58 @@
         return u;
     }
 
+    // The checked answer: the engine's result and a "Checked" mark (only when the engine verified it).
+    function answerLine(view, ctx) {
+        if (!view.answer && !view.checked) return null;
+        var line = el('div', 'ae-answerline');
+        if (view.answer) {
+            inv(line, 'card.answer');
+            line.appendChild(el('span', null, T(ctx, 'answer') + ':'));
+            line.appendChild(el('span', 'ae-answer-val', view.answer));
+        }
+        if (view.checked) line.appendChild(inv(el('span', 'ae-checked', '✓ ' + T(ctx, 'checked')), 'card.checked'));
+        return line;
+    }
+
     function build(panel, view, q, ctx) {
         panel.innerHTML = '';
+        panel.lang = CODES[ctx.language] || 'en';
+        if (ctx.language === 'Arabic') panel.dir = 'rtl';
+        // TUT-19: the math engine could not confirm this card, so no answer is shown (never a wrong one).
+        if (view.could_not_check) {
+            var cnc = inv(el('p', 'ae-err', T(ctx, 'couldNot')), 'card.could-not-check');
+            cnc.setAttribute('role', 'status');
+            panel.appendChild(cnc);
+            return;
+        }
         if (!ctx.ideaTitle) panel.appendChild(el('h3', null, view.title));
         panel.dataset.script = q.script || 'latin';
         panel.dataset.locked = view.locked ? '1' : '0';
         var h = hero(view, q, ctx);
-        if (h) panel.appendChild(h);
+        if (h) {
+            inv(h, 'picture');
+            // A maths page shows its one context picture on top, above every card.
+            if (view.picture_key && ctx.pictureHost) ctx.pictureHost.appendChild(h); else panel.appendChild(h);
+        }
         panel.appendChild(layers(view, ctx.layout === 'stacked'));
+        var ans = answerLine(view, ctx);
+        if (ans) panel.appendChild(ans);
         if (view.locked) {
             // In Explain please mode one upsell closes the whole list, not one per question.
             if (!ctx.sharedUpsell) panel.appendChild(upsell(view));
             if (typeof ctx.onLocked === 'function') ctx.onLocked(view);
             return;
+        }
+        if (view.diagram) {
+            var dn = A.diagramNode(view.diagram);
+            if (dn) { var dd = inv(el('div', 'ae-diagram'), 'card.diagram'); dd.appendChild(dn); panel.appendChild(dd); }
+        }
+        var tipText = view.tip || (view.traps && view.traps[0]) || '';
+        if (tipText) {
+            var tipBox = inv(el('div', 'ae-tip'), 'card.tip');
+            tipBox.appendChild(el('b', null, T(ctx, 'remember')));
+            tipBox.appendChild(el('span', null, tipText));
+            panel.appendChild(tipBox);
         }
         var m = misconception(view); if (m) panel.appendChild(m);
         var t = tiles(view); if (t) panel.appendChild(t);
@@ -232,9 +312,9 @@
         bar.appendChild(save);
         // TUT-7: Listen reads the quick explanation (and the full one when it is unlocked).
         if (window.TutpListen) {
-            bar.appendChild(window.TutpListen.button(function () {
+            bar.appendChild(inv(window.TutpListen.button(function () {
                 return [view.title, view.quick, view.full].filter(Boolean).join('. ');
-            }, ctx.language || 'English', { className: 'ae-btn' }));
+            }, ctx.language || 'English', { className: 'ae-btn' }), 'card.listen'));
         }
         var pr = btn('PDF / Print');
         pr.addEventListener('click', function () {
@@ -246,7 +326,7 @@
         panel.appendChild(bar);
     }
 
-    function load(panel, q, ctx) {
+    function load(panel, q, ctx, slot) {
         panel.innerHTML = '';
         var l = el('div', 'ae-loading', 'Preparing the explanation…');
         l.setAttribute('role', 'status');
@@ -254,7 +334,8 @@
         window.TutpAnswerStudentId = ctx.studentId;
         return api('/api/explain-please', {
             studentId: ctx.studentId, question: q.context || q.q_text, qType: q.q_type, subject: ctx.subject || '',
-            language: ctx.language, concept_key: q.concept_key || undefined, concept_sig: q.concept_sig || undefined
+            language: ctx.language, concept_key: q.concept_key || undefined, concept_sig: q.concept_sig || undefined,
+            picture_slot: slot === 'none' ? 'none' : undefined
         }).then(function (r) {
             if (!r.ok) return r.json().catch(function () { return {}; }).then(function (e) { throw new Error(e.error || ('Server returned ' + r.status)); });
             return r.json();
@@ -264,7 +345,7 @@
             panel.innerHTML = '';
             panel.appendChild(el('p', 'ae-err', (err && err.message) || 'Could not prepare the explanation right now.'));
             var retry = btn('Try again');
-            retry.addEventListener('click', function () { load(panel, q, ctx); });
+            retry.addEventListener('click', function () { load(panel, q, ctx, slot); });
             panel.appendChild(retry);
         });
     }
@@ -298,6 +379,10 @@
             ideaTitle: content,
             onLocked: function (view) { lockedView = lockedView || view; showUpsell(); }
         };
+        // TUT-19: the page's one context picture (maths, Class 1-5) goes on top, above every card.
+        var pictureHost = el('div', 'ae-page-picture');
+        area.appendChild(pictureHost);
+        c.pictureHost = pictureHost;
         var lockedView = null, upsellEl = null;
         function showUpsell() {
             if (upsellEl || !lockedView) return;
@@ -306,8 +391,10 @@
             area.appendChild(upsellEl);
         }
         qs.forEach(function (q, i) {
-            var card = el('article', 'ae-card ae-explain-card');
+            var card = inv(el('article', 'ae-card ae-explain-card'), 'card');
             card.dataset.qi = String(i);
+            card.lang = CODES[ctx.language] || 'en';
+            if (ctx.language === 'Arabic') card.dir = 'rtl';
             var head = el('div', 'ae-head');
             head.appendChild(el('span', 'ae-qno', (content ? 'Idea ' : 'Question ') + (i + 1)));
             card.appendChild(head);
@@ -318,7 +405,7 @@
             panel.setAttribute('aria-live', 'polite');
             card.appendChild(panel);
             area.appendChild(card);
-            load(panel, q, c);
+            load(panel, q, c, i === 0 ? 'page' : 'none');
         });
         if (parsed.more_questions) {
             var m = el('div', 'ae-msg', 'There are ' + parsed.more_questions + ' more question(s) on this homework than shown here. Send the rest in another photo.');

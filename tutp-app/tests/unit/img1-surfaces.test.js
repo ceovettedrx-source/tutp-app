@@ -69,7 +69,7 @@ test('Explain: labels and commentary in the explain-in language; the check quest
   const p = explainPrompt({ lang: 'Telugu', childContext: ctx.childContext });
   assert.match(p, /each one short Telugu word or two in Telugu's own script/);
   assert.match(p, /The check question itself is written for the child, in the language of the question/);
-  assert.equal(EXPLAIN_PROMPT_VERSION, 'explain-v2.3');
+  assert.equal(EXPLAIN_PROMPT_VERSION, 'explain-v2.4');
 });
 
 test('Answer: a theory question carries a cleaned scene prompt, a numerical one never does; ideas too', () => {

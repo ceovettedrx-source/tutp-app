@@ -51,6 +51,13 @@
      paid family). A spec without this section does not go to the founder.
   2. Done = the automated e2e suite passes on a no-traffic preview
      revision. A claim of done without a passing run is not done.
+     **The feature inventory is part of the suite** (`tests/e2e/inventory.json`
+     + `inventory.spec.js`, TUT-19): every required element of every surface
+     (Answer, Explain, Notes, Story, EL: Listen, picture, diagram, tip,
+     checked mark, print) is asserted in every language of
+     `HOMEWORK_LANGUAGES`. A missing element, a new language without a
+     sample, or a new surface without an entry fails the run and blocks the
+     release. A new feature adds its elements to the inventory.
   3. Founder's time goes to approval and a final look only. Test numbers,
      branches, deploy and verification are Claude's job.
 - The e2e suite lives in `tests/e2e/` (Playwright, devDependency only, kept

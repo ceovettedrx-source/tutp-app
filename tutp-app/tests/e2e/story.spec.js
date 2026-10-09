@@ -151,8 +151,19 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
   }
 
   async function tell(page, language, topic) {
-    await page.evaluate(() => openStorytellingModal());
-    await page.locator('#storyModal .sm-panel').waitFor({ state: 'visible', timeout: 10000 });
+    // A page that reloads itself once after it opened (seen in Cloud Build, Linux Chrome) loses the
+    // modal: wait until the page is ready again and open it a second time.
+    for (let attempt = 1; ; attempt++) {
+      try {
+        await page.evaluate(() => openStorytellingModal());
+        await page.locator('#storyModal .sm-panel').waitFor({ state: 'visible', timeout: 10000 });
+        break;
+      }
+      catch (e) {
+        if (attempt === 2) throw e;
+        await page.waitForFunction(() => typeof window.openStorytellingModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
+      }
+    }
     await page.selectOption('#storyModalLang', language);
     await page.fill('#storyModalText', topic);
     await page.click('#storyModalSubmitBtn');
@@ -548,7 +559,10 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       Object.defineProperty(window, 'speechSynthesis', { value: { getVoices: () => [], cancel() {}, speak() {}, onvoiceschanged: null }, configurable: true });
     });
     const a = await ctxA.newPage();
-    // reuse the session: copy cookies from the signed-in context
+    // reuse the session: copy cookies and the page's session storage from the signed-in context
+    const ss = await page.evaluate(() => JSON.stringify(Object.fromEntries(Object.entries(sessionStorage))));
+    const carry = (ctx) => ctx.addInitScript((items) => { try { for (const [k, v] of Object.entries(JSON.parse(items))) sessionStorage.setItem(k, v); } catch (e) { /* none */ } }, ss);
+    await carry(ctxA);
     await ctxA.addCookies(await page.context().cookies());
     // the server voice fails (503), so the last fallback line must show
     const ttsReqs = [];
@@ -582,6 +596,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       Object.defineProperty(window, 'speechSynthesis', { value: { getVoices: () => [{ lang: 'te-IN', name: 'Test voice' }], cancel() {}, speak() {}, onvoiceschanged: null }, configurable: true });
     });
     const b = await ctxB.newPage();
+    await carry(ctxB);
     await ctxB.addCookies(await page.context().cookies());
     await b.goto(BASE + DASH.mother);
     await b.waitForFunction(() => typeof window.openStorytellingModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });

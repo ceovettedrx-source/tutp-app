@@ -144,6 +144,73 @@ function flowSteps(p, font) {
   return { svg: frame(300, H, 'Steps: ' + steps.join(', '), font, inner), params: { steps } };
 }
 
+// ---- TUT-19 / TUT-23: maths diagrams drawn from the math engine's parse of the
+// question (server/math-engine.js), never from model text or model numbers.
+// Whole-number binary sums and one-blank equations only; anything else gives null
+// (no diagram is better than a wrong one). Every number is checked against a cap.
+const dots = (n, cx0, cy0, perRow, gap = 16, r = 5, fill = BLUE) => {
+  let s = '';
+  for (let i = 0; i < n; i++) s += `<circle cx="${cx0 + (i % perRow) * gap}" cy="${cy0 + Math.floor(i / perRow) * gap}" r="${r}" fill="${fill}"/>`;
+  return s;
+};
+function dotGrid(rows, cols, font) {
+  const gap = 18, W = 300, x0 = (W - (cols - 1) * gap) / 2, H = 36 + rows * gap;
+  const inner = text(150, 18, `${rows} × ${cols}`, { size: 13 }) + dots(rows * cols, x0, 34, cols, gap, 6);
+  return { svg: frame(W, H, `${rows} rows of ${cols}`, font, inner), params: { rows, cols } };
+}
+function dotGroups(groups, size, font) {
+  const perLine = Math.min(size, 4), gw = 14, boxW = perLine * gw + 10, rowsIn = Math.ceil(size / perLine), boxH = rowsIn * gw + 8;
+  const perRow = Math.max(1, Math.floor(290 / (boxW + 8)));
+  const lines = Math.ceil(groups / perRow), H = 28 + lines * (boxH + 8);
+  const used = Math.min(groups, perRow), x0 = (300 - used * (boxW + 8) + 8) / 2;
+  let inner = text(150, 18, `${groups} × ${size}`, { size: 13 });
+  for (let g = 0; g < groups; g++) {
+    const bx = x0 + (g % perRow) * (boxW + 8), by = 28 + Math.floor(g / perRow) * (boxH + 8);
+    inner += `<rect x="${bx}" y="${by}" width="${boxW}" height="${boxH}" rx="6" fill="#EAF2FC" stroke="${BLUE}" stroke-width="1.5"/>` + dots(size, bx + 12, by + 12, perLine, gw, 4.5, GREEN);
+  }
+  return { svg: frame(300, H, `${groups} groups of ${size}`, font, inner), params: { groups, size } };
+}
+const niceStep = (max) => [1, 2, 5, 10, 20, 25, 50, 100, 200, 500, 1000].find((s) => Math.ceil(max / s) + 1 <= 25) || 1000;
+const wholeOf = (t) => (typeof t === 'string' && /^\d{1,4}$/.test(t) ? Number(t) : null);
+
+export function buildMathDiagram(parsed, { font = "'Plus Jakarta Sans', 'Noto Sans', sans-serif" } = {}) {
+  if (!parsed || (parsed.kind !== 'binary' && parsed.kind !== 'blank')) return null;
+  const f = font.replace(/[^A-Za-z0-9 ,'_-]/g, '');
+  try {
+    if (parsed.kind === 'blank') {
+      const known = wholeOf(parsed.blank === 'right' ? parsed.a : parsed.b), c = wholeOf(parsed.c);
+      if (known == null || c == null || c < 1) return null;
+      const shown = parsed.blank === 'right' ? `${known} ${parsed.op} ?` : `? ${parsed.op} ${known}`;
+      const d = barModel({ bars: [{ label: shown, value: c }, { label: String(c), value: c }] }, f);
+      return d ? { template: 'bar_model', params: d.params, svg: d.svg } : null;
+    }
+    const a = wholeOf(parsed.a), b = wholeOf(parsed.b);
+    if (a == null || b == null || !parsed.answer || parsed.answer.d !== 1) return null;
+    const ans = parsed.answer.n;
+    if (parsed.op === '+' || parsed.op === '-') {
+      const hi = parsed.op === '+' ? ans : a;
+      if (hi < 1 || hi > 1000 || ans < 0) return null;
+      const step = niceStep(hi), max = Math.ceil(hi / step) * step;
+      const jumps = parsed.op === '+' ? [{ from: 0, to: a, label: '+' + a }, { from: a, to: a + b, label: '+' + b }] : [{ from: a, to: a - b, label: '-' + b }];
+      const d = numberLine({ min: 0, max, step, jumps }, f);
+      return d ? { template: 'number_line', params: d.params, svg: d.svg } : null;
+    }
+    if (parsed.op === '×') {
+      if (a >= 1 && b >= 1 && a <= 12 && b <= 12) { const d = dotGrid(a, b, f); return { template: 'dot_grid', params: d.params, svg: d.svg }; }
+      if (ans < 1 || ans > 100000) return null;
+      const d = barModel({ bars: [{ label: `${a} × ${b}`, value: ans }] }, f);
+      return d ? { template: 'bar_model', params: d.params, svg: d.svg } : null;
+    }
+    if (parsed.op === '÷') {
+      if (b < 1 || a % b !== 0) return null;
+      if (ans >= 1 && ans <= 12 && b <= 20) { const d = dotGroups(ans, b, f); return { template: 'dot_groups', params: d.params, svg: d.svg }; }
+      const d = barModel({ bars: [{ label: `${a} ÷ ${b}`, value: a }] }, f);
+      return d ? { template: 'bar_model', params: d.params, svg: d.svg } : null;
+    }
+  } catch { return null; }
+  return null;
+}
+
 const BUILDERS = { vector_right_triangle: triangle, path_vs_straight: pathVsStraight, number_line: numberLine, bar_model: barModel, flow_steps: flowSteps };
 
 export function buildDiagram(template, params, { font = "'Plus Jakarta Sans', 'Noto Sans', sans-serif" } = {}) {

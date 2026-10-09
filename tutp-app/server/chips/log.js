@@ -11,10 +11,11 @@
 import crypto from 'crypto';
 import { INTENTS } from './intent.js';
 import { scrubPhrase } from './scrub.js';
+import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
 
 export const CHIP_IDS = ['answer', 'explain', 'notes', 'exam_prep'];
 export const EVENT_KINDS = ['impression', 'tap', 'submit'];
-const LANGUAGES = ['English', 'Hindi', 'Telugu', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
+const LANGUAGES = HOMEWORK_LANGUAGES;   // one list for the whole app (TUT-19, tests/unit/languages.test.js)
 const BOARDS = { 'state board': 'state_board', cbse: 'cbse', icse: 'icse', cambridge: 'cambridge', other: 'other' };
 const PHRASE_DAYS = 30;
 const PRUNE_EVERY_MS = 60 * 60 * 1000;

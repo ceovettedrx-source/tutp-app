@@ -15,7 +15,12 @@ import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
 import { explainPrompt, explainUserText, EXPLAIN_PROMPT_VERSION } from '../prompts/explain-prompts.js';
 import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
 import { extractAnswerJson, answerCorrectionHint } from '../answer-schema.js';
-import { validateExplain, normalizeConceptKey } from '../explain-schema.js';
+import { validateExplain, normalizeConceptKey, mathsScenePrompt } from '../explain-schema.js';
+import { questionKey, classBand } from '../question-key.js';
+import { parseQuestion, verifyCard, correctionHint } from '../math-engine.js';
+import { buildMathDiagram } from '../services/diagrams.js';
+import { scriptOf, fontStack } from '../lang-fonts.js';
+import { pictureRule, contextPictureKey } from '../picture-rule.js';
 import { explainView } from '../tier-gate.js';
 import { boardKind } from '../answer-marks.js';
 import { callClaude } from '../anthropic.js';
@@ -145,10 +150,17 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           const subject = typeof body.subject === 'string' ? body.subject.slice(0, 60) : '';
           const given = typeof body.concept_key === 'string' && KEY_RE.test(body.concept_key) && verifyConceptKey(body.concept_key, body.concept_sig) ? body.concept_key : '';
 
+          // TUT-19: one cache row per exact question, class band and language (it was the concept
+          // only, so a second sum of the same concept showed the first one's explanation). The
+          // concept_key stays a tag on the payload and the key of the picture.
+          const band = classBand(ctx.cls);
+          const parsed = parseQuestion(question);
+          const maths = !!parsed || /math/i.test(subject);
+          const qKey = keyed(questionKey(question, band));
           let explain = null, cache = 'miss';
-          if (given) {
+          {
             // TUT-18: a stored explanation from an older prompt version is not served again.
-            const { data } = await supabase.from('explain_cache').select('payload').eq('concept_key', keyed(given)).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
+            const { data } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
             if (data && data.payload) { explain = data.payload; cache = 'hit'; }
           }
           const testFamily = await isTestFamily(session.familyId);
@@ -157,7 +169,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           if (!explain) {
             if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
             const childContext = ctx.name ? ctx.name + (ctx.cls ? ' · ' + ctx.cls : '') : 'your child';
-            const system = explainPrompt({ lang, childContext, board: ctx.board, subject, qType: typeof body.qType === 'string' ? body.qType.slice(0, 20) : 'short', conceptKey: given });
+            const system = explainPrompt({ lang, childContext, board: ctx.board, subject, qType: typeof body.qType === 'string' ? body.qType.slice(0, 20) : 'short', conceptKey: given, arithmetic: !!parsed });
             const model = MODELS.explain_v2;
             const baseContent = [{ type: 'text', text: explainUserText(question) }];
             let attempts = 0;
@@ -180,24 +192,35 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
               console.error('explain: model call failed', { kind: first.kind, status: first.status || null });
               return fail(502, 'The explanation could not be made. Please try again.');
             }
+            // TUT-19: a plain-arithmetic card is recomputed by the math engine (server/math-engine.js)
+            // before anyone sees it. Wrong answer or the question's own numbers missing: one retry
+            // with the right answer in the hint, then no card and no cache row.
+            const verdict = (e) => (parsed ? verifyCard({ question, card: e }) : { status: 'unchecked' });
             let check = validateExplain(extractAnswerJson(first.data));
-            if (!check.ok) {
-              console.warn('explain: reply failed the checks, retrying once', { issues: check.issues });
-              const again = await callModel(answerCorrectionHint(check.issues));
+            let v = check.ok ? verdict(check.explain) : null;
+            if (!check.ok || v.status === 'mismatch') {
+              console.warn('explain: reply failed the checks, retrying once', { issues: check.ok ? ['math engine: ' + v.reason] : check.issues });
+              const again = await callModel(check.ok ? correctionHint(v) : answerCorrectionHint(check.issues));
               const c2 = again.ok && checkReplyJson(again.data).ok ? validateExplain(extractAnswerJson(again.data)) : null;
-              if (c2 && c2.ok) check = c2;
+              if (c2 && c2.ok) { check = c2; v = verdict(c2.explain); }
             }
             if (!check.ok) return fail(502, 'The explanation could not be made. Please try again.');
+            if (v.status === 'mismatch') {
+              logEvent('explain.mismatch', session.familyId, studentId, { reason: v.reason, language: lang, band, q: crypto.createHash('sha256').update(qKey).digest('hex').slice(0, 16) });
+              if (testFamily) res.set('X-Model-Usd', String(cost.usd));
+              const out = { concept_key: check.explain.concept_key, could_not_check: true };
+              return res.json(returnsRecordings(replay.mode) ? { ...out, _recordings: replay.recordings } : out);
+            }
             explain = check.explain;
             if (given) explain.concept_key = given;
             explain.concept_key = keyed(explain.concept_key);
-            const key = explain.concept_key;
-            // Another question may already have this concept: keep the stored one.
-            const { data: existing } = await supabase.from('explain_cache').select('payload').eq('concept_key', key).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
-            if (existing && existing.payload) { explain = existing.payload; cache = 'concept-hit'; }
+            explain.checked = v.status === 'checked';
+            // Insert-or-ignore, then read back: eight questions written at once never overwrite each other.
+            const { error } = await supabase.from('explain_cache').upsert({ concept_key: qKey, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }, { onConflict: 'concept_key,language', ignoreDuplicates: true });
+            if (error) console.error('explain: cache write failed', error.message);
             else {
-              const { error } = await supabase.from('explain_cache').upsert({ concept_key: key, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }, { onConflict: 'concept_key,language' });
-              if (error) console.error('explain: cache write failed', error.message);
+              const { data: stored } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
+              if (stored && stored.payload) explain = stored.payload;
             }
             res.locals.extras = extras;
           }
@@ -206,10 +229,25 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
 
           // Every family gets a picture (img1); what a free family may SEE is decided
           // when the page polls it (server/services/concept-picture.js).
-          const illustration = await pictures.request({ key: explain.concept_key, scene: explain.illustration.scene_prompt, env: imageEnv(ov) });
+          // TUT-19: the picture rule by class (server/picture-rule.js). Maths Class 1-5: one context
+          // picture per page (the page asks on its first card only); Class 6+ or unknown class: none.
+          const rule = pictureRule({ maths, band, slot: body.picture_slot === 'none' ? 'none' : 'page' });
+          const pictureKey = rule === 'context' ? contextPictureKey(explain.concept_key) : '';
+          let illustration = null;
+          if (rule === 'normal') illustration = await pictures.request({ key: explain.concept_key, scene: explain.illustration.scene_prompt, env: imageEnv(ov) });
+          else if (rule === 'context' && pictureKey) illustration = await pictures.request({ key: pictureKey, scene: mathsScenePrompt(explain.illustration.scene_prompt, explain.concept_key), env: imageEnv(ov) });
           let kg = null;
           if (paid) kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
-          const view = explainView(explain, { paid, illustration, kg });
+          // The mark, the answer line and the diagram come from the engine, never from the model.
+          const checked = explain.checked === true && !!parsed;
+          const extra = {
+            checked,
+            answer: checked ? parsed.answerText : '',
+            diagram: checked ? ((buildMathDiagram(parsed, { font: fontStack(scriptOf(question)) }) || {}).svg || '') : '',
+            pictureKey: rule === 'context' ? pictureKey : '',
+          };
+          const view = explainView(explain, { paid, illustration, kg, extra });
+          if (rule === 'none' || (rule === 'context' && !pictureKey)) delete view.illustration;
           if (testFamily && replay.mode !== 'replay') res.set('X-Model-Usd', String(cost.usd));
           res.json(res.locals.extras ? res.locals.extras(view) : view);
         } catch (err) {

@@ -1,0 +1,26 @@
+{
+  "note": "Feature inventory (TUT-19): every required element per surface, asserted in every language by tests/e2e/inventory.spec.js. A missing element fails the run and blocks the release. 'languages' is read from the app code (HOMEWORK_LANGUAGES), never typed here. A surface with 'coveredBy' is asserted by that existing spec; its elements are listed so a new surface cannot appear without an entry (tests/unit/languages.test.js).",
+  "languages": "from-code",
+  "surfaces": {
+    "explain": {
+      "required": ["picture", "card.steps", "card.answer", "card.checked", "card.tip", "card.diagram", "card.listen"],
+      "scriptText": ["card.steps", "card.tip"]
+    },
+    "notes": {
+      "required": ["notes.card", "notes.listen", "notes.picture", "notes.steps", "notes.answer", "notes.tip"],
+      "scriptText": ["notes.steps", "notes.tip"]
+    },
+    "answer": {
+      "required": ["listen", "diagram", "final-answer"],
+      "coveredBy": ["answer-explain.spec.js a1", "answer-explain.spec.js a12", "story.spec.js s9 (shared Listen)"]
+    },
+    "story": {
+      "required": ["listen", "picture"],
+      "coveredBy": ["story.spec.js", "img1.spec.js"]
+    },
+    "el": {
+      "required": ["listen", "picture"],
+      "coveredBy": ["el.spec.js", "img1.spec.js"]
+    }
+  }
+}
