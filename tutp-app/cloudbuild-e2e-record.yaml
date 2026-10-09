@@ -1,0 +1,48 @@
+# Records model replies on Linux for the specs whose request bodies carry browser-rendered
+# images (Chrome on Linux encodes the fixtures differently than on Windows, so their hashes differ).
+# New recordings are added beside the existing ones and copied to gs://<bucket>/e2e-rec/<build>/.
+# Spends real model money (a few cents per spec); the runner prints it per spec.
+substitutions:
+  _BRANCH: main
+  _URL: https://preview---tutp-demo-vs4743puka-uc.a.run.app
+  _SPECS: visual-tutor homework answer-explain story
+  _BUCKET: tutp-tts-cache-66860e46
+steps:
+  - id: record
+    name: mcr.microsoft.com/playwright:v1.63.0-noble
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        set -u
+        git clone --depth 1 --branch "$_BRANCH" https://github.com/ceovettedrx-source/tutp-app.git /workspace/w || exit 1
+        cd /workspace/w
+        [ -d tutp-app ] && cd tutp-app
+        pwd > /workspace/appdir
+        echo "commit $(git rev-parse --short HEAD) on $_BRANCH"
+        npm ci --no-audit --no-fund || exit 1
+        npx playwright install chrome || exit 1
+        ls tests/e2e/recordings > /workspace/before.txt
+        for s in $_SPECS; do
+          echo "=== record $s"
+          E2E_MODE=record node tests/e2e/$s.spec.js "$_URL" --headless
+          echo "=== record $s exit $?"
+        done
+        ls tests/e2e/recordings > /workspace/after.txt
+        comm -13 /workspace/before.txt /workspace/after.txt > /workspace/new.txt
+        echo "new recordings: $(wc -l < /workspace/new.txt)"
+        exit 0
+  - id: upload
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        cd "$(cat /workspace/appdir)/tests/e2e/recordings" || exit 1
+        [ -s /workspace/new.txt ] || { echo "nothing new"; exit 0; }
+        gcloud storage cp $(cat /workspace/new.txt) "gs://$_BUCKET/e2e-rec/$BUILD_ID/" || exit 1
+        echo "uploaded to gs://$_BUCKET/e2e-rec/$BUILD_ID/"
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+timeout: 3000s

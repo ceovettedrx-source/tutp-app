@@ -11,7 +11,7 @@ import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
 import { checkNotes, correctionHint } from '../notes-ground.js';
 import { callClaude } from '../anthropic.js';
 import { notesModel, modelSettings } from '../models.js';
-import { replayMode } from '../model-replay.js';
+import { replayMode, returnsRecordings } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
 import { normalizeNotes, plainNotes } from '../notes-schema.js';
 import { answerV2Enabled, verifyConceptKey } from './answer-explain.js';
@@ -182,7 +182,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
           const extras = (out) => {
             if (!testFamily) return out;
             res.set('X-Model-Usd', String(cost.usd));
-            return replay.mode === 'record' ? { ...out, _recordings: replay.recordings } : out;
+            return returnsRecordings(replay.mode) ? { ...out, _recordings: replay.recordings } : out;
           };
           if (result.kind !== 'ok') {
             console.error('notes: model call failed', { kind: result.kind, status: result.status || null, ...(testFamily && replay.mode === 'replay' ? { detail: String(result.errText || '').slice(0, 200) } : {}) });

@@ -18,13 +18,46 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
+import { AsyncLocalStorage } from 'async_hooks';
 import { fileURLToPath } from 'url';
 
 const DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'e2e', 'recordings');
 
+// reindex = replay, plus the (exact key, fixture key) pairs handed back like
+// recordings, for tests/e2e/e2e-mode.js to write recordings/_index.json.
 export function replayMode(isTestFamily, requested) {
   if (!isTestFamily || process.env.E2E_REPLAY !== '1') return 'live';
-  return requested === 'record' || requested === 'live' ? requested : 'replay';
+  return requested === 'record' || requested === 'live' || requested === 'reindex' ? requested : 'replay';
+}
+
+// Routes send _recordings back for these modes.
+export const returnsRecordings = (mode) => mode === 'record' || mode === 'reindex';
+
+// Photos the browser re-encodes (canvas) come out as different bytes on
+// Windows and Linux Chrome, so the exact key differs per platform. The test
+// harness names the fixture file(s) in X-E2E-Fixture (preview with
+// E2E_REPLAY=1 only); the "fixture key" hashes that name in place of the
+// image bytes, and recordings/_index.json maps it to the exact key.
+const fixtureStore = new AsyncLocalStorage();
+export function fixtureMiddleware(req, res, next) {
+  const f = process.env.E2E_REPLAY === '1' ? String(req.get('x-e2e-fixture') || '').slice(0, 300) : '';
+  if (!f) return next();
+  fixtureStore.run(f, next);
+}
+
+export function fixtureKey(feature, body, variant = '', fixture = fixtureStore.getStore()) {
+  if (!fixture) return null;
+  const content = JSON.stringify([feature, variant, body && body.messages], (k, v) =>
+    (v && typeof v === 'object' && v.type === 'image' && v.source && typeof v.source.data === 'string')
+      ? { type: 'image', fixture } : v);
+  return 'fx' + crypto.createHash('sha256').update(content).digest('hex').slice(0, 30);
+}
+
+let indexCache = null;
+function readIndex(dir = DIR) {
+  if (indexCache) return indexCache;
+  try { indexCache = JSON.parse(fs.readFileSync(path.join(dir, '_index.json'), 'utf8')); } catch { indexCache = {}; }
+  return indexCache;
 }
 
 // `variant` carries request settings that live only in the system prompt but
@@ -47,15 +80,19 @@ export function readRecording(key, attempt = 1, dir = DIR) {
 // back in record mode.
 export async function modelFetch({ mode, feature, variant = '', body, attempt = 1, headers, recordings }) {
   const key = recordingKey(feature, body, variant);
-  if (mode === 'replay') {
-    const rec = readRecording(key, attempt);
-    if (!rec) return { status: 503, data: { error: 'no_recording', key }, replayed: true };
+  const fx = fixtureKey(feature, body, variant);
+  if (mode === 'replay' || mode === 'reindex') {
+    let rec = readRecording(key, attempt);
+    let used = key;
+    if (!rec && fx && readIndex()[fx]) { used = readIndex()[fx]; rec = readRecording(used, attempt); }
+    if (mode === 'reindex' && recordings && rec && fx) recordings.push({ key: used, fixtureKey: fx, attempt, status: 0, data: null });
+    if (!rec) return { status: 503, data: { error: 'no_recording', key, fixtureKey: fx }, replayed: true };
     return { status: rec.status, data: rec.data, replayed: true };
   }
   const r = await fetch('https://api.anthropic.com/v1/messages', { method: 'POST', headers, body: JSON.stringify(body) });
   const text = await r.text();
   let data;
   try { data = JSON.parse(text); } catch { data = { error: 'unparseable_upstream', text: text.slice(0, 500) }; }
-  if (mode === 'record' && recordings) recordings.push({ key, attempt, status: r.status, data });
+  if (mode === 'record' && recordings) recordings.push({ key, fixtureKey: fx, attempt, status: r.status, data });
   return { status: r.status, data, replayed: false };
 }

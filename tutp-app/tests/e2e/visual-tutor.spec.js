@@ -118,6 +118,7 @@ function checkSteps(json) {
 
     for (const [id, file] of [['v1', 'worksheet-blank.jpg'], ['v2', 'worksheet-5-wrong.jpg']]) {
       await record(id, `image mode: ${file} -> 200, 1-4 steps, boxes in 0-1000, server < ${MAX_SERVER_MS / 1000}s`, async () => {
+        e2e.useFixture(file);
         const b64 = fs.readFileSync(path.join(__dirname, 'fixtures', file)).toString('base64');
         const r = await page.evaluate(async ({ b64, question }) => {
           const img = new Image();

@@ -38,7 +38,7 @@ import { runAnswer, answerRequestBody } from './server/answer-run.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { initModelCost } from './server/model-cost.js';
-import { replayMode } from './server/model-replay.js';
+import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import * as uploads from './server/uploads.js';
 import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
@@ -345,6 +345,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 app.use(cookieParser());
+app.use('/api', fixtureMiddleware);
 
 // ------------------------------------------------------------------
 // Session cookie — established once at login/registration (see
@@ -6632,7 +6633,7 @@ app.post('/api/homework', async (req, res) => {
     const e2eExtras = (body) => {
       if (!testFamily) return body;
       res.set('X-Model-Usd', String(cost.usd));
-      return replay.mode === 'record' ? { ...body, _recordings: replay.recordings } : body;
+      return returnsRecordings(replay.mode) ? { ...body, _recordings: replay.recordings } : body;
     };
 
     // A reply without parseable JSON is asked for once more (see

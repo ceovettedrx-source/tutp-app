@@ -17,7 +17,7 @@ import { POINTING_MODEL, POINTING_SETTINGS } from '../pointing-model.js';
 import { trackVisualTutorCall } from '../../tracking/tracking.js';
 import { stepTimer } from '../step-timer.js';
 import { callClaude } from '../anthropic.js';
-import { replayMode } from '../model-replay.js';
+import { replayMode, returnsRecordings } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
 
 const router = express.Router();
@@ -151,7 +151,7 @@ router.post('/', async (req, res) => {
       : mode === 'locate_line' ? sanitizeLocate(parsed, img)
       : sanitize(parsed, { validRefs, img });
     log('success', { steps: clean.steps ? clean.steps.length : null, usage: data.usage, stopReason });
-    return res.json(mode2 === 'record' ? { ...clean, _recordings: recordings } : clean);
+    return res.json(returnsRecordings(mode2) ? { ...clean, _recordings: recordings } : clean);
   } catch (err) {
     console.error('visual-tutor parse', err.message, { stopReason });
     log('parse_error', { usage: data.usage, stopReason });

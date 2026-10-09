@@ -20,7 +20,7 @@ import { explainView } from '../tier-gate.js';
 import { boardKind } from '../answer-marks.js';
 import { callClaude } from '../anthropic.js';
 import { MODELS, modelSettings } from '../models.js';
-import { replayMode } from '../model-replay.js';
+import { replayMode, returnsRecordings } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
 import { getLearningComponent, getNeighbors } from '../services/knowledgeGraph.js';
 import { createIllustrationService } from '../services/illustration-service.js';
@@ -172,7 +172,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             const extras = (out) => {
               if (!testFamily) return out;
               res.set('X-Model-Usd', String(cost.usd));
-              return replay.mode === 'record' ? { ...out, _recordings: replay.recordings } : out;
+              return returnsRecordings(replay.mode) ? { ...out, _recordings: replay.recordings } : out;
             };
             const fail = (status, msg) => { if (testFamily) res.set('X-Model-Usd', String(cost.usd)); return res.status(status).json({ error: msg }); };
             const first = await callWithJsonRetry(() => callModel(null), (info) => console.warn('explain: unparseable model reply', { language: lang, ...info }));

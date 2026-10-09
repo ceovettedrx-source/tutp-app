@@ -21,6 +21,7 @@ steps:
         [ -d tutp-app ] && cd tutp-app
         echo "commit $(git rev-parse --short HEAD) on $_BRANCH"
         npm ci --no-audit --no-fund || exit 1
+        npx playwright install chrome || exit 1
         fail=0
         for n in $(seq 1 "$_RUNS"); do
           echo "=== run $n of $_RUNS: $_URL $_FLAGS"
