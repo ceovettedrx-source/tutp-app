@@ -12,6 +12,7 @@ import { checkNotes, correctionHint } from '../../server/notes-ground.js';
 import { withNotesPicture, sameConcept } from '../../server/routes/chips.js';
 import { explainPrompt } from '../../server/prompts/explain-prompts.js';
 import { notesPrompt } from '../../server/prompts/notes-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const explain = (over = {}) => ({
   concept_key: 'c7-geography-wind', title: 'Wind', quick: 'Air moves from high to low pressure.', full: 'Warm air rises, cool air flows in.',
@@ -87,11 +88,11 @@ test('notes picture: shared with the first question only for the same concept', 
 });
 
 test('prompts carry the new rules', () => {
-  const e = explainPrompt({ lang: 'Hindi', childContext: 'Asha', subject: 'geography' });
+  const e = systemText(explainPrompt({ lang: 'Hindi', childContext: 'Asha', subject: 'geography' }));
   assert.match(e, /ONE LANGUAGE PER REPLY/);
   assert.match(e, /LABEL RULES/);
   assert.match(e, /"labels":\[\] is correct/);
-  const n = notesPrompt({ lang: 'English', childContext: 'Asha' });
+  const n = systemText(notesPrompt({ lang: 'English', childContext: 'Asha' }));
   assert.match(n, /never say cold air sinks there/);
   assert.match(n, /at most 20 words/);
   assert.match(n, /never the chapter/);

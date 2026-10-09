@@ -39,6 +39,8 @@ import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { initModelCost } from './server/model-cost.js';
+import { initModelAlert } from './server/model-alert.js';
+import { runModelHealth, modelHealthHandler } from './server/model-health.js';
 import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import * as uploads from './server/uploads.js';
@@ -295,6 +297,18 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
 }
+
+// Founder email when Anthropic refuses every call (empty credit balance, bad key):
+// server/model-alert.js, at most one email per reason per hour.
+initModelAlert({
+  supabase,
+  to: process.env.FOUNDER_ALERT_EMAIL || 'ceo.vettedrx@gmail.com',
+  send: async (to, subject, text) => {
+    const r = await sendEmail(to, subject, text);
+    if (r && r.error) throw new Error('email provider refused the alert');
+    if (!resend && !mailer) throw new Error('no email transport configured');
+  },
+});
 // Search box chip logging (search-box-v2, server/chips/log.js): never throws,
 // pauses itself when migration 030 has not been run.
 const chipLog = createChipLog({ supabase, isTestFamily });
@@ -6344,6 +6358,14 @@ async function refundTutorContact(request) {
   }
   return true;
 }
+
+// Daily production model-health check (TUT-11, server/model-health.js): one
+// 5-token Anthropic call, one 5-token Gemini text call, the last 24 hours'
+// error rate. Emails the founder only on a failure. 401 without the token.
+app.post('/api/cron/model-health', modelHealthHandler({
+  authorized: (req) => cronAuthorized(req.headers, process.env.CRON_TOKEN),
+  run: () => runModelHealth({ supabase, send: sendEmail }),
+}));
 
 app.post('/api/cron/tutor-contact-refund-check', async (req, res) => {
   if (!cronAuthorized(req.headers, process.env.CRON_TOKEN)) {

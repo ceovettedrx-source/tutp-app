@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { validateStory, salvageStory, fixEquation, extractStoryJson } from '../../server/story-schema.js';
 import { buildHomeworkRequest } from '../../server/prompts/homework-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const good = () => ({
   title: 'Meena shares the Diwali laddus',
@@ -120,7 +121,7 @@ test('extractStoryJson reads the first text block', () => {
 });
 
 test('the prompt asks for the new shape, talks to the child, keeps Panchpadi and the source wording', () => {
-  const { system } = buildHomeworkRequest({ feature: 'storytelling', lang: 'Telugu', childContext: 'Asha · Class 3', text: 'Multiplication', attachments: [] });
+  const system = systemText(buildHomeworkRequest({ feature: 'storytelling', lang: 'Telugu', childContext: 'Asha · Class 3', text: 'Multiplication', attachments: [] }).system);
   for (const k of ['scenes', 'tryTogether', 'parentPrompt', 'readMinutes', 'gradeSubjectTag', 'mathMoment', 'wrapUp']) assert.ok(system.includes(k), k);
   assert.match(system, /Panchpadi/);
   assert.match(system, /Telugu/);

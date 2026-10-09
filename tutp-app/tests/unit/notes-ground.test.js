@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { checkNotes, correctionHint, numbersIn } from '../../server/notes-ground.js';
 import { GLOSSARY, glossaryBlock } from '../../server/prompts/notes-glossary.js';
 import { notesPrompt, notesUserText } from '../../server/prompts/notes-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const HW = '1. 6 x 9 = 6 x 3 x __\n2. 8 x 12 = 8 x 4 x __';
 const notes = (o) => ({ version: 2, title: 'T', key_idea: 'K', quick_check: [{ q: '5 x 14', a: '70' }, { q: '7 x 8', a: '56' }], ...o });
@@ -72,10 +73,10 @@ test('the user message lists the homework numbers for quick_check to avoid', () 
   assert.equal(notesUserText('Photosynthesis in plants'), 'Homework: Photosynthesis in plants');
 });
 test('prompt: skill-specific, new numbers, full sentences, glossary only for te/hi', () => {
-  const te = notesPrompt({ lang: 'Telugu', childContext: 'Asha' });
+  const te = systemText(notesPrompt({ lang: 'Telugu', childContext: 'Asha' }));
   assert.match(te, /specific skill/);
   assert.match(te, /NEW numbers/);
   assert.match(te, /full sentence/);
   assert.ok(te.includes('వినిమయ ధర్మం'));
-  assert.ok(!notesPrompt({ lang: 'English', childContext: 'Asha' }).includes('MATHS TERMS'));
+  assert.ok(!systemText(notesPrompt({ lang: 'English', childContext: 'Asha' })).includes('MATHS TERMS'));
 });

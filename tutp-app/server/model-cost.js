@@ -23,9 +23,14 @@ export function costUsd(model, usage) {
 let supabase = null;
 export function initModelCost(client) { supabase = client; }
 
-export function logModelCall({ feature, model, usage, familyId = null, studentId = null, ms = null, replay = false }) {
+// The two cache counts also go into their own usage_events columns
+// (supabase/migrations/032_usage_events_cache_tokens.sql) once the migration has run and
+// USAGE_CACHE_COLUMNS=1 is set on the service; until then they live in
+// properties only, so an insert never names a column that does not exist yet.
+// ok / status: the call's outcome, read by the daily model-health check.
+export function logModelCall({ feature, model, usage, familyId = null, studentId = null, ms = null, replay = false, ok = true, status = null }, env = process.env) {
   const properties = {
-    feature, model, replay,
+    feature, model, replay, ok, status,
     input_tokens: usage?.input_tokens ?? null,
     output_tokens: usage?.output_tokens ?? null,
     cache_read: usage?.cache_read_input_tokens ?? 0,
@@ -34,7 +39,12 @@ export function logModelCall({ feature, model, usage, familyId = null, studentId
     ms,
   };
   if (!supabase) return properties;
-  supabase.from('usage_events').insert({ event_name: 'model.call', family_id: familyId, student_id: studentId, properties })
+  const row = { event_name: 'model.call', family_id: familyId, student_id: studentId, properties };
+  if (env.USAGE_CACHE_COLUMNS === '1') {
+    row.cache_creation_input_tokens = usage?.cache_creation_input_tokens ?? null;
+    row.cache_read_input_tokens = usage?.cache_read_input_tokens ?? null;
+  }
+  supabase.from('usage_events').insert(row)
     .then(({ error }) => { if (error) console.error('model.call log failed:', error.message); }, () => {});
   return properties;
 }

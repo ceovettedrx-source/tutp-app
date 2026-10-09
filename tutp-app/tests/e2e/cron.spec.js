@@ -5,6 +5,7 @@
 //   1  no token at all -> 403
 //   2  a token in the ?token= query string (the old way) -> 403
 //   3  a wrong X-Cron-Token header -> 403
+//   4-6 the same three for /api/cron/model-health -> 401
 //
 // The right token is not tested here (it would run the job for real);
 // after a deploy, check that the next Cloud Scheduler run returns 200.
@@ -31,6 +32,18 @@ for (const r of ROUTES) {
   check(query === 403, `2 ${r} with a query token -> ${query}`);
   const header = (await fetch(url, { method: 'POST', headers: { 'X-Cron-Token': WRONG } })).status;
   check(header === 403, `3 ${r} with a wrong header -> ${header}`);
+}
+
+// TUT-11: the daily model-health check answers 401 (not 403) without the token, and a
+// refused call must never reach the model.
+{
+  const url = `${BASE}/api/cron/model-health`;
+  const none = (await fetch(url, { method: 'POST' })).status;
+  check(none === 401, `4 model-health without a token -> ${none}`);
+  const query = (await fetch(`${url}?token=${WRONG}`, { method: 'POST' })).status;
+  check(query === 401, `5 model-health with a query token -> ${query}`);
+  const header = (await fetch(url, { method: 'POST', headers: { 'X-Cron-Token': WRONG } })).status;
+  check(header === 401, `6 model-health with a wrong header -> ${header}`);
 }
 
 console.log(failures.length ? `\n${failures.length} FAILED` : '\nALL CRON CHECKS PASSED');

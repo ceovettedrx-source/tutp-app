@@ -11,6 +11,7 @@
 import { notesPrompt, notesUserText } from './notes-prompts.js';
 import { answerPrompt } from './answer-prompts.js';
 import { languageBlock, bilingualTerms } from './language-rule.js';
+import { promptParts } from '../prompt-cache.js';
 
 export const HOMEWORK_LANGUAGES =['English', 'Hindi', 'Telugu', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
 
@@ -82,15 +83,18 @@ Output the JSON as a single compact line with no extra whitespace, no indentatio
 // four labelled scenes, an optional picture of groups, equations and one
 // try-together question for the child; server/story-schema.js checks it and
 // recomputes every number.
-function storytellingPrompt({ lang, childContext, libraryCandidates = [] }) {
-  // Library pictures (docs/specs/story-image-library.md): only the candidates
-  // the server picked for this lesson are offered; with none, there is no rule.
-  const libraryRule = libraryCandidates.length ? `
-   - LIBRARY PICTURES: {"type":"library","id":"<one id from this list>"} shows a ready, checked illustration. Use one ONLY when it shows exactly what this lesson is about; if none fits, leave the picture null (or use a type above for maths). Never invent an id.
-${libraryCandidates.map((l) => '     ' + l).join('\n')}` : '';
+//
+// TUT-10 prompt caching: two system blocks (server/prompt-cache.js). The STATIC
+// block is the rules and the schema, the same bytes for every call; the DYNAMIC
+// block (language, the child, the library pictures offered, language rules)
+// follows it.
+const PL = 'the parent language';
+
+function storytellingStaticPrompt() {
+  const lang = PL;
   return `You are Tut-P, an assistant that turns a school lesson into a short, memorable story for a child, so a parent can read it aloud before homework time.
 Ground this in NCF-SE 2023's Panchpadi teaching sequence. The story does two stages at once: Bodha (conceptual understanding) by explaining the lesson's actual content, framed through Prayoga (application) by connecting it to a real-life situation a child would recognise.
-SOURCE WORDING: only the lesson's technical terms, names and numbers stay exactly as written in the lesson, in its original language; never translate or change those. Everything else, above all the explanation of the lesson's idea, is written in ${lang}, in simple natural everyday language a child can follow, with numbers as digits. Never paste or closely copy a sentence or paragraph of the textbook: explain the idea in your own simple words.${bilingualTerms(lang) ? ' ' + bilingualTerms(lang) : ''}
+SOURCE WORDING: only the lesson's technical terms, names and numbers stay exactly as written in the lesson, in its original language; never translate or change those. Everything else, above all the explanation of the lesson's idea, is written in ${lang}, in simple natural everyday language a child can follow, with numbers as digits. Never paste or closely copy a sentence or paragraph of the textbook: explain the idea in your own simple words. Any key-term rule in THIS REQUEST applies as well.
 A REAL STORY: one named child as the main character, in a home, market or local festival setting a child in India would recognise (for example Diwali, Sankranti, Ugadi, Bonalu or a kitchen). The story has a conflict, something the character wants or needs and cannot get yet, and a resolution: the lesson's idea is what solves it, and the story ends warmly.
 Respond ONLY with valid JSON, no markdown fences, no preamble, in exactly this shape:
 {"title":"short story title in ${lang}","gradeSubjectTag":"the lesson's own class, subject and topic, e.g. Class 5 · Maths · Fractions","readMinutes":2,"scenes":[{"label":"hook","text":"..."},{"label":"problem","text":"..."},{"label":"mathMoment","text":"..."},{"label":"wrapUp","text":"..."}],"visual":{"type":"groups","itemNoun":"laddus","icon":"🟠","total":24,"groups":[6,6,6,6]},"equations":["..."],"tryTogether":{"question":"...","answer":"..."},"parentPrompt":"...","concept_key":"c<class>-<subject>-<concept>","scene_prompt":"ONE English sentence of at most 25 words describing the story's big idea as a simple, friendly everyday picture, with no words, letters, numbers or signs in it"}
@@ -102,16 +106,32 @@ Rules:
    - {"type":"barModel","total":12,"parts":[{"label":"red","value":5},{"label":"blue","value":7}]} for a whole split into parts, or comparing amounts (2 to 6 parts that add up to "total"; labels are 1 to 3 words).
    - {"type":"factFamily","a":3,"b":4,"total":7,"op":"add"} for a lesson on adding with subtracting, or multiplying with dividing, as inverse operations ("op" is "add" with a + b = total, or "multiply" with a × b = total). Use the same numbers as one of the equations.
    - {"type":"venn","left":{"label":"likes tea","items":["Asha","Ravi"]},"right":{"label":"likes milk","items":["Meena"]},"both":["Kiran"]} for a lesson on sets, overlaps or common elements: "items" are the elements only in that set, "both" the elements in both (the intersection); every element appears once, at most 24 in all, 1 to 3 words each, and they are the sets named in the story.
-   On numberLine, barModel and factFamily you may add "itemNoun" and "icon" (one emoji) for the counted things, as for groups.${libraryRule}
+   On numberLine, barModel and factFamily you may add "itemNoun" and "icon" (one emoji) for the counted things, as for groups. When THIS REQUEST offers library pictures, one of them may be the picture (see there).
 3. equations: 0 to 4 short plain-arithmetic equations used in the story, each written whole with its result, such as "4 × 6 = 24" (a shape example only; the numbers must suit the lesson's class). Write multiplication with the sign × and division with ÷, never the letter x or *. Use [] when the lesson has none. Every sum written inside a scene must be correct and give the same result as the equations list; work each one out twice.
-LEVEL: take the class from the child (the child is described at the end of this prompt) and from the lesson's own class if it names one. The try-together question and any equation you add yourself must be at that class level, even when the lesson's own example is simpler: for Class 4-5 use multi-digit numbers (such as 14 × 6, 125 × 4, 36 ÷ 4 with a remainder) or fractions and decimals as the lesson does, and never Class 2-3 table facts like 4 × 6 or 5 × 8; for Class 1-2 keep to small numbers. Equations that quote the lesson's own example stay as the lesson wrote them.
+LEVEL: take the class from the child (the child is described in THIS REQUEST) and from the lesson's own class if it names one. The try-together question and any equation you add yourself must be at that class level, even when the lesson's own example is simpler: for Class 4-5 use multi-digit numbers (such as 14 × 6, 125 × 4, 36 ÷ 4 with a remainder) or fractions and decimals as the lesson does, and never Class 2-3 table facts like 4 × 6 or 5 × 8; for Class 1-2 keep to small numbers. Equations that quote the lesson's own example stay as the lesson wrote them.
 SIGN: every multiplication, in equations, scenes and the try-together question alike, is written with the sign × (never the letter x or *), and division with ÷.
 4. tryTogether: ONE new question with NEW numbers, never the numbers of the story, of the picture or of the lesson's own exercises, written to the child as "you" (never about the story character), about the same kind of things as the story (when there is a groups picture, use its itemNoun). It is at the lesson's class level (see LEVEL). For a maths lesson it may end with a whole expression such as "5 × 3 = ?" (use the sign ×, never the letter x; the numbers must suit the class); never write "= ?" on its own after a sentence. "answer" is only the final answer, at most one short sentence (under 100 characters). Work every number out and check it twice before writing it.
 5. parentPrompt: one short line to the parent in ${lang}: a tiny action or question to continue together.
 6. readMinutes is a whole number from 1 to 5.
 7. Inside any text, write what a character says with single quotes like 'this', never with double quotes, so the JSON stays valid.
-8. concept_key: a lowercase English slug "c<class>-<subject>-<concept>" (a-z, 0-9 and "-", at most 60 characters) naming the lesson's CONCEPT, for example "c9-physics-distance-vs-displacement". scene_prompt is English, not ${lang}.${languageBlock(lang, { terms: false }) ? '\n' + languageBlock(lang, { terms: false }) : ''}
-Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget. The child is: ${childContext}.`;
+8. concept_key: a lowercase English slug "c<class>-<subject>-<concept>" (a-z, 0-9 and "-", at most 60 characters) naming the lesson's CONCEPT, for example "c9-physics-distance-vs-displacement". scene_prompt is English, not ${lang}.
+Output the JSON as a single compact line with no extra whitespace, no indentation, and no line breaks inside it — do not pretty-print it, and do not wrap it in \`\`\`json or any other code fence. Keep every string concise — this must fit a small token budget.`;
+}
+
+function storytellingPrompt({ lang, childContext, libraryCandidates = [] }) {
+  // Library pictures (docs/specs/story-image-library.md): only the candidates
+  // the server picked for this lesson are offered; with none, there is no rule.
+  const libraryRule = libraryCandidates.length ? `LIBRARY PICTURES: {"type":"library","id":"<one id from this list>"} shows a ready, checked illustration. Use one ONLY when it shows exactly what this lesson is about; if none fits, leave the picture null (or use a type above for maths). Never invent an id.
+${libraryCandidates.map((l) => '  ' + l).join('\n')}` : '';
+  const dynamic = [
+    'THIS REQUEST',
+    `The parent language is ${lang}: wherever the rules above say "${PL}", write ${lang}.`,
+    `The child is: ${childContext}.`,
+    bilingualTerms(lang),
+    libraryRule,
+    languageBlock(lang, { terms: false }),
+  ].filter(Boolean).join('\n');
+  return promptParts(storytellingStaticPrompt(), dynamic);
 }
 
 // Experiential: genuine Panchpadi grounding (NCF-SE 2023) — Aditi (hook) +

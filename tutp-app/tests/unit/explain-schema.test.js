@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { validateExplain, normalizeConceptKey, cleanScenePrompt, finalScenePrompt, IMAGE_SUFFIX } from '../../server/explain-schema.js';
 import { explainView, PAID_ONLY_FIELDS, UPSELL } from '../../server/tier-gate.js';
 import { explainPrompt } from '../../server/prompts/explain-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const good = () => ({
   concept_key: 'C9 Physics: Distance vs Displacement!', title: 'Distance and displacement', quick: 'Distance is the path; displacement is the shortest line with a direction.',
@@ -92,8 +93,9 @@ test('pro view: everything, the scene prompt never goes to the browser, kg overr
 });
 
 test('the explain prompt: parent commentary in the explain-in language only, forced key', () => {
-  const p = explainPrompt({ lang: 'Telugu', childContext: 'Asha', conceptKey: 'c9-physics-speed' });
-  assert.match(p, /Everything you say to the PARENT is written in Telugu/);
+  const p = systemText(explainPrompt({ lang: 'Telugu', childContext: 'Asha', conceptKey: 'c9-physics-speed' }));
+  assert.match(p, /Everything you say to the PARENT is written in the parent language/);
+  assert.match(p, /The parent language is Telugu/);
   assert.match(p, /never translated/);
   assert.match(p, /Use exactly this concept_key: "c9-physics-speed"/);
   assert.match(p, /NO words, letters, numbers, signs or labels/);

@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { normalizeNotes, plainNotes, cleanText, NOTES_LIMITS_CHARS as L } from '../../server/notes-schema.js';
 import { parseNotes } from '../../server/routes/chips.js';
 import { notesPrompt } from '../../server/prompts/notes-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const full = () => ({
   title: 'Adding unlike fractions',
@@ -101,7 +102,7 @@ test('plainNotes: strings only, bounded', () => {
 });
 
 test('prompt: JSON shape, language, no HTML, no invented curriculum', () => {
-  const p = notesPrompt({ lang: 'Telugu', childContext: 'Asha · Class 5' });
+  const p = systemText(notesPrompt({ lang: 'Telugu', childContext: 'Asha · Class 5' }));
   for (const k of ['title', 'key_idea', 'method', 'worked_example', 'key_terms', 'common_mistakes', 'remember', 'quick_check', 'tell_your_child']) assert.ok(p.includes(k), k);
   assert.ok(p.includes('Telugu') && p.includes('Asha'));
   assert.ok(/No LaTeX and no HTML/.test(p));

@@ -9,6 +9,7 @@ import {
 } from '../../server/image-library.js';
 import { validateStory } from '../../server/story-schema.js';
 import { buildHomeworkRequest } from '../../server/prompts/homework-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const img = (id, over = {}) => ({
   id, status: 'approved', subject: 'Science', classMin: 8, classMax: 12, description: `about ${id}`, alt: `alt ${id}`, file: `${id}.webp`,
@@ -170,14 +171,15 @@ test('validateStory keeps an offered library id and drops everything else', () =
 
 test('prompt: only the candidates are offered; none means no library rule; scene 3 and conflict rules', () => {
   const cands = candidatesFor(lib, { text: 'animal cell', classNum: 8 }).map(promptLine);
-  const withLib = buildHomeworkRequest({ feature: 'storytelling', lang: 'Telugu', childContext: 'Asha · Class 8', text: 'animal cell', attachments: [], libraryCandidates: cands }).system;
+  const withLib = systemText(buildHomeworkRequest({ feature: 'storytelling', lang: 'Telugu', childContext: 'Asha · Class 8', text: 'animal cell', attachments: [], libraryCandidates: cands }).system);
   assert.match(withLib, /LIBRARY PICTURES/);
   assert.match(withLib, /animal-cell: about animal-cell/);
   assert.doesNotMatch(withLib, /human-eye/);
-  const without = buildHomeworkRequest({ feature: 'storytelling', lang: 'Telugu', childContext: 'Asha · Class 8', text: 'volcano', attachments: [] }).system;
+  const without = systemText(buildHomeworkRequest({ feature: 'storytelling', lang: 'Telugu', childContext: 'Asha · Class 8', text: 'volcano', attachments: [] }).system);
   assert.doesNotMatch(without, /LIBRARY PICTURES/);
   for (const p of [withLib, without]) {
-    assert.match(p, /simple Telugu/);
+    assert.match(p, /simple the parent language/);
+    assert.match(p, /The parent language is Telugu/);
     assert.match(p, /never a pasted textbook paragraph/);
     assert.match(p, /conflict/);
     assert.match(p, /resolution/);

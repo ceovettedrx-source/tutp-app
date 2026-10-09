@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { validateAnswer, mergeAnswers, extractAnswerJson, answerCorrectionHint } from '../../server/answer-schema.js';
 import { marksFromText, resolveMarks, boardKind, defaultMarks } from '../../server/answer-marks.js';
 import { buildHomeworkRequest } from '../../server/prompts/homework-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const numerical = () => ({
   q_text: 'A car covers 120 km in 4 hours. Find its speed. (3 marks)', q_type: 'numerical', marks: null, concept_key: 'C9-Physics Speed',
@@ -124,19 +125,20 @@ test('extractAnswerJson reads the first text block', () => {
 
 test('the answer prompt: language rules, board, batch range, box rule only with photos', () => {
   const base = { feature: 'answer_v2', lang: 'Hindi', childContext: 'Asha · Class 9', text: '', attachments: [] };
-  const p = buildHomeworkRequest({ ...base, extra: { board: 'cbse' } }).system;
+  const p = systemText(buildHomeworkRequest({ ...base, extra: { board: 'cbse' } }).system);
   // img1 language rule: the child's notebook answer in the page's language, everything the parent reads in Hindi
   assert.match(p, /what the child WRITES in the exam notebook .* stays in the language of the page as written/);
-  assert.match(p, /"why_text", "unit_direction_note" and, on a content page, every idea's "title" and "summary", is written in Hindi/);
+  assert.match(p, /"why_text", "unit_direction_note" and, on a content page, every idea's "title" and "summary", is written in the parent language/);
+  assert.match(p, /The parent language is Hindi/);
   assert.match(p, /write the Hindi word first and the term exactly as the page or question writes it in brackets/);
   assert.match(p, /विस्थापन \(Displacement\)/);
   assert.match(p, /"scene_prompt"/);
   assert.match(p, /CBSE exam/);
   assert.match(p, /never guess at text you cannot read/);
-  assert.doesNotMatch(p, /Show on photo/);
-  const batch = buildHomeworkRequest({ ...base, photos: [{ index: 0, width: 800, height: 600 }], extra: { board: 'state', range: { from: 5, to: 8 } } }).system;
+  assert.doesNotMatch(p, /Photo sizes/);
+  const batch = systemText(buildHomeworkRequest({ ...base, photos: [{ index: 0, width: 800, height: 600 }], extra: { board: 'state', range: { from: 5, to: 8 } } }).system);
   assert.match(batch, /questions 5 to 8/);
-  assert.match(batch, /Show on photo/);
+  assert.match(batch, /Photo sizes \(rule 9\): attachment 0 is 800 x 600 pixels/);
 });
 
 // A page with no questions (textbook, notebook notes): content mode, 2026-10-06.
@@ -185,11 +187,11 @@ test('unreadable keeps the retake request written in the parent language', () =>
 });
 
 test('the answer prompt accepts any school page and only refuses clearly non-school pictures', () => {
-  const { system } = buildHomeworkRequest({ feature: 'answer_v2', lang: 'English', childContext: 'Asha · Class 7', text: '', attachments: [], photos: [], extra: { board: 'cbse', range: null } });
+  const system = systemText(buildHomeworkRequest({ feature: 'answer_v2', lang: 'English', childContext: 'Asha · Class 7', text: '', attachments: [], photos: [], extra: { board: 'cbse', range: null } }).system);
   assert.match(system, /textbook page, a page of notebook notes/);
   assert.match(system, /"mode":"content"/);
   assert.match(system, /ONLY a picture that is clearly not school material/);
   assert.match(system, /retake_text/);
-  const batch2 = buildHomeworkRequest({ feature: 'answer_v2', lang: 'English', childContext: 'x', text: '', attachments: [], photos: [], extra: { board: 'cbse', range: { from: 5, to: 8 } } }).system;
+  const batch2 = systemText(buildHomeworkRequest({ feature: 'answer_v2', lang: 'English', childContext: 'x', text: '', attachments: [], photos: [], extra: { board: 'cbse', range: { from: 5, to: 8 } } }).system);
   assert.match(batch2, /another call reads that page/);
 });

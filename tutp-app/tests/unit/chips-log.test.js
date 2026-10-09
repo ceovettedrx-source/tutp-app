@@ -7,6 +7,7 @@ import { scrubPhrase } from '../../server/chips/scrub.js';
 import { familyHash, chipHashKey, classBand, boardOf, buildEventRow, istDate, createChipLog } from '../../server/chips/log.js';
 import { parseNotes, notesInput, createNotesCache, NOTES_LIMITS } from '../../server/routes/chips.js';
 import { buildHomeworkRequest, PROMPT_FEATURES } from '../../server/prompts/homework-prompts.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 test('scrub: numbers, phones, emails, links and names are removed', () => {
   assert.equal(scrubPhrase('call me on 9876543210'), 'call me on');
@@ -161,7 +162,8 @@ test('notes: parseNotes falls back to plain strings, or null when nothing is rea
 
 test('notes prompt: reached only through the dispatcher hook, not through /api/homework', () => {
   assert.ok(!PROMPT_FEATURES.includes('notes'));
-  const { system, content } = buildHomeworkRequest({ feature: 'notes', lang: 'Telugu', childContext: 'Asha', text: '1. 24 + 13', attachments: [] });
+  const built = buildHomeworkRequest({ feature: 'notes', lang: 'Telugu', childContext: 'Asha', text: '1. 24 + 13', attachments: [] });
+  const system = systemText(built.system), content = built.content;
   assert.match(system, /Telugu/);
   assert.match(system, /"key_idea":/);
   assert.equal(content.length, 1);

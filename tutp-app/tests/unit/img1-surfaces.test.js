@@ -12,10 +12,13 @@ import { validateAnswer } from '../../server/answer-schema.js';
 import { normalizeNotes } from '../../server/notes-schema.js';
 import { withNotesPicture } from '../../server/routes/chips.js';
 import { verifyPicture } from '../../server/services/concept-picture.js';
+import { systemText } from '../../server/prompt-cache.js';
 
 const ctx = { childContext: 'Asha · Class 9' };
-const story = (lang) => buildHomeworkRequest({ feature: 'storytelling', lang, ...ctx, text: 'Distance and displacement', attachments: [] }).system;
-const answer = (lang) => buildHomeworkRequest({ feature: 'answer_v2', lang, ...ctx, text: '', attachments: [], extra: { board: 'state' } }).system;
+const story = (lang) => systemText(buildHomeworkRequest({ feature: 'storytelling', lang, ...ctx, text: 'Distance and displacement', attachments: [] }).system);
+const answer = (lang) => systemText(buildHomeworkRequest({ feature: 'answer_v2', lang, ...ctx, text: '', attachments: [], extra: { board: 'state' } }).system);
+const explain = (lang) => systemText(explainPrompt({ lang, childContext: ctx.childContext }));
+const notes = (lang) => systemText(notesPrompt({ lang, childContext: ctx.childContext }));
 
 test('English needs no bilingual sentence; every other language gets one with its own example', () => {
   assert.equal(bilingualTerms('English'), '');
@@ -44,8 +47,8 @@ test('the Telugu quality rules and the science terms are only for Telugu (terms 
 test('one rule for every surface: answer, explain, notes and story all carry the bilingual key-term rule in Telugu', () => {
   const prompts = {
     answer: answer('Telugu'), story: story('Telugu'),
-    explain: explainPrompt({ lang: 'Telugu', childContext: ctx.childContext }),
-    notes: notesPrompt({ lang: 'Telugu', childContext: ctx.childContext }),
+    explain: explain('Telugu'),
+    notes: notes('Telugu'),
   };
   for (const [name, p] of Object.entries(prompts)) {
     assert.match(p, /write the Telugu word first and the term exactly as the page or question writes it in brackets/, name + ' lacks the bilingual rule');
@@ -53,7 +56,7 @@ test('one rule for every surface: answer, explain, notes and story all carry the
     assert.match(p, /SCIENCE TERMS in Telugu/, name + ' lacks the science terms');
     assert.equal((p.match(/KEY TERMS:/g) || []).length, 1, name + ' states the key-term rule more than once');
   }
-  for (const [name, p] of Object.entries({ answer: answer('English'), story: story('English'), explain: explainPrompt({ lang: 'English', childContext: ctx.childContext }) })) {
+  for (const [name, p] of Object.entries({ answer: answer('English'), story: story('English'), explain: explain('English') })) {
     assert.doesNotMatch(p, /KEY TERMS|TELUGU QUALITY|SCIENCE TERMS/, name + ' English prompt gained rules it should not have');
   }
 });
@@ -62,12 +65,14 @@ test('Answer: the child\'s notebook answer stays in the page language, the paren
   const p = answer('Telugu');
   assert.match(p, /what the child WRITES in the exam notebook/);
   assert.match(p, /stays in the language of the page as written/);
-  assert.match(p, /"why_text", "unit_direction_note" and, on a content page, every idea's "title" and "summary", is written in Telugu/);
+  assert.match(p, /"why_text", "unit_direction_note" and, on a content page, every idea's "title" and "summary", is written in the parent language/);
+  assert.match(p, /The parent language is Telugu/);
 });
 
 test('Explain: labels and commentary in the explain-in language; the check question stays for the child', () => {
-  const p = explainPrompt({ lang: 'Telugu', childContext: ctx.childContext });
-  assert.match(p, /each one short Telugu word or two in Telugu's own script/);
+  const p = explain('Telugu');
+  assert.match(p, /each one short word or two in the parent language, in that language's own script/);
+  assert.match(p, /The parent language is Telugu/);
   assert.match(p, /The check question itself is written for the child, in the language of the question/);
   assert.equal(EXPLAIN_PROMPT_VERSION, 'explain-v2.4');
 });
