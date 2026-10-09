@@ -497,12 +497,13 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
       expect(t.checked && t.answer === p.answerText, `card ${i + 1} "${t.q}": answer "${t.answer}", expected ${p.answerText}, checked ${t.checked}`);
       for (const x of p.numbers) expect(nums(t.steps).has(x), `card ${i + 1} "${t.q}": its steps lack ${x}`);
       expect(!!buildMathDiagram(p) === t.diagram, `card ${i + 1} "${t.q}": diagram ${t.diagram}, expected ${!!buildMathDiagram(p)}`);
-      // none of ANOTHER question's own numbers (two digits or more) in this card
+      // a card never carries ANOTHER question's text: not two or more of that question's own numbers
+      // (two digits or more) that are not this question's. One such number can be a worked example's.
       texts.forEach((o, j) => {
         if (j === i) return;
         const po = parseQuestion(o.q);
         const foreign = po.numbers.filter((x) => x.length >= 2 && !p.numbers.includes(x) && x !== p.answerText && nums(t.steps).has(x));
-        expect(!foreign.length, `card ${i + 1} "${t.q}" carries card ${j + 1}'s numbers ${foreign.join()}`);
+        expect(foreign.length < 2, `card ${i + 1} "${t.q}" carries card ${j + 1}'s numbers ${foreign.join()}`);
       });
     });
     const pictures = await pro.page.locator('#hwExplainBlock [data-inv="picture"]').count();
