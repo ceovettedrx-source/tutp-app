@@ -110,18 +110,64 @@
 
     var have = null;
     try { have = sessionStorage.getItem(key); } catch (e) {}
+
+    // 3. Stale tab. sessionStorage is per tab but the cookie is shared, so a
+    // tab left open while someone signs in as another family keeps the old
+    // family id and every family call from it answers 403 (TUT-31: the
+    // Bonding Report card showed "—"). When /api/session/me names a different
+    // family than the stored one, store the cookie's family and roles, drop
+    // the ids that belonged to the old family, and reload once.
+    // tutp_guard_synced stops a loop: a second mismatch goes to login. It is
+    // cleared whenever the ids match.
+    function checkFamily(me){
+        if (need !== 'family' || !me || !me.familyId || String(me.familyId) === have) {
+            try { sessionStorage.removeItem('tutp_guard_synced'); } catch (e) {}
+            return false;
+        }
+        var again = null;
+        try { again = sessionStorage.getItem('tutp_guard_synced'); } catch (e) {}
+        if (again) { toLogin(); return true; }
+        try {
+            sessionStorage.setItem('tutp_guard_synced', '1');
+            sessionStorage.setItem(key, String(me.familyId));
+            sessionStorage.removeItem('tutp_student_id');
+            sessionStorage.removeItem('tutp_family_member_id');
+            sessionStorage.removeItem('tutp_family_member_name');
+        } catch (e) { return false; }
+        saveRoles(me.roleMatches);
+        var roles = me.roleMatches || [];
+        if (roles.length === 1 && roles[0].role === 'family_member' && roles[0].memberId) setMember(roles[0]);
+        hide();
+        window.location.reload();
+        return true;
+    }
+    // Background only: the page is not hidden and nothing waits for it. A
+    // network error leaves the page alone.
+    function backgroundCheck(){
+        fetch('/api/session/me', { credentials: 'same-origin', cache: 'no-store' }).then(function(res){
+            if (res.status === 401) { toLogin(); return; }
+            if (!res.ok) return;
+            return res.json().then(checkFamily);
+        }).catch(function(){});
+    }
+
     if (have) {
         window.addEventListener('load', function(){
             try { sessionStorage.removeItem('tutp_guard_reloaded'); } catch (e) {}
         });
-        if (!pageRole) return;
         var cached = null;
         try { cached = JSON.parse(sessionStorage.getItem('tutp_roles') || 'null'); } catch (e) {}
-        if (Array.isArray(cached)) { enforceRole(cached); return; }
+        if (!pageRole || Array.isArray(cached)) {
+            if (need === 'family') backgroundCheck();
+            if (!pageRole) return;
+            enforceRole(cached);
+            return;
+        }
         hide();
         fetch('/api/session/me', { credentials: 'same-origin', cache: 'no-store' }).then(function(res){
             if (!res.ok) { toLogin(); return; }
             return res.json().then(function(me){
+                if (checkFamily(me)) return;
                 saveRoles(me.roleMatches);
                 if (!enforceRole(me.roleMatches)) show();
             });
