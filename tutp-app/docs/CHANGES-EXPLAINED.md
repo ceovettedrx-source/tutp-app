@@ -17,9 +17,11 @@
 - No result claim anywhere: our searches found no measured effect of this method on marks, so the card describes the method only.
 - The repo has no site-wide translation layer; the new page gets its own small English, Telugu and Hindi string table.
 
-**Open decisions for Vet**: what Free-tier children see, Max not being on sale yet, the pilot languages, and card placement with TUT-42.
+**Founder decisions, 2026-10-10 (added to the spec)**: Free-tier children get a locked card plus one static non-AI preview; Max gating is built and tested with a TEST payment row but TUT-43 takes traffic together with TUT-45 (Max on sale); pilot languages en/te/hi with new languages as data rows only (a dummy-language test); card replaced in place and recorded in the TUT-42 item map.
 
-**Status**: nothing built, nothing deployed, no migration run (the spec names 033).
+**TUT-45 (spec only, `docs/specs/TUT-45-max-on-sale.md`)**: Max at ₹2,500/month needs a tier-aware access timeline (today every paid child is treated alike), an upgrade credit for Pro to Max, and an on/off switch. Two business gaps are flagged for Vet: illustrated notes and the 2 free tutor contacts are not built, and the per-mode daily limits are not built, so Max would differ from Pro only by Singapore Maths.
+
+**Status**: nothing built, nothing deployed, no migration run (specs name 033 and 034).
 
 ## 2026-10-06 - answer v2 accepts any school page (built, tested, not live)
 
