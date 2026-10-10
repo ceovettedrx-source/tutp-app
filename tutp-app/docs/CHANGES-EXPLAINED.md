@@ -1,5 +1,26 @@
 # Changes explained
 
+## 2026-10-10 - TUT-43 Singapore Maths Method (spec only, no code)
+
+**What was wrong**
+- The dashboard card "10-minute Math Session" opens the Homework Help modal (`openHomeworkModal()` in the mother, father and family-member dashboards). Two entries, one product.
+
+**What the spec proposes** (`docs/specs/TUT-43-singapore-maths.md`, awaiting approval)
+- The card becomes "Singapore Maths Method": a daily 10-minute word-problem session in three steps. Concrete (parent and child with household items, parent taps "We did it", logged as a participation signal for TUT-20), Pictorial (the child builds the bar model by dragging or tapping), Abstract (equation and answer).
+- Five model types (part-whole, comparison, before/after, fractions, ratio) for grades 1 to 6, a short diagnostic first, then the weakest type.
+- The bar-model drawing is code, not AI, and is the first module of the shared diagram engine (`diagrams.js`); the old bar-model generator is not duplicated.
+- Questions are written once (504 problems in English, Telugu, Hindi) and stored; the only live AI is one hint after two wrong tries, at most one per session. A code solver checks every answer key and every translated number before a problem can be used.
+- Max: unlimited. Pro and UltraPro: one free session per child per IST week, counted on the server so it cannot be bypassed from the phone. Parents see a mastery map per model type and a weekly growth line.
+- Cost: under ₹0.21 of model spend per session at worst; about $4 (₹350) once for the content with the Batch API.
+
+**What is not claimed**
+- No result claim anywhere: our searches found no measured effect of this method on marks, so the card describes the method only.
+- The repo has no site-wide translation layer; the new page gets its own small English, Telugu and Hindi string table.
+
+**Open decisions for Vet**: what Free-tier children see, Max not being on sale yet, the pilot languages, and card placement with TUT-42.
+
+**Status**: nothing built, nothing deployed, no migration run (the spec names 033).
+
 ## 2026-10-06 - answer v2 accepts any school page (built, tested, not live)
 
 **What was wrong**
