@@ -125,7 +125,15 @@ from captured payments, `server.js` `getPaidStatusForStudents`). Today only Pro 
 |---|---|
 | Max | unlimited sessions |
 | Pro, UltraPro | 1 free session per child per IST week (Monday start) |
-| Free | locked card with the lock and "Unlock with Pro" (decision 1 below) |
+| Free | locked card with the lock and "Unlock with Pro", plus one static preview (decision 1) |
+
+**Decision 1 (founder, 2026-10-10): no lifetime free session.** A Free-tier child sees the locked card and
+one pre-cached, non-AI bar-model preview: a single fixed problem per grade band (1-2, 3-4, 5-6) shown as
+a static picture (the shared renderer output, stored in `sgmath_problems` with `preview = true`), no
+builder, no answer check, no model call, zero cost. The preview carries "Unlock with Pro"
+(`sgmath.upgrade_clicked`, source `free_preview`). `POST /api/sgmath/session/start` for a Free child
+returns 402 `locked`; the preview comes from `GET /api/sgmath/preview`, which returns only the picture
+and the question text, never an answer key.
 
 - New server helper `tierForStudent(studentId)`: the tier of the captured payment whose period covers
   now (latest wins). A new function, because `getPaidStatusForStudents` returns only active/inactive.
@@ -175,6 +183,9 @@ references students(id)`.
   smallint default 0`, started_at, pictorial_started_at, completed_at; partial unique index (section 5)
 - `sgmath_attempts`: id, session_id, problem_id, step (`pictorial | abstract`), correct, tries,
   hint_used, built_spec jsonb, ms
+- `sgmath_languages` (code, label, script, enabled; seeded en/te/hi) and `sgmath_strings` (lang, key,
+  text; primary key lang+key), so a new language is rows only (decision 3). `sgmath_problems` gets
+  `preview boolean default false` for the Free-tier static preview (decision 1).
 - Indexes on (student_id, started_at), (session_id), problem selection (grade, model_type, difficulty,
   status). Run in the Supabase SQL editor; the app answers 503 `not_ready` with a plain message until
   the tables exist. No data deleted, no existing table changed.
@@ -205,7 +216,9 @@ references students(id)`.
 | 6 | Free-gate bypass | integration test: second free start in the same IST week gives 409 `free_used`; 2 parallel starts leave exactly 1 row; a forged `gate`/`tier`/`week` in the body is ignored; Monday 00:00 IST boundary with a mocked clock |
 | 7 | Drag fails on a phone | e2e at 390 x 844 with touch: a drag with the touchscreen builds the model, and the same problem is solved with taps only through tap-to-split; every handle is at least 44 x 44 px |
 | 8 | Live hint reveals the answer | unit test of the hint guard: a reply containing the answer number is replaced by the stored hint |
-| 9 | Max is not for sale, so "unlimited" is unreachable and the conversion metric is empty | decision 2 below; e2e uses a TEST payment row for a Max child; the admin panel shows "n/a, Max not on sale" |
+| 9 | Max is not for sale, so "unlimited" is unreachable | decision 2: traffic ships with TUT-45; e2e uses a TEST payment row for a Max child (unlimited starts, no 409); release checklist item "TUT-45 built and tested" before the traffic command |
+| 14 | A Free child gets a session or an answer key from the preview | e2e: Free child start gives 402 `locked`; the preview payload has no `answer`/`spec` fields; `model.call` count stays 0 |
+| 15 | A new language needs a code change | e2e + unit: dummy `zz` language rows render without edits; missing string key falls back to English |
 | 10 | The parent signal is gamed (child taps "We did it") | the button sits under a parent-only line and records the signed-in `viewer_key`; TUT-20 owns the weighting; unit test that a missing viewer key is not recorded as participation |
 | 11 | Content bank missing for a grade | e2e precondition fails loudly when the test child's grade has no verified problems; the page shows "Practice for this grade is being prepared", never an empty session |
 | 12 | Test families pollute the admin figures | admin endpoint test with a test family's events excluded |
@@ -239,15 +252,30 @@ out $5. Batch API is 50 percent off; the repo does not call it yet, so a small o
 An estimate, to be replaced by the real figure printed at the end of the generation run. More languages
 cost about $0.75 each at batch price.
 
-## Decisions needed from Vet
+## Decisions (founder, 2026-10-10)
 
-1. **Free-tier children** (no paid plan): the card shows a lock and "Unlock with Pro" (recommended; the
-   spec gives Pro and UltraPro the 1 free session), or one lifetime free session as a taster?
-2. **Max is not on sale.** Shipping this does not make "unlimited" reachable. Ship the gating anyway and
-   test Max through a TEST payment row (recommended), or hold the release until Max is sellable?
-3. **Languages for the pilot content:** English, Telugu, Hindi (recommended, matches the KG pilot), more?
-4. **Card placement** moves with the TUT-42 dashboard redesign; this release only replaces the card's
-   content in place on the current layout. OK?
+1. **Free-tier children:** locked card plus one static, pre-cached, non-AI preview with "Unlock with
+   Pro". No lifetime free session. Specified in section 5.
+2. **Max:** build and test the gating with a TEST payment row for a Max child, but **production traffic
+   for this release ships together with TUT-45 (Max on sale).** Dependency: TUT-43 cannot take traffic
+   before TUT-45 is built, tested and ready, otherwise "unlimited" is unreachable and the Max promise on
+   the pricing page is empty. Order: TUT-43 and TUT-45 are built and e2e-tested separately; both go
+   live in one traffic move (one revision containing both), so the build branches are merged before the
+   final preview. Risk 9 above is closed by this dependency.
+3. **Languages:** English, Telugu, Hindi for the pilot. **A new language must need only content rows and
+   string-table entries, no code change.** The language list is therefore data: a `sgmath_languages`
+   table (`code`, `label`, `script`, `enabled`) read by the API and the page; the page picks its string
+   table from rows served by `GET /api/sgmath/strings?lang=` (stored as rows in
+   `sgmath_strings(lang, key, text)`, seeded from `strings.js` content for en/te/hi); no `if lang ===`
+   branch anywhere. New test (unit + e2e `singapore-maths.spec.js`): insert a dummy language row
+   (`zz`, with its strings and one problem text), open the page with that language and check it renders
+   the dummy strings and problem, with no code edit and no redeploy; the test removes the rows after.
+   Missing string keys fall back to English per key, tested.
+4. **Card placement:** replaced in place now. **TUT-42 item map:** the Singapore Maths card is an item
+   the TUT-42 redesign must keep (card title "Singapore Maths Method", eyebrow "Daily practice", route
+   `/app/singapore-maths/`, the locked state, and the per-child progress block of section 6). Recorded
+   here as the map entry; add the same line to the TUT-42 item map when that document exists (no
+   TUT-42 file is in the repo yet).
 
 ## Files (when built)
 New: `supabase/migrations/033_singapore_maths.sql`, `public/app/shared/diagram/bar-model.js`,
