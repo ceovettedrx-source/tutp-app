@@ -105,7 +105,7 @@
       ? 'Renewing adds to the current plan, which runs till ' + child.paidUntilLabel + '.'
       : 'Homework Help for every subject, Quiz and Storytelling for this child.'));
     var status = el('p', 'margin:10px 0 0;font-size:13px;color:#b3261e;');
-    (plans.length ? plans : [{ key: 'pro_monthly', label: 'Pro · ₹500/month' }]).forEach(function (p) {
+    (plans.length ? plans : [{ key: 'pro_monthly', label: 'Pro · ₹500/month (incl. GST)' }]).forEach(function (p) {
       var b = el('button', 'display:block;width:100%;margin:0 0 8px;padding:12px;border-radius:12px;border:2px solid #005bbf;background:#fff;color:#004a9c;font:inherit;font-size:15px;font-weight:700;cursor:pointer;', p.label);
       b.type = 'button';
       b.addEventListener('click', function () { checkout(studentId, p.key, status); });
