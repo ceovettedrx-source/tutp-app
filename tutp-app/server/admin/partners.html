@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Partners admin</title>
+<style>
+  :root { --ink: #111; --bg: #f6f7fb; --card: #fff; --line: #d5d9e6; --brand: #1a4fd0; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #eaeefc; --bg: #0e1220; --card: #171d33; --line: #2b3558; --brand: #7aa8ff; } }
+  body { margin: 0; font-family: system-ui, sans-serif; color: var(--ink); background: var(--bg); }
+  main { padding: 16px; max-width: 1000px; margin: 0 auto; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 14px 0; overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  button { background: var(--brand); color: #fff; border: 0; border-radius: 6px; padding: 8px 12px; cursor: pointer; margin-right: 6px; }
+  .warn { color: #b3261e; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Partner programme</h1>
+  <p id="msg" role="alert"></p>
+  <section>
+    <h2>Totals</h2>
+    <label><input type="checkbox" id="incTest"> include test partners</label>
+    <pre id="summary">Loading...</pre>
+    <button type="button" id="reconcile">Run reconcile</button>
+    <button type="button" id="generate">Build payout sheet now</button>
+  </section>
+  <section>
+    <h2>Payout sheet</h2>
+    <p id="sheetNote"></p>
+    <table id="sheet"><thead><tr><th>Partner</th><th>Type</th><th>UPI</th><th>PAN holder name</th><th>PAN</th><th>Amount</th><th>TDS</th><th>Transfer</th><th>Status</th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+</main>
+<script>
+  var rs = function (p) { return 'Rs ' + (p / 100).toFixed(2); };
+  var msg = document.getElementById('msg');
+  function call(method, url) {
+    return fetch(url, { method: method, credentials: 'same-origin' }).then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, json: j }; }); });
+  }
+  function cell(tr, text) { var td = document.createElement('td'); td.textContent = text == null ? '' : String(text); tr.appendChild(td); return td; }
+  function load() {
+    var q = document.getElementById('incTest').checked ? '?includeTest=1' : '';
+    call('GET', '/api/admin/partners/summary' + q).then(function (r) {
+      document.getElementById('summary').textContent = r.ok ? JSON.stringify(r.json, null, 2) : 'Error: ' + (r.json.error || '');
+    });
+    call('GET', '/api/admin/partners/payouts' + q).then(function (r) {
+      var body = document.querySelector('#sheet tbody'); body.textContent = '';
+      if (!r.ok) { msg.textContent = r.json.error || 'Error'; return; }
+      document.getElementById('sheetNote').textContent = 'Total to transfer: ' + rs(r.json.totalPayablePaise) + '. ' + r.json.tdsNote;
+      r.json.items.forEach(function (i) {
+        var tr = document.createElement('tr');
+        cell(tr, i.name + (i.schoolName ? ' (' + i.schoolName + ')' : '')); cell(tr, i.partnerType);
+        cell(tr, i.upi); var h = cell(tr, i.upiHolderName); if (!i.upiHolderConfirmed) h.className = 'warn';
+        cell(tr, i.panMasked); cell(tr, rs(i.amountPaise)); cell(tr, rs(i.tdsPaise)); cell(tr, rs(i.payablePaise)); cell(tr, i.status);
+        var td = document.createElement('td');
+        if (i.status === 'due') {
+          var b = document.createElement('button'); b.type = 'button'; b.textContent = 'Mark paid';
+          b.addEventListener('click', function () {
+            if (!confirm('Mark ' + rs(i.payablePaise) + ' to ' + i.name + ' as paid?')) return;
+            call('POST', '/api/admin/partners/payouts/' + encodeURIComponent(i.payoutId) + '/mark-paid').then(function (x) { msg.textContent = x.ok ? 'Marked paid.' : (x.json.error || 'Error'); load(); });
+          });
+          td.appendChild(b);
+        } else { td.textContent = 'PAN needed'; td.className = 'warn'; }
+        tr.appendChild(td); body.appendChild(tr);
+      });
+    });
+  }
+  document.getElementById('incTest').addEventListener('change', load);
+  document.getElementById('reconcile').addEventListener('click', function () { call('POST', '/api/admin/partners/reconcile').then(function (x) { msg.textContent = x.ok ? 'Reconciled.' : (x.json.error || 'Error'); load(); }); });
+  document.getElementById('generate').addEventListener('click', function () { call('POST', '/api/admin/partners/payouts/generate').then(function (x) { msg.textContent = x.ok ? 'Payout sheet built.' : (x.json.error || 'Error'); load(); }); });
+  load();
+</script>
+</body>
+</html>

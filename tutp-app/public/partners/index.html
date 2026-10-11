@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tut-P Partner Programme</title>
+<meta name="description" content="Private tutors and private schools can earn 10% of each Tut-P Pro payment from families who join through their link.">
+<link rel="icon" href="/favicon-32.png">
+<style>
+  :root { --ink: #0f1b3d; --bg: #f7f9ff; --card: #fff; --line: #d8e2ff; --brand: #005bbf; --brand-ink: #fff; --warn: #8a1c1c; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #e8edff; --bg: #0c1226; --card: #141c36; --line: #2a3560; --brand: #7aa8ff; --brand-ink: #0c1226; --warn: #ff9a9a; } }
+  body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Telugu', 'Noto Sans Devanagari', sans-serif; color: var(--ink); background: var(--bg); line-height: 1.5; }
+  header { padding: 14px 16px; border-bottom: 1px solid var(--line); background: var(--card); display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  header a, main a { color: var(--brand); }
+  main { padding: 16px; max-width: 720px; margin: 0 auto; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 16px 0; }
+  h1 { font-size: 1.6rem; margin: 8px 0; } h2 { font-size: 1.15rem; margin: 0 0 8px; }
+  label { display: block; margin: 10px 0 4px; font-weight: 600; }
+  input[type=text], input[type=tel] { width: 100%; box-sizing: border-box; padding: 12px; font-size: 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); margin: 6px 0; }
+  button, .btn { background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 8px; padding: 12px 18px; font-size: 1rem; cursor: pointer; min-height: 44px; text-decoration: none; display: inline-block; margin: 6px 6px 6px 0; }
+  button:disabled { opacity: .6; }
+  .type-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .type-row button[aria-pressed=true] { outline: 3px solid var(--ink); }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; font-weight: 400; }
+  .check input { margin-top: 4px; min-width: 20px; min-height: 20px; }
+  [role=alert] { color: var(--warn); min-height: 1.2em; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); max-width: 420px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<header><strong>Tut-P Partner Programme</strong><span><a href="#" data-lang="en">English</a> · <a href="#" data-lang="te">తెలుగు</a> · <a href="#" data-lang="hi">हिन्दी</a></span></header>
+<main>
+  <h1 id="title"></h1>
+  <section><p id="intro"></p><ul id="rules"></ul></section>
+
+  <section id="pick">
+    <h2 id="pickTitle"></h2>
+    <div class="type-row" role="group" aria-labelledby="pickTitle">
+      <button type="button" data-type="tutor" aria-pressed="false"></button>
+      <button type="button" data-type="school_teacher" aria-pressed="false"></button>
+      <button type="button" data-type="school" aria-pressed="false"></button>
+      <button type="button" data-type="govt_teacher" aria-pressed="false"></button>
+    </div>
+    <p id="teacherHint" hidden></p>
+  </section>
+
+  <section id="form" hidden>
+    <h2 id="formTitle"></h2>
+    <label for="pname" id="pnameL"></label><input type="text" id="pname" maxlength="80" autocomplete="name">
+    <div id="schoolFields" hidden>
+      <label for="sname" id="snameL"></label><input type="text" id="sname" maxlength="120">
+      <label class="check"><input type="checkbox" id="cPrivate"><span id="cPrivateT"></span></label>
+      <label class="check"><input type="checkbox" id="cTerms"><span id="cTermsT"></span></label>
+      <label class="check"><input type="checkbox" id="cNoComp"><span id="cNoCompT"></span></label>
+    </div>
+    <label class="check"><input type="checkbox" id="cConsent"><span id="cConsentT"></span></label>
+    <h2 id="otpTitle"></h2>
+    <div id="signin"></div>
+    <p id="status" role="alert"></p>
+  </section>
+</main>
+<dialog id="govt"><p id="govtText"></p><button type="button" id="govtOk"></button></dialog>
+
+<script type="module">
+  import { mountPartnerSignIn } from '/app/shared/partner-signin.js';
+
+  const T = {
+    en: {
+      title: 'Earn when families you know join Tut-P',
+      intro: 'Private tutors, tuition centres and private schools get 10% of every Tut-P Pro payment (excluding GST) from families who join through their link, for the first 6 paid months of each family.',
+      rules: ['Paid on the 1st of each month by UPI, minimum Rs 200 (smaller amounts carry forward).', 'A payment counts after a 7-day refund period.', 'You see only counts and amounts, never a family\'s or child\'s details.', 'Joining Tut-P is always a family\'s own choice. Never pressure anyone.'],
+      pick: 'Who are you?', tutor: 'Private tutor / tuition centre', school_teacher: 'Private-school teacher', school: 'Private school (management)', govt_teacher: 'Government teacher',
+      teacherHint: 'Private-school teachers join with the invite link their school sends on WhatsApp.',
+      formTitle: 'Your details', name: 'Your name', sname: 'School name',
+      cPrivate: 'This is a private (unaided) school.', cTerms: 'I accept the partner terms on behalf of the school.', cNoComp: 'No teacher or school will pressure, require or reward-by-marks any family to buy.',
+      cConsent: 'I agree that Tut-P stores my name and phone number to run the programme.', otp: 'Verify your mobile number', ok: 'OK',
+      done: 'You are in. Opening your partner page...', needName: 'Please enter your name.', needConsent: 'Please tick all the boxes.', fail: 'Could not sign up. Try again.', exists: 'This number is already a partner. Opening your page...',
+    },
+    te: {
+      title: 'మీకు తెలిసిన కుటుంబాలు Tut-P లో చేరితే సంపాదించండి',
+      intro: 'ప్రైవేట్ ట్యూటర్లు, ట్యూషన్ సెంటర్లు, ప్రైవేట్ పాఠశాలలు తమ లింక్ ద్వారా చేరిన కుటుంబాల ప్రతి Tut-P Pro చెల్లింపులో (GST కాకుండా) 10% పొందుతారు, ప్రతి కుటుంబానికి మొదటి 6 చెల్లింపు నెలలు.',
+      rules: ['ప్రతి నెల 1వ తేదీన UPI ద్వారా చెల్లింపు, కనీసం Rs 200 (తక్కువైతే తరువాతికి వెళ్తుంది).', 'చెల్లింపు 7 రోజుల రీఫండ్ కాలం తరువాత లెక్కలోకి వస్తుంది.', 'మీకు సంఖ్యలు, మొత్తాలు మాత్రమే కనిపిస్తాయి, కుటుంబం లేదా పిల్లల వివరాలు ఎప్పుడూ కనిపించవు.', 'Tut-P లో చేరడం ఎప్పుడూ కుటుంబం స్వంత నిర్ణయమే. ఎవరినీ ఒత్తిడి చేయకండి.'],
+      pick: 'మీరు ఎవరు?', tutor: 'ప్రైవేట్ ట్యూటర్ / ట్యూషన్ సెంటర్', school_teacher: 'ప్రైవేట్ పాఠశాల ఉపాధ్యాయుడు', school: 'ప్రైవేట్ పాఠశాల (యాజమాన్యం)', govt_teacher: 'ప్రభుత్వ ఉపాధ్యాయుడు',
+      teacherHint: 'ప్రైవేట్ పాఠశాల ఉపాధ్యాయులు తమ పాఠశాల WhatsApp లో పంపే ఆహ్వాన లింక్ ద్వారా చేరతారు.',
+      formTitle: 'మీ వివరాలు', name: 'మీ పేరు', sname: 'పాఠశాల పేరు',
+      cPrivate: 'ఇది ప్రైవేట్ (అన్‌ఎయిడెడ్) పాఠశాల.', cTerms: 'పాఠశాల తరఫున పార్టనర్ నిబంధనలను అంగీకరిస్తున్నాను.', cNoComp: 'ఏ ఉపాధ్యాయుడు లేదా పాఠశాల ఏ కుటుంబాన్నీ కొనమని ఒత్తిడి చేయదు, తప్పనిసరి చేయదు, మార్కులతో ముడిపెట్టదు.',
+      cConsent: 'ప్రోగ్రామ్ నడపడానికి Tut-P నా పేరు, ఫోన్ నంబర్ నిల్వ చేయడానికి అంగీకరిస్తున్నాను.', otp: 'మీ మొబైల్ నంబర్ ధృవీకరించండి', ok: 'సరే',
+      done: 'మీరు చేరారు. మీ పార్టనర్ పేజీ తెరుస్తోంది...', needName: 'దయచేసి మీ పేరు ఇవ్వండి.', needConsent: 'దయచేసి అన్ని బాక్సులను టిక్ చేయండి.', fail: 'సైన్ అప్ కాలేదు. మళ్ళీ ప్రయత్నించండి.', exists: 'ఈ నంబర్ ఇప్పటికే పార్టనర్. మీ పేజీ తెరుస్తోంది...',
+    },
+    hi: {
+      title: 'जानने वाले परिवार Tut-P से जुड़ें तो कमाएँ',
+      intro: 'निजी ट्यूटर, ट्यूशन सेंटर और निजी स्कूल अपने लिंक से जुड़े परिवारों के हर Tut-P Pro भुगतान (GST छोड़कर) का 10% पाते हैं, हर परिवार के पहले 6 भुगतान वाले महीनों तक।',
+      rules: ['हर महीने की 1 तारीख़ को UPI से भुगतान, कम से कम Rs 200 (कम राशि आगे बढ़ती है)।', 'भुगतान 7 दिन की रिफ़ंड अवधि के बाद गिना जाता है।', 'आपको सिर्फ़ गिनती और राशि दिखती है, परिवार या बच्चे का विवरण कभी नहीं।', 'Tut-P से जुड़ना हमेशा परिवार की अपनी मर्ज़ी है। किसी पर दबाव न डालें।'],
+      pick: 'आप कौन हैं?', tutor: 'निजी ट्यूटर / ट्यूशन सेंटर', school_teacher: 'निजी स्कूल के शिक्षक', school: 'निजी स्कूल (प्रबंधन)', govt_teacher: 'सरकारी शिक्षक',
+      teacherHint: 'निजी स्कूल के शिक्षक अपने स्कूल के WhatsApp निमंत्रण लिंक से जुड़ते हैं।',
+      formTitle: 'आपका विवरण', name: 'आपका नाम', sname: 'स्कूल का नाम',
+      cPrivate: 'यह एक निजी (गैर-सहायता प्राप्त) स्कूल है।', cTerms: 'मैं स्कूल की ओर से पार्टनर शर्तें स्वीकार करता/करती हूँ।', cNoComp: 'कोई शिक्षक या स्कूल किसी परिवार पर खरीदने का दबाव नहीं डालेगा, अनिवार्य नहीं करेगा, अंकों से नहीं जोड़ेगा।',
+      cConsent: 'मैं सहमत हूँ कि प्रोग्राम चलाने के लिए Tut-P मेरा नाम और फ़ोन नंबर रखे।', otp: 'अपना मोबाइल नंबर जाँचें', ok: 'ठीक है',
+      done: 'आप जुड़ गए। आपका पार्टनर पेज खुल रहा है...', needName: 'कृपया अपना नाम डालें।', needConsent: 'कृपया सभी बॉक्स टिक करें।', fail: 'साइन अप नहीं हो सका। फिर कोशिश करें।', exists: 'यह नंबर पहले से पार्टनर है। आपका पेज खुल रहा है...',
+    },
+  };
+  const $ = (id) => document.getElementById(id);
+  let lang = 'en'; let type = null; let mounted = false;
+  try { lang = localStorage.getItem('tutp_partner_lang') || 'en'; } catch (e) {}
+  if (!T[lang]) lang = 'en';
+
+  function paint() {
+    const t = T[lang];
+    document.documentElement.lang = lang;
+    $('title').textContent = t.title; $('intro').textContent = t.intro;
+    $('rules').textContent = '';
+    t.rules.forEach((r) => { const li = document.createElement('li'); li.textContent = r; $('rules').appendChild(li); });
+    $('pickTitle').textContent = t.pick;
+    document.querySelectorAll('[data-type]').forEach((b) => { b.textContent = t[b.dataset.type]; });
+    $('teacherHint').textContent = t.teacherHint;
+    $('formTitle').textContent = t.formTitle; $('pnameL').textContent = t.name; $('snameL').textContent = t.sname;
+    $('cPrivateT').textContent = t.cPrivate; $('cTermsT').textContent = t.cTerms; $('cNoCompT').textContent = t.cNoComp; $('cConsentT').textContent = t.cConsent;
+    $('otpTitle').textContent = t.otp; $('govtOk').textContent = t.ok;
+  }
+  document.querySelectorAll('[data-lang]').forEach((a) => a.addEventListener('click', (e) => {
+    e.preventDefault(); lang = a.dataset.lang;
+    try { localStorage.setItem('tutp_partner_lang', lang); } catch (err) {}
+    paint();
+  }));
+
+  // The server owns the government-teacher text; the page shows only that popup.
+  async function govtPopup() {
+    let text = '';
+    try {
+      const r = await fetch('/api/partner/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'govt_teacher', lang }) });
+      const j = await r.json(); text = j.message || '';
+    } catch (e) {}
+    $('govtText').textContent = text;
+    const d = $('govt');
+    if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+  }
+  $('govtOk').addEventListener('click', () => { const d = $('govt'); if (d.close) d.close(); else d.removeAttribute('open'); });
+
+  document.querySelectorAll('[data-type]').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.type === 'govt_teacher') { govtPopup(); return; }
+    type = b.dataset.type;
+    document.querySelectorAll('[data-type]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+    const isTeacher = type === 'school_teacher';
+    $('teacherHint').hidden = !isTeacher;
+    $('form').hidden = isTeacher;
+    $('schoolFields').hidden = type !== 'school';
+    if (!isTeacher && !mounted) { mounted = true; mountPartnerSignIn($('signin'), { lang, onSignedIn: signup }); }
+  }));
+
+  async function signup() {
+    const t = T[lang]; const st = $('status'); st.textContent = '';
+    const name = $('pname').value.trim();
+    if (!name) { st.textContent = t.needName; return; }
+    const body = { type, name, lang, consent: $('cConsent').checked };
+    if (type === 'school') body.school = { name: $('sname').value.trim(), privateDeclared: $('cPrivate').checked, acceptTerms: $('cTerms').checked, noCompulsion: $('cNoComp').checked };
+    if (!body.consent || (type === 'school' && !(body.school.privateDeclared && body.school.acceptTerms && body.school.noCompulsion))) { st.textContent = t.needConsent; return; }
+    try {
+      const r = await fetch('/api/partner/signup', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (r.status === 201 || r.status === 409) { st.textContent = r.status === 201 ? t.done : t.exists; window.location.assign('/app/partner/'); return; }
+      st.textContent = t.fail;
+    } catch (e) { st.textContent = t.fail; }
+  }
+  paint();
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join Tut-P Partner</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="/favicon-32.png">
+<style>
+  :root { --ink: #0f1b3d; --bg: #f7f9ff; --card: #fff; --line: #d8e2ff; --brand: #005bbf; --brand-ink: #fff; --warn: #8a1c1c; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #e8edff; --bg: #0c1226; --card: #141c36; --line: #2a3560; --brand: #7aa8ff; --brand-ink: #0c1226; --warn: #ff9a9a; } }
+  body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Telugu', 'Noto Sans Devanagari', sans-serif; color: var(--ink); background: var(--bg); line-height: 1.5; }
+  main { padding: 16px; max-width: 520px; margin: 0 auto; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 16px 0; }
+  input[type=text], input[type=tel] { width: 100%; box-sizing: border-box; padding: 12px; font-size: 1rem; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); margin: 6px 0; }
+  button { background: var(--brand); color: var(--brand-ink); border: 0; border-radius: 8px; padding: 12px 18px; font-size: 1rem; cursor: pointer; min-height: 44px; margin: 6px 6px 6px 0; }
+  .check { display: flex; gap: 8px; align-items: flex-start; margin: 8px 0; }
+  .check input { margin-top: 4px; min-width: 20px; min-height: 20px; }
+  [role=alert] { color: var(--warn); min-height: 1.2em; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1 id="title">Tut-P partner invitation</h1>
+  <section id="bad" hidden><p id="badText" role="alert"></p></section>
+  <section id="ok" hidden>
+    <p id="hello"></p>
+    <label class="check"><input type="checkbox" id="consent"><span id="consentT"></span></label>
+    <p id="rule"></p>
+    <div id="signin"></div>
+    <p id="status" role="alert"></p>
+  </section>
+</main>
+<script type="module">
+  import { mountPartnerSignIn } from '/app/shared/partner-signin.js';
+  const params = new URLSearchParams(location.search);
+  const lang = ['en', 'te', 'hi'].includes(params.get('lang')) ? params.get('lang') : 'en';
+  const T = {
+    en: { hello: (s, n) => 'Hello ' + n + ', ' + s + ' has invited you to the Tut-P partner programme.', consent: 'I agree that Tut-P stores my name and phone number to run the programme.', rule: 'Joining Tut-P is always a family\'s own choice. Never pressure anyone.', bad: { not_found: 'This invitation link is not valid.', used: 'This invitation was already used.', expired: 'This invitation has expired. Ask your school for a new link.', revoked: 'This invitation was cancelled.' }, fail: 'Could not join. Try again.', tick: 'Please tick the box first.' },
+    te: { hello: (s, n) => 'నమస్తే ' + n + ', ' + s + ' మిమ్మల్ని Tut-P పార్టనర్ ప్రోగ్రామ్‌కు ఆహ్వానించింది.', consent: 'ప్రోగ్రామ్ నడపడానికి Tut-P నా పేరు, ఫోన్ నంబర్ నిల్వ చేయడానికి అంగీకరిస్తున్నాను.', rule: 'Tut-P లో చేరడం ఎప్పుడూ కుటుంబం స్వంత నిర్ణయమే. ఎవరినీ ఒత్తిడి చేయకండి.', bad: { not_found: 'ఈ ఆహ్వాన లింక్ సరైనది కాదు.', used: 'ఈ ఆహ్వానం ఇప్పటికే వాడబడింది.', expired: 'ఈ ఆహ్వానం గడువు ముగిసింది. మీ పాఠశాల నుండి కొత్త లింక్ అడగండి.', revoked: 'ఈ ఆహ్వానం రద్దు చేయబడింది.' }, fail: 'చేరలేకపోయారు. మళ్ళీ ప్రయత్నించండి.', tick: 'ముందు బాక్స్ టిక్ చేయండి.' },
+    hi: { hello: (s, n) => 'नमस्ते ' + n + ', ' + s + ' ने आपको Tut-P पार्टनर प्रोग्राम में आमंत्रित किया है।', consent: 'मैं सहमत हूँ कि प्रोग्राम चलाने के लिए Tut-P मेरा नाम और फ़ोन नंबर रखे।', rule: 'Tut-P से जुड़ना हमेशा परिवार की अपनी मर्ज़ी है। किसी पर दबाव न डालें।', bad: { not_found: 'यह निमंत्रण लिंक सही नहीं है।', used: 'यह निमंत्रण पहले ही इस्तेमाल हो चुका है।', expired: 'यह निमंत्रण समाप्त हो गया। अपने स्कूल से नया लिंक माँगें।', revoked: 'यह निमंत्रण रद्द कर दिया गया।' }, fail: 'जुड़ नहीं सके। फिर कोशिश करें।', tick: 'पहले बॉक्स टिक करें।' },
+  }[lang];
+  document.documentElement.lang = lang;
+  const token = decodeURIComponent(location.pathname.split('/').filter(Boolean).pop() || '');
+  const $ = (id) => document.getElementById(id);
+
+  async function init() {
+    const r = await fetch('/api/partner/join-info?token=' + encodeURIComponent(token), { cache: 'no-store' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { $('bad').hidden = false; $('badText').textContent = T.bad[j.error] || T.bad.not_found; return; }
+    $('ok').hidden = false;
+    $('hello').textContent = T.hello(j.schoolName, j.teacherName);
+    $('consentT').textContent = T.consent; $('rule').textContent = T.rule;
+    mountPartnerSignIn($('signin'), { lang, onSignedIn: join });
+  }
+  async function join() {
+    const st = $('status'); st.textContent = '';
+    if (!$('consent').checked) { st.textContent = T.tick; return; }
+    try {
+      const r = await fetch('/api/partner/join', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, consent: true, lang }) });
+      if (r.status === 201 || r.status === 409) { window.location.assign('/app/partner/'); return; }
+      const j = await r.json().catch(() => ({}));
+      st.textContent = T.bad[j.error] || T.fail;
+    } catch (e) { st.textContent = T.fail; }
+  }
+  init().catch(() => { $('bad').hidden = false; $('badText').textContent = T.fail; });
+</script>
+</body>
+</html>
