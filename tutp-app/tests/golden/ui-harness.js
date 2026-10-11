@@ -115,7 +115,7 @@ check('h23 Telugu: Noto Sans Telugu stack and a font link', /Noto Sans Telugu/.t
 explainBody = explainView(g9.explain, { paid: false });
 await page.locator('.ae-cta button', { hasText: 'Explain' }).first().click();
 await page.locator('.ae-explain h3').waitFor({ timeout: 5000 });
-check('h24 free: only the 30 sec tab, upsell card with the Pro price, no tonight card, no picture', (await page.locator('.ae-explain [role=tab]').count()) === 1 && (await page.locator('.ae-upsell').textContent()).includes('Pro ₹500/month') && (await page.locator('.ae-tonight, .ae-hero, .ae-check').count()) === 0);
+check('h24 free: only the 30 sec tab, upsell card with the Pro price, no tonight card, no picture', (await page.locator('.ae-explain [role=tab]').count()) === 1 && (await page.locator('.ae-upsell').textContent()).includes('Pro ₹500/month (incl. GST)') && (await page.locator('.ae-tonight, .ae-hero, .ae-check').count()) === 0);
 await page.screenshot({ path: path.join(OUT, 'ui-harness-explain-free-te.png'), fullPage: true });
 
 // ---- states

@@ -328,7 +328,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     expect(freeKeys === 'concept_key,illustration,locked,quick,tier,title,upsell', 'free keys: ' + freeKeys);
     expect(Object.keys(f.json.illustration).join() === 'status', 'the free picture object holds more than its status: ' + Object.keys(f.json.illustration));
     expect(f.json.tier === 'free' && f.json.locked === true, 'free flags');
-    expect(f.json.upsell.label === 'Pro ₹500/month', 'upsell label');
+    expect(f.json.upsell.label === 'Pro ₹500/month (incl. GST)', 'upsell label');
     for (const secret of [p.json.full, p.json.traps[0], p.json.check_question.q, p.json.parent_questions[0].q, p.json.misconception.text, p.json.illustration.labels[0].text].filter((s) => String(s).length >= 12)) {   // a one-word trap or label also appears in the free title legitimately
       // record mode adds _recordings (the raw model reply, never sent to browsers in production)
       expect(!JSON.stringify({ ...f.json, _recordings: undefined }).includes(secret), 'free reply leaks: ' + secret.slice(0, 40));
@@ -344,7 +344,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     await free.page.locator('.ae-explain h3').first().waitFor({ timeout: 180000 });
     expect(await free.page.locator('.ae-explain .ae-layer-h').count() === 1, 'free page shows more than the 30 second layer');
     expect(await free.page.locator('[data-role=explain-upsell]').count() === 1, 'not exactly one upsell card');
-    expect((await free.page.locator('.ae-upsell').innerText()).includes('Pro ₹500/month'), 'no upsell card');
+    expect((await free.page.locator('.ae-upsell').innerText()).includes('Pro ₹500/month (incl. GST)'), 'no upsell card');
     expect(await free.page.locator('.ae-tonight, .ae-check, .ae-miscon').count() === 0, 'paid blocks on the free page');
     await free.page.screenshot({ path: path.join(OUT, 'answer-explain-free.png'), fullPage: true });
     await free.page.unroute('**/api/homework');
