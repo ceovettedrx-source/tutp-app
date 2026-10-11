@@ -622,7 +622,7 @@
     if (monthly) parts.push(`₹${monthly.toLocaleString('en-IN')}/month`);
     if (annual) parts.push(`₹${annual.toLocaleString('en-IN')}/year`);
     document.getElementById('planTotal').textContent = parts.length
-      ? `Total: ${parts.join(' + ')}`
+      ? `Total: ${parts.join(' + ')} (incl. GST)`
       : 'Total: ₹0 — Free plan for all children';
   }
 

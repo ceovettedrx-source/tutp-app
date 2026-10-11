@@ -12,7 +12,11 @@
 - Unit: 494 tests, all pass (19 new in `partners-core.test.js`). E2E `tests/e2e/partners.spec.js` is written but not run: it needs migration 035 applied and `ADMIN_TOKEN` on a preview with `E2E_REPLAY=1`.
 
 **Needs the founder**
-- Run migration 035 in the Supabase SQL editor, create the secret `partner-data-key`, confirm GST/TDS with the CA, add the daily cron `POST /api/cron/partners`.
+- Run migration 035 in the Supabase SQL editor, create the secret `partner-data-key`, confirm TDS with the CA, add the daily cron `POST /api/cron/partners`.
+
+**GST (founder decision 2026-10-11)**
+- Rate 18 because the merchant entity holds GSTIN 36ACAFM2312H1ZO. It is the config value `PARTNER_GST_RATE` (env, default 18), not hard-coded. Commission base = amount / 1.18 (Rs 500 gives 4237 paise).
+- Prices now read "incl. GST" on the pricing labels (billing, plan list), register total, refund policy, landing FAQ and the parent home cards.
 
 ## 2026-10-06 - answer v2 accepts any school page (built, tested, not live)
 
