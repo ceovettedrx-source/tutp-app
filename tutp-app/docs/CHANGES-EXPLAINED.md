@@ -13,6 +13,20 @@
 
 **Tests**: new `tests/e2e/bonding.spec.js` (icon on all three dashboards, seeded 72% renders, the stale tab reproduced with the guard off and fixed with it on, forced 500 and 403 copy, dark colour scheme).
 
+## 2026-10-11 - TUT-49 partner programme (built, unit-tested, not deployed)
+
+**What changed**
+- Private tutors, private-school teachers and private schools can sign up at `/partners/` (phone OTP) and earn 10% of each Pro payment (excluding GST) for a family's first 6 paid months; a school teacher's family also pays the school 10%. Government teachers get one popup (te/en/hi) and nothing is stored.
+- Links `/t/<CODE>` and `/s/<SCHOOLCODE>` set a 30-day first-touch cookie; the family registration locks the attribution in the new table `partner_attributions` (registration cannot fail because of it). A code can also be claimed within 7 days.
+- Commissions are Pending, Approved after 7 days, Cancelled on refund, clawed back after payout. Payout on the 1st, minimum Rs 200, TDS line and PAN gate at Rs 20,000 a year (CA to confirm). The founder pays by hand from `/admin/partners` and marks Paid.
+- Partners and schools see counts and amounts only. Name, phone, PAN and UPI are encrypted (AES-256-GCM, secret `partner-data-key`). Only new tables (migration 035); no existing table is altered.
+
+**Tests**
+- Unit: 494 tests, all pass (19 new in `partners-core.test.js`). E2E `tests/e2e/partners.spec.js` is written but not run: it needs migration 035 applied and `ADMIN_TOKEN` on a preview with `E2E_REPLAY=1`.
+
+**Needs the founder**
+- Run migration 035 in the Supabase SQL editor, create the secret `partner-data-key`, confirm GST/TDS with the CA, add the daily cron `POST /api/cron/partners`.
+
 ## 2026-10-06 - answer v2 accepts any school page (built, tested, not live)
 
 **What was wrong**

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tut-P Partner</title>
+<link rel="icon" href="/favicon-32.png">
+<style>
+  body { margin: 0; font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans Telugu', 'Noto Sans Devanagari', sans-serif; color: #0f1b3d; background: #f7f9ff; }
+  header { padding: 14px 16px; border-bottom: 1px solid #d8e2ff; background: #fff; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  header a { color: #005bbf; text-decoration: none; }
+  main { padding: 16px; max-width: 800px; margin: 0 auto; }
+</style>
+</head>
+<body>
+<header><strong>Tut-P Partner</strong><a href="/app/teacher/">Teacher dashboard</a></header>
+<main><div id="mount" aria-live="polite">Loading...</div></main>
+<script>
+  // Only a signed-in partner stays here; anyone else goes to the public partner page.
+  fetch('/api/partner/me', { credentials: 'same-origin', cache: 'no-store' }).then(function (r) {
+    if (r.status === 401 || r.status === 404) { window.location.replace('/partners/'); return; }
+    var s = document.createElement('script');
+    s.src = '/app/shared/partner-panel.js';
+    s.onload = function () { window.TutpPartnerPanel.mount(document.getElementById('mount')); };
+    document.head.appendChild(s);
+  }).catch(function () { document.getElementById('mount').textContent = 'Could not load. Please try again.'; });
+</script>
+</body>
+</html>
