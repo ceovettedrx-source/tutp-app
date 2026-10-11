@@ -2433,8 +2433,8 @@ const RAZORPAY_PLAN_ID_BY_TIER = {
 // and the admin reports but aren't sold until tier gating ships (see
 // docs/pricing-tiers-spec.md). Amounts in paise, Razorpay's unit.
 const PAID_PLANS = {
-  pro_monthly: { tier: 'pro', amountPaise: 50000, periodDays: 30, label: 'Pro · ₹500/month' },
-  pro_annual: { tier: 'pro', amountPaise: 500000, periodDays: 365, label: 'Annual Pro · ₹5,000/year' }
+  pro_monthly: { tier: 'pro', amountPaise: 50000, periodDays: 30, label: 'Pro · ₹500/month (incl. GST)' },
+  pro_annual: { tier: 'pro', amountPaise: 500000, periodDays: 365, label: 'Annual Pro · ₹5,000/year (incl. GST)' }
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;

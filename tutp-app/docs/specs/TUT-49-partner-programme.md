@@ -48,7 +48,7 @@ Private schools only: the school declares it is private (unaided) when it signs 
 
 ## 5. Money
 
-- Base per payment = amount excl. GST: `amount / (1 + gst_percent/100)`. Setting `gst_percent` defaults to 18 (prices are assumed GST-inclusive). **CA to confirm** (also whether Tut-P charges GST at all; if not, set 0).
+- Base per payment = amount excl. GST: `amount / (1 + gst_percent/100)`. Rate comes from env `PARTNER_GST_RATE` (default 18; a `gst_percent` settings row still overrides). Prices are GST-inclusive and read "incl. GST". Rate 18 because the merchant entity holds GSTIN 36ACAFM2312H1ZO (founder decision 2026-10-11).
 - Eligible months: a payment buys 1 month (30 days) or 12 months (365 days). Per (partner, family) at most 6 months earn commission; a payment that crosses the cap earns commission on the months left only (annual payment: 6/12 of it).
 - Commission rows are created by a **reconcile** step (cron endpoint and on admin/partner views), not by the payment webhook: it reads captured/refunded `payments` of attributed families and writes `partner_commissions`, idempotent on (payment, beneficiary).
 - Lifecycle: Pending when the payment is captured; Approved 7 days after capture if the payment is still captured; refunded before approval (or before payout) = Cancelled; refunded after payout = a negative clawback row that is deducted from the next payout.
