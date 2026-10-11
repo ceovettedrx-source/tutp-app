@@ -49,6 +49,7 @@ import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
 import { registerTtsRoutes } from './server/routes/tts.js';
+import { registerPartnerRoutes } from './server/partners/routes.js';
 import { createChipLog, CHIP_IDS } from './server/chips/log.js';
 import { classifyIntent } from './server/chips/intent.js';
 
@@ -91,6 +92,7 @@ const PORT = process.env.PORT || 8080;
 // Cloud Run sits behind Google's own proxy — trust its X-Forwarded-For so
 // req.ip (and therefore per-IP rate limiting below) reflects the real client.
 app.set('trust proxy', 1);
+let partnerRoutes = { lockFromRegistration: async () => ({ ok: false, reason: 'not_ready' }) };   // set by registerPartnerRoutes below
 
 // ------------------------------------------------------------------
 // Email — prefers Resend (reliable inbox delivery, needs a verified
@@ -2769,11 +2771,20 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     // A family on the e2e suite's test numbers stays out of every metric.
     if (isTestPhone(verifiedPhone)) payload.is_test = true;
     else delete payload.is_test;
+    // TUT-49: an optional partner code typed on the form; it is not kept in the family data.
+    const typedPartnerCode = typeof payload.partnerCode === 'string' ? payload.partnerCode.trim().toUpperCase().slice(0, 12) : '';
+    delete payload.partnerCode;
     // Only files this verified phone uploaded are kept (a client-sent url or
     // path is dropped); they move into the family's folder below.
     const registrationFiles = uploads.collectRegistrationFiles(payload, verifiedPhone);
     const { data, error } = await supabase.from('family_registrations').insert({ data: payload }).select('id').single();
     if (error) throw error;
+    // TUT-49: lock the partner attribution (first-touch cookie or the typed code).
+    // It cannot fail or slow the registration: errors are swallowed inside.
+    partnerRoutes.lockFromRegistration({
+      familyId: data.id, markerValue: req.cookies?.tutp_ref, typedCode: typedPartnerCode,
+      phones: [payload.mother?.phone, payload.father?.phone],
+    }).catch(() => {});
     if (registrationFiles.length) {
       try {
         const moved = await uploads.adoptRegistrationFiles(supabase, registrationFiles, data.id);
@@ -6797,6 +6808,8 @@ app.post('/api/homework', async (req, res) => {
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
 registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
 registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
+// TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.
+partnerRoutes = registerPartnerRoutes(app, { supabase, rateLimit, getSession, sendSessionExpired, requireAdmin, cronAuthorized, isTestFamily });
 registerElRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, checkFreeLimit, freeLimitMessage, trackSessionStarted, trackSessionCompleted });
 
 // ------------------------------------------------------------------
