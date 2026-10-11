@@ -66,11 +66,26 @@
   `tests/e2e/login.spec.js` for the test numbers and options.
 - Model spend in tests (round 2, `tests/e2e/run.js`): every run replays
   recorded model replies (`tests/e2e/recordings`, preview with
-  `E2E_REPLAY=1`), and only a change to `server/prompts/`,
-  `server/pointing-model.js` or `server/models.js` since the last live run
-  triggers the 4-test live smoke set. The runner prints the model spend of
-  every spec; put those figures in the release summary. `--record-all`
+  `E2E_REPLAY=1`). Live (paid) calls never start by themselves (TUT-47):
+  a change to `server/prompts/`, `server/pointing-model.js` or
+  `server/models.js` since the last live run only prints a warning; the
+  4-test live smoke set runs only with `--live`, and needs its own release
+  with a cost estimate first. The runner prints the model spend of every
+  spec; put those figures in the release summary. `--record-all`
   re-records everything (about $0.10).
+- E2E runner rules (TUT-47, `tests/e2e/run.js`): always run with
+  `--replay-only` unless a live run was approved; one run at a time (memory);
+  Playwright's leftover headless Chrome is killed when a run ends (never the
+  person's normal Chrome). Time limits for every spec: 30 s per wait
+  (`preload.mjs`), 90 s per test (a spec silent for 90 s is killed and
+  FAILs as STALLED). A failure listed in `tests/e2e/known-failures.json`
+  (spec + test id + ticket + date) shows as KNOWN and does not fail the
+  run; any other failure is FAIL. A `no_recording` 502 shows as MISSING
+  RECORDING: record it or fix its key, never ignore it. Known failures
+  are only added with a ticket; remove an entry when it passes again.
+  Before a redeploy for traffic, run `scripts/flag-parity.ps1` (flag names
+  and values, prod vs preview, no secrets) so the new revision keeps
+  production's flags (ANSWER_V2_ENABLED, IMAGE_GEN_ENABLED).
 - The e2e test family 16 stays paid through a TEST payment row (student
   `cdfb427e-d579-44a9-b7d2-a01cbee207eb`, captured 2026-09-28,
   `period_days` 365, `note` = 'TEST'). Renew it before it expires on
