@@ -9,7 +9,7 @@
 //         prev/next, parent questions (the "tonight" card) and the check question
 // Unit tests: tests/unit/tier-gate.test.js.
 
-export const UPSELL = { label: 'Pro ₹500/month', text: 'Unlock the full explanation, the exam traps, tonight\'s 2-minute parent card, a one-question check and the picture.' };
+export const UPSELL = { label: 'Pro ₹500/month (incl. GST)', text: 'Unlock the full explanation, the exam traps, tonight\'s 2-minute parent card, a one-question check and the picture.' };
 
 // The explain payload for this family. `explain` is the full, cached one.
 // `illustration` is { status, url? } from the illustration service.

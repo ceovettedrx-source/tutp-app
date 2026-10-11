@@ -73,7 +73,7 @@ test('free view: concept_key, title, quick and the picture status, never a paid 
   // the picture itself is polled (one a day in full, the rest blurred); no link and no labels here
   assert.deepEqual(v.illustration, { status: 'ready' });
   for (const f of PAID_ONLY_FIELDS) assert.equal(f in v, false, f);
-  assert.equal(v.upsell.label, 'Pro ₹500/month');
+  assert.equal(v.upsell.label, 'Pro ₹500/month (incl. GST)');
   assert.equal(v.upsell, UPSELL);
   assert.equal(JSON.stringify(v).includes(e.full), false);
   assert.equal(JSON.stringify(v).includes(e.traps[0] + '"'), false);
