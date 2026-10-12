@@ -1,6 +1,6 @@
 # Changes explained
 
-## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (built, tested on preview, not live)
+## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (live on tutp-demo-00456-rov, 2026-10-12)
 
 **What was wrong**
 - The Bonding Report card on a parent dashboard sometimes showed "—" and "Could not load your bonding score right now." The server route was fine (no 500s in 14 days). The cause is a tab that still holds an older family id after the sign-in changed in another tab: the cookie is shared, the tab's stored family id is not, so every family call from that tab was refused with 403. Seen once in the logs (2026-10-10, family 16); I have not seen it on a real phone.
@@ -14,7 +14,7 @@
 
 **Tests**: new `tests/e2e/bonding.spec.js` (icon on all three dashboards, seeded 72% renders, the stale tab reproduced with the guard off and fixed with it on, forced 500 and 403 copy, dark colour scheme).
 
-## 2026-10-11 - TUT-49 partner programme (built, unit-tested, not deployed)
+## 2026-10-11 - TUT-49 partner programme (live on tutp-demo-00456-rov, 2026-10-12; e2e partners.spec.js 9/9 on release1, daily cron tutp-partners-daily exists)
 
 **What changed**
 - Private tutors, private-school teachers and private schools can sign up at `/partners/` (phone OTP) and earn 10% of each Pro payment (excluding GST) for a family's first 6 paid months; a school teacher's family also pays the school 10%. Government teachers get one popup (te/en/hi) and nothing is stored.

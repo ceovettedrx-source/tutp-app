@@ -38,6 +38,8 @@
   on a no-traffic preview built from that exact commit (founder rule,
   2026-10-12; TUT-31 was merged to main before its e2e was clean). Merge to
   main only after both runs, never as a step before them.
+- One session deploys or runs e2e at a time. Each release uses its own tag
+  (e.g. `release1`), never the shared `preview` tag.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
   communication — it's a live production product with real users.
   (The literal file/route `public/demo/index.html` is exempt — that's
