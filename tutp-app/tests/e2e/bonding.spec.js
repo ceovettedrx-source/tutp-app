@@ -226,6 +226,13 @@ const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort(
       const t = await cardText(page);
       trace.push('card ' + t.value);
       if (t.value !== SEEDED + '%') throw new Error(`"${t.value}" / "${t.note}"`);
+      const noticeText = await page.locator('#tutpGuardNotice').innerText({ timeout: 5000 })
+        .catch(() => { throw new Error('no resync notice after the sync'); });
+      if (!/You are now viewing/.test(noticeText) || !/Not yours\? Sign out/.test(noticeText)) throw new Error('notice text: ' + noticeText);
+      if (!(await page.locator('#tutpGuardSignOut').isVisible())) throw new Error('no Sign out link');
+      await page.locator('#tutpGuardNoticeClose').click();
+      if (await page.locator('#tutpGuardNotice').count()) throw new Error('notice not dismissed');
+      trace.push('notice ok');
       const bad = [];
       page.on('response', (r) => { if (r.status() === 403 && r.url().includes('/api/')) bad.push(r.url().replace(BASE, '')); });
       await page.reload();
@@ -234,6 +241,7 @@ const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort(
       trace.push('card2');
       await page.waitForLoadState('networkidle').catch(() => {});
       if (bad.length) throw new Error('403 after sync: ' + bad.join(', '));
+      if (await page.locator('#tutpGuardNotice').count()) throw new Error('notice shown again after a plain reload');
       const flag = await page.evaluate(() => sessionStorage.getItem('tutp_guard_synced'));
       if (flag) throw new Error('tutp_guard_synced not cleared');
       return `family ${synced.fam}, ${t.value}, no 403 after the sync`;

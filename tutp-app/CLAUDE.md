@@ -34,6 +34,10 @@
   Claude verifies `status.traffic` → fast-forward main to the deployed
   commit and push. Claude stops only for spec approval and the traffic
   command. Never `--no-verify`, never force-push, never move traffic.
+- **Nothing merges to main before the e2e suite has passed twice in a row**
+  on a no-traffic preview built from that exact commit (founder rule,
+  2026-10-12; TUT-31 was merged to main before its e2e was clean). Merge to
+  main only after both runs, never as a step before them.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
   communication — it's a live production product with real users.
   (The literal file/route `public/demo/index.html` is exempt — that's

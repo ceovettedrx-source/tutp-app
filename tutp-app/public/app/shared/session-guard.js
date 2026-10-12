@@ -134,6 +134,8 @@
             sessionStorage.removeItem('tutp_family_member_id');
             sessionStorage.removeItem('tutp_family_member_name');
         } catch (e) { return false; }
+        var names = (me.children || []).map(function(c){ return c && c.name; }).filter(Boolean).slice(0, 3).join(', ');
+        try { sessionStorage.setItem('tutp_guard_notice', names ? 'the family of ' + names : 'a different family'); } catch (e) {}
         saveRoles(me.roleMatches);
         var roles = me.roleMatches || [];
         if (roles.length === 1 && roles[0].role === 'family_member' && roles[0].memberId) setMember(roles[0]);
@@ -141,6 +143,41 @@
         window.location.reload();
         return true;
     }
+    // One-time notice on the page that follows a resync reload.
+    function showNotice(){
+        var who = null;
+        try { who = sessionStorage.getItem('tutp_guard_notice'); sessionStorage.removeItem('tutp_guard_notice'); } catch (e) {}
+        if (!who) return;
+        function build(){
+            var bar = document.createElement('div');
+            bar.id = 'tutpGuardNotice';
+            bar.setAttribute('role', 'status');
+            bar.style.cssText = 'position:relative;z-index:9999;background:#fff7e0;color:#4a3b00;border-bottom:1px solid #e6cf85;padding:10px 40px 10px 16px;font:14px/1.4 system-ui,sans-serif;';
+            bar.appendChild(document.createTextNode('You are now viewing ' + who + '. Not yours? '));
+            var out = document.createElement('a');
+            out.href = '#';
+            out.id = 'tutpGuardSignOut';
+            out.textContent = 'Sign out';
+            out.style.cssText = 'color:#8a4b00;font-weight:600;';
+            out.addEventListener('click', function(ev){
+                ev.preventDefault();
+                var done = function(){ try { sessionStorage.clear(); } catch (e) {} window.location.replace('/app/login/'); };
+                fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }).then(done, done);
+            });
+            bar.appendChild(out);
+            var x = document.createElement('button');
+            x.type = 'button';
+            x.id = 'tutpGuardNoticeClose';
+            x.setAttribute('aria-label', 'Dismiss');
+            x.textContent = '×';
+            x.style.cssText = 'position:absolute;right:8px;top:4px;border:0;background:none;font-size:22px;line-height:1;cursor:pointer;color:#4a3b00;padding:4px 8px;';
+            x.addEventListener('click', function(){ bar.remove(); });
+            bar.appendChild(x);
+            document.body.insertBefore(bar, document.body.firstChild);
+        }
+        if (document.body) build(); else document.addEventListener('DOMContentLoaded', build);
+    }
+    showNotice();
     // Background only: the page is not hidden and nothing waits for it. A
     // network error leaves the page alone.
     function backgroundCheck(){

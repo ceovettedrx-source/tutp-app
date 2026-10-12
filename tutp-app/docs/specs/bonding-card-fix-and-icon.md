@@ -77,3 +77,8 @@ Branch `bonding-card-v1` (from main 15e2f7b). Does not build the TUT-20 PIS scor
 - d  forced 500 and forced 403 on the score call -> the two copies above, none says "sorry"
 - e  dark scheme: chip light, text contrast ok
 Run twice in a row on the no-traffic preview with the rest of the suite; model spend $0.
+
+## Amendment (founder, 2026-10-12): visible notice after the resync
+- After the one resync reload, a dismissible notice sits at the top of the page: "You are now viewing the family of <child names>. Not yours? Sign out" (no child on record: "a different family"). Sign out posts `/api/logout`, clears the tab's storage and goes to `/app/login/`.
+- The guard stores the text in `sessionStorage.tutp_guard_notice` just before the reload; the reloaded page shows it once and removes the key. Dismiss (x) removes it. No server change, children names come from `/api/session/me`.
+- Covered in `bonding.spec.js` case c: notice visible after the sync with the "Sign out" link, dismiss removes it, and a further reload shows no notice.

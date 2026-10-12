@@ -9,6 +9,7 @@
 - `session-guard.js` now asks `/api/session/me` in the background on family pages. If the cookie's family differs from the tab's, it stores the cookie's family and roles, drops the old student and member ids and reloads once (a flag stops any loop; a second mismatch goes to login).
 - The card says what happened: a sign-in mismatch (with a "Sign in again" link) or "The bonding score did not load. Reload the page in a minute."
 - The new two-colour icon replaces the heart in the card header (in a white round chip) and in the sidebar link, on mother, father and family-member. `bonding.svg` (large) is added but unused: there is no full Bonding page yet.
+- After the one resync reload, a dismissible notice at the top says "You are now viewing the family of <children>. Not yours? Sign out" (sign out ends the session and goes to login). Shown once, never again on a plain reload.
 - No server change, no migration, no AI call. The score itself is still the 14-day homework-completion rate (TUT-20 is not built).
 
 **Tests**: new `tests/e2e/bonding.spec.js` (icon on all three dashboards, seeded 72% renders, the stale tab reproduced with the guard off and fixed with it on, forced 500 and 403 copy, dark colour scheme).

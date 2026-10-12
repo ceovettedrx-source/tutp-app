@@ -1,9 +1,10 @@
-server/prompts/answer-prompts.js 06c2ff3a8aeb46fb75fa27c539e314f6f46de7a1
-server/prompts/explain-prompts.js 957eeeb0c0638785dc03551287b4a912771236c6
-server/prompts/homework-prompts.js 72eb05ef75fd758990f220be49c94306fddad8c3
-server/prompts/notes-glossary.js 05160308171bf47408520241f4eb2f84eb646968
-server/prompts/notes-prompts.js a1679cf106e3ebe3075745f718d71c1e36453627
+server/prompts/answer-prompts.js b89e7372fea420601de007244c63520e2a645e8e
+server/prompts/explain-prompts.js 42df14f96a63dd51a304d74d94c94d569be2a64c
+server/prompts/homework-prompts.js 0b9f50151cd918f3293f2b178bc99560c8e1e475
+server/prompts/language-rule.js 3ac0588822ba2f9da58ddd6c1406340a5f6781ad
+server/prompts/notes-glossary.js ad08e0a6cb18c0ab0de1e7e59d8383f59390637c
+server/prompts/notes-prompts.js 76ea2c5370b39b0c20977788da5f757dfbd5e4e8
 server/prompts/visual-tutor-prompts.js d3549d2a7af0f8f3298c00314b5aeb1f8dc3627b
 server/pointing-model.js e6a50cd497a66337188303599d1baa28a061f219
-server/models.js 7b5f820fdcc2d0f171595b97103db27c76b5c780
-server/notes-ground.js f25065fa654124ced8fd760a3c77f83ac0c56ec1
+server/models.js e8fc66aee67e7613b106aa2fe15e940e040cbf28
+server/notes-ground.js 58d4c3916122b5a36e433d39f1877a30772ab0d4
