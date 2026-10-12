@@ -218,7 +218,7 @@
 <ul class="flex flex-col gap-1 px-2 mb-lg">
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/app/father/"><span class="material-symbols-outlined">home</span><span class="font-label-lg text-label-lg">Home</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#exploreSubjectsSection"><span class="material-symbols-outlined">school</span><span class="font-label-lg text-label-lg">Learning Courses</span></a></li>
-<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#bondingReportSection"><span class="material-symbols-outlined">favorite</span><span class="font-label-lg text-label-lg">Bonding Report</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#bondingReportSection"><img src="/assets/icons/bonding-small.svg" alt="" width="24" height="24" class="shrink-0"><span class="font-label-lg text-label-lg">Bonding Report</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#" onclick="openHomeworkModal(); return false;"><span class="material-symbols-outlined">smart_toy</span><span class="font-label-lg text-label-lg">Ask Tut-P AI Tutor</span></a></li>
 <li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/tutors"><span class="material-symbols-outlined">person_search</span><span class="font-label-lg text-label-lg">Find a Tutor</span></a></li>
 </ul>
@@ -267,7 +267,7 @@
 </span>
 </div>
 <div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full md:w-80 shrink-0" id="bondingReportSection">
-<h3 class="font-label font-semibold text-on-surface flex items-center gap-2 mb-1"><span class="material-symbols-outlined text-primary text-lg">favorite</span>Bonding Report</h3>
+<h3 class="font-label font-semibold text-on-surface flex items-center gap-2 mb-1"><span class="inline-flex items-center justify-center rounded-full bg-white shrink-0 border border-outline-variant/30" style="width:28px;height:28px"><img src="/assets/icons/bonding-small.svg" alt="" width="22" height="22"></span>Bonding Report</h3>
 <p class="font-label text-[11px] text-on-surface-variant uppercase tracking-wide mb-3">Parent Engagement Score</p>
 <div class="flex items-end justify-between gap-3 mb-4">
 <span class="font-headline text-3xl text-on-surface shrink-0" id="bondingScoreValue"><span class="inline-block w-16 h-9 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
@@ -1901,7 +1901,7 @@
             }
             try {
                 const res = await fetch('/api/bonding-score/' + encodeURIComponent(familyId) + '/father');
-                if (!res.ok) throw new Error('Request failed');
+                if (!res.ok) { const httpErr = new Error('Request failed'); httpErr.status = res.status; throw httpErr; }
                 const data = await res.json();
                 if (!data.hasData) {
                     valueEl.textContent = 'N/A';
@@ -1915,7 +1915,11 @@
             } catch (err) {
                 console.error('[father] Could not load bonding score:', err);
                 valueEl.textContent = '—';
-                gapEl.textContent = 'Could not load your bonding score right now.';
+                if (err && (err.status === 401 || err.status === 403)) {
+                    gapEl.innerHTML = 'Your sign-in does not match this family. <a class="underline" href="/app/login/">Sign in again</a> to see your bonding score.';
+                } else {
+                    gapEl.textContent = 'The bonding score did not load. Reload the page in a minute.';
+                }
             }
         })();
 

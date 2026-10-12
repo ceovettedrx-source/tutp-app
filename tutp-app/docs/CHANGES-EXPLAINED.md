@@ -1,5 +1,18 @@
 # Changes explained
 
+## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (built, tested on preview, not live)
+
+**What was wrong**
+- The Bonding Report card on a parent dashboard sometimes showed "—" and "Could not load your bonding score right now." The server route was fine (no 500s in 14 days). The cause is a tab that still holds an older family id after the sign-in changed in another tab: the cookie is shared, the tab's stored family id is not, so every family call from that tab was refused with 403. Seen once in the logs (2026-10-10, family 16); I have not seen it on a real phone.
+
+**What changed**
+- `session-guard.js` now asks `/api/session/me` in the background on family pages. If the cookie's family differs from the tab's, it stores the cookie's family and roles, drops the old student and member ids and reloads once (a flag stops any loop; a second mismatch goes to login).
+- The card says what happened: a sign-in mismatch (with a "Sign in again" link) or "The bonding score did not load. Reload the page in a minute."
+- The new two-colour icon replaces the heart in the card header (in a white round chip) and in the sidebar link, on mother, father and family-member. `bonding.svg` (large) is added but unused: there is no full Bonding page yet.
+- No server change, no migration, no AI call. The score itself is still the 14-day homework-completion rate (TUT-20 is not built).
+
+**Tests**: new `tests/e2e/bonding.spec.js` (icon on all three dashboards, seeded 72% renders, the stale tab reproduced with the guard off and fixed with it on, forced 500 and 403 copy, dark colour scheme).
+
 ## 2026-10-06 - answer v2 accepts any school page (built, tested, not live)
 
 **What was wrong**
