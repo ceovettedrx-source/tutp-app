@@ -478,6 +478,12 @@ export function createPartnerService({ supabase, vault, now = () => Date.now(), 
       upd.captured_at = new Date(Date.parse(cur.captured_at) - patch.ageDays * 86400000).toISOString();
     }
     must(await supabase.from('payments').update(upd).eq('id', paymentId).eq('note', 'TEST'));
+    const isTest = patch.ageDays && must(await supabase.from('payments').select('note').eq('id', paymentId).maybeSingle())?.note === 'TEST';
+    if (isTest) {
+      // approve_after is stored on the commission row when it is created, so ageing the payment must age the hold too
+      const rows = must(await supabase.from('partner_commissions').select('id, approve_after').eq('payment_id', paymentId).eq('kind', 'commission'));
+      for (const r of rows) must(await supabase.from('partner_commissions').update({ approve_after: new Date(Date.parse(r.approve_after) - patch.ageDays * 86400000).toISOString() }).eq('id', r.id));
+    }
     return { ok: true };
   }
   async function e2eReset() {

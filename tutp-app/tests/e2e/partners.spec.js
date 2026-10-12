@@ -72,9 +72,23 @@ async function otpIn(page, digits) {
   await page.click('#partnerVerify');
 }
 
+// Same test-only switch as the other specs: Firebase test numbers skip reCAPTCHA
+// (injected into the served phone-auth.js; the app itself is unchanged).
+async function newCtx(browser) {
+  const ctx = await browser.newContext();
+  await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
+    const resp = await route.fetch();
+    const hook = 'const auth = getAuth(app);';
+    const body = (await resp.text()).replace(hook, hook + ' auth.settings.appVerificationDisabledForTesting = true;');
+    if (!body.includes('appVerificationDisabledForTesting')) throw new Error('phone-auth.js hook not found');
+    await route.fulfill({ response: resp, body });
+  });
+  return ctx;
+}
+
 // A partner's signed-in browser context: sign up through the public page.
 async function partnerContext(browser, digits, type, extra) {
-  const ctx = await browser.newContext();
+  const ctx = await newCtx(browser);
   const page = await ctx.newPage();
   await page.goto(BASE + '/partners/');
   await page.click(`[data-type="${type}"]`);
@@ -87,7 +101,7 @@ async function partnerContext(browser, digits, type, extra) {
 }
 
 const familyIdOf = async (browser, digits) => {
-  const ctx = await browser.newContext(); const page = await ctx.newPage();
+  const ctx = await newCtx(browser); const page = await ctx.newPage();
   await page.goto(BASE + '/app/login/');
   await page.locator('#loginPhoneInput').waitFor({ state: 'visible', timeout: 15000 });
   await page.fill('#loginPhoneInput', digits); await page.click('#sendCodeBtn');
@@ -105,6 +119,7 @@ const anon = await (await browser.newContext()).newPage();
 let tutor, school, fam16, fam18, payment, tutorLinks;
 
 await record('p1', 'government teacher refused, exact text, no row', async () => {
+  await anon.goto(BASE + '/partners/');   // fetch() in the page needs a real origin, not about:blank
   const ready = await admin(anon, 'GET', '/api/admin/partners/summary');
   must(ready.status !== 503, 'MISSING MIGRATION or key: ' + ready.text.slice(0, 80));
   must(ready.status === 200, 'summary ' + ready.status);
@@ -130,7 +145,7 @@ await record('p2', 'school needs the private declaration; teachers need accepted
   school = await partnerContext(browser, '9999900002', 'school');
   const me = await call(school.page, 'GET', '/api/partner/me');
   must(me.status === 200 && me.json.partner.type === 'school', 'school partner not created');
-  const ctx = await browser.newContext(); const page = await ctx.newPage();
+  const ctx = await newCtx(browser); const page = await ctx.newPage();
   await page.goto(BASE + '/partners/');
   await page.click('[data-type="school"]');
   await page.fill('#pname', 'No Declaration'); await page.fill('#sname', 'Public School'); await page.check('#cConsent');
