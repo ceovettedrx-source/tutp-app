@@ -1,5 +1,6 @@
 [
   { "spec": "homework.spec.js", "id": "k2", "ticket": "TUT-46", "since": "2026-10-10", "note": "fails the same on production's image (no_recording / card count)" },
   { "spec": "homework.spec.js", "id": "p6", "ticket": "TUT-46", "since": "2026-10-10", "note": "same on production's image" },
-  { "spec": "chips.spec.js", "id": "c3", "ticket": "TUT-46", "since": "2026-10-10", "note": "same on production's image" }
+  { "spec": "chips.spec.js", "id": "c3", "ticket": "TUT-46", "since": "2026-10-10", "note": "same on production's image" },
+  { "spec": "answer-explain.spec.js", "id": "a14", "ticket": "TUT-46", "since": "2026-10-10", "note": "assumes ANSWER_V2_ENABLED is off; production and preview have it on" }
 ]
