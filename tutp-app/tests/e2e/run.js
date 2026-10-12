@@ -78,6 +78,18 @@ function modelChanges() {
 const known = fs.existsSync(KNOWN_FILE) ? JSON.parse(fs.readFileSync(KNOWN_FILE, 'utf8')) : [];
 const isKnown = (spec, id) => known.some((k) => k.spec === spec && k.id === id);
 
+// A stalled spec prints nothing for the test that hangs, so name it: the first
+// test id in the spec's source order after the last one that reported a result.
+// Ids look like k2, c13a, a14. Returns null when it can't tell.
+function stalledTest(spec, lastId, failedIds) {
+  try {
+    const src = fs.readFileSync(path.join(__dirname, spec), 'utf8');
+    const ids = [...new Set([...src.matchAll(/['"]([a-z]{1,3}\d{1,3}[a-z]?)['"]/g)].map((m) => m[1]))];
+    const from = ids.indexOf(lastId);
+    return ids.slice(from + 1).find((id) => !failedIds.has(id)) || null;
+  } catch { return null; }
+}
+
 // Playwright's own headless Chrome only (its path has ms-playwright), never the
 // person's normal Chrome. Windows only; elsewhere pkill with the same pattern.
 function killLeftoverChrome() {
@@ -133,7 +145,12 @@ function run(spec, extra = [], mode = 'replay') {
       killLeftoverChrome();
       let status, detail;
       const missing = fails.filter((f) => /no_recording/.test(f.line));
-      if (stalled) { status = 'FAIL'; detail = `STALLED after ${lastId} (no output for ${TEST_TIMEOUT_S} s)`; }
+      if (stalled) {
+        const hung = stalledTest(spec, lastId, new Set(fails.map((f) => f.id)));
+        const hungKnown = hung && isKnown(spec, hung) && !fails.some((f) => !isKnown(spec, f.id));
+        status = hungKnown ? 'KNOWN' : 'FAIL';
+        detail = `STALLED after ${lastId} (no output for ${TEST_TIMEOUT_S} s)` + (hung ? `, hung test: ${hung}${isKnown(spec, hung) ? ' (known)' : ''}` : '');
+      }
       else if (code === 0) { status = 'PASS'; detail = `${passes} passed`; }
       else if (!fails.length) { status = 'FAIL'; detail = `exit ${code}, no failing test reported (crash?)`; }
       else {
