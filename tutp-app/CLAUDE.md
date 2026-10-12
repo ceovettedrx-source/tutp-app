@@ -70,6 +70,10 @@
   out of the Cloud Run image by `.dockerignore`). Run it against a preview
   with `npm run test:e2e -- <base-url>`; see the header of
   `tests/e2e/login.spec.js` for the test numbers and options.
+- The full e2e suite runs in CI (TUT-9), not on the laptop:
+  `gh workflow run e2e.yml -f base_url=<no-traffic tag URL> -f replay_enabled=true`
+  (then `gh run watch`). The target tag must be a revision with `E2E_REPLAY=1`
+  (never the live revision's tag). Laptop e2e only for a single spec while debugging.
 - Model spend in tests (round 2, `tests/e2e/run.js`): every run replays
   recorded model replies (`tests/e2e/recordings`, preview with
   `E2E_REPLAY=1`). Live (paid) calls never start by themselves (TUT-47):

@@ -1,0 +1,127 @@
+# TUT-9: the e2e suite in CI (docs: tutp-app/docs/specs/TUT-9-ci-e2e.md).
+# Run:  gh workflow run e2e.yml -f base_url=https://<tag>---tutp-demo-vs4743puka-uc.a.run.app -f replay_enabled=true
+# The target must be a no-traffic tag whose revision has E2E_REPLAY=1.
+# Replay only: this workflow never makes a paid model call.
+name: e2e
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'No-traffic tag URL (https://<tag>---tutp-demo-vs4743puka-uc.a.run.app) of a revision with E2E_REPLAY=1'
+        required: true
+        type: string
+      runs:
+        description: 'Full-suite runs, back to back'
+        required: false
+        default: '2'
+        type: string
+      replay_enabled:
+        description: 'I confirm the revision behind this tag has E2E_REPLAY=1 (type true)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e
+  cancel-in-progress: false
+
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: tutp-app
+    env:
+      E2E_TEST_TIMEOUT_S: '180'
+      BASE_URL: ${{ inputs.base_url }}
+      RUNS: ${{ inputs.runs }}
+      REPLAY_ENABLED: ${{ inputs.replay_enabled }}
+      ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: guard inputs, secrets, no paid flags
+        working-directory: .
+        run: |
+          set -eu
+          [ "$REPLAY_ENABLED" = "true" ] || { echo "replay_enabled must be true (the target needs E2E_REPLAY=1)"; exit 1; }
+          case "$BASE_URL" in
+            https://*---tutp-demo-vs4743puka-uc.a.run.app) ;;
+            *) echo "base_url must be a no-traffic tag URL (https://<tag>---tutp-demo-vs4743puka-uc.a.run.app), never tutp.online"; exit 1 ;;
+          esac
+          case "$RUNS" in
+            ''|*[!0-9]*|0) echo "runs must be a positive number"; exit 1 ;;
+          esac
+          [ -n "$ADMIN_TOKEN" ] || { echo "secret ADMIN_TOKEN is not set (see TUT-9 spec)"; exit 1; }
+          if grep -E 'node .*tests/e2e/' .github/workflows/e2e.yml | grep -E -e '--(live|live-smoke|record-all)'; then
+            echo "a paid flag is in the workflow"; exit 1
+          fi
+          echo "guards ok: $BASE_URL, $RUNS run(s)"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tutp-app/package-lock.json
+
+      - name: install
+        run: npm ci
+
+      - name: install Chrome for Playwright
+        run: npx playwright install --with-deps chrome
+
+      - name: full suite, replay only
+        run: |
+          set -u
+          mkdir -p ci-logs
+          status=0
+          for i in $(seq 1 "$RUNS"); do
+            echo "::group::run $i"
+            set +e
+            node tests/e2e/run.js "$BASE_URL" --replay-only --headless 2>&1 | tee "ci-logs/e2e-run-$i.log"
+            code=${PIPESTATUS[0]}
+            set -e
+            echo "::endgroup::"
+            {
+              echo "### full suite, run $i of $RUNS (exit $code)"
+              echo '```'
+              sed -n '/^RESULT$/,$p' "ci-logs/e2e-run-$i.log"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            rows=$(sed -n '/^RESULT$/,$p' "ci-logs/e2e-run-$i.log" | grep -cE '^  (PASS|KNOWN|FAIL|MISSING)' || true)
+            bad=$(sed -n '/^RESULT$/,$p' "ci-logs/e2e-run-$i.log" | grep -cE '^  (FAIL|MISSING)' || true)
+            expected=$(node -e "const s=require('fs').readFileSync('tests/e2e/run.js','utf8').match(/const SPECS = \[([^\]]*)\]/)[1];console.log(s.split(',').length)")
+            echo "run $i: $rows spec rows (expected $expected), $bad failing"
+            if [ "$code" -ne 0 ] || [ "$bad" -ne 0 ] || [ "$rows" -ne "$expected" ]; then status=1; fi
+          done
+          exit $status
+
+      - name: partners.spec.js
+        run: |
+          set -u
+          mkdir -p ci-logs
+          set +e
+          E2E_MODE=replay node --import ./tests/e2e/preload.mjs tests/e2e/partners.spec.js "$BASE_URL" --headless 2>&1 | tee ci-logs/partners.log
+          code=${PIPESTATUS[0]}
+          set -e
+          {
+            echo "### partners.spec.js (exit $code)"
+            echo '```'
+            grep -E '^\[e2e' ci-logs/partners.log | tail -20
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit $code
+
+      - name: upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: |
+            tutp-app/ci-logs/
+            tutp-app/tests/e2e/output/
+          if-no-files-found: warn
