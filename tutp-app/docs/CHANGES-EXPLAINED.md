@@ -1,5 +1,20 @@
 # Changes explained
 
+## 2026-10-13 - TUT-56 Bonding card: a calm card, the detail in the full report (built, not live yet)
+
+**What was wrong**
+- The Bonding Report card on the mother, father and family-member dashboards carried too much: a subtitle, the score, a line, a row of answer chips (days a week, meals, activity icons, trip days a year) and a link. It was copied by hand into three pages. When a score was N/A the card said only "Not enough data yet" and nothing explained it.
+
+**What changed**
+- One shared component draws the card on all three dashboards. The card now holds the icon and title, the score (or N/A), one line and "View Full Report". The chips moved into the full report.
+- Empty state, in Telugu, English and Hindi: "Sit with your child for 3 homework sessions this week to see your score." It claims no result.
+- The full report shows the score, or when it is N/A, why and how many more sessions are needed this week; the 14-day homework completion (as before); and the chips under "Your family's starting point" once the survey is answered.
+- The old homework-completion pop-up and the three copies of the score loader are gone; the "homework completion" tile on each dashboard is unchanged.
+
+**Please know**: the score is still the 14-day homework completion rate and is absent when no homework was posted for the child's class. The "3 sessions" is the copy and the report's count (this week's completed sessions), not a rule the score engine applies. If the 3 sessions should decide whether a score exists, that needs a separate server change.
+
+**Tests**: `tests/e2e/bonding.spec.js` h-k (chips absent on the card and present in the report, empty state in three languages, why-and-how-many in the N/A report, 390 px phone); a-e unchanged.
+
 ## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (live on tutp-demo-00456-rov, 2026-10-12)
 
 **What was wrong**

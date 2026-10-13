@@ -11,6 +11,7 @@
 <link href="/css/story-modal.css" rel="stylesheet"/>
 <link href="/css/dashboard-cards.css" rel="stylesheet"/>
 <link href="/css/baseline-survey.css" rel="stylesheet"/>
+<link href="/css/bonding-card.css" rel="stylesheet"/>
 <link href="/css/el-guided.css" rel="stylesheet"/>
 <style>
         body { background-color: #f7f9ff; color: #181c20; }
@@ -288,13 +289,7 @@
 </span>
 </div>
 <div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full md:w-80 shrink-0" id="bondingReportSection" data-feature="bonding_report">
-<h3 class="font-label font-semibold text-on-surface flex items-center gap-2 mb-1"><span class="inline-flex items-center justify-center rounded-full bg-white shrink-0 border border-outline-variant/30" style="width:28px;height:28px"><img src="/assets/icons/bonding-small.svg" alt="" width="22" height="22"></span>Bonding Report</h3>
-<p class="font-label text-[11px] text-on-surface-variant uppercase tracking-wide mb-3">Parent Engagement Score</p>
-<div class="flex items-end justify-between gap-3 mb-4">
-<span class="font-headline text-3xl text-on-surface shrink-0" id="bondingScoreValue"><span class="inline-block w-16 h-9 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
-<p class="font-body text-xs text-on-surface-variant text-right" id="bondingGapText">Loading your bonding score…</p>
-</div>
-<button class="text-primary font-label text-sm font-medium hover:underline inline-flex items-center gap-1" onclick="openFullReportModal()">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
+<!-- Filled by /js/bonding-card.js (shared by the three dashboards) -->
 </div>
 </div>
 </section>
@@ -446,18 +441,6 @@
 </section>
 
 </main>
-<div id="fullReportModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
-<div class="absolute inset-0 bg-black/50" onclick="closeFullReportModal()"></div>
-<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-md max-h-[85vh] overflow-y-auto p-6">
-<div class="flex items-center justify-between mb-4">
-<h3 class="font-headline-lg text-xl font-bold text-on-surface">Homework Completion — Last 14 Days</h3>
-<button onclick="closeFullReportModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
-</div>
-<div id="fullReportBody" class="space-y-4">
-<p class="font-body text-sm text-on-surface-variant">Loading…</p>
-</div>
-</div>
-</div>
 <!-- Search-bar attach chooser — the generic "+" attach icon used to jump
      straight into Homework Help with no confirmation, silently running that
      one specific mode regardless of which method pill looked selected. A
@@ -1891,11 +1874,10 @@
             }
         })();
 
-        // Homework-completion tile + "View Full Report" modal — family-wide
-        // (not per-viewer), so unlike the bonding score above it doesn't
-        // wait on viewer-identity resolution; live-computed, same 14-day
-        // window/formula the daily bonding-score cron uses.
-        let lastCompletionStats = null;
+        // Homework-completion tile — family-wide (not per-viewer), so it
+        // doesn't wait on viewer-identity resolution; live-computed, same
+        // 14-day window/formula the daily bonding-score cron uses. The
+        // Bonding Report card and full report are /js/bonding-card.js.
         (async function loadHomeworkCompletion(){
             const tileValueEl = document.getElementById('completionTileValue');
             const familyId = sessionStorage.getItem('tutp_family_id');
@@ -1903,37 +1885,13 @@
             try {
                 const res = await fetch('/api/homework-completion/' + encodeURIComponent(familyId));
                 if (!res.ok) throw new Error('Request failed');
-                lastCompletionStats = await res.json();
-                tileValueEl.textContent = lastCompletionStats.hasData ? lastCompletionStats.percentage + '%' : 'Not enough data yet';
+                const stats = await res.json();
+                tileValueEl.textContent = stats.hasData ? stats.percentage + '%' : 'Not enough data yet';
             } catch (err) {
                 console.error('[family-member] Could not load homework completion:', err);
                 tileValueEl.textContent = 'Could not load';
             }
         })();
-
-        function openFullReportModal(){
-            const bodyEl = document.getElementById('fullReportBody');
-            const stats = lastCompletionStats;
-            if (!stats || !stats.hasData) {
-                bodyEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Not enough homework activity in the last 14 days to show a report yet.</p>';
-            } else {
-                const perChild = stats.children.length > 1 ? stats.children.map(c => `
-                    <div class="bg-surface-container-highest rounded-xl p-4">
-                        <p class="font-label text-sm text-primary font-semibold mb-1">${c.name}</p>
-                        <p class="font-body text-sm text-on-surface-variant">${c.done} of ${c.assigned} homework items done — <span class="font-semibold text-on-surface">${c.percentage}%</span></p>
-                    </div>`).join('') : '';
-                bodyEl.innerHTML = `
-                    <div class="bg-primary/5 rounded-xl p-4">
-                        <p class="font-body text-sm text-on-surface-variant">Across the family: <span class="font-semibold text-on-surface">${stats.totalDone} of ${stats.totalAssigned}</span> homework items done.</p>
-                        <p class="font-headline text-2xl text-on-surface mt-1">${stats.percentage}%</p>
-                    </div>
-                    ${perChild}`;
-            }
-            document.getElementById('fullReportModal').classList.remove('hidden');
-        }
-        function closeFullReportModal(){
-            document.getElementById('fullReportModal').classList.add('hidden');
-        }
 
         async function applyPersonalization(familyId, memberId, memberName){
             if (memberName) updateIdentityDisplay(memberName);
@@ -1947,31 +1905,6 @@
                 });
             } catch (err) {
                 console.error('[family-member] Could not load visibility rules:', err);
-            }
-
-            const valueEl = document.getElementById('bondingScoreValue');
-            const gapEl = document.getElementById('bondingGapText');
-            try {
-                const res = await fetch('/api/bonding-score/' + encodeURIComponent(familyId) + '/' + encodeURIComponent(memberId));
-                if (!res.ok) { const httpErr = new Error('Request failed'); httpErr.status = res.status; throw httpErr; }
-                const data = await res.json();
-                if (!data.hasData) {
-                    valueEl.textContent = 'N/A';
-                    gapEl.textContent = 'Not enough data yet — check back after some homework activity.';
-                } else {
-                    valueEl.textContent = data.score + '%';
-                    gapEl.textContent = data.isLeader
-                        ? "You're the top bonder in your family right now!"
-                        : `${data.leaderScore - data.score} points away from the top score.`;
-                }
-            } catch (err) {
-                console.error('[family-member] Could not load bonding score:', err);
-                valueEl.textContent = '—';
-                if (err && (err.status === 401 || err.status === 403)) {
-                    gapEl.innerHTML = 'Your sign-in does not match this family. <a class="underline" href="/app/login/">Sign in again</a> to see your bonding score.';
-                } else {
-                    gapEl.textContent = 'The bonding score did not load. Reload the page in a minute.';
-                }
             }
 
             loadHomework(familyId, memberId);
@@ -2081,5 +2014,6 @@
 </script>
 <script src="/js/weekly-goal.js" defer></script>
 <script src="/js/billing.js" defer></script>
+<script src="/js/bonding-card.js" defer></script>
 <script src="/js/baseline-survey.js" defer></script>
 </body></html>

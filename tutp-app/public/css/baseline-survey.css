@@ -147,10 +147,10 @@
 .pib-thanks .pib-hint { margin: 0 0 20px; }
 .pib-thanks .pib-save { width: 100%; }
 
-/* Answer strip inside the Bonding Report card, under the score row.
-   Tut-P dashboard tokens (not the survey's storybook palette): it sits in
-   the card's own visual language. Icon-first; text is a short hint. */
-.pib-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: -4px 0 16px; padding: 0; list-style: none; }
+/* Answer strip inside the Bonding Report's full report (#pibStripHost).
+   Tut-P dashboard tokens (not the survey's storybook palette). Icon-first;
+   text is a short hint. */
+.pib-strip { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .pib-strip-item {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 10px 4px 8px; border-radius: 9999px;

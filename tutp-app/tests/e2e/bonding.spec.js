@@ -21,6 +21,15 @@
 //   d  forced 500 and forced 403 on the score call -> the two copies, no apology
 //   e  dark colour scheme: the icon chip is light and the card text has contrast >= 4.5
 //
+// TUT-56 (docs/specs/TUT-56-bonding-card.md), the calm card:
+//   h  the survey chips are absent on the card (it holds icon+title, score, one line,
+//      one link) and present in the full report, all three dashboards
+//   i  empty state line in en, te, hi with no "%"; the report opens once, Escape and
+//      the backdrop close it
+//   j  N/A report: the reason and "N more sessions needed" for 1, 2 and 3 sessions;
+//      a 500 on the sessions call leaves the report open with a reload line
+//   k  390 px viewport: card and report inside the screen, no sideways scroll
+//
 // Output: tests/e2e/output/bonding-results.json, FAIL_<test>.png. Exit 1 on any failure.
 import { chromium } from 'playwright';
 import fs from 'fs';
@@ -285,6 +294,164 @@ const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort(
       if (cNote < 4.5 || cVal < 4.5) throw new Error(`contrast note ${cNote.toFixed(1)} value ${cVal.toFixed(1)}`);
       return `chip luminance ${chipLum.toFixed(2)}, contrast note ${cNote.toFixed(1)} value ${cVal.toFixed(1)}`;
     } finally { await page.emulateMedia({ colorScheme: 'light' }); }
+  }, live.mother.page);
+
+  // ---- TUT-56: the calm card, the detail in the full report ----------------
+  // The survey answers (the chips) for each role, saved through the product's own endpoint.
+  const BASELINE = { homework_days: 4, support_style: 'guides_questions', activities: ['meals', 'story_time'], meal_frequency: 'most_days', trip_days_bucket: '6_15' };
+  const seedBaseline = (page, role) => page.evaluate(async ({ b, role }) => {
+    const viewer = role === 'family-member' ? sessionStorage.getItem('tutp_family_member_id') : role;
+    const r = await fetch('/api/parent-involvement-baseline', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+      body: JSON.stringify(Object.assign({ viewer }, b)),
+    });
+    return r.status;
+  }, { b: BASELINE, role });
+  const EMPTY = {
+    en: 'Sit with your child for 3 homework sessions this week to see your score.',
+    te: 'ఈ వారం మీ బిడ్డతో 3 హోంవర్క్ సెషన్లు కూర్చుంటే మీ స్కోర్ కనిపిస్తుంది.',
+    hi: 'इस हफ़्ते अपने बच्चे के साथ 3 होमवर्क सेशन में बैठें, तब आपका स्कोर दिखेगा.',
+  };
+  const NA_SCORE = { hasData: false, score: null, leaderScore: null, isLeader: false };
+  const openReport = async (page) => {
+    await page.locator('#bondingViewFull').click();
+    await page.locator('#bondingReportDialog').waitFor({ state: 'visible', timeout: 10000 });
+  };
+
+  await record('h', 'chips are absent on the card and present in the full report, all three dashboards', async () => {
+    const out = [];
+    for (const r of ROLES) {
+      const { page } = live[r.name];
+      const st = await seedBaseline(page, r.name);
+      if (st !== 200 && st !== 201) throw new Error(`${r.name} baseline seed ${st}`);
+      await page.goto(BASE + r.want);
+      await cardText(page);
+      await page.waitForLoadState('networkidle').catch(() => {});
+      const card = await page.evaluate(() => {
+        const s = document.getElementById('bondingReportSection');
+        return {
+          chipsInCard: s.querySelectorAll('.pib-strip, #pibStrip, .pib-strip-item').length,
+          chipsOnPage: document.querySelectorAll('#pibStrip').length,
+          kids: [...s.children].map((c) => c.tagName.toLowerCase()),
+          text: s.innerText,
+        };
+      });
+      if (card.chipsInCard || card.chipsOnPage) throw new Error(`${r.name}: chips on the card/page before the report is opened (${JSON.stringify(card)})`);
+      if (card.kids.join(',') !== 'h3,div,button') throw new Error(`${r.name}: card parts ${card.kids.join(',')}`);
+      if (/Parent Engagement/i.test(card.text) || /days\/week|days\/year|most days/i.test(card.text)) throw new Error(`${r.name}: card text has report detail: ${card.text.replace(/\s+/g, ' ')}`);
+      await openReport(page);
+      await page.locator('#bondingReportDialog #pibStrip .pib-strip-item').first().waitFor({ state: 'visible', timeout: 10000 });
+      const rep = await page.evaluate(() => {
+        const d = document.getElementById('bondingReportDialog');
+        return { items: d.querySelectorAll('#pibStrip .pib-strip-item').length, text: d.innerText, heading: !document.getElementById('pibStripHead').hidden };
+      });
+      if (rep.items < 3 || !/4 days\/week/.test(rep.text) || !/6.15 days\/year/.test(rep.text) || !/Most days/.test(rep.text) || !rep.heading) throw new Error(`${r.name}: report chips ${JSON.stringify(rep)}`);
+      out.push(`${r.name} card 0 chips, report ${rep.items}`);
+      await page.keyboard.press('Escape');
+    }
+    return out.join(', ');
+  }, live.mother.page);
+
+  await record('i', 'empty state in en/te/hi, no result claim; report opens once and closes', async () => {
+    const page = live.mother.page;
+    await page.route('**/api/bonding-score/**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(NA_SCORE) }));
+    try {
+      const out = [];
+      for (const lang of ['en', 'te', 'hi']) {
+        await page.goto(BASE + '/assets/icons/bonding.svg');
+        await page.evaluate((l) => localStorage.setItem('tutp_ui_lang', l), lang);
+        await page.goto(BASE + '/app/mother/');
+        await page.waitForFunction(() => document.getElementById('bondingScoreValue') && document.getElementById('bondingScoreValue').textContent.trim() === 'N/A', null, { timeout: 25000 });
+        const t = await cardText(page);
+        const sectionText = await page.locator('#bondingReportSection').innerText();
+        if (t.note !== EMPTY[lang]) throw new Error(`${lang}: "${t.note}"`);
+        if (/%/.test(sectionText)) throw new Error(`${lang}: a result claim on the empty card: ${sectionText}`);
+        out.push(lang + ' ok');
+      }
+      await page.evaluate(() => localStorage.setItem('tutp_ui_lang', 'en'));
+      await page.goto(BASE + '/app/mother/');
+      await cardText(page);
+      await openReport(page);
+      await page.evaluate(() => document.getElementById('bondingViewFull').click());
+      if ((await page.locator('#bondingReportDialog').count()) !== 1) throw new Error('more than one report dialog');
+      await page.keyboard.press('Escape');
+      if (await page.locator('#bondingReportDialog').count()) throw new Error('Escape did not close the report');
+      await openReport(page);
+      await page.mouse.click(5, 5);
+      if (await page.locator('#bondingReportDialog').count()) throw new Error('the backdrop did not close the report');
+      return out.join(', ') + ', one dialog, Escape and backdrop close';
+    } finally {
+      await page.unroute('**/api/bonding-score/**');
+      await page.evaluate(() => localStorage.removeItem('tutp_ui_lang')).catch(() => {});
+    }
+  }, live.mother.page);
+
+  await record('j', 'N/A report says why and how many more sessions; failures do not break it', async () => {
+    const page = live.mother.page;
+    await page.route('**/api/bonding-score/**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(NA_SCORE) }));
+    try {
+      const out = [];
+      const cases = [
+        { count: 1, want: /Sessions this week: 1 of 3\.\s*2 more sessions needed\./ },
+        { count: 2, want: /Sessions this week: 2 of 3\.\s*1 more session needed\./ },
+        { count: 3, want: /You have done 3 sessions this week\. The score is worked out once a day/, not: /0 more/ },
+      ];
+      for (const c of cases) {
+        await page.route('**/api/weekly-sessions/**', (route) => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ count: c.count, target: 5 }) }));
+        await page.goto(BASE + '/app/mother/');
+        await page.waitForFunction(() => document.getElementById('bondingScoreValue').textContent.trim() === 'N/A', null, { timeout: 25000 });
+        await openReport(page);
+        await page.waitForFunction(() => /session/.test((document.getElementById('bcReportSessions') || {}).textContent || ''), null, { timeout: 10000 });
+        const txt = await page.locator('#bondingReportDialog').innerText();
+        if (!/appears after you sit with your child for 3 homework sessions in a week/.test(txt)) throw new Error('no reason for N/A: ' + txt.slice(0, 300));
+        if (!c.want.test(txt) || (c.not && c.not.test(txt))) throw new Error(`count ${c.count}: ${txt.slice(0, 400)}`);
+        out.push(`count ${c.count} ok`);
+        await page.keyboard.press('Escape');
+        await page.unroute('**/api/weekly-sessions/**');
+      }
+      await page.route('**/api/weekly-sessions/**', (route) => route.fulfill({ status: 500, contentType: 'application/json', body: '{"error":"x"}' }));
+      await page.goto(BASE + '/app/mother/');
+      await page.waitForFunction(() => document.getElementById('bondingScoreValue').textContent.trim() === 'N/A', null, { timeout: 25000 });
+      await openReport(page);
+      await page.waitForFunction(() => /did not load/.test((document.getElementById('bcReportSessions') || {}).textContent || ''), null, { timeout: 10000 });
+      out.push('500 -> reload line');
+      await page.keyboard.press('Escape');
+      await page.unroute('**/api/weekly-sessions/**');
+      return out.join(', ');
+    } finally {
+      await page.unroute('**/api/bonding-score/**').catch(() => {});
+      await page.unroute('**/api/weekly-sessions/**').catch(() => {});
+    }
+  }, live.mother.page);
+
+  await record('k', '390 px phone: card and report fit, no sideways scroll, all three dashboards', async () => {
+    const out = [];
+    for (const r of ROLES) {
+      const { page } = live[r.name];
+      await page.setViewportSize({ width: 390, height: 844 });
+      try {
+        await page.goto(BASE + r.want);
+        await cardText(page);
+        await page.waitForLoadState('networkidle').catch(() => {});
+        const m = await page.evaluate(() => {
+          const b = document.getElementById('bondingReportSection').getBoundingClientRect();
+          return { left: b.left, right: b.right, scrollW: document.documentElement.scrollWidth, vw: window.innerWidth };
+        });
+        if (m.left < 0 || m.right > m.vw + 0.5) throw new Error(`${r.name} card outside the viewport: ${JSON.stringify(m)}`);
+        if (m.scrollW > m.vw) throw new Error(`${r.name} page scrolls sideways: ${JSON.stringify(m)}`);
+        await openReport(page);
+        const d = await page.evaluate(() => {
+          const box = document.querySelector('#bondingReportDialog .bc-box').getBoundingClientRect();
+          return { left: box.left, right: box.right, top: box.top, bottom: box.bottom, vw: window.innerWidth, vh: window.innerHeight };
+        });
+        if (d.left < 0 || d.right > d.vw + 0.5 || d.top < 0 || d.bottom > d.vh + 0.5) throw new Error(`${r.name} report outside the viewport: ${JSON.stringify(d)}`);
+        const closeVisible = await page.locator('#bondingReportDialog .bc-x').isVisible();
+        if (!closeVisible) throw new Error(`${r.name}: no close button in view`);
+        out.push(`${r.name} ok (${Math.round(m.right - m.left)} px card)`);
+        await page.keyboard.press('Escape');
+      } finally { await page.setViewportSize({ width: 1280, height: 900 }); }
+    }
+    return out.join(', ');
   }, live.mother.page);
 
   for (const r of ROLES) await live[r.name].ctx.close();
