@@ -102,6 +102,14 @@
   2027-09-28: without it the homework suite hits the free limit (402)
   after 5 sessions.
 
+# Token budget
+
+- Read files with grep or line ranges, never whole large files.
+- Logs always go to files; print only the RESULT block or the failing lines.
+- Never re-read a file you just edited; never redo finished steps.
+- One goal per session; run /clear after each goal is LIVE.
+- Reports max 6 lines.
+
 # Backlog
 
 - Discussion Method and Lecture Method are backlogged for the Teacher Module, post-launch — removed from the parent-page search-bar row (which now shows only Storytelling Method, Experiential Learning, Play-Based Learning).
