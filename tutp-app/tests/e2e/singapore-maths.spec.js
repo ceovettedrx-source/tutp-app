@@ -114,19 +114,26 @@ async function tierRoute(ctx, holder) {
   await record('s1', 'card opens /app/singapore-maths/ on all three dashboards, never the homework modal', async () => {
     const seen = [];
     for (const role of ROLES) {
-      const c2 = role.name === 'mother' ? ctx : await browser.newContext({ viewport: { width: 1280, height: 900 } });
-      const p = role.name === 'mother' ? page : await c2.newPage();
-      if (role.name !== 'mother') { const got = await login(p, role.phone, role.want); if (got !== role.want) throw new Error(role.name + ' landed on ' + got); }
-      else await p.goto(BASE + role.want);
+      if (role.name !== 'mother') {
+        // father and family member: the served HTML is enough (no extra OTP logins, which count against the Firebase daily quota)
+        const res = await ctx.request.get(BASE + role.want);
+        if (res.status() !== 200) throw new Error(role.name + ' page status ' + res.status());
+        const html = await res.text();
+        const from = html.indexOf('id="sgmathCard"');
+        const sIdx = html.indexOf('id="sgmathStart"', from);
+        if (from < 0 || sIdx < 0) throw new Error(role.name + ' has no #sgmathCard / #sgmathStart');
+        const card = html.slice(from, html.indexOf('</a>', sIdx) + 4);
+        const href = (card.match(/id="sgmathStart"[^>]*href="([^"]*)"/) || card.match(/href="([^"]*)"[^>]*id="sgmathStart"/) || [])[1];
+        if (!href || !href.startsWith('/app/singapore-maths/')) throw new Error(role.name + ' href ' + href);
+        if (card.includes('openHomeworkModal')) throw new Error(role.name + ' card still calls openHomeworkModal');
+        seen.push(role.name);
+        continue;
+      }
+      const p = page;
+      await p.goto(BASE + role.want);
       const btn = p.locator('#sgmathStart');
       await p.locator('#sgmathCard').waitFor({ state: 'attached', timeout: 20000 });
       await p.waitForTimeout(1500);
-      if (role.name === 'family-member' && !(await p.locator('#sgmathCard').isVisible())) {
-        // the parents hid "activities" for this member: the card is hidden on purpose
-        seen.push(role.name + ' (hidden by visibility)');
-        await c2.close();
-        continue;
-      }
       await btn.waitFor({ state: 'visible', timeout: 20000 });
       const title = await p.locator('#sgmathCard .dc-title').textContent();
       if (title.trim() !== 'Singapore Maths Method') throw new Error(role.name + ' title ' + title);
@@ -138,7 +145,6 @@ async function tierRoute(ctx, holder) {
       await p.locator('#sgView').waitFor({ state: 'visible', timeout: 15000 });
       if (await p.locator('#homeworkModal:visible').count()) throw new Error(role.name + ' homework modal opened');
       seen.push(role.name);
-      if (role.name !== 'mother') await c2.close();
     }
     return seen.join(', ');
   }, page);
