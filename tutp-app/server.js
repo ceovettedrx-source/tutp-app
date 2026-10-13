@@ -49,6 +49,7 @@ import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
+import { registerSingaporeMathsRoutes } from './server/routes/singapore-maths.js';
 import { registerTtsRoutes } from './server/routes/tts.js';
 import { registerPartnerRoutes } from './server/partners/routes.js';
 import { createChipLog, CHIP_IDS } from './server/chips/log.js';
@@ -67,7 +68,7 @@ function inReadingOrder(boxes) {
   return true;
 }
 import {
-  initTracking, trackSessionStarted, trackSessionCompleted,
+  initTracking, trackSessionStarted, trackSessionCompleted, trackSgmathEvent,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
   trackShareClicked, trackImageReported
 } from './tracking/tracking.js';
@@ -1717,6 +1718,11 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="dauMessage">Loading…</p>
   </div>
 
+  <h2 class="section-title">Singapore Maths</h2>
+  <div class="panel" id="sgmathPanel">
+    <p class="panel-message loading">Loading…</p>
+  </div>
+
   <h2 class="section-title">Model cost</h2>
   <div class="summary-grid-3">
     <div class="kpi-card">
@@ -1953,6 +1959,26 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         featurePanel.innerHTML = '<p class="panel-message">Error loading feature usage.</p>';
         dauPanel.innerHTML = '<p class="panel-message">Error loading daily active users.</p>';
         console.error('[admin dashboard] Could not load engagement:', err);
+      }
+    })();
+
+    // Singapore Maths (TUT-43), last 14 days, test families left out.
+    (async () => {
+      const panel = document.getElementById('sgmathPanel');
+      try {
+        const res = await fetch('/api/admin/singapore-maths');
+        if (res.status === 503) { panel.innerHTML = '<p class="panel-message">Not set up yet (migration 033 not run).</p>'; return; }
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const d = await res.json();
+        const rows = [
+          ['Sessions started (14 days)', d.started], ['Sessions completed (14 days)', d.completed],
+          ['Weekly sessions per active child', d.weeklyPerActiveChild], ['Free sessions used', d.freeUsed],
+          ['Upgrade clicks', d.upgradeClicks], ['Free session to Max', d.freeToMax], ['AI hints per session', d.aiHintsPerSession]
+        ];
+        panel.innerHTML = '<table class="data-table"><tbody>' + rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + String(r[1]) + '</td></tr>'; }).join('') + '</tbody></table>';
+      } catch (err) {
+        panel.innerHTML = '<p class="panel-message">Error loading Singapore Maths.</p>';
+        console.error('[admin dashboard] Could not load Singapore Maths:', err);
       }
     })();
 
@@ -6809,6 +6835,8 @@ registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 // TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.
 partnerRoutes = registerPartnerRoutes(app, { supabase, rateLimit, getSession, sendSessionExpired, requireAdmin, cronAuthorized, isTestFamily });
 registerElRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, checkFreeLimit, freeLimitMessage, trackSessionStarted, trackSessionCompleted });
+// Singapore Maths Method (TUT-43): server/routes/singapore-maths.js.
+registerSingaporeMathsRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, requireAdmin, tierForStudent, trackSessionStarted, trackSessionCompleted, trackSgmathEvent });
 
 // ------------------------------------------------------------------
 // Homework illustration — step 1 of the "show the problem as a picture"

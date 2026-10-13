@@ -12,6 +12,7 @@
 // script (Noto Sans Telugu etc.); the page loads only that script's font.
 // Unit tests: tests/unit/diagrams.test.js.
 import { generateBarModelSvg } from './barModelSvgGenerator.js';
+import { validateModel, layoutBarModel, renderSvg } from '../../public/app/shared/diagram/bar-model.js';
 
 export const DIAGRAM_TEMPLATES = ['vector_right_triangle', 'path_vs_straight', 'number_line', 'bar_model', 'flow_steps'];
 
@@ -106,8 +107,14 @@ function numberLine(p, font) {
   return { svg: frame(300, 150, `Number line from ${fmt(min)} to ${fmt(max)}`, font, inner), params: { min, max, step, marks, jumps } };
 }
 
-// ---- bar_model: { parts, shaded, label } (fractions) or { bars: [{label, value}] } (comparison).
+// ---- bar_model: { parts, shaded, label } (fractions) or { bars: [{label, value}] } (comparison),
+// or { model: <bar-model spec> } drawn by the shared, proportional bar-model module
+// (public/app/shared/diagram/bar-model.js, TUT-43); a spec that fails its checks gives null.
 function barModel(p, font) {
+  if (p.model && typeof p.model === 'object') {
+    if (!validateModel(p.model).ok) return null;
+    return { svg: renderSvg(layoutBarModel(p.model), { font, spec: p.model, title: 'Bar model' }), params: { model: p.model } };
+  }
   if (Array.isArray(p.bars)) {
     const bars = p.bars.slice(0, 5).map((b) => ({ label: label(b && b.label, 16), value: b && num(b.value, 0, 1e6) })).filter((b) => b.value != null);
     if (bars.length < 1 || !bars.some((b) => b.value > 0)) return null;

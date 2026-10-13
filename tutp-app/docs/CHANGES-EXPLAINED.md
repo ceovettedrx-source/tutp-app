@@ -1,5 +1,23 @@
 # Changes explained
 
+## 2026-10-13 - TUT-43 Singapore Maths Method (built, not live yet; goes live together with TUT-45)
+
+**What changes**
+- The dashboard card "10-minute Math Session" (which only opened Homework Help) is replaced on mother, father and family-member by **Singapore Maths Method**: a 10-minute daily word-problem session at `/app/singapore-maths/` in three steps. Together (parent and child with spoons, coins or rotis; the parent taps "We did it", stored with the signed-in viewer key for TUT-20), Picture (the child builds the bar model with taps or by dragging; the server checks it and says what is wrong), Numbers (pick the number sentence, type the answer).
+- Five model types (part-whole, comparison, before/after, fractions, ratio) for classes 1 to 6; the first session is a short check, then the weakest type, with difficulty going up or down by results.
+- 504 problems, built in code with the answer computed from the same numbers, in English, Telugu and Hindi. A new language is only rows in two tables.
+- Access is decided on the server: Max every day; Pro and UltraPro one free session per child per IST week (used when the Picture step starts; a second one is refused); Free sees a locked card and one example picture with "Unlock with Pro".
+- Parents see a mastery map per model type and a weekly growth line on the card once a session is done.
+- Founder dashboard: a Singapore Maths panel (sessions, free sessions used, upgrade clicks, free-to-Max, test families left out).
+- No AI call anywhere in this feature: hints are stored, problems are built in code. Model cost per session: ₹0.
+
+**Needs Vet before it can go live**
+- Run `supabase/migrations/033_singapore_maths.sql` in the Supabase SQL editor (until then the page says "being set up" and the API answers 503).
+- Review the Telugu and Hindi strings in `server/sgmath/strings-seed.js` (then `node scripts/sgmath-migration.mjs` regenerates 033).
+- Traffic together with TUT-45, in one revision (spec decision 2).
+
+**Tests**: unit `bar-model.test.js` (8), `sgmath-solver.test.js` (16, all 504 problems, every language's numbers), `sgmath-routes.test.js` (13: Free 402, Pro free week and 409, parallel starts, IST Monday boundary, Max, judging, privacy, 503 before the migration); full unit suite 545/545. e2e `singapore-maths.spec.js` s0-s7 (not yet run: needs a preview with E2E_REPLAY=1 and migration 033). Differences from the spec are listed at the end of `docs/specs/TUT-43-singapore-maths.md`.
+
 ## 2026-10-13 - TUT-45 Max plan, backend behind a flag (built, not live yet)
 
 **What changes**

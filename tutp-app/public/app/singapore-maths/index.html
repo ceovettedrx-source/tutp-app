@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Singapore Maths Method · Tut-P</title>
+<meta name="robots" content="noindex, nofollow">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;family=Noto+Sans+Telugu:wght@400;600&amp;family=Noto+Sans+Devanagari:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<style>
+  :root { --blue:#005bbf; --ink:#181c20; --muted:#5b6678; --line:#d7e0ec; --soft:#eaf2fc; --good:#1e7b4a; --bad:#b3261e; --shade:#9cc3ee; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#f7f9ff; color:var(--ink); font:16px/1.5 Inter, 'Noto Sans Telugu', 'Noto Sans Devanagari', system-ui, sans-serif; }
+  .sg-wrap { max-width:720px; margin:0 auto; padding:16px 16px 48px; }
+  .sg-top { display:flex; gap:12px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:8px; }
+  .sg-top a { color:var(--blue); font-weight:600; min-height:44px; display:inline-flex; align-items:center; text-decoration:none; }
+  .sg-top label { font-size:14px; color:var(--muted); display:inline-flex; gap:8px; align-items:center; }
+  h1 { font-family:'Plus Jakarta Sans', sans-serif; font-size:clamp(24px,6vw,32px); margin:8px 0 4px; letter-spacing:-.02em; }
+  .sg-sub { color:var(--muted); margin:0 0 16px; }
+  .sg-h2 { font-family:'Plus Jakarta Sans', sans-serif; font-size:19px; margin:16px 0 8px; }
+  .sg-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin:12px 0; }
+  .sg-msg { font-weight:600; }
+  .sg-lead, .sg-note { color:var(--muted); }
+  .sg-question { font-size:18px; font-weight:600; margin:4px 0 12px; }
+  .sg-count { color:var(--muted); font-size:14px; margin:0; }
+  .sg-parent { background:var(--soft); border-radius:10px; padding:10px 12px; font-weight:600; }
+  .sg-btn { min-height:48px; min-width:44px; padding:10px 18px; border-radius:12px; border:0; background:var(--blue); color:#fff; font:600 16px/1.2 inherit; cursor:pointer; margin:8px 8px 0 0; }
+  .sg-btn:disabled { opacity:.6; }
+  .sg-btn--ghost { background:#fff; color:var(--blue); border:1px solid var(--line); }
+  .sg-btn:focus-visible, select:focus-visible, input:focus-visible, .sgb-handle:focus-visible, .sgb-seg:focus-visible { outline:3px solid #b36c0c; outline-offset:2px; }
+  select, input[type=text], #sgAnswer { min-height:44px; border:1px solid var(--line); border-radius:10px; padding:8px 10px; font:inherit; background:#fff; color:var(--ink); }
+  .sg-steps { display:flex; gap:6px; list-style:none; padding:0; margin:0 0 8px; }
+  .sg-steps li { flex:1; text-align:center; padding:6px; border-radius:999px; background:#fff; border:1px solid var(--line); font-size:13px; color:var(--muted); }
+  .sg-steps li.is-on { background:var(--blue); color:#fff; border-color:var(--blue); }
+  .sg-svg { overflow-x:auto; margin:12px 0; background:#fff; border-radius:12px; border:1px solid var(--line); padding:8px; }
+  .sg-svg svg { width:100%; height:auto; min-width:300px; display:block; }
+  .sg-good { color:var(--good); font-weight:700; }
+  .sg-bad { color:var(--bad); font-weight:700; }
+  .sg-hint { background:#fff6dd; border-radius:10px; padding:10px 12px; }
+  .sg-reasons { margin:4px 0 8px 18px; padding:0; }
+  .sg-eqs { border:0; padding:0; margin:0; }
+  .sg-eq { display:flex; gap:10px; align-items:center; min-height:48px; padding:6px 10px; margin:6px 0; background:#fff; border:1px solid var(--line); border-radius:12px; font-size:18px; cursor:pointer; }
+  .sg-eq input { width:22px; height:22px; }
+  .sg-answer { display:flex; gap:10px; align-items:center; margin:12px 0; flex-wrap:wrap; }
+  .sg-answer input { width:140px; font-size:18px; }
+  /* builder */
+  .sgb-note { color:var(--muted); font-size:14px; margin:0 0 6px; }
+  .sgb-row { display:grid; grid-template-columns:72px 1fr; gap:8px; align-items:center; margin:16px 0 6px; }
+  .sgb-name { font-weight:600; font-size:14px; overflow-wrap:anywhere; }
+  .sgb-track { position:relative; height:48px; border-radius:6px; background-color:#fff; border:1px dashed var(--line);
+    background-image:repeating-linear-gradient(to right, transparent 0, transparent calc(100% / var(--cells) - 1px), #e3e9f2 calc(100% / var(--cells) - 1px), #e3e9f2 calc(100% / var(--cells))); touch-action:none; }
+  .sgb-seg { position:absolute; top:0; height:100%; background:var(--soft); border:2px solid var(--blue); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; overflow:hidden; padding:0; color:var(--ink); }
+  button.sgb-seg { cursor:pointer; min-width:22px; }
+  .sgb-seg.is-shaded { background:var(--shade); }
+  .sgb-handle { position:absolute; top:50%; width:44px; height:44px; margin:-22px 0 0 -22px; border-radius:50%; background:rgba(0,91,191,.14); border:2px solid var(--blue); cursor:ew-resize; touch-action:none; z-index:2; }
+  .sgb-controls { display:flex; flex-direction:column; gap:6px; margin:4px 0 8px 80px; }
+  .sgb-group { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+  .sgb-cap { font-size:13px; color:var(--muted); min-width:96px; }
+  .sgb-btn { min-width:44px; min-height:44px; border-radius:10px; border:1px solid var(--line); background:#fff; color:var(--blue); font:700 20px/1 inherit; cursor:pointer; }
+  .sgb-wide { font-size:15px; padding:0 12px; }
+  .sgb-val { min-width:28px; text-align:center; font-weight:700; }
+  .sgb-select { min-width:96px; }
+  @media (max-width:420px) { .sgb-row { grid-template-columns:56px 1fr; } .sgb-controls { margin-left:0; } }
+</style>
+</head>
+<body>
+<div class="sg-wrap">
+  <div class="sg-top">
+    <a id="sgBack" href="/app/mother/">Back to dashboard</a>
+    <label><span id="sgLangLabel">Language</span> <select id="sgLang" aria-labelledby="sgLangLabel"></select></label>
+  </div>
+  <h1 id="sgTitle">Singapore Maths Method</h1>
+  <p class="sg-sub" id="sgSubtitle"></p>
+  <main id="sgView" aria-live="polite"><p class="sg-lead">Loading…</p></main>
+</div>
+<!-- Upgrade button: billing.js's plan chooser. Only a mother or father can pay (data-can-pay). -->
+<script>
+  (function () {
+    var from = new URLSearchParams(location.search).get('from');
+    var box = document.createElement('div');
+    box.id = 'billingStatus';
+    box.hidden = true;
+    box.setAttribute('data-can-pay', from === 'mother' || from === 'father' ? 'true' : 'false');
+    document.body.appendChild(box);
+  })();
+</script>
+<script src="/js/billing.js"></script>
+<script type="module" src="/app/singapore-maths/app.js"></script>
+</body></html>

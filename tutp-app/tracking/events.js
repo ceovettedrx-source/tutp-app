@@ -8,6 +8,11 @@ export const EVENTS = {
   SHARE_CLICKED: 'share.clicked',
   VISUAL_TUTOR_CALL: 'visual_tutor.call',
   IMAGE_REPORTED: 'image.reported',
+  // Singapore Maths Method (TUT-43)
+  SGMATH_CONCRETE_DONE: 'sgmath.concrete_done',
+  SGMATH_FREE_USED: 'sgmath.free_used',
+  SGMATH_UPGRADE_CLICKED: 'sgmath.upgrade_clicked',
+  SGMATH_HINT_AI: 'sgmath.hint_ai',
 };
 export const FEATURES = {
   HOMEWORK_HELP: 'homework_help',
@@ -16,4 +21,5 @@ export const FEATURES = {
   EXPERIENTIAL_LEARNING: 'experiential_learning',
   PLAY_BASED_LEARNING: 'play_based_learning',
   EXAM_PREP: 'exam_prep',
+  SINGAPORE_MATHS: 'singapore_maths',
 };

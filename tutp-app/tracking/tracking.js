@@ -46,3 +46,10 @@ export function trackVisualTutorCall(familyId, { mode, outcome, steps, model, in
     stop_reason: stopReason,
   } });
 }
+// Singapore Maths Method (TUT-43): sgmath.concrete_done, sgmath.free_used,
+// sgmath.upgrade_clicked. Only names listed in EVENTS are written.
+const SGMATH_EVENTS = new Set([EVENTS.SGMATH_CONCRETE_DONE, EVENTS.SGMATH_FREE_USED, EVENTS.SGMATH_UPGRADE_CLICKED, EVENTS.SGMATH_HINT_AI]);
+export function trackSgmathEvent(eventName, familyId, studentId, properties = {}) {
+  if (!SGMATH_EVENTS.has(eventName)) { console.error('unknown sgmath event', eventName); return; }
+  trackEvent(eventName, { familyId, studentId, properties: { feature: 'singapore_maths', ...properties } });
+}
