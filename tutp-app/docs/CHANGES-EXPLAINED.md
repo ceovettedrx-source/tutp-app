@@ -1,5 +1,17 @@
 # Changes explained
 
+## 2026-10-13 - TUT-45 Max plan, backend behind a flag (built, not live yet)
+
+**What changes**
+- A new plan `max_monthly` (₹2,500, 30 days, no annual Max) exists in the plan table, and the server can now tell which tier a child has at any moment (free, pro or max) by walking their paid periods the same way paid-until already works. `/api/billing/status` returns `tier` for each child and `buyable` for each plan.
+- New switch `MAX_ON_SALE` (off by default, nothing sets it). Off: the plan chooser shows "Max · ₹2,500/month · Coming soon" as a disabled button and checkout answers 400 `not_for_sale`. On: checkout makes a Razorpay order, but only with a test key (`rzp_test_`); with a live key it answers 400 `test_mode_only`. No live Max payment is possible in this release.
+- Registration still sells Pro only; a Max plan sent to `/api/register` is ignored.
+- Pro children are unchanged. Nothing gates features by tier yet, so a Max child gets the same limits as Pro.
+
+**Not in this release (needs its own work, see the spec)**: the mid-period Pro-to-Max upgrade with credit (needs migration 034), `TIER_FEATURES`, the readiness checklist for what Max includes, the refund-policy line. The public pricing page keeps its static "Coming soon".
+
+**Tests**: 14 unit tests for the tier walk and plan table (`tests/unit/tier-for-student.test.js`); `tests/e2e/max-plan.spec.js` m1-m3 (Max not buyable, checkout 400, chooser shows Coming soon). Four old unit failures in `explain-on-photo.test.js` (HEIC) fail the same on main.
+
 ## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (live on tutp-demo-00456-rov, 2026-10-12)
 
 **What was wrong**
