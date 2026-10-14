@@ -11,6 +11,7 @@
 <link href="/css/story-modal.css" rel="stylesheet"/>
 <link href="/css/dashboard-cards.css" rel="stylesheet"/>
 <link href="/css/baseline-survey.css" rel="stylesheet"/>
+<link href="/css/bonding-card.css" rel="stylesheet"/>
 <link href="/css/el-guided.css" rel="stylesheet"/>
 <style>
         body { background-color: #f7f9ff; color: #181c20; }
@@ -187,12 +188,16 @@
 </div>
 </div>
 <div class="flex items-center gap-sm ml-auto shrink-0">
-<button aria-label="Language Toggle" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors">
+<button aria-label="Language Toggle" class="flex items-center justify-center w-11 h-11 rounded-full hover:bg-surface-variant transition-colors">
 <span class="material-symbols-outlined text-on-surface-variant">language</span>
 </button>
-<button aria-label="Notifications" class="flex items-center justify-center p-2 rounded-full hover:bg-surface-variant transition-colors relative">
+<button aria-label="Notifications" class="flex items-center justify-center w-11 h-11 rounded-full hover:bg-surface-variant transition-colors relative">
 <span class="material-symbols-outlined text-on-surface-variant">notifications</span>
 <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<!-- Log out on the phone, for every role (TUT-42: the bottom bar is Home, Homework, Practice, Family). -->
+<button aria-label="Log out" class="sm:hidden flex items-center justify-center w-11 h-11 rounded-full hover:bg-surface-variant transition-colors" onclick="logout()">
+<span class="material-symbols-outlined text-on-surface-variant">logout</span>
 </button>
 <div class="hidden sm:flex items-center gap-2 pl-2 border-l border-outline-variant/30">
 <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm" id="headerAvatarInitial">·</div>
@@ -234,59 +239,47 @@
 </div>
 </nav>
 
-<main class="max-w-5xl mx-auto px-6 pb-12 space-y-16">
+<main class="tp-dash max-w-5xl mx-auto px-4 md:px-6 pb-28 md:pb-12 space-y-6 md:space-y-8">
 
-<section>
+<!-- TUT-42: phone-first order (Vet, 2026-10-14): Homework Help, today's homework, bonding, Singapore Maths, goal, learn together. -->
+<section id="tpTop" class="tp-anchor">
 <div class="flex flex-wrap gap-2 mb-3 empty:hidden" id="billingStatus" data-can-pay="true"></div>
-<div class="bg-surface-container-low rounded-2xl p-6 md:p-8 border border-outline-variant/15 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-<div class="space-y-3 flex-1">
+<div class="bg-surface-container-low rounded-2xl p-5 md:p-6 border border-outline-variant/15 space-y-3">
+<div class="flex flex-wrap items-center gap-2">
 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-tertiary/10 text-tertiary font-label text-xs font-semibold">
 <span class="material-symbols-outlined text-sm">wb_sunny</span>Good morning · <span id="greetingDateText"></span>
 </span>
-<h2 class="font-headline text-3xl md:text-4xl font-bold text-on-background leading-tight">Welcome back, <span class="inline-block w-32 h-8 bg-surface-variant rounded-lg animate-pulse align-middle" id="parentGreetingName"></span></h2>
-<p class="font-body text-on-surface-variant" id="greetingGoalLine">Here's how this week is going.</p>
-<div class="flex flex-wrap items-center gap-3 pt-2">
-<button class="bg-primary text-on-primary px-5 py-2.5 rounded-xl font-label font-medium hover:shadow-lg transition-shadow inline-flex items-center gap-2" onclick="window.location.href='/app/child/'">
-<span class="material-symbols-outlined text-lg">rocket_launch</span>Open <span class="childNameText">your child</span>'s Learning Space
-</button>
-<span class="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-success/10 text-success font-label text-xs font-semibold">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-success/10 text-success font-label text-xs font-semibold">
 <span class="material-symbols-outlined text-sm">verified_user</span>100% Kid-Safe Filter Active
 </span>
 </div>
-</div>
-<div class="flex flex-wrap gap-2 lg:flex-col lg:items-end shrink-0" id="childChipsRow"></div>
-</div>
-</section>
-
-<section class="space-y-6">
-<div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-<div class="space-y-2 flex-1">
-<p class="font-label text-sm text-tertiary uppercase tracking-widest">What Your Child Sees <span class="text-on-surface-variant normal-case font-normal tracking-normal">— exactly what your child experiences when they log in</span></p>
+<h2 class="font-headline text-2xl md:text-3xl font-bold text-on-background leading-tight">Welcome back, <span class="inline-block w-32 h-8 bg-surface-variant rounded-lg animate-pulse align-middle" id="parentGreetingName"></span></h2>
+<p class="font-body text-on-surface-variant" id="greetingGoalLine">Here's how this week is going.</p>
+<div class="flex flex-wrap gap-2" id="childChipsRow"></div>
+<div class="flex flex-wrap items-center gap-2 pt-1">
+<button class="bg-primary text-on-primary px-4 py-2.5 rounded-xl font-label text-sm font-medium hover:shadow-lg transition-shadow inline-flex items-center gap-2" onclick="window.location.href='/app/child/'">
+<span class="material-symbols-outlined text-lg">rocket_launch</span>Open <span class="childNameText">your child</span>'s Learning Space
+</button>
 <span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary font-label text-xs font-semibold">
 <span class="material-symbols-outlined text-sm">visibility</span>Viewing: <span class="childNameText">your child</span>'s view
 </span>
 </div>
-<div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full md:w-80 shrink-0" id="bondingReportSection">
-<h3 class="font-label font-semibold text-on-surface flex items-center gap-2 mb-1"><span class="inline-flex items-center justify-center rounded-full bg-white shrink-0 border border-outline-variant/30" style="width:28px;height:28px"><img src="/assets/icons/bonding-small.svg" alt="" width="22" height="22"></span>Bonding Report</h3>
-<p class="font-label text-[11px] text-on-surface-variant uppercase tracking-wide mb-3">Parent Engagement Score</p>
-<div class="flex items-end justify-between gap-3 mb-4">
-<span class="font-headline text-3xl text-on-surface shrink-0" id="bondingScoreValue"><span class="inline-block w-16 h-9 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
-<p class="font-body text-xs text-on-surface-variant text-right" id="bondingGapText">Loading your bonding score…</p>
-</div>
-<button class="text-primary font-label text-sm font-medium hover:underline inline-flex items-center gap-1" onclick="openFullReportModal()">View Full Report <span class="material-symbols-outlined text-sm">arrow_forward</span></button>
-</div>
 </div>
 </section>
 
-<section class="space-y-sm">
-<div class="flex flex-wrap gap-xs justify-center">
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openStorytellingModal()">Storytelling Method</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openExperientialModal()">Experiential Learning</button>
-<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openPlayModal()">Play-Based Learning</button>
+<section id="tpHomework" class="tp-anchor space-y-3">
+<a class="dc-hero dc-hero--blue" href="#" onclick="openHomeworkModal(); return false;">
+<div class="dc-hero__copy">
+<span class="dc-chip dc-chip--on-dark"><span class="material-symbols-outlined">school</span></span>
+<h3 class="dc-hero__title">Homework Help</h3>
+<p class="dc-hero__text">Get a simple explanation of tonight's homework, in your language.</p>
+<div class="dc-hero__pills"><span class="dc-pill"><span class="material-symbols-outlined">photo_camera</span>Photo or PDF</span><span class="dc-pill"><span class="material-symbols-outlined">translate</span>Your language</span></div>
 </div>
+<div class="dc-hero__side dc-hero__side--cta"><span class="dc-btn dc-btn--white">Get Homework Help<span class="material-symbols-outlined">arrow_forward</span></span></div>
+</a>
 </section>
 
-<section class="relative max-w-3xl mx-auto w-full z-10">
+<section class="relative w-full z-10">
 <div class="absolute inset-0 bg-primary/5 rounded-full blur-xl -z-10"></div>
 <div class="relative bg-surface-container-lowest rounded-full shadow-[0_8px_30px_rgba(0,91,192,0.12)] border border-primary/10 flex items-center p-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
 <div class="relative shrink-0">
@@ -300,44 +293,32 @@
 <button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Files')" type="button"><span class="material-symbols-outlined text-lg text-primary">attach_file</span> Files</button>
 </div>
 </div>
-<input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/60 w-full py-3 px-sm outline-none" placeholder="Try searching for learning paths, tutors, or topics..." type="text"/>
-<button aria-label="Voice search" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors shrink-0" onclick="alert('Opens voice search in the live app.')" type="button">
+<input onkeydown="if(event.key==='Enter'){openHomeworkModal();}" aria-label="Ask about homework" class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/60 w-full py-3 px-sm outline-none" placeholder="Ask about tonight's homework…" type="text"/>
+<button aria-label="Voice search" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors shrink-0" onclick="openHomeworkModal()" type="button">
 <span class="material-symbols-outlined">mic</span>
 </button>
-<button aria-label="Search" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0" onclick="alert('Opens AI search in the live app.')" type="button">
+<button aria-label="Search" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0" onclick="openHomeworkModal()" type="button">
 <span class="material-symbols-outlined">arrow_forward</span>
 </button>
 </div>
 </section>
 
-<section class="dc-zone" aria-label="Learning tools">
-
-<!-- PREMIUM tier -->
-<a class="dc-hero dc-hero--blue" href="#" onclick="openHomeworkModal(); return false;">
-<div class="dc-hero__copy">
-<span class="dc-chip dc-chip--on-dark"><span class="material-symbols-outlined">school</span></span>
-<h3 class="dc-hero__title">Homework Help</h3>
-<p class="dc-hero__text">Get a simple explanation of tonight's homework, in your language.</p>
-<div class="dc-hero__pills"><span class="dc-pill"><span class="material-symbols-outlined">photo_camera</span>Photo or PDF</span><span class="dc-pill"><span class="material-symbols-outlined">translate</span>Your language</span></div>
+<section class="space-y-3">
+<h2 class="font-headline text-xl text-on-surface">Today's homework</h2>
+<div class="hidden bg-secondary-container/20 text-on-surface rounded-2xl p-4 flex items-center gap-2" id="homeworkPendingBanner">
+<span class="material-symbols-outlined text-secondary">notifications_active</span>
+<span id="homeworkPendingText"></span>
 </div>
-<div class="dc-hero__side dc-hero__side--cta"><span class="dc-btn dc-btn--white">Get Homework Help<span class="material-symbols-outlined">arrow_forward</span></span></div>
-</a>
-
-<a class="dc-hero dc-hero--green" href="/tutors">
-<div class="dc-hero__copy">
-<span class="dc-chip dc-chip--marigold-dark"><span class="material-symbols-outlined">person_search</span></span>
-<h3 class="dc-hero__title">Need a Maths or Science tutor near you?</h3>
-<p class="dc-hero__text">Verified tutors, ₹100 one-time connect fee — no agency markup, real conversations, not video subscriptions.</p>
+<div class="space-y-3" id="homeworkList">
+<p class="font-body text-sm text-on-surface-variant" id="homeworkEmptyMsg">Loading…</p>
 </div>
-<div class="dc-hero__side">
-<img class="dc-photo" src="/images/tutor-tile.webp" width="448" height="524" loading="lazy" decoding="async" alt="A parent helping their child with schoolwork at home">
-<span class="dc-btn dc-btn--marigold">Browse Verified Tutors<span class="material-symbols-outlined">arrow_forward</span></span>
-</div>
-</a>
+</section>
 
-<!-- STANDARD tier -->
-<div class="dc-grid dc-grid--2">
-<div class="dc-card" id="sgmathCard" data-role="father">
+<section class="dc-grid dc-grid--2" aria-label="Your progress">
+<div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full" id="bondingReportSection">
+<!-- Filled by /js/bonding-card.js (shared by the three dashboards) -->
+</div>
+<div class="dc-card tp-anchor" id="sgmathCard" data-role="father">
 <div class="dc-card__head">
 <img src="/images/sgmath/badge.svg" alt="" width="60" height="70" style="flex:none;width:60px;height:70px;">
 <div><p class="dc-eyebrow">Daily practice</p><h3 class="dc-title">Singapore Maths Method</h3></div>
@@ -346,7 +327,9 @@
 <div id="sgmathProgress" hidden></div>
 <div class="dc-card__foot"><a class="dc-btn dc-btn--blue" id="sgmathStart" href="/app/singapore-maths/?from=father">Start session</a><span id="sgmathExtra"></span></div>
 </div>
+</section>
 
+<section class="dc-grid dc-grid--2">
 <div class="dc-card">
 <div class="dc-card__head">
 <span class="dc-chip dc-chip--amber"><span class="material-symbols-outlined">flag</span></span>
@@ -365,19 +348,16 @@
 </div>
 </div>
 </div>
+</section>
 
+<section class="space-y-3" aria-label="Learn together">
+<h2 class="font-headline text-xl text-on-surface">Learn together</h2>
+<div class="flex flex-wrap gap-xs">
+<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openStorytellingModal()">Storytelling Method</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openExperientialModal()">Experiential Learning</button>
+<button class="px-4 py-2 rounded-full border border-outline-variant bg-surface-container-lowest text-on-surface font-label-md text-label-md hover:bg-surface-container-low hover:border-primary transition-all shadow-sm" onclick="openPlayModal()">Play-Based Learning</button>
+</div>
 <div class="dc-grid dc-grid--2">
-<div class="dc-card">
-<div class="dc-card__head">
-<span class="dc-chip dc-chip--blue"><span class="material-symbols-outlined">event</span></span>
-<div><p class="dc-eyebrow">Live class</p><h3 class="dc-title">Upcoming Live Session</h3></div>
-</div>
-<div class="dc-person"><span class="dc-avatar">S</span><div><p class="dc-title" style="font-size:16px;line-height:24px">Ms. Sarah</p><p class="dc-text">Reading Comprehension</p></div></div>
-<div class="dc-note"><span class="material-symbols-outlined">schedule</span>Today, 3:00 PM - 3:45 PM</div>
-<div class="dc-card__foot"><button class="dc-btn dc-btn--outline dc-btn--block" onclick="alert('Opens the tutor session in the live app.')">Join Classroom</button></div>
-</div>
-
-<!-- COMING SOON tier -->
 <div class="dc-card dc-card--soon">
 <div class="dc-card__head">
 <span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">library_books</span></span>
@@ -388,7 +368,6 @@
 <div class="dc-card__foot"><button class="dc-link" onclick="openStorytellingModal()">Meanwhile, try Storytelling<span class="material-symbols-outlined">arrow_forward</span></button></div>
 </div>
 </div>
-
 <div class="dc-card dc-card--soon dc-card--compact" id="exploreSubjectsSection">
 <div class="dc-card__head">
 <span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">explore</span></span>
@@ -400,6 +379,9 @@
 </div>
 <div class="dc-card__foot"><button class="dc-link" onclick="openExperientialModal()">Meanwhile, try Experiential Learning<span class="material-symbols-outlined">arrow_forward</span></button></div>
 </div>
+</div>
+</div>
+</section>
 
 <div class="dc-card dc-card--soon dc-card--compact">
 <div class="dc-soon-row">
@@ -411,40 +393,39 @@
 <button class="dc-link" onclick="openHomeworkModal()">Meanwhile, use Homework Help<span class="material-symbols-outlined">arrow_forward</span></button>
 </div>
 </div>
+</div>
 
+<section aria-label="Tutors">
+<a class="dc-hero dc-hero--green" href="/tutors">
+<div class="dc-hero__copy">
+<span class="dc-chip dc-chip--marigold-dark"><span class="material-symbols-outlined">person_search</span></span>
+<h3 class="dc-hero__title">Need a Maths or Science tutor near you?</h3>
+<p class="dc-hero__text">Verified tutors, ₹100 one-time connect fee — no agency markup, real conversations, not video subscriptions.</p>
+</div>
+<div class="dc-hero__side">
+<img class="dc-photo" src="/images/tutor-tile.webp" width="448" height="524" loading="lazy" decoding="async" alt="A parent helping their child with schoolwork at home">
+<span class="dc-btn dc-btn--marigold">Browse Verified Tutors<span class="material-symbols-outlined">arrow_forward</span></span>
+</div>
+</a>
 </section>
 
-<section class="space-y-3">
-<h2 class="font-headline text-xl text-on-surface">Homework</h2>
-<div class="hidden bg-secondary-container/20 text-on-surface rounded-2xl p-4 flex items-center gap-2" id="homeworkPendingBanner">
-<span class="material-symbols-outlined text-secondary">notifications_active</span>
-<span id="homeworkPendingText"></span>
+<div class="dc-card dc-card--soon">
+<div class="dc-card__head">
+<span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">event</span></span>
+<div><p class="dc-eyebrow">Live class</p><h3 class="dc-title">Upcoming Live Session</h3></div>
+<span class="dc-badge-soon"><span class="material-symbols-outlined">schedule</span>Coming soon</span>
 </div>
-<div class="space-y-3" id="homeworkList">
-<p class="font-body text-sm text-on-surface-variant" id="homeworkEmptyMsg">Loading…</p>
-</div>
-</section>
+<p class="dc-text">Live classes with verified tutors, booked from here. We're still building this.</p>
+<div class="dc-card__foot"><a class="dc-link" href="/tutors">Meanwhile, find a tutor near you<span class="material-symbols-outlined">arrow_forward</span></a></div>
+
 
 </main>
-<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-2 pb-6 px-4 bg-surface-container-low backdrop-blur-xl rounded-t-full shadow-sm">
-<a class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-full px-4 py-1.5 active:scale-90 duration-300" href="#"><span class="material-symbols-outlined">home</span><span class="font-label text-xs uppercase tracking-widest mt-1">HOME</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="#"><span class="material-symbols-outlined">menu_book</span><span class="font-label text-xs uppercase tracking-widest mt-1">MOMENTS</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="#"><span class="material-symbols-outlined">auto_graph</span><span class="font-label text-xs uppercase tracking-widest mt-1">REPORTS</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="#" onclick="logout(); return false;"><span class="material-symbols-outlined">logout</span><span class="font-label text-xs uppercase tracking-widest mt-1">LOGOUT</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary transition-all active:scale-90 duration-300 px-2 py-1.5" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span><span class="font-label text-xs uppercase tracking-widest mt-1">FAMILY</span></a>
+<nav class="tp-nav md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-2 pb-5 px-2 bg-surface-container-low/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.06)]" aria-label="Dashboard">
+<a class="tp-nav__item is-on" href="#tpTop"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+<a class="tp-nav__item" href="#tpHomework"><span class="material-symbols-outlined">school</span><span>Homework</span></a>
+<a class="tp-nav__item" href="#sgmathCard"><span class="material-symbols-outlined">view_week</span><span>Practice</span></a>
+<a class="tp-nav__item" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span><span>Family</span></a>
 </nav>
-<div id="fullReportModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
-<div class="absolute inset-0 bg-black/50" onclick="closeFullReportModal()"></div>
-<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-md max-h-[85vh] overflow-y-auto p-6">
-<div class="flex items-center justify-between mb-4">
-<h3 class="font-headline-lg text-xl font-bold text-on-surface">Homework Completion — Last 14 Days</h3>
-<button onclick="closeFullReportModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
-</div>
-<div id="fullReportBody" class="space-y-4">
-<p class="font-body text-sm text-on-surface-variant">Loading…</p>
-</div>
-</div>
-</div>
 <!-- Search-bar attach chooser — the generic "+" attach icon used to jump
      straight into Homework Help with no confirmation, silently running that
      one specific mode regardless of which method pill looked selected. A
@@ -584,7 +565,7 @@
 <!-- Storytelling Method: the modal is built by /app/shared/story-modal.js -->
 
 <!-- Play-Based Learning — a turn-based multiplayer family game engine. Up
-     to 4 players (mother/father/family members/children) take turns
+     to 4 players (father/mother/family members/children) take turns
      answering AI-generated multiple-choice questions from the lesson,
      against one per-game locked countdown timer; explaining the answer
      afterward is untimed. Scoring is server-authoritative — the browser
@@ -941,7 +922,7 @@
             skill_based: 'Skill-based · Abhyasa'
         };
 
-        let playRoster = [];          // [{type, refId, name, checked}] built from mother/father/family_members/students
+        let playRoster = [];          // [{type, refId, name, checked}] built from father/mother/family_members/students
         let playSelectedTimeLimit = null;
         let playGameSessionId = null;
         let playQuestionsPerPlayer = null;
@@ -975,8 +956,8 @@
                 const members = membersRes.ok ? (await membersRes.json()).members || [] : [];
                 const students = studentsRes.ok ? (await studentsRes.json()).students || [] : [];
                 playRoster = [
-                    ...(fam.motherName ? [{ type: 'mother', refId: null, name: fam.motherName }] : []),
                     ...(fam.fatherName ? [{ type: 'father', refId: null, name: fam.fatherName }] : []),
+                    ...(fam.motherName ? [{ type: 'mother', refId: null, name: fam.motherName }] : []),
                     ...students.map(s => ({ type: 'student', refId: s.id, name: s.name })),
                     ...members.map(m => ({ type: 'family_member', refId: m.id, name: m.name }))
                 ].map((p, i) => ({ ...p, checked: i < 2 }));
@@ -1815,7 +1796,7 @@
             }
         })();
 
-        // /tutors' "Contact tutor" flow bounces here (mother/father/family-
+        // /tutors' "Contact tutor" flow bounces here (father/mother/family-
         // member, whichever /api/session/OTP routes this login to) when it
         // needs a login first — this page is only ever the login redirect's
         // landing spot for that flow, never where it actually resumes, so
@@ -1887,47 +1868,11 @@
             }
         })();
 
-        // Bonding score is personal to this viewer — the API never returns
-        // anyone else's raw score, only this viewer's own score plus the
-        // family's current max, so the UI can show a gap-to-leader instead
-        // of a full ranking.
-        (async function loadBondingScore(){
-            const valueEl = document.getElementById('bondingScoreValue');
-            const gapEl = document.getElementById('bondingGapText');
-            const familyId = sessionStorage.getItem('tutp_family_id');
-            if (!familyId) {
-                valueEl.textContent = '—';
-                gapEl.textContent = 'Log in to see your bonding score.';
-                return;
-            }
-            try {
-                const res = await fetch('/api/bonding-score/' + encodeURIComponent(familyId) + '/father');
-                if (!res.ok) { const httpErr = new Error('Request failed'); httpErr.status = res.status; throw httpErr; }
-                const data = await res.json();
-                if (!data.hasData) {
-                    valueEl.textContent = 'N/A';
-                    gapEl.textContent = 'Not enough data yet — check back after some homework activity.';
-                    return;
-                }
-                valueEl.textContent = data.score + '%';
-                gapEl.textContent = data.isLeader
-                    ? "You're the top bonder in your family right now!"
-                    : `${data.leaderScore - data.score} points away from the top score.`;
-            } catch (err) {
-                console.error('[father] Could not load bonding score:', err);
-                valueEl.textContent = '—';
-                if (err && (err.status === 401 || err.status === 403)) {
-                    gapEl.innerHTML = 'Your sign-in does not match this family. <a class="underline" href="/app/login/">Sign in again</a> to see your bonding score.';
-                } else {
-                    gapEl.textContent = 'The bonding score did not load. Reload the page in a minute.';
-                }
-            }
-        })();
+        // The Bonding Report card and its full report are /js/bonding-card.js.
 
-        // Homework-completion tile + "View Full Report" modal — live-computed
-        // (same 14-day window/formula the daily bonding-score cron uses), so
-        // it can be fresher than the once-daily bonding_scores value above.
-        let lastCompletionStats = null;
+        // Homework-completion tile — live-computed (same 14-day window/formula
+        // the daily bonding-score cron uses), so it can be fresher than the
+        // once-daily bonding_scores value on the card.
         (async function loadHomeworkCompletion(){
             const tileValueEl = document.getElementById('completionTileValue');
             const familyId = sessionStorage.getItem('tutp_family_id');
@@ -1935,37 +1880,13 @@
             try {
                 const res = await fetch('/api/homework-completion/' + encodeURIComponent(familyId));
                 if (!res.ok) throw new Error('Request failed');
-                lastCompletionStats = await res.json();
-                tileValueEl.textContent = lastCompletionStats.hasData ? lastCompletionStats.percentage + '%' : 'Not enough data yet';
+                const stats = await res.json();
+                tileValueEl.textContent = stats.hasData ? stats.percentage + '%' : 'Not enough data yet';
             } catch (err) {
                 console.error('[father] Could not load homework completion:', err);
                 tileValueEl.textContent = 'Could not load';
             }
         })();
-
-        function openFullReportModal(){
-            const bodyEl = document.getElementById('fullReportBody');
-            const stats = lastCompletionStats;
-            if (!stats || !stats.hasData) {
-                bodyEl.innerHTML = '<p class="font-body text-sm text-on-surface-variant">Not enough homework activity in the last 14 days to show a report yet.</p>';
-            } else {
-                const perChild = stats.children.length > 1 ? stats.children.map(c => `
-                    <div class="bg-surface-container-highest rounded-xl p-4">
-                        <p class="font-label text-sm text-primary font-semibold mb-1">${c.name}</p>
-                        <p class="font-body text-sm text-on-surface-variant">${c.done} of ${c.assigned} homework items done — <span class="font-semibold text-on-surface">${c.percentage}%</span></p>
-                    </div>`).join('') : '';
-                bodyEl.innerHTML = `
-                    <div class="bg-primary/5 rounded-xl p-4">
-                        <p class="font-body text-sm text-on-surface-variant">Across the family: <span class="font-semibold text-on-surface">${stats.totalDone} of ${stats.totalAssigned}</span> homework items done.</p>
-                        <p class="font-headline text-2xl text-on-surface mt-1">${stats.percentage}%</p>
-                    </div>
-                    ${perChild}`;
-            }
-            document.getElementById('fullReportModal').classList.remove('hidden');
-        }
-        function closeFullReportModal(){
-            document.getElementById('fullReportModal').classList.add('hidden');
-        }
 
         function formatHwDate(iso){
             try { return new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }); }
@@ -2019,5 +1940,6 @@
 <script src="/js/weekly-goal.js" defer></script>
 <script src="/js/billing.js" defer></script>
 <script src="/app/singapore-maths/card.js" defer></script>
+<script src="/js/bonding-card.js" defer></script>
 <script src="/js/baseline-survey.js" defer></script>
 </body></html>

@@ -1,0 +1,28 @@
+/* Bonding Report full report dialog (public/js/bonding-card.js, TUT-56).
+   Plain CSS, Tut-P dashboard tokens; the card itself uses the dashboards'
+   existing utility classes. */
+.bc-overlay {
+  position: fixed; inset: 0; z-index: 60; background: rgba(0, 0, 0, 0.5);
+  display: flex; align-items: flex-end; justify-content: center;
+}
+.bc-box {
+  background: #ffffff; color: #181c20; width: 100%; max-width: 100%; max-height: 85vh; overflow-y: auto;
+  border-radius: 24px 24px 0 0; padding: 20px 16px 24px; box-sizing: border-box;
+  font: 400 14px/20px Inter, sans-serif;
+}
+@media (min-width: 768px) {
+  .bc-overlay { align-items: center; }
+  .bc-box { max-width: 28rem; border-radius: 24px; padding: 24px; }
+}
+.bc-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.bc-h { margin: 0; font: 700 20px/28px 'Plus Jakarta Sans', Inter, sans-serif; }
+.bc-x { background: none; border: 0; padding: 4px; cursor: pointer; color: #414754; line-height: 1; }
+.bc-block { margin-top: 16px; }
+.bc-sub { margin: 0 0 8px; font: 600 12px/16px Inter, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; color: #414754; }
+.bc-score { background: rgba(0, 91, 192, 0.06); border-radius: 12px; padding: 16px; margin-top: 0; }
+.bc-big { margin: 0 0 4px; font: 700 28px/36px 'Plus Jakarta Sans', Inter, sans-serif; }
+.bc-p { margin: 0 0 6px; color: #414754; overflow-wrap: anywhere; }
+.bc-more { color: #181c20; font-weight: 600; }
+.bc-card { background: #f1f4fa; border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; }
+.bc-name { margin: 0 0 2px; font-weight: 600; color: #005bc0; }
+.bc-hw { color: #414754; }

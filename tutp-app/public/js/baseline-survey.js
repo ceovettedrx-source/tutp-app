@@ -15,11 +15,12 @@
    browser session (sessionStorage) and asked again on a later visit.
    Collect-only — nothing here affects the Bonding Score.
 
-   Once answered, the same GET also drives a small icon strip under the
-   score on the Bonding Report card (#bondingScoreValue's row): homework
-   days, meals, activities (icons only) and trip days. Icon-first so it
-   reads without reading; each item carries its full wording for screen
-   readers. Nothing is shown before the survey is answered. */
+   Once answered, the same GET also drives a small icon strip in the full
+   report of the Bonding Report card (#pibStripHost, made by bonding-card.js;
+   not on the card itself): homework days, meals, activities (icons only) and
+   trip days. Icon-first so it reads without reading; each item carries its
+   full wording for screen readers. Nothing is shown before the survey is
+   answered. */
 (function () {
   var SKIP_KEY = 'tutp_baseline_skipped';
   var FIRST_DELAY_MS = 1500;
@@ -102,6 +103,7 @@
     '16_30': '16–30 days/year', '30_plus': '30+ days/year'
   };
 
+  var lastBaseline = null;
   var answer = { homework_days: null, support_style: null, activities: [], meal_frequency: null, trip_days_bucket: null };
   var stepIdx = 0;
   var overlay = null, card = null, body = null, dots = [];
@@ -486,8 +488,10 @@
   // Answers as a compact icon strip in the Bonding Report card, right under
   // the score row. Replaces any earlier strip (e.g. just after saving).
   function renderStrip(b) {
-    var scoreEl = document.getElementById('bondingScoreValue');
-    if (!b || !scoreEl || !scoreEl.parentElement) return;
+    if (b) lastBaseline = b;
+    b = lastBaseline;
+    var host = document.getElementById('pibStripHost');
+    if (!b || !host) return;
     var old = document.getElementById('pibStrip');
     if (old) old.remove();
 
@@ -512,8 +516,15 @@
     var trip = STRIP_TRIP_LABELS[b.trip_days_bucket];
     if (trip) ul.appendChild(stripItem('✈️', trip, 'Trips together: ' + trip.replace('/', ' a ')));
 
-    if (ul.children.length) scoreEl.parentElement.insertAdjacentElement('afterend', ul);
+    if (ul.children.length) {
+      host.appendChild(ul);
+      var head = document.getElementById('pibStripHead');
+      if (head) head.hidden = false;
+    }
   }
+  // The strip lives in the Bonding Report's full report (bonding-card.js),
+  // which asks for it each time it opens.
+  window.TutpBaselineStrip = { render: function () { renderStrip(null); } };
 
   function start() {
     fetch('/api/parent-involvement-baseline?viewer=' + encodeURIComponent(viewerHint()), { credentials: 'same-origin' })
