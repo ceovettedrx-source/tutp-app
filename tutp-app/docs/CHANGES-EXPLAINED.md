@@ -1,5 +1,19 @@
 # Changes explained
 
+## 2026-10-14 - TUT-45 Pro to Max upgrade (built, not live yet; Max stays off until MAX_ON_SALE=1)
+
+**What changes**
+- A Pro child can upgrade to Max mid-period. The server works out the credit: for each Pro payment with days left, floor(days left x price paid / period days), added up. The parent pays Max's price minus the credit, never less than ₹1; a credit above that is dropped. The upgrade starts at once.
+- When the upgrade payment is captured (webhook or verify, whichever is first), the Pro payment(s) it replaces stop counting from that moment (`superseded_at`), so there are no double days. A second delivery of the same capture changes nothing.
+- The plan chooser shows "Pro days left N, credit ₹X, you pay ₹Y" before payment; the price shown and the price charged come from the same server function. Another upgrade order within 15 minutes is refused (409).
+- Nothing the browser sends (amount, credit, tier) is used.
+
+**Needs Vet**
+- Run `supabase/migrations/034_max_upgrade.sql` in the Supabase SQL editor. Until then the upgrade path answers 503 `not_ready`; plain purchases and renewals work.
+- Known gap (not in the spec): refunding the Max upgrade payment does not give the replaced Pro days back.
+
+**Tests**: `tests/unit/billing-upgrade.test.js` (17); `max-plan.spec.js` m1-m4 pass once on `00469-but`. Not yet run twice in a row; not merged to main. Release revision `tutp-demo-00470-zup` (tag `tut45b`, 0% traffic).
+
 ## 2026-10-14 - TUT-43 and TUT-59 LIVE on tutp-demo-00467-jal (TUT-45 ships in the same revision, Max still off)
 
 Live: traffic moved by Vet to `tutp-demo-00467-jal` (verified 100%, `pdftest` on it too), which adds the original Singapore Maths badge on the three dashboard cards and the page header to the `00464-joh` build. The notes below are from before go-live.

@@ -29,6 +29,7 @@ import {
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 import { staticAssets } from './server/static-assets.js';
 import { PAID_PLANS, DAY_MS, endOfIstDay, computePaidUntil, tierForPayments, planBuyable } from './server/billing-plans.js';
+import { createPaymentStore, startCheckout, quoteForStudent, applyUpgradeCapture } from './server/billing-upgrade.js';
 import { stepTimer } from './server/step-timer.js';
 import { cronAuthorized } from './server/cron-auth.js';
 import { applyArithmeticCheck } from './server/arith-check.js';
@@ -2479,13 +2480,15 @@ const RAZORPAY_PLAN_ID_BY_TIER = {
 // The tier a child has at `now`: the tier of the payment segment containing
 // it (same walk as computePaidUntil), else 'free'.
 async function tierForStudent(studentId, now = Date.now()) {
-  const { data, error } = await supabase
-    .from('payments')
-    .select('student_id, captured_at, updated_at, period_days, tier')
-    .eq('student_id', studentId)
-    .eq('status', 'captured');
-  if (error) throw error;
-  return tierForPayments(data || [], now);
+  return tierForPayments(await getPaymentStore().readCaptured(studentId), now);
+}
+
+// Reads captured payments with superseded_at once migration 034 exists (TUT-45),
+// and without it before; see server/billing-upgrade.js.
+let paymentStoreFor = null, paymentStore = null;
+function getPaymentStore() {
+  if (paymentStoreFor !== supabase) { paymentStoreFor = supabase; paymentStore = createPaymentStore(supabase); }
+  return paymentStore;
 }
 
 function formatIstDate(ms) {
@@ -2498,14 +2501,9 @@ async function getPaidStatusForStudents(studentIds, now = Date.now()) {
   const result = {};
   for (const id of studentIds) result[id] = { paidUntil: null, active: false, tier: 'free' };
   if (!studentIds.length) return result;
-  const { data, error } = await supabase
-    .from('payments')
-    .select('student_id, captured_at, updated_at, period_days, tier')
-    .in('student_id', studentIds)
-    .eq('status', 'captured');
-  if (error) throw error;
+  const data = await getPaymentStore().readCaptured(studentIds);
   const byStudent = {};
-  for (const row of data || []) (byStudent[row.student_id] ||= []).push(row);
+  for (const row of data) (byStudent[row.student_id] ||= []).push(row);
   for (const id of studentIds) {
     const paidUntil = computePaidUntil(byStudent[id] || []);
     result[id] = { paidUntil, active: paidUntil !== null && now <= paidUntil, tier: tierForPayments(byStudent[id] || [], now) };
@@ -4610,6 +4608,10 @@ async function markPaymentCaptured(orderId, paymentId, razorpayCreatedAtSec) {
     .eq('razorpay_order_id', orderId)
     .in('status', ['created', 'failed']);
   if (error) throw error;
+  // TUT-45: a captured Pro -> Max upgrade ends the Pro payment(s) it replaces. Runs on
+  // every delivery (idempotent), so a failure here is retried by the next one.
+  try { await applyUpgradeCapture(supabase, orderId); }
+  catch (err) { console.error('Could not apply the upgrade to the replaced payment:', err.message); }
 }
 
 async function handlePaymentCaptured(event) {
@@ -4750,31 +4752,37 @@ app.post('/api/billing/verify', async (req, res) => {
 app.post('/api/billing/checkout', async (req, res) => {
   try {
     if (!supabase || !razorpay) return res.status(500).json({ error: 'Payments are not configured' });
+    // Only studentId and plan come from the client. The amount, the upgrade credit and
+    // the tier are computed in server/billing-upgrade.js (TUT-45).
     const { studentId, plan: planKey } = req.body || {};
-    const plan = PAID_PLANS[planKey];
-    if (!plan) return res.status(400).json({ error: 'Invalid plan' });
-    if (!planBuyable(plan)) return res.status(400).json({ error: 'not_for_sale' });
-    // Max is test-mode only until the founder lifts this: never a live-key order.
-    if (plan.flag && !String(process.env.RAZORPAY_KEY_ID || '').startsWith('rzp_test_')) {
-      return res.status(400).json({ error: 'test_mode_only' });
-    }
+    if (!PAID_PLANS[planKey]) return res.status(400).json({ error: 'Invalid plan' });
     const session = await requireOwnStudent(req, res, studentId);
     if (!session) return;
-    const order = await razorpay.orders.create({
-      amount: plan.amountPaise,
-      currency: 'INR',
-      receipt: `bill_${session.familyId}_${String(studentId).slice(0, 8)}_${Date.now().toString(36)}`,
-      notes: { family_id: String(session.familyId), student_id: String(studentId), tier: plan.tier, plan: planKey }
-    });
-    const { error } = await supabase.from('payments').insert({
-      family_id: session.familyId, student_id: studentId, tier: plan.tier, amount: plan.amountPaise, currency: 'INR',
-      period_days: plan.periodDays, razorpay_order_id: order.id, status: 'created'
-    });
-    if (error) throw error;
-    res.json({ orderId: order.id, amount: plan.amountPaise, currency: 'INR', razorpayKeyId: process.env.RAZORPAY_KEY_ID, planLabel: plan.label });
+    const out = await startCheckout({ supabase, store: getPaymentStore(), razorpay, familyId: session.familyId, studentId, planKey });
+    res.status(out.status).json(out.body);
   } catch (err) {
     console.error('Billing checkout error:', err);
     res.status(500).json({ error: 'Could not start the payment. Please try again.' });
+  }
+});
+
+// What the plan chooser shows before payment for an upgrade ("Pro days left N,
+// credit X, you pay Y"). Same computation as checkout, so the shown amount is the
+// charged amount (TUT-45). Own child only.
+app.get('/api/billing/upgrade-quote', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const studentId = String(req.query.studentId || '');
+    const planKey = String(req.query.plan || '');
+    if (!PAID_PLANS[planKey]) return res.status(400).json({ error: 'Invalid plan' });
+    const session = await requireOwnStudent(req, res, studentId);
+    if (!session) return;
+    const out = await quoteForStudent({ store: getPaymentStore(), studentId, planKey });
+    res.set('Cache-Control', 'no-store');
+    res.status(out.status).json(out.body);
+  } catch (err) {
+    console.error('Billing upgrade quote error:', err);
+    res.status(500).json({ error: 'Could not work out the upgrade price' });
   }
 });
 

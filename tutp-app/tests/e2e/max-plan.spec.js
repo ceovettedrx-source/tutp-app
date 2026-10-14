@@ -8,6 +8,10 @@
 //   m2  POST /api/billing/checkout plan max_monthly -> 400 not_for_sale; an unknown plan
 //       -> 400 Invalid plan
 //   m3  the plan chooser shows Max as a disabled "Coming soon" button, Pro stays clickable
+//   m4  Pro -> Max upgrade (TUT-45): another family's child is 403 on checkout and on
+//       /api/billing/upgrade-quote; the quote and a checkout with forged amount/credit are
+//       400 not_for_sale. The amounts themselves are tested in tests/unit/billing-upgrade.test.js
+//       (the preview runs with the flag off and a stubbed Razorpay is not wired here).
 //
 // Usage: node tests/e2e/max-plan.spec.js <base-url> [--headless]
 // Output: tests/e2e/output/max-plan-results.json, FAIL_<test>.png. Exit 1 on any failure.
@@ -134,6 +138,20 @@ async function call(page, method, url, body) {
     if (await pro.isDisabled()) throw new Error('Pro button disabled');
     return txt;
   }, page);
+
+  await record('m4', 'upgrade: another family\'s child is 403 on checkout and quote; own child quote is not_for_sale while the flag is off', async () => {
+    const other = '00000000-0000-4000-8000-000000000000';
+    for (const [method, url, body] of [['POST', '/api/billing/checkout', { studentId: other, plan: 'max_monthly' }], ['GET', `/api/billing/upgrade-quote?studentId=${other}&plan=max_monthly`, null]]) {
+      const r = await call(page, method, url, body);
+      if (r.status !== 403) throw new Error(`${url} got ${r.status}`);
+    }
+    const kid = ((status && status.children) || [])[0];
+    const q = await call(page, 'GET', `/api/billing/upgrade-quote?studentId=${kid.studentId}&plan=max_monthly`);
+    if (q.status !== 400 || !q.body || q.body.error !== 'not_for_sale') throw new Error(`quote got ${q.status} ${JSON.stringify(q.body)}`);
+    const forged = await call(page, 'POST', '/api/billing/checkout', { studentId: kid.studentId, plan: 'max_monthly', amount: 100, credit: 249900, tier: 'max' });
+    if (forged.status !== 400 || forged.body.error !== 'not_for_sale') throw new Error(`forged body got ${forged.status}`);
+    return '403 x2; quote 400 not_for_sale; forged fields ignored';
+  });
 
   await ctx.close();
   await browser.close();
