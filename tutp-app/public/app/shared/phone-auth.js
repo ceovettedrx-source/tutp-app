@@ -32,6 +32,7 @@ const firebaseConfig = {
 };
 
 import "/app/shared/auth-messages.js";
+import { shouldDisableAppVerification } from "/app/shared/phone-auth-testing.js";
 
 export const AUTH_MESSAGES = window.TUTP_AUTH_MESSAGES;
 
@@ -88,6 +89,8 @@ export function initPhoneAuth(containerId) {
   window.tutpSendOTP = async function(fullPhoneNumber){
     await persistenceReady;
     try {
+      // TUT-59: test numbers on a tagged preview skip the reCAPTCHA check.
+      auth.settings.appVerificationDisabledForTesting = shouldDisableAppVerification(fullPhoneNumber, location.hostname);
       if (!recaptchaVerifier) {
         recaptchaVerifier = new RecaptchaVerifier(auth, containerId, { size: 'invisible' });
       }

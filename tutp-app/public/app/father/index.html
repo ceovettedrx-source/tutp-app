@@ -337,13 +337,14 @@
 
 <!-- STANDARD tier -->
 <div class="dc-grid dc-grid--2">
-<div class="dc-card">
+<div class="dc-card" id="sgmathCard" data-role="father">
 <div class="dc-card__head">
-<span class="dc-chip dc-chip--violet"><span class="material-symbols-outlined">timer</span></span>
-<div><p class="dc-eyebrow">Quick practice</p><h3 class="dc-title">10-minute Math Session</h3></div>
+<img src="/images/sgmath/badge.svg" alt="" width="60" height="70" style="flex:none;width:60px;height:70px;">
+<div><p class="dc-eyebrow">Daily practice</p><h3 class="dc-title">Singapore Maths Method</h3></div>
 </div>
-<p class="dc-text">Start a guided 10-minute practice session for <span class="childNameText">your child</span>.</p>
-<div class="dc-card__foot"><button class="dc-btn dc-btn--blue" onclick="openHomeworkModal()">Start Session</button></div>
+<p class="dc-text">Word problems seen as pictures, then solved. 10 minutes a day, grades 1 to 6.</p>
+<div id="sgmathProgress" hidden></div>
+<div class="dc-card__foot"><a class="dc-btn dc-btn--blue" id="sgmathStart" href="/app/singapore-maths/?from=father">Start session</a><span id="sgmathExtra"></span></div>
 </div>
 
 <div class="dc-card">
@@ -2017,5 +2018,6 @@
 </script>
 <script src="/js/weekly-goal.js" defer></script>
 <script src="/js/billing.js" defer></script>
+<script src="/app/singapore-maths/card.js" defer></script>
 <script src="/js/baseline-survey.js" defer></script>
 </body></html>

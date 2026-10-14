@@ -1,5 +1,43 @@
 # Changes explained
 
+## 2026-10-14 - TUT-43 and TUT-59 LIVE on tutp-demo-00467-jal (TUT-45 ships in the same revision, Max still off)
+
+Live: traffic moved by Vet to `tutp-demo-00467-jal` (verified 100%, `pdftest` on it too), which adds the original Singapore Maths badge on the three dashboard cards and the page header to the `00464-joh` build. The notes below are from before go-live.
+
+- TUT-43: `singapore-maths.spec.js` s0-s7 and `max-plan.spec.js` m1-m3 pass on the no-traffic preview `tutp-demo-00463-geb` (E2E_REPLAY=1). The same image, without E2E_REPLAY and with ANSWER_V2_ENABLED=1, is `tutp-demo-00464-joh` (tag `tut43`, 0% traffic, flag parity with `00456-rov`: 0 differences). It carries TUT-45 and TUT-43 together. Production is still `00456-rov`.
+- TUT-59 (login on previews): a test number (+91 99999 0000[1-9]) on a tagged preview host (`---tutp-demo-`) skips the reCAPTCHA check so the e2e suite can sign in; real numbers and `tutp.online` are unchanged. Decision function and unit test: `public/app/shared/phone-auth-testing.js`, `tests/unit/phone-auth-testing.test.js`.
+- Still needs Vet: confirm migration 033 is run (the specs' strings call answered 200, so it is on the database the preview uses), the Telugu/Hindi string review, and the traffic command.
+
+## 2026-10-13 - TUT-43 Singapore Maths Method (built, not live yet; goes live together with TUT-45)
+
+**What changes**
+- The dashboard card "10-minute Math Session" (which only opened Homework Help) is replaced on mother, father and family-member by **Singapore Maths Method**: a 10-minute daily word-problem session at `/app/singapore-maths/` in three steps. Together (parent and child with spoons, coins or rotis; the parent taps "We did it", stored with the signed-in viewer key for TUT-20), Picture (the child builds the bar model with taps or by dragging; the server checks it and says what is wrong), Numbers (pick the number sentence, type the answer).
+- Five model types (part-whole, comparison, before/after, fractions, ratio) for classes 1 to 6; the first session is a short check, then the weakest type, with difficulty going up or down by results.
+- 504 problems, built in code with the answer computed from the same numbers, in English, Telugu and Hindi. A new language is only rows in two tables.
+- Access is decided on the server: Max every day; Pro and UltraPro one free session per child per IST week (used when the Picture step starts; a second one is refused); Free sees a locked card and one example picture with "Unlock with Pro".
+- Parents see a mastery map per model type and a weekly growth line on the card once a session is done.
+- Founder dashboard: a Singapore Maths panel (sessions, free sessions used, upgrade clicks, free-to-Max, test families left out).
+- No AI call anywhere in this feature: hints are stored, problems are built in code. Model cost per session: ₹0.
+
+**Needs Vet before it can go live**
+- Run `supabase/migrations/033_singapore_maths.sql` in the Supabase SQL editor (until then the page says "being set up" and the API answers 503).
+- Review the Telugu and Hindi strings in `server/sgmath/strings-seed.js` (then `node scripts/sgmath-migration.mjs` regenerates 033).
+- Traffic together with TUT-45, in one revision (spec decision 2).
+
+**Tests**: unit `bar-model.test.js` (8), `sgmath-solver.test.js` (16, all 504 problems, every language's numbers), `sgmath-routes.test.js` (13: Free 402, Pro free week and 409, parallel starts, IST Monday boundary, Max, judging, privacy, 503 before the migration); full unit suite 545/545. e2e `singapore-maths.spec.js` s0-s7 (not yet run: needs a preview with E2E_REPLAY=1 and migration 033). Differences from the spec are listed at the end of `docs/specs/TUT-43-singapore-maths.md`.
+
+## 2026-10-13 - TUT-45 Max plan, backend behind a flag (built, not live yet)
+
+**What changes**
+- A new plan `max_monthly` (₹2,500, 30 days, no annual Max) exists in the plan table, and the server can now tell which tier a child has at any moment (free, pro or max) by walking their paid periods the same way paid-until already works. `/api/billing/status` returns `tier` for each child and `buyable` for each plan.
+- New switch `MAX_ON_SALE` (off by default, nothing sets it). Off: the plan chooser shows "Max · ₹2,500/month · Coming soon" as a disabled button and checkout answers 400 `not_for_sale`. On: checkout makes a Razorpay order, but only with a test key (`rzp_test_`); with a live key it answers 400 `test_mode_only`. No live Max payment is possible in this release.
+- Registration still sells Pro only; a Max plan sent to `/api/register` is ignored.
+- Pro children are unchanged. Nothing gates features by tier yet, so a Max child gets the same limits as Pro.
+
+**Not in this release (needs its own work, see the spec)**: the mid-period Pro-to-Max upgrade with credit (needs migration 034), `TIER_FEATURES`, the readiness checklist for what Max includes, the refund-policy line. The public pricing page keeps its static "Coming soon".
+
+**Tests**: 14 unit tests for the tier walk and plan table (`tests/unit/tier-for-student.test.js`); `tests/e2e/max-plan.spec.js` m1-m3 (Max not buyable, checkout 400, chooser shows Coming soon). Four old unit failures in `explain-on-photo.test.js` (HEIC) fail the same on main.
+
 ## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (live on tutp-demo-00456-rov, 2026-10-12)
 
 **What was wrong**

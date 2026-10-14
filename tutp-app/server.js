@@ -28,6 +28,7 @@ import {
 } from './server/session-state.js';
 import { boxablePhotos, applyQuestionBoxes } from './server/homework-boxes.js';
 import { staticAssets } from './server/static-assets.js';
+import { PAID_PLANS, DAY_MS, endOfIstDay, computePaidUntil, tierForPayments, planBuyable } from './server/billing-plans.js';
 import { stepTimer } from './server/step-timer.js';
 import { cronAuthorized } from './server/cron-auth.js';
 import { applyArithmeticCheck } from './server/arith-check.js';
@@ -48,6 +49,7 @@ import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
 import { registerElRoutes } from './server/routes/el.js';
+import { registerSingaporeMathsRoutes } from './server/routes/singapore-maths.js';
 import { registerTtsRoutes } from './server/routes/tts.js';
 import { registerPartnerRoutes } from './server/partners/routes.js';
 import { createChipLog, CHIP_IDS } from './server/chips/log.js';
@@ -66,7 +68,7 @@ function inReadingOrder(boxes) {
   return true;
 }
 import {
-  initTracking, trackSessionStarted, trackSessionCompleted,
+  initTracking, trackSessionStarted, trackSessionCompleted, trackSgmathEvent,
   trackFeedbackSubmitted, trackFeedbackClassified, trackFeedbackAutoResolved, trackFeedbackEscalated,
   trackShareClicked, trackImageReported
 } from './tracking/tracking.js';
@@ -1716,6 +1718,11 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="dauMessage">Loading…</p>
   </div>
 
+  <h2 class="section-title">Singapore Maths</h2>
+  <div class="panel" id="sgmathPanel">
+    <p class="panel-message loading">Loading…</p>
+  </div>
+
   <h2 class="section-title">Model cost</h2>
   <div class="summary-grid-3">
     <div class="kpi-card">
@@ -1952,6 +1959,26 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         featurePanel.innerHTML = '<p class="panel-message">Error loading feature usage.</p>';
         dauPanel.innerHTML = '<p class="panel-message">Error loading daily active users.</p>';
         console.error('[admin dashboard] Could not load engagement:', err);
+      }
+    })();
+
+    // Singapore Maths (TUT-43), last 14 days, test families left out.
+    (async () => {
+      const panel = document.getElementById('sgmathPanel');
+      try {
+        const res = await fetch('/api/admin/singapore-maths');
+        if (res.status === 503) { panel.innerHTML = '<p class="panel-message">Not set up yet (migration 033 not run).</p>'; return; }
+        if (!res.ok) throw new Error('Request failed: ' + res.status);
+        const d = await res.json();
+        const rows = [
+          ['Sessions started (14 days)', d.started], ['Sessions completed (14 days)', d.completed],
+          ['Weekly sessions per active child', d.weeklyPerActiveChild], ['Free sessions used', d.freeUsed],
+          ['Upgrade clicks', d.upgradeClicks], ['Free session to Max', d.freeToMax], ['AI hints per session', d.aiHintsPerSession]
+        ];
+        panel.innerHTML = '<table class="data-table"><tbody>' + rows.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + String(r[1]) + '</td></tr>'; }).join('') + '</tbody></table>';
+      } catch (err) {
+        panel.innerHTML = '<p class="panel-message">Error loading Singapore Maths.</p>';
+        console.error('[admin dashboard] Could not load Singapore Maths:', err);
       }
     })();
 
@@ -2432,19 +2459,9 @@ const RAZORPAY_PLAN_ID_BY_TIER = {
 // again through the same Orders flow. UltraPro and Max stay in the schema
 // and the admin reports but aren't sold until tier gating ships (see
 // docs/pricing-tiers-spec.md). Amounts in paise, Razorpay's unit.
-const PAID_PLANS = {
-  pro_monthly: { tier: 'pro', amountPaise: 50000, periodDays: 30, label: 'Pro · ₹500/month (incl. GST)' },
-  pro_annual: { tier: 'pro', amountPaise: 500000, periodDays: 365, label: 'Annual Pro · ₹5,000/year (incl. GST)' }
-};
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-// Last millisecond of the IST calendar day containing `ms`, so access always
-// runs to the end of a day in the parent's own timezone.
-function endOfIstDay(ms) {
-  const istDayStart = Math.floor((ms + IST_OFFSET_MS) / DAY_MS) * DAY_MS;
-  return istDayStart + DAY_MS - 1 - IST_OFFSET_MS;
-}
+// PAID_PLANS, computePaidUntil and tierForPayments live in
+// server/billing-plans.js (pure, unit-tested). max_monthly is sold only
+// while MAX_ON_SALE=1 (TUT-45).
 
 // paid_until for one child, from their captured payments only (refunded and
 // failed ones never reach here). Walked in capture order: each payment starts
@@ -2457,17 +2474,18 @@ function endOfIstDay(ms) {
 // migration 025 (e.g. the webhook landing on the previous revision during a
 // rollout, which then makes /api/billing/verify a no-op). Its updated_at was
 // set at that capture, so it stands in rather than the payment being ignored.
-function computePaidUntil(capturedPayments) {
-  let until = null;
-  const sorted = capturedPayments
-    .map(p => ({ at: Date.parse(p.captured_at || p.updated_at), days: Number(p.period_days) || 30 }))
-    .filter(p => Number.isFinite(p.at))
-    .sort((a, b) => a.at - b.at);
-  for (const p of sorted) {
-    const start = until !== null && until > p.at ? until : p.at;
-    until = endOfIstDay(start + p.days * DAY_MS);
-  }
-  return until;
+// (computePaidUntil is imported, see the top of this file.)
+
+// The tier a child has at `now`: the tier of the payment segment containing
+// it (same walk as computePaidUntil), else 'free'.
+async function tierForStudent(studentId, now = Date.now()) {
+  const { data, error } = await supabase
+    .from('payments')
+    .select('student_id, captured_at, updated_at, period_days, tier')
+    .eq('student_id', studentId)
+    .eq('status', 'captured');
+  if (error) throw error;
+  return tierForPayments(data || [], now);
 }
 
 function formatIstDate(ms) {
@@ -2478,11 +2496,11 @@ function formatIstDate(ms) {
 // never-paid children (paidUntil null, active false).
 async function getPaidStatusForStudents(studentIds, now = Date.now()) {
   const result = {};
-  for (const id of studentIds) result[id] = { paidUntil: null, active: false };
+  for (const id of studentIds) result[id] = { paidUntil: null, active: false, tier: 'free' };
   if (!studentIds.length) return result;
   const { data, error } = await supabase
     .from('payments')
-    .select('student_id, captured_at, updated_at, period_days')
+    .select('student_id, captured_at, updated_at, period_days, tier')
     .in('student_id', studentIds)
     .eq('status', 'captured');
   if (error) throw error;
@@ -2490,7 +2508,7 @@ async function getPaidStatusForStudents(studentIds, now = Date.now()) {
   for (const row of data || []) (byStudent[row.student_id] ||= []).push(row);
   for (const id of studentIds) {
     const paidUntil = computePaidUntil(byStudent[id] || []);
-    result[id] = { paidUntil, active: paidUntil !== null && now <= paidUntil };
+    result[id] = { paidUntil, active: paidUntil !== null && now <= paidUntil, tier: tierForPayments(byStudent[id] || [], now) };
   }
   return result;
 }
@@ -2927,7 +2945,7 @@ app.post('/api/register', registerLimiter, async (req, res) => {
       // maps to Pro monthly, and UltraPro/Max are no longer sold, so a child
       // who picked one is reported as not started rather than silently
       // charged for a plan we don't offer.
-      const planKey = PAID_PLANS[child.plan] ? child.plan
+      const planKey = PAID_PLANS[child.plan]?.tier === 'pro' ? child.plan // registration sells Pro only (TUT-45)
         : child.tier === 'pro' ? 'pro_monthly'
         : null;
       const tier = planKey ? PAID_PLANS[planKey].tier : (['ultrapro', 'max'].includes(child.tier) ? child.tier : 'free');
@@ -4735,6 +4753,11 @@ app.post('/api/billing/checkout', async (req, res) => {
     const { studentId, plan: planKey } = req.body || {};
     const plan = PAID_PLANS[planKey];
     if (!plan) return res.status(400).json({ error: 'Invalid plan' });
+    if (!planBuyable(plan)) return res.status(400).json({ error: 'not_for_sale' });
+    // Max is test-mode only until the founder lifts this: never a live-key order.
+    if (plan.flag && !String(process.env.RAZORPAY_KEY_ID || '').startsWith('rzp_test_')) {
+      return res.status(400).json({ error: 'test_mode_only' });
+    }
     const session = await requireOwnStudent(req, res, studentId);
     if (!session) return;
     const order = await razorpay.orders.create({
@@ -4777,6 +4800,7 @@ app.get('/api/billing/status/:familyId', async (req, res) => {
         name: s.name,
         hasPaid: paidUntil !== null,
         active,
+        tier: status[s.id].tier,
         paidUntil: paidUntil !== null ? new Date(paidUntil).toISOString() : null,
         paidUntilLabel: paidUntil !== null ? formatIstDate(paidUntil) : null,
         daysLeft,
@@ -4784,7 +4808,7 @@ app.get('/api/billing/status/:familyId', async (req, res) => {
       };
     });
     res.set('Cache-Control', 'no-store');
-    res.json({ children, plans: Object.entries(PAID_PLANS).map(([key, p]) => ({ key, label: p.label, amount: p.amountPaise / 100 })) });
+    res.json({ children, plans: Object.entries(PAID_PLANS).map(([key, p]) => ({ key, tier: p.tier, label: p.label, amount: p.amountPaise / 100, buyable: planBuyable(p) })) });
   } catch (err) {
     console.error('Billing status error:', err);
     res.status(500).json({ error: 'Could not load plan status' });
@@ -6811,6 +6835,8 @@ registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 // TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.
 partnerRoutes = registerPartnerRoutes(app, { supabase, rateLimit, getSession, sendSessionExpired, requireAdmin, cronAuthorized, isTestFamily });
 registerElRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, checkFreeLimit, freeLimitMessage, trackSessionStarted, trackSessionCompleted });
+// Singapore Maths Method (TUT-43): server/routes/singapore-maths.js.
+registerSingaporeMathsRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, requireAdmin, tierForStudent, trackSessionStarted, trackSessionCompleted, trackSgmathEvent });
 
 // ------------------------------------------------------------------
 // Homework illustration — step 1 of the "show the problem as a picture"

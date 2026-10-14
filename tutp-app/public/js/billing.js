@@ -108,6 +108,16 @@
     (plans.length ? plans : [{ key: 'pro_monthly', label: 'Pro · ₹500/month (incl. GST)' }]).forEach(function (p) {
       var b = el('button', 'display:block;width:100%;margin:0 0 8px;padding:12px;border-radius:12px;border:2px solid #005bbf;background:#fff;color:#004a9c;font:inherit;font-size:15px;font-weight:700;cursor:pointer;', p.label);
       b.type = 'button';
+      b.setAttribute('data-plan', p.key);
+      if (p.buyable === false) {
+        // Not for sale yet (MAX_ON_SALE off): shown, nothing to click.
+        b.textContent = p.label + ' · Coming soon';
+        b.disabled = true;
+        b.style.opacity = '0.6';
+        b.style.cursor = 'default';
+        card.appendChild(b);
+        return;
+      }
       b.addEventListener('click', function () { checkout(studentId, p.key, status); });
       card.appendChild(b);
     });
