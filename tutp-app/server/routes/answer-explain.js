@@ -24,6 +24,7 @@ import { pictureRule, contextPictureKey } from '../picture-rule.js';
 import { explainView } from '../tier-gate.js';
 import { boardKind } from '../answer-marks.js';
 import { callClaude } from '../anthropic.js';
+import { stepTimer } from '../step-timer.js';
 import { MODELS, modelSettings } from '../models.js';
 import { replayMode, returnsRecordings } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
@@ -130,6 +131,13 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
 
   app.post('/api/explain-please', async (req, res) => {
     if (!answerV2Enabled(req)) return off(res);
+    // Step times as one JSON line (Cloud Run splits a multi-line log into one entry per line).
+    const timer = stepTimer();
+    const timing = { cache: null, lang: null, modelCalls: 0 };
+    res.on('finish', () => console.log(JSON.stringify({
+      msg: 'explain: timing', status: res.statusCode, cache: timing.cache, language: timing.lang,
+      steps: timer.summary(), total_ms: timer.total(),
+    })));
     const ov = e2eOverrides(req);
     // e2e only: every run gets its own cache and picture rows.
     const keyed = (k) => (ov.keySuffix ? k.slice(0, 50).replace(/-+$/, '') + '-' + ov.keySuffix : k);
@@ -141,12 +149,16 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       if (!session) return sendSessionExpired(res);
       const own = await requireOwnStudent(req, res, body.studentId);
       if (!own) return;
+      timer.mark('session');
       const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+      timing.lang = lang;
       explainLimiter(req, res, async () => {
         try {
           const studentId = body.studentId;
           const paid = await isPaid(studentId);
+          timer.mark('paid');
           const ctx = await loadStudentContext(supabase, studentId);
+          timer.mark('context');
           const subject = typeof body.subject === 'string' ? body.subject.slice(0, 60) : '';
           const given = typeof body.concept_key === 'string' && KEY_RE.test(body.concept_key) && verifyConceptKey(body.concept_key, body.concept_sig) ? body.concept_key : '';
 
@@ -166,6 +178,8 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           const testFamily = await isTestFamily(session.familyId);
           const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
           const cost = { usd: 0 };
+          timing.cache = cache;
+          timer.mark('cache');
           if (!explain) {
             if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
             const childContext = ctx.name ? ctx.name + (ctx.cls ? ' · ' + ctx.cls : '') : 'your child';
@@ -174,12 +188,16 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             const baseContent = [{ type: 'text', text: explainUserText(question) }];
             let attempts = 0;
             const callModel = async (extra) => {
-              const r = await callClaude({
-                feature: 'explain_v2', variant: lang, attempt: ++attempts, familyId: session.familyId, studentId,
-                mode: replay.mode, recordings: replay.recordings, cost,
-                body: explainRequestBody({ system, content: baseContent, hint: extra }),
-              });
-              return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
+              try {
+                const r = await callClaude({
+                  feature: 'explain_v2', variant: lang, attempt: ++attempts, familyId: session.familyId, studentId,
+                  mode: replay.mode, recordings: replay.recordings, cost,
+                  body: explainRequestBody({ system, content: baseContent, hint: extra }),
+                });
+                return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
+              } finally {
+                timer.mark('model' + (++timing.modelCalls));
+              }
             };
             const extras = (out) => {
               if (!testFamily) return out;
@@ -222,6 +240,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
               const { data: stored } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
               if (stored && stored.payload) explain = stored.payload;
             }
+            timer.mark('cache_write');
             res.locals.extras = extras;
           }
           res.set('X-Explain-Cache', cache);
@@ -238,6 +257,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           else if (rule === 'context' && pictureKey) illustration = await pictures.request({ key: pictureKey, scene: mathsScenePrompt(explain.illustration.scene_prompt, explain.concept_key), env: imageEnv(ov) });
           let kg = null;
           if (paid) kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
+          timer.mark('picture');
           // The mark, the answer line and the diagram come from the engine, never from the model.
           const checked = explain.checked === true && !!parsed;
           const extra = {
