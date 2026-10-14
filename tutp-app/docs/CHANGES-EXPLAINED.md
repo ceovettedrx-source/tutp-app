@@ -1,6 +1,8 @@
 # Changes explained
 
-## 2026-10-14 - TUT-43 and TUT-59 status: built, specs green, not live
+## 2026-10-14 - TUT-43 and TUT-59 LIVE on tutp-demo-00467-jal (TUT-45 ships in the same revision, Max still off)
+
+Live: traffic moved by Vet to `tutp-demo-00467-jal` (verified 100%, `pdftest` on it too), which adds the original Singapore Maths badge on the three dashboard cards and the page header to the `00464-joh` build. The notes below are from before go-live.
 
 - TUT-43: `singapore-maths.spec.js` s0-s7 and `max-plan.spec.js` m1-m3 pass on the no-traffic preview `tutp-demo-00463-geb` (E2E_REPLAY=1). The same image, without E2E_REPLAY and with ANSWER_V2_ENABLED=1, is `tutp-demo-00464-joh` (tag `tut43`, 0% traffic, flag parity with `00456-rov`: 0 differences). It carries TUT-45 and TUT-43 together. Production is still `00456-rov`.
 - TUT-59 (login on previews): a test number (+91 99999 0000[1-9]) on a tagged preview host (`---tutp-demo-`) skips the reCAPTCHA check so the e2e suite can sign in; real numbers and `tutp.online` are unchanged. Decision function and unit test: `public/app/shared/phone-auth-testing.js`, `tests/unit/phone-auth-testing.test.js`.
