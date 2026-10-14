@@ -1,6 +1,6 @@
 # Changes explained
 
-## 2026-10-14 - TUT-42 Parent dashboard redesign (built, not live yet; carries TUT-56)
+## 2026-10-14 - TUT-42 Parent dashboard redesign (LIVE on tutp-demo-00480-naj; carries TUT-56)
 
 **What changes for parents**
 - On the phone the dashboard now starts with what parents use daily: a short welcome, then Homework Help, then today's homework, then the Bonding card and Singapore Maths, then This Week's Goal, then "Learn together" (Storytelling, Experiential, Play-Based, Library, Explore Subjects), the tutor card and the Live Session card.
@@ -69,7 +69,7 @@ Live: traffic moved by Vet to `tutp-demo-00467-jal` (verified 100%, `pdftest` on
 
 **Tests**: 14 unit tests for the tier walk and plan table (`tests/unit/tier-for-student.test.js`); `tests/e2e/max-plan.spec.js` m1-m3 (Max not buyable, checkout 400, chooser shows Coming soon). Four old unit failures in `explain-on-photo.test.js` (HEIC) fail the same on main.
 
-## 2026-10-13 - TUT-56 Bonding card: a calm card, the detail in the full report (built, not live yet)
+## 2026-10-13 - TUT-56 Bonding card: a calm card, the detail in the full report (LIVE on tutp-demo-00480-naj, with TUT-42)
 
 **What was wrong**
 - The Bonding Report card on the mother, father and family-member dashboards carried too much: a subtitle, the score, a line, a row of answer chips (days a week, meals, activity icons, trip days a year) and a link. It was copied by hand into three pages. When a score was N/A the card said only "Not enough data yet" and nothing explained it.
