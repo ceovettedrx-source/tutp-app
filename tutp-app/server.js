@@ -41,6 +41,7 @@ import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { initModelCost } from './server/model-cost.js';
+import { initLanguage, resolveLanguage } from './server/language.js';
 import { initModelAlert } from './server/model-alert.js';
 import { runModelHealth, modelHealthHandler } from './server/model-health.js';
 import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
@@ -298,6 +299,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   });
   initTracking(supabase);
   initModelCost(supabase);
+  initLanguage(supabase);
   initTestFamilies(supabase);
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
@@ -6568,7 +6570,9 @@ app.post('/api/homework', async (req, res) => {
     if (!PROMPT_FEATURES.includes(feature)) {
       return res.status(400).json({ error: 'unsupported_feature' });
     }
-    const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+    // One language for this whole request: the page's, else the family's last, else English.
+    const { language: lang } = await resolveLanguage({ requested: body.language, session });
+    res.set('X-Language', lang);
     const { data: studentRow, error: studentErr } = await supabase
       .from('students').select('name, class').eq('id', studentId).maybeSingle();
     if (studentErr) throw studentErr;

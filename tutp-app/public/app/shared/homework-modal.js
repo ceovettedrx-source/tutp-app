@@ -90,7 +90,37 @@
             if (window.TutpChips) TutpChips.open(hwCurrentMode);
             document.getElementById('homeworkExplainModal').classList.remove('hidden');
             loadHomeworkModalChildContext();
+            hwShowResolvedLanguage();
         }
+        // "Explaining in: <language>": the server's one rule (the language last used, else English)
+        // fills the "Explain in" list when the parent has not picked one in this modal; whatever
+        // the list shows is what is sent, and what the note next to the button says.
+        let hwLangPicked = false;
+        function hwSyncLangNote(){
+            const sel = document.getElementById('hwModalLang');
+            const name = document.getElementById('hwModalLangNoteName');
+            if (sel && name) name.textContent = sel.value;
+        }
+        async function hwShowResolvedLanguage(){
+            const sel = document.getElementById('hwModalLang');
+            if (!sel) return;
+            if (!hwLangPicked) {
+                try {
+                    const res = await fetch('/api/language');
+                    if (res.ok) {
+                        const r = await res.json();
+                        if (!hwLangPicked && r && Array.prototype.some.call(sel.options, function(o){ return o.value === r.language; })) sel.value = r.language;
+                    }
+                } catch (e) { /* the list keeps what it shows */ }
+            }
+            hwSyncLangNote();
+        }
+        document.getElementById('hwModalLang').addEventListener('change', function(){ hwLangPicked = true; hwSyncLangNote(); });
+        document.getElementById('hwModalLangChange').addEventListener('click', function(){
+            const sel = document.getElementById('hwModalLang');
+            sel.scrollIntoView({ block: 'center' });
+            sel.focus();
+        });
         function closeHomeworkModal(){
             clearHwPointer();
             document.getElementById('homeworkExplainModal').classList.add('hidden');

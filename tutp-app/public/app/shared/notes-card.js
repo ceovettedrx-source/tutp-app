@@ -137,11 +137,8 @@ window.TUTP_NOTES_MESSAGES = {
 }`;
 
     function uiLang(requested) {
-        if (requested && MSG[requested]) return requested;
-        try { const s = localStorage.getItem('tutp_ui_lang'); if (s && MSG[s]) return s; } catch (e) {}
-        const prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
-        for (const p of prefs) { const b = String(p).toLowerCase().split('-')[0]; if (MSG[b]) return b; }
-        return 'en';
+        // The language asked for, else English: never the browser's language (card content follows "Explain in").
+        return requested && MSG[requested] ? requested : 'en';
     }
 
     function injectStyle() {

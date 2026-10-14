@@ -84,26 +84,13 @@ window.TUTP_CHIP_MESSAGES = {
     // The explanation language the parent picked ("Explain in"): what the
     // notes are written in, and what is logged.
     const lang = () => ($('hwModalLang') && $('hwModalLang').value) || 'English';
-    // The language of the chip text itself, picked the way auth-messages.js
-    // does it: tutp_ui_lang if set, else the browser's languages, else en.
     const MSG = window.TUTP_CHIP_MESSAGES;
-    function uiLang() {
-        try {
-            const saved = localStorage.getItem('tutp_ui_lang');
-            if (saved && MSG[saved]) return saved;
-        } catch (e) {}
-        const prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
-        for (const p of prefs) {
-            const base = String(p).toLowerCase().split('-')[0];
-            if (MSG[base]) return base;
-        }
-        return 'en';
-    }
     // The language of the chip row and the notes card headings: the "Explain
-    // in" language when we have text for it, else the page's UI language,
-    // else English (labelFor falls back to English per key).
+    // in" language when we have text for it, else English (labelFor falls
+    // back to English per key).
     const CARD_LANG = { English: 'en', Telugu: 'te', Hindi: 'hi' };
-    const chipLang = () => CARD_LANG[lang()] || uiLang();
+    // Never the browser's language: card content follows the "Explain in" language only.
+    const chipLang = () => CARD_LANG[lang()] || 'en';
     const labelFor = (key) => (MSG[chipLang()] && MSG[chipLang()][key]) || MSG.en[key] || key;
 
     function loadConfig() {
