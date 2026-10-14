@@ -43,7 +43,7 @@ SERVICE=tutp-demo
 # IMAGE_GEN_ENABLED=1 and the GEMINI_IMAGE_API_KEY binding turn the concept
 # pictures on (docs/specs/img1.md); without the key a picture falls back to the
 # SVG diagram or nothing, so a missing secret never breaks an answer.
-gcloud run deploy "$SERVICE" --source . --region="$REGION" --update-env-vars=ANSWER_V2_ENABLED=1,IMAGE_GEN_ENABLED=1 --update-secrets=GEMINI_IMAGE_API_KEY=gemini-imagelib-key:latest
+gcloud run deploy "$SERVICE" --source . --region="$REGION" --min-instances=1 --cpu-boost --update-env-vars=ANSWER_V2_ENABLED=1,IMAGE_GEN_ENABLED=1 --update-secrets=GEMINI_IMAGE_API_KEY=gemini-imagelib-key:latest
 
 # Identify the revision this deploy actually just created — independently
 # of gcloud run deploy's own (unreliable, in pinned-traffic mode) summary,
