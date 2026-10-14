@@ -281,18 +281,6 @@
 </div>
 </section>
 
-<section id="tpHomework" class="tp-anchor space-y-3" data-feature="homework">
-<a class="dc-hero dc-hero--blue" href="#" onclick="openHomeworkModal(); return false;">
-<div class="dc-hero__copy">
-<span class="dc-chip dc-chip--on-dark"><span class="material-symbols-outlined">school</span></span>
-<h3 class="dc-hero__title">Homework Help</h3>
-<p class="dc-hero__text">Get a simple explanation of tonight's homework, in your language.</p>
-<div class="dc-hero__pills"><span class="dc-pill"><span class="material-symbols-outlined">photo_camera</span>Photo or PDF</span><span class="dc-pill"><span class="material-symbols-outlined">translate</span>Your language</span></div>
-</div>
-<div class="dc-hero__side dc-hero__side--cta"><span class="dc-btn dc-btn--white">Get Homework Help<span class="material-symbols-outlined">arrow_forward</span></span></div>
-</a>
-</section>
-
 <section class="relative w-full z-10" data-feature="activities">
 <div class="absolute inset-0 bg-primary/5 rounded-full blur-xl -z-10"></div>
 <div class="relative bg-surface-container-lowest rounded-full shadow-[0_8px_30px_rgba(0,91,192,0.12)] border border-primary/10 flex items-center p-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
@@ -317,6 +305,40 @@
 </div>
 </section>
 
+<section class="space-y-3" aria-label="Help tonight">
+<h2 class="font-headline text-xl text-on-surface">Help tonight</h2>
+<div class="tp-panels tp-panels--4">
+<button type="button" id="tpHomework" class="tp-panel tp-panel--sky tp-anchor" onclick="openHomeworkModal()" data-feature="homework">
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><rect x="16" y="14" width="46" height="64" rx="5"/><path d="M26 30h26M26 40h26M26 50h16"/><path d="M58 66l20-30 8 6-20 30-10 4z"/><path d="M74 42l8 6"/><circle cx="74" cy="22" r="6"/><path d="M66 14h16v4"/></svg>
+<h3 class="tp-panel__title">Homework Help</h3>
+<p class="tp-panel__lead">Tonight's homework, made simple.</p>
+<p class="tp-panel__text">Send a photo or PDF and get a clear explanation in your language.</p>
+<span class="tp-pill">Get homework help</span>
+</button>
+<button type="button" class="tp-panel tp-panel--lilac" onclick="openStorytellingModal()" data-feature="activities">
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><path d="M14 26c10-4 22-4 34 4v46c-12-8-24-8-34-4z"/><path d="M82 26c-10-4-22-4-34 4v46c12-8 24-8 34-4z"/><path d="M48 30v46"/><path d="M22 38c6-2 12-1 18 2M22 48c6-2 12-1 18 2M56 40c6-3 12-4 18-2M56 50c6-3 12-4 18-2"/><path d="M74 10l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+<h3 class="tp-panel__title">Storytelling Method</h3>
+<p class="tp-panel__lead">Lessons your child remembers.</p>
+<p class="tp-panel__text">Turn tonight's lesson into a short story you read together, in your language.</p>
+<span class="tp-pill">Start a story</span>
+</button>
+<button type="button" class="tp-panel tp-panel--stone" onclick="openExperientialModal()" data-feature="activities">
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><path d="M38 12h20M42 12v24L22 74a8 8 0 0 0 7 12h38a8 8 0 0 0 7-12L54 36V12"/><path d="M30 62h36"/><circle cx="42" cy="72" r="3"/><circle cx="55" cy="68" r="2"/><path d="M70 30c8-8 16-6 16-6s2 8-6 16c-5 5-11 4-11 4s-4-9 1-14z"/><path d="M69 44l12-15"/></svg>
+<h3 class="tp-panel__title">Experiential Learning</h3>
+<p class="tp-panel__lead">Learn it by doing it.</p>
+<p class="tp-panel__text">Attach a lesson and get a small activity to try at home with things you already have.</p>
+<span class="tp-pill">Try an activity</span>
+</button>
+<button type="button" class="tp-panel tp-panel--sage" onclick="openPlayModal()" data-feature="activities">
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><rect x="12" y="34" width="34" height="34" rx="6" transform="rotate(-12 29 51)"/><rect x="50" y="22" width="34" height="34" rx="6" transform="rotate(10 67 39)"/><circle cx="24" cy="46" r="2.5"/><circle cx="34" cy="58" r="2.5"/><circle cx="60" cy="31" r="2.5"/><circle cx="67" cy="39" r="2.5"/><circle cx="74" cy="47" r="2.5"/><path d="M30 80h36M48 72v16"/></svg>
+<h3 class="tp-panel__title">Play-Based Learning</h3>
+<p class="tp-panel__lead">A game the whole family plays.</p>
+<p class="tp-panel__text">Take turns answering questions from your child's lessons. Up to 4 players, each on their own phone.</p>
+<span class="tp-pill">Play together</span>
+</button>
+</div>
+</section>
+
 <section class="space-y-3" data-feature="homework">
 <h2 class="font-headline text-xl text-on-surface">Today's homework</h2>
 <div class="hidden bg-secondary-container/20 text-on-surface rounded-2xl p-4 flex items-center gap-2" id="homeworkPendingBanner">
@@ -328,95 +350,86 @@
 </div>
 </section>
 
-<section class="dc-grid dc-grid--2" aria-label="Your progress">
-<div class="bg-surface-container-low rounded-2xl p-5 border border-outline-variant/15 w-full" id="bondingReportSection" data-feature="bonding_report">
+<section class="space-y-3" aria-label="Your child's progress">
+<h2 class="font-headline text-xl text-on-surface">Your child's progress</h2>
+<div class="tp-cards">
+<div class="tp-card" id="bondingReportSection" data-feature="bonding_report">
 <!-- Filled by /js/bonding-card.js (shared by the three dashboards) -->
 </div>
-<div class="dc-card tp-anchor" id="sgmathCard" data-role="family-member" data-feature="activities">
-<div class="dc-card__head">
-<img src="/images/sgmath/badge.svg" alt="" width="60" height="70" style="flex:none;width:60px;height:70px;">
-<div><p class="dc-eyebrow">Daily practice</p><h3 class="dc-title">Singapore Maths Method</h3></div>
-</div>
-<p class="dc-text">Word problems seen as pictures, then solved. 10 minutes a day, grades 1 to 6.</p>
+<div class="tp-card" id="sgmathCard" data-role="family-member" data-feature="activities">
+<span class="tp-seal tp-seal--navy"><span class="material-symbols-outlined">view_week</span></span>
+<p class="tp-card__eye">Daily practice</p>
+<h3 class="tp-card__title">Singapore Maths</h3>
+<p class="tp-card__text">Word problems as pictures, then solved. 10 minutes a day, classes 1 to 6.</p>
 <div id="sgmathProgress" hidden></div>
-<div class="dc-card__foot"><a class="dc-btn dc-btn--blue" id="sgmathStart" href="/app/singapore-maths/?from=family-member">Start session</a><span id="sgmathExtra"></span></div>
+<div class="tp-card__foot"><a class="tp-btn" id="sgmathStart" href="/app/singapore-maths/?from=family-member">Start session</a><span id="sgmathExtra"></span></div>
 </div>
-</section>
-
-<section class="dc-grid dc-grid--2">
-<div class="dc-card" data-feature="activities">
-<div class="dc-card__head">
-<span class="tp-seal tp-seal--saffron"><span class="material-symbols-outlined">flag</span></span>
-<div><p class="dc-eyebrow">Family progress</p><h3 class="dc-title">This Week's Goal</h3></div>
+<div class="tp-card tp-card--soon" data-feature="homework">
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">rocket_launch</span></span>
+<p class="tp-card__eye">Next lesson</p>
+<h3 class="tp-card__title">Continue Learning</h3>
+<p class="tp-card__text">Pick up right where your child left off.</p>
+<div class="tp-card__foot"><button type="button" class="tp-link" onclick="openHomeworkModal()">Use Homework Help<span class="material-symbols-outlined">arrow_forward</span></button></div>
 </div>
-<div class="dc-goal">
+<div class="tp-card" data-feature="activities">
+<span class="tp-seal tp-seal--green"><span class="material-symbols-outlined">flag</span></span>
+<p class="tp-card__eye">This week</p>
+<h3 class="tp-card__title">This Week's Goal</h3>
+<div class="tp-goal">
 <div class="dc-ring" id="weeklyGoalRing" role="img" aria-label="Sessions completed this week">
 <svg viewBox="0 0 100 100" aria-hidden="true"><circle class="dc-ring__track" cx="50" cy="50" r="45"></circle><circle class="dc-ring__bar" id="weeklyGoalBar" cx="50" cy="50" r="45"></circle></svg>
 <div class="dc-ring__center"><span class="dc-ring__count" id="weeklyGoalCount">…</span><span class="dc-ring__of" id="weeklyGoalOf"></span></div>
 </div>
-<p class="dc-text" id="weeklyGoalMsg">Loading this week's sessions…</p>
+<p class="tp-card__text" id="weeklyGoalMsg">Loading this week's sessions…</p>
 </div>
-<div class="dc-stat-row">
+<div class="tp-card__stat">
 <span class="dc-stat-row__label"><span class="material-symbols-outlined" style="font-size:20px;color:#005bbf">fact_check</span><span>Homework completion<br><span class="text-xs">(last 14 days)</span></span></span>
 <span class="dc-stat-row__value" id="completionTileValue"><span class="inline-block w-16 h-8 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
 </div>
+<div class="tp-card__foot"><a class="tp-link" href="#tpHomework">Start a session<span class="material-symbols-outlined">arrow_forward</span></a></div>
 </div>
-<div class="dc-card dc-card--soon" data-feature="homework">
-<div class="dc-card__head">
-<span class="tp-seal tp-seal--plum"><span class="material-symbols-outlined">event</span></span>
-<div><p class="dc-eyebrow">Live class</p><h3 class="dc-title">Upcoming Live Session</h3></div>
-<span class="dc-badge-soon"><span class="material-symbols-outlined">schedule</span>Coming soon</span>
-</div>
-<p class="dc-text">Live classes with verified tutors, booked from here. We're still building this.</p>
-<div class="dc-card__foot"><a class="dc-link" href="/tutors">Meanwhile, find a tutor near you<span class="material-symbols-outlined">arrow_forward</span></a></div>
 </div>
 </section>
 
-<section class="space-y-3" aria-label="Learn together" data-feature="activities">
-<h2 class="font-headline text-xl text-on-surface">Learn together</h2>
-<div class="tp-panels">
-<button type="button" class="tp-panel tp-panel--lilac" onclick="openStorytellingModal()">
-<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><path d="M14 26c10-4 22-4 34 4v46c-12-8-24-8-34-4z"/><path d="M82 26c-10-4-22-4-34 4v46c12-8 24-8 34-4z"/><path d="M48 30v46"/><path d="M22 38c6-2 12-1 18 2M22 48c6-2 12-1 18 2M56 40c6-3 12-4 18-2M56 50c6-3 12-4 18-2"/><path d="M74 10l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
-<h3 class="tp-panel__title">Storytelling Method</h3>
-<p class="tp-panel__lead">Lessons your child remembers.</p>
-<p class="tp-panel__text">Turn tonight's lesson into a short story you read together, in your language.</p>
-<span class="tp-pill">Start a story</span>
-</button>
-<button type="button" class="tp-panel tp-panel--stone" onclick="openExperientialModal()">
-<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><path d="M38 12h20M42 12v24L22 74a8 8 0 0 0 7 12h38a8 8 0 0 0 7-12L54 36V12"/><path d="M30 62h36"/><circle cx="42" cy="72" r="3"/><circle cx="55" cy="68" r="2"/><path d="M70 30c8-8 16-6 16-6s2 8-6 16c-5 5-11 4-11 4s-4-9 1-14z"/><path d="M69 44l12-15"/></svg>
-<h3 class="tp-panel__title">Experiential Learning</h3>
-<p class="tp-panel__lead">Learn it by doing it.</p>
-<p class="tp-panel__text">Attach a lesson and get a small activity to try at home with things you already have.</p>
-<span class="tp-pill">Try an activity</span>
-</button>
-<button type="button" class="tp-panel tp-panel--sage" onclick="openPlayModal()">
-<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><rect x="12" y="34" width="34" height="34" rx="6" transform="rotate(-12 29 51)"/><rect x="50" y="22" width="34" height="34" rx="6" transform="rotate(10 67 39)"/><circle cx="24" cy="46" r="2.5"/><circle cx="34" cy="58" r="2.5"/><circle cx="60" cy="31" r="2.5"/><circle cx="67" cy="39" r="2.5"/><circle cx="74" cy="47" r="2.5"/><path d="M30 80h36M48 72v16"/></svg>
-<h3 class="tp-panel__title">Play-Based Learning</h3>
-<p class="tp-panel__lead">A game the whole family plays.</p>
-<p class="tp-panel__text">Take turns answering questions from your child's lessons. Up to 4 players, each on their own phone.</p>
-<span class="tp-pill">Play together</span>
-</button>
+<section class="space-y-3" aria-label="More for your family">
+<h2 class="font-headline text-xl text-on-surface">More for your family</h2>
+<div class="tp-cards">
+<div class="tp-card tp-card--soon" data-feature="activities">
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">library_books</span></span>
+<p class="tp-card__eye">Read together</p>
+<h3 class="tp-card__title">Family Library</h3>
+<p class="tp-card__text">Books and stories to read together.</p>
+<div class="tp-card__foot"><button type="button" class="tp-link" onclick="openStorytellingModal()">Try Storytelling<span class="material-symbols-outlined">arrow_forward</span></button></div>
 </div>
-<div class="dc-grid dc-grid--2">
-<div class="dc-card dc-card--soon" data-feature="activities">
-<div class="dc-card__head">
-<span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">library_books</span></span>
-<h3 class="dc-title">Family Library</h3>
-<span class="dc-badge-soon"><span class="material-symbols-outlined">schedule</span>Coming soon</span>
+<div class="tp-card" aria-label="Tutors">
+<span class="tp-seal tp-seal--teal"><span class="material-symbols-outlined">person_search</span></span>
+<p class="tp-card__eye">Tutors</p>
+<h3 class="tp-card__title">Need a tutor?</h3>
+<p class="tp-card__text">Verified Maths and Science tutors near you. ₹100 one-time connect fee.</p>
+<div class="tp-card__foot"><a class="tp-btn" href="/tutors">Find a tutor</a></div>
 </div>
-<p class="dc-text">Curated books and stories to read together. We're still building this.</p>
-<div class="dc-card__foot"><button class="dc-link" onclick="openStorytellingModal()">Meanwhile, try Storytelling<span class="material-symbols-outlined">arrow_forward</span></button></div>
+<div class="tp-card tp-card--soon" data-feature="activities">
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">smart_display</span></span>
+<p class="tp-card__eye">Videos</p>
+<h3 class="tp-card__title">YouTube Channel</h3>
+<p class="tp-card__text">Videos for the lesson you upload.</p>
+<div class="tp-card__foot"><button type="button" class="tp-link" onclick="openHomeworkModal()">Use Homework Help<span class="material-symbols-outlined">arrow_forward</span></button></div>
 </div>
-<div class="dc-card dc-card--soon" data-feature="homework">
-<div class="dc-card__head">
-<span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">rocket_launch</span></span>
-<h3 class="dc-title">Continue Learning</h3>
-<span class="dc-badge-soon"><span class="material-symbols-outlined">schedule</span>Coming soon</span>
-</div>
-<p class="dc-text">Pick up right where your child left off. Subject-wise progress needs a lesson library we're still building.</p>
-<div class="dc-card__foot"><button class="dc-link" onclick="openHomeworkModal()">Meanwhile, use Homework Help<span class="material-symbols-outlined">arrow_forward</span></button></div>
+<div class="tp-card tp-card--soon" data-feature="homework">
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">event</span></span>
+<p class="tp-card__eye">Live class</p>
+<h3 class="tp-card__title">Upcoming Live Session</h3>
+<p class="tp-card__text">Live classes with verified tutors.</p>
+<div class="tp-card__foot"><a class="tp-link" href="/tutors">Find a tutor<span class="material-symbols-outlined">arrow_forward</span></a></div>
 </div>
 </div>
+</section>
+
+<section class="space-y-3" aria-label="Explore subjects" data-feature="activities">
 <div class="dc-card dc-card--soon dc-card--compact" id="exploreSubjectsSection" data-feature="activities">
 <div class="dc-card__head">
 <span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">explore</span></span>
@@ -430,7 +443,6 @@
 </div>
 </section>
 
-
 <section class="space-y-3" aria-label="Safe and simple">
 <h2 class="font-headline text-xl text-on-surface">Safe and simple for your family</h2>
 <div class="tp-trust">
@@ -441,19 +453,7 @@
 </div>
 </section>
 
-<section aria-label="Tutors">
-<a class="dc-hero dc-hero--green" href="/tutors">
-<div class="dc-hero__copy">
-<span class="dc-chip dc-chip--marigold-dark"><span class="material-symbols-outlined">person_search</span></span>
-<h3 class="dc-hero__title">Need a Maths or Science tutor near you?</h3>
-<p class="dc-hero__text">Verified tutors, ₹100 one-time connect fee — no agency markup, real conversations, not video subscriptions.</p>
-</div>
-<div class="dc-hero__side">
-<img class="dc-photo" src="/images/tutor-tile.webp" width="448" height="524" loading="lazy" decoding="async" alt="A parent helping their child with schoolwork at home">
-<span class="dc-btn dc-btn--marigold">Browse Verified Tutors<span class="material-symbols-outlined">arrow_forward</span></span>
-</div>
-</a>
-</section>
+
 
 
 

@@ -27,7 +27,7 @@ const log = (...a) => console.log('[e2e dashboard-items]', ...a);
 const ITEMS = ['tpTop', 'billingStatus', 'childChipsRow', 'tpHomework', 'searchAttachMenu', 'homeworkPendingBanner', 'homeworkList',
   'bondingReportSection', 'sgmathCard', 'sgmathStart', 'weeklyGoalRing', 'completionTileValue', 'exploreSubjectsSection',
   'searchAttachChooser', 'examComingSoonModal', 'homeworkExplainModal', 'playModal', 'experientialModal', 'headerAvatarInitial', 'sidebarFamilyList'];
-const HEADINGS = ['Homework Help', "Today's homework", 'Singapore Maths Method', "This Week's Goal", 'Learn together', 'Family Library', 'Explore Subjects', 'Continue Learning', 'Need a Maths or Science tutor near you?', 'Upcoming Live Session'];
+const HEADINGS = ['Help tonight', 'Homework Help', 'Storytelling Method', 'Experiential Learning', 'Play-Based Learning', "Today's homework", "Your child's progress", 'Singapore Maths', 'Continue Learning', "This Week's Goal", 'More for your family', 'Family Library', 'Need a tutor?', 'YouTube Channel', 'Upcoming Live Session', 'Explore Subjects', 'Safe and simple for your family'];
 const MEMBER_FEATURE = { bondingReportSection: 'bonding_report', sgmathCard: 'activities', exploreSubjectsSection: 'activities', tpHomework: 'homework' };
 
 async function record(id, name, fn, page) {
@@ -118,7 +118,7 @@ async function login(page, digits, want) {
     const order = [];
     for (const id of ['tpHomework', 'homeworkList', 'bondingReportSection', 'sgmathCard', 'weeklyGoalRing']) order.push(await top(id));
     if (order.some((y) => y < 0)) throw new Error('an item is missing: ' + order);
-    for (let i = 1; i < order.length; i++) if (!(order[i] > order[i - 1])) throw new Error('order wrong: ' + order.join(' < '));
+    for (let i = 1; i < order.length; i++) if (!(order[i] >= order[i - 1])) throw new Error('order wrong: ' + order.join(' <= '));   // cards in one row share a top
     if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) throw new Error('page scrolls sideways');
     const nav = await page.$$eval('nav.tp-nav a', (as) => as.map((a) => a.textContent.trim()));
     for (const w of ['Home', 'Homework', 'Practice', 'Family']) if (!nav.some((n) => n.endsWith(w))) throw new Error('bottom bar lacks ' + w + ': ' + nav);
@@ -130,8 +130,11 @@ async function login(page, digits, want) {
   await record('d5', 'search Enter opens Homework Help; Practice tab reaches Singapore Maths', async () => {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.evaluate(() => document.querySelector('nav.tp-nav a[href="#sgmathCard"]').click());
-    await page.waitForTimeout(1200);
-    const y = await page.evaluate(() => document.getElementById('sgmathCard').getBoundingClientRect().top);
+    let y = 9999;
+    for (let i = 0; i < 20 && (y < 0 || y > 400); i++) {   // smooth scroll: wait until it lands (max 4 s)
+      await page.waitForTimeout(200);
+      y = await page.evaluate(() => document.getElementById('sgmathCard').getBoundingClientRect().top);
+    }
     if (y < 0 || y > 400) throw new Error('Practice tab left Singapore Maths at ' + Math.round(y) + ' px');
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.focus('input[aria-label="Ask about homework"]');

@@ -141,10 +141,11 @@
   // ---- card -------------------------------------------------------------
   function buildCard() {
     section.textContent = '';
-    var h3 = el('h3', 'font-label font-semibold text-on-surface flex items-center gap-2 mb-3');
-    var chip = el('span', 'inline-flex items-center justify-center rounded-full bg-white shrink-0 border border-outline-variant/30');
-    chip.style.width = '28px';
-    chip.style.height = '28px';
+    // TUT-42: the same card family as the other dashboard cards (seal, small label,
+    // title, the value, one line, the action at the bottom). The seal stays light with
+    // the bonding icon in it (bonding.spec.js checks the icon and a light chip).
+    var h3 = el('h3', 'tp-card__head');
+    var chip = el('span', 'tp-seal-light');
     var img = document.createElement('img');
     img.src = '/assets/icons/bonding-small.svg';
     img.alt = '';
@@ -152,29 +153,30 @@
     img.height = 22;
     chip.appendChild(img);
     h3.appendChild(chip);
-    h3.appendChild(el('span', 'bc-title', t('title')));
+    h3.appendChild(el('span', 'tp-card__eye', 'Bonding'));
+    h3.appendChild(el('span', 'bc-title tp-card__title', t('title')));
     section.appendChild(h3);
 
-    var row = el('div', 'flex items-end justify-between gap-3 mb-4');
-    valueEl = el('span', 'font-headline text-3xl text-on-surface shrink-0');
+    valueEl = el('span', 'tp-card__big');
     valueEl.id = 'bondingScoreValue';
     var sk = el('span', 'inline-block w-16 h-9 bg-surface-variant rounded-lg animate-pulse align-middle');
     valueEl.appendChild(sk);
-    gapEl = el('p', 'font-body text-xs text-on-surface-variant text-right', t('loading'));
+    section.appendChild(valueEl);
+    gapEl = el('p', 'tp-card__text', t('loading'));
     gapEl.id = 'bondingGapText';
-    row.appendChild(valueEl);
-    row.appendChild(gapEl);
-    section.appendChild(row);
+    section.appendChild(gapEl);
 
-    var btn = el('button', 'text-primary font-label text-sm font-medium hover:underline inline-flex items-center gap-1');
+    var foot = el('div', 'tp-card__foot');
+    var btn = el('button', 'tp-link');
     btn.type = 'button';
     btn.id = 'bondingViewFull';
     btn.appendChild(document.createTextNode(t('viewFull') + ' '));
-    var arrow = el('span', 'material-symbols-outlined text-sm', 'arrow_forward');
+    var arrow = el('span', 'material-symbols-outlined', 'arrow_forward');
     arrow.setAttribute('aria-hidden', 'true');
     btn.appendChild(arrow);
     btn.addEventListener('click', openReport);
-    section.appendChild(btn);
+    foot.appendChild(btn);
+    section.appendChild(foot);
   }
 
   function paintCard() {
