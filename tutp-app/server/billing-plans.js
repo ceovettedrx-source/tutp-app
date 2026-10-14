@@ -38,9 +38,12 @@ export function endOfIstDay(ms) {
 export function paymentSegments(capturedPayments) {
   const sorted = capturedPayments
     .map(p => ({
+      id: p.id,
       at: Date.parse(p.captured_at || p.updated_at),
       days: Number(p.period_days) || 30,
-      tier: p.tier || 'pro'
+      tier: p.tier || 'pro',
+      amountPaise: Number(p.amount) || 0,
+      supersededAt: p.superseded_at ? Date.parse(p.superseded_at) : null
     }))
     .filter(p => Number.isFinite(p.at))
     .sort((a, b) => a.at - b.at);
@@ -49,8 +52,14 @@ export function paymentSegments(capturedPayments) {
   for (const p of sorted) {
     const start = until !== null && until > p.at ? until + 1 : p.at;
     const base = until !== null && until > p.at ? until : p.at;
-    const end = endOfIstDay(base + p.days * DAY_MS);
-    segments.push({ tier: p.tier, start, end });
+    let end = endOfIstDay(base + p.days * DAY_MS);
+    // An upgrade replaced this payment: its access stops at the upgrade's capture
+    // time, so the next segment (the Max one) starts there, not after the old end.
+    if (Number.isFinite(p.supersededAt)) {
+      if (p.supersededAt <= start) continue;   // replaced before it began (a queued renewal): never counted
+      end = Math.min(end, p.supersededAt);
+    }
+    segments.push({ id: p.id, tier: p.tier, start, end, days: p.days, amountPaise: p.amountPaise });
     until = end;
   }
   return segments;

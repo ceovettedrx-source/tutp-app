@@ -120,6 +120,7 @@
       }
       b.addEventListener('click', function () { checkout(studentId, p.key, status); });
       card.appendChild(b);
+      if (p.tier === 'max' && child && child.active && child.tier === 'pro') showUpgradeQuote(studentId, p, b, card);
     });
     var policy = el('a', 'display:block;margin:4px 0 10px;font-size:12px;color:#005bbf;', 'Plans don’t renew automatically. Refund policy');
     policy.href = '/refund-policy/';
@@ -134,6 +135,39 @@
     wrap.appendChild(card);
     wrap.addEventListener('click', function (e) { if (e.target === wrap) closeChooser(); });
     document.body.appendChild(wrap);
+  }
+
+  function rupees(paise) {
+    return '₹' + (paise / 100).toLocaleString('en-IN', { maximumFractionDigits: 2 });
+  }
+
+  // Pro child, Max on sale: "Upgrade to Max" with the server's own numbers shown
+  // before payment. The server recomputes the same amount at checkout.
+  function showUpgradeQuote(studentId, plan, btn, card) {
+    var line = el('p', 'margin:-2px 0 10px;font-size:13px;color:#4b5566;', 'Working out your credit…');
+    line.setAttribute('data-upgrade-quote', '1');
+    btn.parentNode.insertBefore(line, btn.nextSibling);
+    btn.textContent = 'Upgrade to Max';
+    fetch('/api/billing/upgrade-quote?studentId=' + encodeURIComponent(studentId) + '&plan=' + encodeURIComponent(plan.key), { cache: 'no-store' })
+      .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, status: res.status, d: d }; }); })
+      .then(function (r) {
+        if (r.ok && r.d.upgrade) {
+          line.textContent = 'Pro days left ' + r.d.remainingDays + ', credit ' + rupees(r.d.creditPaise) + ', you pay ' + rupees(r.d.payPaise);
+          btn.textContent = 'Upgrade to Max · you pay ' + rupees(r.d.payPaise);
+        } else if (r.ok) {
+          line.remove();
+          btn.textContent = plan.label;
+        } else {
+          line.textContent = r.status === 503 ? 'Upgrades are being set up. Please try again soon.' : 'Could not work out the upgrade price.';
+          btn.disabled = true;
+          btn.style.opacity = '0.6';
+          btn.style.cursor = 'default';
+        }
+      })
+      .catch(function () {
+        line.textContent = 'Could not work out the upgrade price.';
+        btn.disabled = true;
+      });
   }
 
   function checkout(studentId, planKey, statusEl) {
