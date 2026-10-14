@@ -14,6 +14,8 @@
   .sg-top a { color:var(--blue); font-weight:600; min-height:44px; display:inline-flex; align-items:center; text-decoration:none; }
   .sg-top label { font-size:14px; color:var(--muted); display:inline-flex; gap:8px; align-items:center; }
   h1 { font-family:'Plus Jakarta Sans', sans-serif; font-size:clamp(24px,6vw,32px); margin:8px 0 4px; letter-spacing:-.02em; }
+  .sg-brand { display:flex; gap:14px; align-items:center; }
+  .sg-brand img { flex:none; width:84px; height:98px; }
   .sg-sub { color:var(--muted); margin:0 0 16px; }
   .sg-h2 { font-family:'Plus Jakarta Sans', sans-serif; font-size:19px; margin:16px 0 8px; }
   .sg-card { background:#fff; border:1px solid var(--line); border-radius:16px; padding:16px; margin:12px 0; }
@@ -67,7 +69,7 @@
     <a id="sgBack" href="/app/mother/">Back to dashboard</a>
     <label><span id="sgLangLabel">Language</span> <select id="sgLang" aria-labelledby="sgLangLabel"></select></label>
   </div>
-  <h1 id="sgTitle">Singapore Maths Method</h1>
+  <div class="sg-brand"><img src="/images/sgmath/badge.svg" alt="" width="84" height="98"><h1 id="sgTitle">Singapore Maths Method</h1></div>
   <p class="sg-sub" id="sgSubtitle"></p>
   <main id="sgView" aria-live="polite"><p class="sg-lead">Loading…</p></main>
 </div>

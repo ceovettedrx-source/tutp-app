@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 280" role="img" aria-label="Singapore Maths Method, bar model, classes 1 to 6">
+  <defs>
+    <linearGradient id="sgHex" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f4fb8"/>
+      <stop offset="1" stop-color="#0b2f7a"/>
+    </linearGradient>
+  </defs>
+  <!-- shield -->
+  <path d="M120 8 L224 66 L224 192 L120 272 L16 192 L16 66 Z" fill="url(#sgHex)"/>
+  <path d="M120 20 L213 72 L213 186 L120 258 L27 186 L27 72 Z" fill="none" stroke="#9cc3ee" stroke-opacity=".55" stroke-width="2"/>
+  <!-- medallion with the bar model -->
+  <circle cx="120" cy="92" r="58" fill="#ffffff"/>
+  <circle cx="120" cy="92" r="52" fill="none" stroke="#f2b84b" stroke-width="3"/>
+  <rect x="80" y="64" width="54" height="16" rx="3" fill="#005bbf"/>
+  <rect x="134" y="64" width="26" height="16" rx="3" fill="#f2b84b"/>
+  <rect x="80" y="86" width="54" height="16" rx="3" fill="#005bbf"/>
+  <rect x="80" y="108" width="80" height="16" rx="3" fill="none" stroke="#005bbf" stroke-width="3" stroke-dasharray="5 4"/>
+  <text x="147" y="77" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="13" font-weight="800" fill="#0b2f7a" text-anchor="middle">?</text>
+  <!-- title -->
+  <rect x="56" y="162" width="128" height="3" rx="1.5" fill="#ffffff"/>
+  <text x="120" y="190" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="21" font-weight="800" fill="#ffffff" text-anchor="middle" letter-spacing="1">SINGAPORE</text>
+  <text x="120" y="212" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="15" font-weight="600" fill="#ffffff" text-anchor="middle" letter-spacing="1">MATHS METHOD</text>
+  <text x="120" y="234" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="12" font-style="italic" font-weight="600" fill="#f2b84b" text-anchor="middle">Bar model · Classes 1–6</text>
+</svg>
