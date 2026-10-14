@@ -31,3 +31,16 @@ test('the template parser refuses broken markers', () => {
   assert.throws(() => render('@@template x\n{{nope}}', { parent: true, self: 'mother', other: 'father' }), /unreplaced/);
   assert.throws(() => render('no header', { parent: true }), /must start/);
 });
+
+// The redesign twice left a missing or extra </div> that the browser silently repaired.
+// Inside <main>, every <div>, <section> and <a> must be closed exactly once.
+test('<main> of every dashboard has balanced div, section and a tags', () => {
+  for (const [name, { html }] of Object.entries(buildAll())) {
+    const main = html.slice(html.indexOf('<main'), html.indexOf('</main>'));
+    for (const tag of ['div', 'section', 'a', 'button']) {
+      const open = (main.match(new RegExp('<' + tag + '[\\s>]', 'g')) || []).length;
+      const close = (main.match(new RegExp('</' + tag + '>', 'g')) || []).length;
+      assert.equal(open, close, `${name}: <${tag}> opened ${open} times, closed ${close}`);
+    }
+  }
+});

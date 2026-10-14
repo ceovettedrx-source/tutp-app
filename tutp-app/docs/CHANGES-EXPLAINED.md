@@ -8,6 +8,7 @@
 - Nothing pretends any more: the search box's mic and arrow open Homework Help (they used to show a "live app" alert), Enter in the box does too, and the demo "Ms. Sarah, Today 3 PM" live session is now an honest "Coming soon" card that points to verified tutors.
 - TUT-56's calm Bonding card ships with this release (spec decision: not separately).
 - Visual pass (Vet, 2026-10-14): "Learn together" is three illustrated panels (Storytelling, Experiential, Play-Based) with soft tints, original line-art and one clear button each; Family Library and Continue Learning sit side by side; a new "Safe and simple for your family" row says four true things (kid-safe answers, no ads, no auto-renewal, your language). Three misplaced closing tags in the Learn together block are fixed (the cards rendered, but nested wrongly).
+- Second visual pass: This Week's Goal and Upcoming Live Session sit side by side under Bonding and Singapore Maths, so the progress area is a full 2 x 2 grid; the card icons and the four "Safe and simple" icons are round colour seals (navy, teal, plum, saffron). A new unit test fails if <main> has an unbalanced div, section, a or button tag.
 
 **What changes inside**
 - The mother, father and family-member pages were three 2,000-line copies. They are now generated from one template (`templates/dashboard.html`) by `node scripts/build-dashboards.mjs`; a unit test fails if a page is edited by hand. Family-member visibility keys (`data-feature`) are kept on every item.

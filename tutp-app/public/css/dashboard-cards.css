@@ -219,3 +219,12 @@ html { scroll-behavior: smooth; }
 .tp-trust__icon { width: 44px; height: 44px; padding: 8px; border-radius: 50%; background: #eaf2fc; fill: none; stroke: #005bbf; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 10px; }
 .tp-trust__item h3 { font: 600 15px/1.3 'Plus Jakarta Sans', Inter, system-ui, sans-serif; margin: 0 0 6px; color: #1c2430; }
 .tp-trust__item p { font: 400 13px/1.5 Inter, system-ui, sans-serif; color: #4a5361; margin: 0; }
+
+/* TUT-42: colour seals (Vet's reference: certification-style round marks) */
+.tp-seal { flex: none; width: 52px; height: 52px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--tp-ring, #c9d6ea), 0 4px 10px rgba(15, 27, 45, 0.15); }
+.tp-seal .material-symbols-outlined { font-size: 26px; color: #fff; }
+.tp-seal--navy { background: radial-gradient(circle at 30% 25%, #3b67c9, #0b2a6f 70%); --tp-ring: #9fb6e6; }
+.tp-seal--teal { background: radial-gradient(circle at 30% 25%, #2aa79b, #0b5e57 70%); --tp-ring: #9bd3cc; }
+.tp-seal--plum { background: radial-gradient(circle at 30% 25%, #9a4fa0, #4c1d52 70%); --tp-ring: #d3b3d6; }
+.tp-seal--saffron { background: radial-gradient(circle at 30% 25%, #f5b14c, #c46a0a 70%); --tp-ring: #f3d3a3; }
+.tp-trust__icon.tp-seal--navy, .tp-trust__icon.tp-seal--teal, .tp-trust__icon.tp-seal--plum, .tp-trust__icon.tp-seal--saffron { width: 52px; height: 52px; padding: 12px; stroke: #fff; box-shadow: 0 0 0 3px #fff, 0 0 0 5px var(--tp-ring), 0 4px 10px rgba(15, 27, 45, 0.15); margin: 4px 0 14px 4px; }
