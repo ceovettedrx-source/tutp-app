@@ -67,7 +67,7 @@ function shuffled(options, seed) {
   return idx;
 }
 
-export function validateExplain(raw) {
+export function validateExplain(raw, { lang = '' } = {}) {
   const issues = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, issues: ['the reply is not a JSON object'] };
   const conceptKey = normalizeConceptKey(raw.concept_key);
@@ -98,7 +98,10 @@ export function validateExplain(raw) {
   // img1 (server/lang-check.js): a letter of a wrong script inside a word is a hard issue.
   if (foreignScriptIn([title, quick, full, tip, traps, raw.misconception, pq, cq, ill.labels])) issues.push(FOREIGN_SCRIPT_HINT);
   // TUT-18: one language per reply (no Hindi in Latin letters) and no known wrong fact.
-  if (romanizedHindiIn([title, quick, full, traps, raw.misconception, pq, cq])) issues.push(ROMANIZED_HINDI_HINT);
+  // Runs for EVERY language, not only Hindi: Hindi in Latin letters is wrong in a Telugu, an English
+  // and a Hindi card alike, and a stray "mein ... hai" in an English or Telugu card is exactly the
+  // leak this catches (2026-10-14). The one exception is German, where "mein" is an ordinary word.
+  if (lang !== 'German' && romanizedHindiIn([title, quick, full, traps, raw.misconception, pq, cq])) issues.push(ROMANIZED_HINDI_HINT);
   const facts = wrongFacts([title, quick, full, traps, raw.misconception, pq, cq]);
   if (facts.length) issues.push(factHint(facts));
   if (issues.length) return { ok: false, issues };

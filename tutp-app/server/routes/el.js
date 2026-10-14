@@ -15,7 +15,7 @@ import { callClaude } from '../anthropic.js';
 import { MODELS, modelSettings } from '../models.js';
 import { replayMode } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
-import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
+import { resolveLanguage } from '../language.js';
 import { createVideoService, makeReviewer } from '../video/service.js';
 import { searchVideos } from '../video/youtube.js';
 import { segmentFromChapters, segmentFromGemini, geminiKeyFromSecretManager } from '../video/segments.js';
@@ -75,7 +75,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
       const lesson = lessons().get(req.params.id);
       if (!lesson) return res.status(404).json({ error: 'unknown_concept' });
       const board = BOARDS.includes(req.query.board) ? req.query.board : 'cbse-ncert';
-      const lang = HOMEWORK_LANGUAGES.includes(req.query.language) ? req.query.language : 'English';
+      const { language: lang } = await resolveLanguage({ requested: req.query.language, session });
       const studentId = String(req.query.studentId || '');
       if (!(await requireOwnStudent(req, res, studentId))) return;
       lessonLimiter(req, res, async () => {
@@ -154,7 +154,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
       const text = typeof body.text === 'string' ? body.text.trim().slice(0, 800) : '';
       if (text.length < 3) return res.status(400).json({ error: 'Please type or say a few words first.' });
       if (!(await requireOwnStudent(req, res, body.studentId))) return;
-      const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+      const { language: lang } = await resolveLanguage({ requested: body.language, session });
       teachLimiter(req, res, async () => {
         try {
           if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
@@ -200,7 +200,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
         if (body.name === 'predict_correct') properties.correct = body.correct === true;
         if (body.name === 'sim_opened') properties.sim = String(body.sim || '').replace(/[^a-z0-9-]/g, '').slice(0, 60);
         if (body.name === 'revisit_done') properties.day = [3, 10, 30].includes(Number(body.day)) ? Number(body.day) : null;
-        if (body.name === 'teach_back_done') properties.language = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+        if (body.name === 'teach_back_done') properties.language = (await resolveLanguage({ requested: body.language, session })).language;
         const { error } = await supabase.from('usage_events').insert({ event_name: body.name, family_id: session.familyId, student_id: body.studentId, properties });
         if (error) { console.error('el: event insert failed:', error.message); return res.status(500).json({ error: 'Could not save' }); }
         // The lesson counts as one Experiential Learning session for the free limit, once the child has done the teach-back.
@@ -236,7 +236,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
       const session = needSession(req, res); if (!session) return;
       const concept = getConcept(String(req.query.concept || ''));
       if (!concept) return res.status(404).json({ error: 'unknown_concept' });
-      const lang = HOMEWORK_LANGUAGES.includes(req.query.language) ? req.query.language : 'English';
+      const { language: lang } = await resolveLanguage({ requested: req.query.language, session });
       videoLimiter(req, res, async () => {
         try {
           const testFamily = await isTestFamily(session.familyId);
@@ -267,7 +267,7 @@ export function registerElRoutes(app, { rateLimit, supabase, getSession, require
       if (topic.length < 3) return res.json({ videos: [] });
       const grade = Math.min(10, Math.max(1, parseInt(req.query.grade, 10) || 8));
       const subject = ['science', 'maths', 'social', 'english'].includes(req.query.subject) ? req.query.subject : 'science';
-      const lang = HOMEWORK_LANGUAGES.includes(req.query.language) ? req.query.language : 'English';
+      const { language: lang } = await resolveLanguage({ requested: req.query.language, session });
       videoLimiter(req, res, async () => {
         try {
           const testFamily = await isTestFamily(session.familyId);

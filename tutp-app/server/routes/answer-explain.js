@@ -11,7 +11,7 @@
 // plus helpers server.js uses for /api/homework: answerV2Enabled(),
 // loadStudentContext(), signConceptKey().
 import crypto from 'crypto';
-import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
+import { resolveLanguage } from '../language.js';
 import { explainPrompt, explainUserText, EXPLAIN_PROMPT_VERSION } from '../prompts/explain-prompts.js';
 import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
 import { extractAnswerJson, answerCorrectionHint } from '../answer-schema.js';
@@ -150,7 +150,8 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       const own = await requireOwnStudent(req, res, body.studentId);
       if (!own) return;
       timer.mark('session');
-      const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+      const { language: lang } = await resolveLanguage({ requested: body.language, session });
+      res.set('X-Language', lang);
       timing.lang = lang;
       explainLimiter(req, res, async () => {
         try {
@@ -214,12 +215,12 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             // before anyone sees it. Wrong answer or the question's own numbers missing: one retry
             // with the right answer in the hint, then no card and no cache row.
             const verdict = (e) => (parsed ? verifyCard({ question, card: e }) : { status: 'unchecked' });
-            let check = validateExplain(extractAnswerJson(first.data));
+            let check = validateExplain(extractAnswerJson(first.data), { lang });
             let v = check.ok ? verdict(check.explain) : null;
             if (!check.ok || v.status === 'mismatch') {
               console.warn('explain: reply failed the checks, retrying once', { issues: check.ok ? ['math engine: ' + v.reason] : check.issues });
               const again = await callModel(check.ok ? correctionHint(v) : answerCorrectionHint(check.issues));
-              const c2 = again.ok && checkReplyJson(again.data).ok ? validateExplain(extractAnswerJson(again.data)) : null;
+              const c2 = again.ok && checkReplyJson(again.data).ok ? validateExplain(extractAnswerJson(again.data), { lang }) : null;
               if (c2 && c2.ok) { check = c2; v = verdict(c2.explain); }
             }
             if (!check.ok) return fail(502, 'The explanation could not be made. Please try again.');
@@ -342,6 +343,15 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       console.error('illustration: request error:', err && err.message);
       if (!res.headersSent) res.status(500).json({ error: 'Server error' });
     }
+  });
+
+  // The language the page shows next to Explain ("Explaining in: Telugu") before anything is sent:
+  // the family's last language, else English. The page's own pick always wins once it sends one.
+  app.get('/api/language', async (req, res) => {
+    const session = getSession(req);
+    if (!session) return sendSessionExpired(res);
+    const r = await resolveLanguage({ requested: req.query.language, session });
+    res.json({ language: r.language, source: r.source });
   });
 
   app.post('/api/answer-events', async (req, res) => {

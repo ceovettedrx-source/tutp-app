@@ -6,7 +6,8 @@
 // Mounted from server.js with the helpers it owns (session, rate limiting).
 import crypto from 'crypto';
 import { chipPayload } from '../chips/chip-config.js';
-import { buildHomeworkRequest, HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
+import { buildHomeworkRequest } from '../prompts/homework-prompts.js';
+import { resolveLanguage } from '../language.js';
 import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
 import { checkNotes, correctionHint } from '../notes-ground.js';
 import { callClaude } from '../anthropic.js';
@@ -147,7 +148,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
       if (!session) return sendSessionExpired(res);
       const own = await requireOwnStudent(req, res, body.studentId);
       if (!own) return;
-      const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+      const { language: lang } = await resolveLanguage({ requested: body.language, session });
       const givenKey = typeof body.concept_key === 'string' && /^[a-z0-9][a-z0-9-]{2,59}$/.test(body.concept_key) && verifyConceptKey(body.concept_key, body.concept_sig) ? body.concept_key : '';
       const picturesOn = answerV2Enabled(req);
       const cacheKey = crypto.createHash('sha256').update([body.studentId, lang, text, givenKey, picturesOn ? 'p' : ''].join('\u0000')).digest('hex');
