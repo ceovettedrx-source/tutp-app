@@ -337,7 +337,7 @@ const contrast = (a, b) => { const [hi, lo] = [luminance(a), luminance(b)].sort(
         };
       });
       if (card.chipsInCard || card.chipsOnPage) throw new Error(`${r.name}: chips on the card/page before the report is opened (${JSON.stringify(card)})`);
-      if (card.kids.join(',') !== 'h3,div,button') throw new Error(`${r.name}: card parts ${card.kids.join(',')}`);
+      if (card.kids.join(',') !== 'h3,span,p,div') throw new Error(`${r.name}: card parts ${card.kids.join(',')}`);
       if (/Parent Engagement/i.test(card.text) || /days\/week|days\/year|most days/i.test(card.text)) throw new Error(`${r.name}: card text has report detail: ${card.text.replace(/\s+/g, ' ')}`);
       await openReport(page);
       await page.locator('#bondingReportDialog #pibStrip .pib-strip-item').first().waitFor({ state: 'visible', timeout: 10000 });
