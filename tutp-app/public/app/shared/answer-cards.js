@@ -309,7 +309,7 @@
         ctx.mode = parsed.mode === 'content' ? 'content' : 'questions';
         ensureFonts(qs.map(function (q) { return q.script; }).filter(Boolean));
         qs.forEach(function (q, i) { area.appendChild(card(q, i, ctx)); });
-        if (parsed.more_questions) area.appendChild(message('There are ' + parsed.more_questions + ' more question(s) on this homework than shown here. Send the rest in another photo.'));
+        if (parsed.more_questions) area.appendChild(message(parsed.more_questions + (parsed.more_questions === 1 ? ' question was' : ' questions were') + ' not answered here. Send' + (parsed.more_questions === 1 ? 'it' : 'them') + ' in another photo or file.'));
         if (ctx.mode !== 'content') area.appendChild(comingSoon(ctx));
     }
 

@@ -6,6 +6,7 @@ import { validateAnswer, mergeAnswers, extractAnswerJson, answerCorrectionHint }
 import { marksFromText, resolveMarks, boardKind, defaultMarks } from '../../server/answer-marks.js';
 import { buildHomeworkRequest } from '../../server/prompts/homework-prompts.js';
 import { systemText } from '../../server/prompt-cache.js';
+import { answerDynamicPrompt } from '../../server/prompts/answer-prompts.js';
 
 const numerical = () => ({
   q_text: 'A car covers 120 km in 4 hours. Find its speed. (3 marks)', q_type: 'numerical', marks: null, concept_key: 'C9-Physics Speed',
@@ -92,6 +93,39 @@ test('a Telugu question keeps its script for fonts', () => {
   const r = validateAnswer({ status: 'ok', questions: [q] });
   assert.equal(r.answer.questions[0].script, 'telugu');
   assert.deepEqual(r.answer.questions[0].keywords, ['మార్గం పొడవు']);
+});
+
+// 2026-10-14: a 14-page SCERT pdf with 9 boxed textbook questions. Batch 1-4 answered 4, batch
+// 5-8 replied "no numbered questions" and said nothing: the parent saw 4 and was not told.
+test('a batch that answered nothing cannot hide questions: total_questions makes the merge report them', () => {
+  const a = validateAnswer({ status: 'ok', subject: 'Social', questions: [diff(), diff(), diff(), diff()], total_questions: 9 }).answer;
+  const b = validateAnswer({ status: 'ok', subject: '', questions: [], total_questions: 9 }, { allowEmpty: true }).answer;
+  const m = mergeAnswers([a, b]);
+  assert.equal(m.questions.length, 4);
+  assert.equal(m.more_questions, 5);
+});
+
+test('9 questions, two full batches: 8 answered, 1 reported once (not counted twice)', () => {
+  const a = validateAnswer({ status: 'ok', subject: 'Social', questions: [diff(), diff(), diff(), diff()], total_questions: 9 }).answer;
+  const b = validateAnswer({ status: 'ok', questions: [diff(), diff(), diff(), diff()], more_questions: 1, total_questions: 9 }, { allowEmpty: true }).answer;
+  const m = mergeAnswers([a, b]);
+  assert.equal(m.questions.length, 8);
+  assert.equal(m.more_questions, 1);
+});
+
+test('no total_questions and nothing skipped: no more_questions; a nonsense total is ignored', () => {
+  const a = validateAnswer({ status: 'ok', subject: 'Maths', questions: [diff()] }).answer;
+  const b = validateAnswer({ status: 'ok', questions: [], total_questions: -3 }, { allowEmpty: true }).answer;
+  assert.equal(b.total_questions, undefined);
+  assert.equal(mergeAnswers([a, b]).more_questions, undefined);
+});
+
+test('the batch prompt counts unnumbered boxed textbook questions and asks for the total', () => {
+  const t = answerDynamicPrompt({ lang: 'Telugu', childContext: 'Asha · Class 9', text: '', range: { from: 5, to: 8 } });
+  assert.match(t, /numbered or not/);
+  assert.match(t, /boxed or in-text question/);
+  assert.match(t, /"total_questions"/);
+  assert.doesNotMatch(t, /no numbered questions at all/);
 });
 
 test('merging two batches keeps page order and the 8 cap', () => {
