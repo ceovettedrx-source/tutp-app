@@ -272,3 +272,10 @@ html { scroll-behavior: smooth; }
   .tp-cards { gap: 10px; }
   .tp-card { padding: 14px 12px 12px; min-height: 0; }
 }
+
+/* TUT-42: today's homework strip under the search box (only when the school posted homework) */
+.tp-hw-strip { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 10px 14px; border-radius: 14px; background: #e8f0fb; border: 1px solid #c9dbf5; color: #0b2f7a; font: 600 14px/1.3 Inter, system-ui, sans-serif; text-decoration: none; }
+.tp-hw-strip.hidden { display: none; }
+.tp-hw-strip .material-symbols-outlined { font-size: 22px; }
+.tp-hw-strip__go { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; color: #005bbf; }
+.tp-hw-strip__go .material-symbols-outlined { font-size: 18px; }

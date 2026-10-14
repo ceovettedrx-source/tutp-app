@@ -24,7 +24,7 @@ fs.mkdirSync(OUT, { recursive: true });
 const results = [];
 const log = (...a) => console.log('[e2e dashboard-items]', ...a);
 
-const ITEMS = ['tpTop', 'billingStatus', 'childChipsRow', 'tpHomework', 'searchAttachMenu', 'homeworkPendingBanner', 'homeworkList',
+const ITEMS = ['tpTop', 'tpHomeworkToday', 'billingStatus', 'childChipsRow', 'tpHomework', 'searchAttachMenu', 'homeworkPendingBanner', 'homeworkList',
   'bondingReportSection', 'sgmathCard', 'sgmathStart', 'weeklyGoalRing', 'completionTileValue', 'exploreSubjectsSection',
   'searchAttachChooser', 'examComingSoonModal', 'homeworkExplainModal', 'playModal', 'experientialModal', 'headerAvatarInitial', 'sidebarFamilyList'];
 const HEADINGS = ['Help tonight', 'Homework Help', 'Storytelling Method', 'Experiential Learning', 'Play-Based Learning', "Today's homework", "Your child's progress", 'Singapore Maths', 'Continue Learning', "This Week's Goal", 'More for your family', 'Family Library', 'Need a tutor?', 'YouTube Channel', 'Upcoming Live Session', 'Explore Subjects', 'Safe and simple for your family'];
@@ -116,7 +116,7 @@ async function login(page, digits, want) {
     await page.waitForTimeout(1500);
     const top = (id) => page.evaluate((x) => { const e = document.getElementById(x); return e ? e.getBoundingClientRect().top + scrollY : -1; }, id);
     const order = [];
-    for (const id of ['tpHomework', 'homeworkList', 'bondingReportSection', 'sgmathCard', 'weeklyGoalRing']) order.push(await top(id));
+    for (const id of ['tpHomework', 'bondingReportSection', 'sgmathCard', 'weeklyGoalRing']) order.push(await top(id));   // today's homework shows only on a day with homework
     if (order.some((y) => y < 0)) throw new Error('an item is missing: ' + order);
     for (let i = 1; i < order.length; i++) if (!(order[i] >= order[i - 1])) throw new Error('order wrong: ' + order.join(' <= '));   // cards in one row share a top
     if (await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1)) throw new Error('page scrolls sideways');
