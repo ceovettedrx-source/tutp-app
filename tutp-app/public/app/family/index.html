@@ -49,6 +49,12 @@
 <p id="memberListStatus" class="text-center text-sm mt-3"></p>
 </div>
 
+<div id="parentLangCard" class="glass-card rounded-xl p-6 mb-6 hidden parent-only">
+<h2 class="font-headline text-2xl font-semibold mb-2">Explanations in which language?</h2>
+<p class="text-on-surface-variant mb-4">One tap. Tut-P uses this for your explanations unless you pick another language when you ask.</p>
+<div id="parentLangChips" class="flex flex-wrap gap-2" role="group" aria-label="Explanations in which language?"></div>
+<p id="parentLangStatus" class="text-sm mt-3" role="status"></p>
+</div>
 <div id="addParentCard" class="glass-card rounded-xl p-6 mb-6 hidden parent-only">
 <h2 class="font-headline text-2xl font-semibold mb-2">Add the <span id="addParentRole">father</span></h2>
 <p class="text-on-surface-variant mb-4">They sign in with their own phone number and a one-time code — no invite link needed.</p>
@@ -307,6 +313,42 @@
     } catch (err) {
       console.error('Could not load family:', err);
     }
+  })();
+
+  // "Explanations in which language?": one tap saves it on this parent (PUT /api/family/parent-language).
+  (async function initParentLanguage(){
+    if (!isParent) return;
+    const LANGS = ['English', 'Telugu', 'Hindi', 'Tamil', 'Marathi', 'Spanish', 'French', 'German', 'Arabic'];
+    const wrap = document.getElementById('parentLangChips');
+    const statusEl = document.getElementById('parentLangStatus');
+    function mark(chosen){
+      wrap.querySelectorAll('button').forEach(function(b){
+        const on = b.dataset.lang === chosen;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.className = 'h-11 px-4 rounded-full border-2 font-semibold ' + (on ? 'border-primary bg-primary text-white' : 'border-outline-variant text-on-surface');
+      });
+    }
+    LANGS.forEach(function(l){
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = l; b.dataset.lang = l;
+      b.addEventListener('click', async function(){
+        statusEl.textContent = '';
+        try {
+          const res = await fetch('/api/family/parent-language', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ language: l }) });
+          const data = await res.json().catch(function(){ return {}; });
+          if (res.ok && data.ok) { mark(l); statusEl.className = 'text-sm mt-3 text-success'; statusEl.textContent = 'Saved: explanations in ' + l + '.'; }
+          else if (res.status !== 401) { statusEl.className = 'text-sm mt-3 text-error'; statusEl.textContent = data.error || 'Could not save. Please try again.'; }
+        } catch (e) { statusEl.className = 'text-sm mt-3 text-error'; statusEl.textContent = 'Could not save. Please try again.'; }
+      });
+      wrap.appendChild(b);
+    });
+    mark('');
+    document.getElementById('parentLangCard').classList.remove('hidden');
+    try {
+      const res = await fetch('/api/language');
+      const r = res.ok ? await res.json() : null;
+      if (r && r.source === 'parent') mark(r.language);
+    } catch (e) { /* none chosen yet */ }
   })();
 
   async function addParent(){

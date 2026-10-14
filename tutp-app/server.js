@@ -41,7 +41,7 @@ import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { initModelCost } from './server/model-cost.js';
-import { initLanguage, resolveLanguage } from './server/language.js';
+import { initLanguage, resolveLanguage, applyRegistrationLanguage, saveParentLanguage, parentRoleOf } from './server/language.js';
 import { initModelAlert } from './server/model-alert.js';
 import { runModelHealth, modelHealthHandler } from './server/model-health.js';
 import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
@@ -299,7 +299,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   });
   initTracking(supabase);
   initModelCost(supabase);
-  initLanguage(supabase);
+  initLanguage(supabase, { rolesOf: sessionFamilyRoles });
   initTestFamilies(supabase);
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
@@ -2789,6 +2789,8 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     // A family on the e2e suite's test numbers stays out of every metric.
     if (isTestPhone(verifiedPhone)) payload.is_test = true;
     else delete payload.is_test;
+    // "Explanations in which language?": stored on the parent whose phone was just verified.
+    applyRegistrationLanguage(payload, verifiedPhone);
     // TUT-49: an optional partner code typed on the form; it is not kept in the family data.
     const typedPartnerCode = typeof payload.partnerCode === 'string' ? payload.partnerCode.trim().toUpperCase().slice(0, 12) : '';
     delete payload.partnerCode;
@@ -3092,6 +3094,24 @@ app.post('/api/family/add-child', async (req, res) => {
 // invite link — they sign in with an OTP on that number, which proves it is
 // theirs. Fills only an empty mother/father slot, and never a phone that is
 // already in any family (that would make the phone ambiguous at login).
+// The signed-in parent's own "Explanations in which language?" choice (family page). Stored on
+// that parent only; a family member who is not a parent is refused. The family id comes from
+// the session, never the request.
+app.put('/api/family/parent-language', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session || !session.familyId) return sendSessionExpired(res);
+    const role = parentRoleOf(await sessionFamilyRoles(session));
+    const r = await saveParentLanguage({ familyId: session.familyId, role, language: (req.body || {}).language });
+    if (!r.ok) return res.status(r.status).json({ error: r.error });
+    res.json({ ok: true, language: r.language });
+  } catch (err) {
+    console.error('Parent language error:', err);
+    res.status(500).json({ error: 'Could not save the language. Please try again.' });
+  }
+});
+
 app.post('/api/family/add-parent', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
