@@ -6591,7 +6591,10 @@ app.post('/api/homework', async (req, res) => {
     // Step times in the log and in a Server-Timing header (read by the e2e).
     const sendTiming = (status) => {
       res.set('Server-Timing', timer.header());
-      console.log('homework: timing', { feature, photos: photos.length, status, steps: timer.summary() });
+      // One line of JSON: Cloud Run splits a multi-line log call into one entry per line.
+      const fileTypes = [...new Set(attachments.map(a => (a.mediaType === 'application/pdf' ? 'pdf' : 'photo')))];
+      const uploadKb = Math.round(attachments.reduce((n, a) => n + (typeof a.base64 === 'string' ? a.base64.length * 0.75 : 0), 0) / 1024);
+      console.log(JSON.stringify({ msg: 'homework: timing', feature, photos: photos.length, file_types: fileTypes, upload_kb: uploadKb, status, steps: timer.summary(), total_ms: timer.total() }));
     };
     // Storytelling only: the library pictures that fit this lesson (at most
     // 15), offered in the prompt and the only ids validateStory accepts.
