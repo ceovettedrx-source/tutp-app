@@ -94,11 +94,13 @@ async function tierRoute(ctx, holder) {
   const page = await ctx.newPage();
   const landed = await login(page, ROLES[0].phone, ROLES[0].want);
   if (landed !== '/app/mother/') { console.error('[e2e singapore-maths] login landed on', landed); process.exit(1); }
-  const studentId = await page.evaluate(() => window.tutpChildReady);
+  await page.waitForFunction(() => window.tutpChildReady, null, { timeout: 15000 }).catch(() => {});
+  const studentId = (await page.evaluate(() => window.tutpChildReady)) || (await page.evaluate(() => sessionStorage.getItem('tutp_student_id')));
   const reset = () => call(page, 'POST', '/api/sgmath/e2e/reset', { studentId });
   let ready = false;
 
   await record('s0', 'precondition: migration 033 run, test child in classes 1-6', async () => {
+    if (!studentId) throw new Error('no student id after login');
     const s = await call(page, 'GET', '/api/sgmath/strings?lang=en');
     if (s.status === 503) throw new Error('migration 033 not run: /api/sgmath/strings is 503 not_ready');
     if (s.status !== 200 || !s.body.strings['page.title']) throw new Error('strings ' + s.status);
@@ -213,11 +215,11 @@ async function tierRoute(ctx, holder) {
     await reset();
     await phone.goto(BASE + `/app/singapore-maths/?from=mother&studentId=${studentId}&lang=en`);
     await phone.locator('#sgStart').click();
-    if (await phone.locator('#sgBegin').count()) await phone.locator('#sgBegin').click();
-    if (await phone.locator('#sgWeDidIt').count()) await phone.locator('#sgWeDidIt').click();
     let checked44 = false, dragged = false, problems = 0;
     for (let guard = 0; guard < 40; guard++) {
       await phone.waitForTimeout(400);
+      if (await phone.locator('#sgBegin').count()) { await phone.locator('#sgBegin').click(); continue; }
+      if (await phone.locator('#sgWeDidIt').count()) { await phone.locator('#sgWeDidIt').click(); continue; }
       if (await phone.locator('#sgFinish').count()) break;
       if (await phone.locator('#sgCheck').count()) {
         if (!checked44) {
