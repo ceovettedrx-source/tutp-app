@@ -1,0 +1,2250 @@
+@@template public/app/{mother,father,family-member}/index.html are GENERATED from this file by scripts/build-dashboards.mjs (TUT-42). Edit here, then run: node scripts/build-dashboards.mjs
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+@@if parent
+<title>Tut-P {{Self}} Dashboard</title>
+@@else
+<title>Tut-P Family Member View</title>
+@@end
+<meta name="robots" content="noindex, nofollow">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/canvas-confetti/1.9.3/confetti.browser.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="/css/tailwind.css" rel="stylesheet"/>
+<link href="/css/story-modal.css" rel="stylesheet"/>
+<link href="/css/dashboard-cards.css" rel="stylesheet"/>
+<link href="/css/baseline-survey.css" rel="stylesheet"/>
+<link href="/css/bonding-card.css" rel="stylesheet"/>
+<link href="/css/el-guided.css" rel="stylesheet"/>
+<style>
+        body { background-color: #f7f9ff; color: #181c20; }
+@@if parent
+@@else
+        .js-hidden { display: none; }
+@@end
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.5); box-shadow: 0 4px 20px rgba(0,91,192,0.05); }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        /* Play-Based Learning turn-transition card — CSS-only flip (no
+           library) shown between a player's answer and the next player's
+           question, so the score bump feels revealed, not snapped in. */
+        @keyframes playFlipIn { 0% { transform: perspective(600px) rotateY(90deg) scale(0.85); opacity: 0; } 60% { transform: perspective(600px) rotateY(-8deg) scale(1.04); opacity: 1; } 100% { transform: perspective(600px) rotateY(0deg) scale(1); opacity: 1; } }
+        .play-turn-transition { animation: playFlipIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+        /* Critical layout CSS — plain CSS, not Tailwind utility classes, so it
+           applies immediately on parse instead of waiting for Tailwind's
+           runtime JIT compiler. Without this, the fixed sidebar/header can
+           briefly render in normal document flow and look badly broken. */
+        #topAppBar { position: fixed; top: 0; left: 0; width: 100%; z-index: 50; }
+        #parentalSidebar { position: fixed; top: 0; left: 0; height: 100%; width: 280px; z-index: 40; }
+        main { padding-top: 88px; }
+        /* Sidebar offset lives on <body>, not <main>: <main> carries Tailwind's
+           .mx-auto (margin-left/right: auto), which out-specifies a plain
+           `main { margin-left }` rule and let the 280px fixed sidebar cover the
+           content column at every desktop width. Padding on body leaves
+           mx-auto free to centre the column in the space right of the sidebar. */
+        @media (min-width: 768px) { body { padding-left: 280px; } #topAppBar { left: 280px; width: calc(100% - 280px); } }
+        @media (max-width: 767px) { #parentalSidebar { display: none; } }
+        /* "Save as PDF / Print" for Homework Help, Quiz, Storytelling and
+           Experiential Learning results — see printResult() below. Resets
+           the modal panel's overflow-y-auto/max-h-[90vh] so the printed
+           output isn't clipped to the on-screen modal height, and forces a
+           plain white background so the modal's dark overlay can't bleed
+           through onto the page. */
+        @media print {
+            body * { visibility: hidden !important; }
+            .print-target, .print-target * { visibility: visible !important; }
+            .print-target { position: absolute !important; top: 0; left: 0; width: 100%; background: #fff !important; color: #111 !important; padding: 24px !important; }
+            #homeworkExplainModal, #homeworkExplainModal > div, #storyModal, #storyModal > div, #experientialModal, #experientialModal > div { position: static !important; overflow: visible !important; max-height: none !important; height: auto !important; }
+            /* These stay in normal document flow at their full on-screen
+               height even once visibility:hidden'd, which otherwise pads
+               extra blank pages onto the end of the printed output. */
+            header, nav, main { display: none !important; }
+            .no-print { display: none !important; }
+        }
+</style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen pb-24 md:pb-0">
+@@if parent
+<script src="/app/shared/session-guard.js" data-need="family" data-role="{{self}}"></script>
+@@else
+<script src="/app/shared/session-guard.js" data-need="family" data-role="family_member"></script>
+@@end
+<script>
+    // A direct/anonymous visit with no session at all used to render this
+    // whole page anyway — every data fetch below just no-ops to a generic
+@@if parent
+    // "Parent"/"your child" placeholder instead of ever asking for a login,
+    // so an anonymous visitor saw a plausible-looking dashboard instead of
+    // being told to log in. /app/family/ and /app/teacher/ already guard
+    // this way; this page and {{other}}/family-member's never did.
+@@else
+    // placeholder instead of ever asking for a login, so an anonymous
+    // visitor saw a plausible-looking dashboard instead of being told to log
+    // in. /app/family/ and /app/teacher/ already guard this way; this page
+    // and father/mother's never did. Only checks tutp_family_id, not
+    // tutp_family_member_id — the "Which family member are you?" viewer
+    // gate further down is a separate, legitimate step for an already-
+    // family-scoped session that just hasn't picked a specific member yet.
+@@end
+    // The check itself is /app/shared/session-guard.js, loaded just above:
+    // it restores the ids from the session cookie, or sends to login.
+
+    // Lets /app/login/ bounce straight back here on a session it recognizes
+    // (back button) instead of forcing a fresh OTP.
+    try { sessionStorage.setItem('tutp_last_dashboard', location.pathname); } catch (e) {}
+
+    // A 403 from any /api/ call means the session cookie is missing or
+    // doesn't match sessionStorage's ids — most likely sessionStorage
+    // survived from a login that predates the session-cookie system, or a
+    // genuinely expired 30-day-inactive session. Either way, sessionStorage
+    // alone can no longer get this page its data, and /app/login/'s own
+    // skip-if-authenticated check only looks at sessionStorage too, so
+    // without this it would just bounce the user right back to this same
+    // broken page. Clear the stale markers and force a real login instead.
+    (function(){
+        // 401 = no valid session (expired or missing): log in again.
+        // 403 = logged in, but this request isn't allowed for this account:
+        // say so and stay logged in. Treating every 403 as a logout used to
+        // drop parents back to an empty login page whenever one optional
+        // request was refused.
+        function tutpShowForbiddenNotice(){
+            const show = () => {
+                if (document.getElementById('tutpForbiddenNotice')) return;
+                const box = document.createElement('div');
+                box.id = 'tutpForbiddenNotice';
+                box.setAttribute('role', 'status');
+                box.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:10000;max-width:360px;width:calc(100% - 32px);background:#181c20;color:#fff;border-radius:12px;padding:12px 16px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25);';
+                box.textContent = "Part of this page isn't available for this account. You're still logged in.";
+                document.body.appendChild(box);
+                setTimeout(() => box.remove(), 6000);
+            };
+            if (document.body) show(); else document.addEventListener('DOMContentLoaded', show);
+        }
+        const originalFetch = window.fetch;
+        window.fetch = function(input, init){
+            return originalFetch(input, init).then(res => {
+                const url = typeof input === 'string' ? input : (input && input.url) || '';
+                if (res.status === 401 && url.startsWith('/api/')) {
+                    try {
+                        sessionStorage.removeItem('tutp_family_id');
+                        sessionStorage.removeItem('tutp_student_id');
+                        sessionStorage.removeItem('tutp_teacher_id');
+                        sessionStorage.removeItem('tutp_family_member_id');
+                        sessionStorage.removeItem('tutp_family_member_name');
+                        sessionStorage.removeItem('tutp_last_dashboard');
+                    } catch (e) {}
+                    window.location.href = '/app/login/';
+                } else if (res.status === 403 && url.startsWith('/api/')) {
+                    tutpShowForbiddenNotice();
+                }
+                return res;
+            });
+        };
+    })();
+
+    // Child safety net: every request that needs a child must carry one of
+    // this family's children. If none is selected (a login where no child
+    // name was matched), or the stored one isn't in this family's own list
+    // (fetched with this session, so the server decides what "this family"
+    // is), the child remembered on this device is selected, else the first.
+    // Code that sends a studentId awaits this promise first.
+    window.tutpChildReady = (async function(){
+        let familyId = null, current = null;
+        try { familyId = sessionStorage.getItem('tutp_family_id'); current = sessionStorage.getItem('tutp_student_id'); } catch (e) {}
+        if (!familyId) return current;
+        try {
+            const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+            if (!res.ok) return current;
+            const ids = ((await res.json()).students || []).map(s => s.id);
+            if (current && ids.includes(current)) return current;
+            if (!ids.length) return null;
+            // The child last picked on this device (login page or the
+            // child switcher), else the first child.
+            let pick = ids[0];
+            try {
+                const remembered = localStorage.getItem('tutp_last_student_' + familyId);
+                if (remembered && ids.includes(remembered)) pick = remembered;
+            } catch (e) {}
+            try { sessionStorage.setItem('tutp_student_id', pick); } catch (e) {}
+            return pick;
+        } catch (err) {
+            console.error('[child] Could not confirm the selected child:', err);
+            return current;
+        }
+    })();
+
+    // Real logout — clears the httpOnly session cookie server-side (client
+    // JS can't touch it directly) as well as every client-side identity
+    // marker, then lands on login's real phone-entry screen (sessionStorage
+    // is now empty, so its own skip-if-authenticated check has nothing to
+    // bounce on). Needed on a shared family device: without this, whoever
+    // logged in last is the only person who can ever reach their own
+    // dashboard from the UI again.
+    async function logout(){
+        if (!confirm('Log out of Tut-P?')) return;
+        try { await fetch('/api/logout', { method: 'POST' }); } catch (e) {}
+        try {
+            sessionStorage.removeItem('tutp_family_id');
+            sessionStorage.removeItem('tutp_student_id');
+            sessionStorage.removeItem('tutp_teacher_id');
+            sessionStorage.removeItem('tutp_family_member_id');
+            sessionStorage.removeItem('tutp_family_member_name');
+            sessionStorage.removeItem('tutp_last_dashboard');
+        } catch (e) {}
+        window.location.href = '/app/login/';
+    }
+</script>
+@@if parent
+@@else
+<div class="js-hidden fixed inset-0 z-[100] bg-background/95 backdrop-blur-sm flex items-center justify-center p-6" id="viewerGate">
+<div class="bg-surface-container-lowest rounded-2xl shadow-xl border border-outline-variant/15 p-8 max-w-sm w-full space-y-4">
+<h2 class="font-headline text-xl font-bold text-on-background">Which family member are you?</h2>
+<p class="font-body text-sm text-on-surface-variant">This tells us what to show you — some sections may be personalized just for you.</p>
+<select class="w-full rounded-xl border border-outline-variant bg-surface p-3 font-body text-on-surface" id="viewerGateSelect">
+<option value="">Select your name…</option>
+</select>
+<button class="w-full py-3 rounded-xl bg-primary text-on-primary font-label font-medium hover:shadow-lg transition-shadow" onclick="confirmViewerIdentity()">Continue</button>
+</div>
+</div>
+@@end
+<header class="fixed top-0 left-0 w-full z-50 flex items-center gap-4 px-margin-mobile py-sm bg-surface/80 backdrop-blur-xl shadow-sm transition-all duration-300" id="topAppBar">
+<div class="flex items-center gap-2 shrink-0">
+<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+<div class="w-10 h-10 rounded-full border-2 border-primary/20 bg-primary text-on-primary flex items-center justify-center font-bold">T</div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile font-bold text-primary tracking-tight">Tut-P</span>
+</a>
+</div>
+<div class="hidden md:flex flex-1 justify-center px-4">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-lg">search</span>
+<input class="w-full h-10 pl-10 pr-4 rounded-full bg-surface-container-lowest border border-outline-variant/30 text-sm font-body text-on-surface placeholder:text-on-surface-variant/60 focus:outline-none focus:ring-2 focus:ring-primary/30" placeholder="Search Tut-P courses, materials, or topics..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-sm ml-auto shrink-0">
+<button aria-label="Language Toggle" class="flex items-center justify-center w-11 h-11 rounded-full hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">language</span>
+</button>
+<button aria-label="Notifications" class="flex items-center justify-center w-11 h-11 rounded-full hover:bg-surface-variant transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<!-- Log out on the phone, for every role (TUT-42: the bottom bar is Home, Homework, Practice, Family). -->
+<button aria-label="Log out" class="sm:hidden flex items-center justify-center w-11 h-11 rounded-full hover:bg-surface-variant transition-colors" onclick="logout()">
+<span class="material-symbols-outlined text-on-surface-variant">logout</span>
+</button>
+<div class="hidden sm:flex items-center gap-2 pl-2 border-l border-outline-variant/30">
+<div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm" id="headerAvatarInitial">·</div>
+@@if parent
+<span class="font-label-md text-label-md text-on-surface" id="headerUserName">Parent</span>
+@@else
+<span class="font-label-md text-label-md text-on-surface" id="headerUserName">Family</span>
+@@end
+<a href="#" onclick="logout(); return false;" class="font-label-md text-label-md text-primary hover:underline ml-1">Log out</a>
+</div>
+</div>
+</header>
+
+<nav class="hidden md:flex fixed left-0 top-0 h-full flex-col py-lg bg-surface-container-low shadow-xl w-72 rounded-r-lg z-40 overflow-y-auto" id="parentalSidebar">
+<div class="px-md mb-md">
+<a class="w-full flex items-center justify-center gap-2 py-2.5 rounded-full bg-primary text-on-primary font-label-md text-label-md font-semibold hover:bg-primary/90 transition-colors" href="/app/family/">
+<span class="material-symbols-outlined text-lg">person_add</span>Add Family Member
+</a>
+</div>
+<div class="px-md mb-2 flex items-center justify-between">
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-widest">Family Members</p>
+<span class="font-label text-xs font-semibold text-on-surface-variant bg-surface-container-high rounded-full px-2 py-0.5" id="sidebarMemberCount">0</span>
+</div>
+<div class="px-md space-y-1 mb-lg" id="sidebarFamilyList">
+<p class="font-body text-xs text-on-surface-variant px-2 py-2">Loading…</p>
+</div>
+<ul class="flex flex-col gap-1 px-2 mb-lg">
+@@if parent
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/app/{{self}}/"><span class="material-symbols-outlined">home</span><span class="font-label-lg text-label-lg">Home</span></a></li>
+@@else
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/app/family-member/"><span class="material-symbols-outlined">home</span><span class="font-label-lg text-label-lg">Home</span></a></li>
+@@end
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#exploreSubjectsSection"><span class="material-symbols-outlined">school</span><span class="font-label-lg text-label-lg">Learning Courses</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#bondingReportSection"><img src="/assets/icons/bonding-small.svg" alt="" width="24" height="24" class="shrink-0"><span class="font-label-lg text-label-lg">Bonding Report</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="#" onclick="openHomeworkModal(); return false;"><span class="material-symbols-outlined">smart_toy</span><span class="font-label-lg text-label-lg">Ask Tut-P AI Tutor</span></a></li>
+<li><a class="flex items-center gap-4 px-md py-sm text-on-surface-variant hover:bg-surface-container-high rounded-full transition-colors" href="/tutors"><span class="material-symbols-outlined">person_search</span><span class="font-label-lg text-label-lg">Find a Tutor</span></a></li>
+</ul>
+<div class="mt-auto px-md">
+<div class="rounded-2xl p-4 bg-gradient-to-br from-primary to-primary-container text-on-primary space-y-2">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined">workspace_premium</span>
+<p class="font-label-md text-label-md font-semibold">Tut-P Pro Family</p>
+</div>
+<p class="font-body text-xs text-on-primary/90">Homework Help for every subject, Quiz and Storytelling. ₹500/month per child (incl. GST).</p>
+<button class="w-full py-2 rounded-full bg-on-primary text-primary font-label text-xs font-bold hover:shadow-md transition-shadow" onclick="window.TutpBilling &amp;&amp; window.TutpBilling.openPlans()">Explore Pro</button>
+</div>
+</div>
+</nav>
+
+@@if parent
+<main class="tp-dash max-w-5xl mx-auto px-4 md:px-6 pb-28 md:pb-12 space-y-6 md:space-y-8">
+@@else
+<main class="tp-dash js-hidden max-w-5xl mx-auto px-4 md:px-6 pb-28 md:pb-12 space-y-6 md:space-y-8" id="mainContent">
+@@end
+
+<!-- TUT-42: phone-first order (Vet, 2026-10-14): Homework Help, today's homework, bonding, Singapore Maths, goal, learn together. -->
+<section id="tpTop" class="tp-anchor">
+<div class="flex flex-wrap gap-2 mb-3 empty:hidden" id="billingStatus" data-can-pay="{{canPay}}"></div>
+<div class="bg-surface-container-low rounded-2xl p-5 md:p-6 border border-outline-variant/15 space-y-3">
+<div class="flex flex-wrap items-center gap-2">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-tertiary/10 text-tertiary font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">wb_sunny</span>Good morning · <span id="greetingDateText"></span>
+</span>
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-success/10 text-success font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">verified_user</span>100% Kid-Safe Filter Active
+</span>
+</div>
+@@if parent
+<h2 class="font-headline text-2xl md:text-3xl font-bold text-on-background leading-tight">Welcome back, <span class="inline-block w-32 h-8 bg-surface-variant rounded-lg animate-pulse align-middle" id="parentGreetingName"></span></h2>
+<p class="font-body text-on-surface-variant" id="greetingGoalLine">Here's how this week is going.</p>
+@@else
+<h2 class="font-headline text-2xl md:text-3xl font-bold text-on-background leading-tight">Welcome back, <span id="greetingName">Family</span></h2>
+<p class="font-body text-on-surface-variant">Here's exactly what <span class="childNameText">your child</span> sees when they log in to Tut-P — the same subjects, sessions, and progress, nothing extra.</p>
+@@end
+<div class="flex flex-wrap gap-2" id="childChipsRow"></div>
+<div class="flex flex-wrap items-center gap-2 pt-1">
+<button class="bg-primary text-on-primary px-4 py-2.5 rounded-xl font-label text-sm font-medium hover:shadow-lg transition-shadow inline-flex items-center gap-2" onclick="window.location.href='/app/child/'">
+<span class="material-symbols-outlined text-lg">rocket_launch</span>Open <span class="childNameText">your child</span>'s Learning Space
+</button>
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary/10 text-primary font-label text-xs font-semibold">
+<span class="material-symbols-outlined text-sm">visibility</span>Viewing: <span class="childNameText">your child</span>'s view
+</span>
+</div>
+</div>
+</section>
+
+<section class="relative w-full z-10"{{feat:activities}}>
+<div class="absolute inset-0 bg-primary/5 rounded-full blur-xl -z-10"></div>
+<div class="relative bg-surface-container-lowest rounded-full shadow-[0_8px_30px_rgba(0,91,192,0.12)] border border-primary/10 flex items-center p-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
+<div class="relative shrink-0">
+<button aria-label="Attach a file" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-container/20 text-primary hover:bg-primary-container/30 transition-colors" onclick="toggleSearchAttachMenu()" type="button">
+<span class="material-symbols-outlined">add</span>
+</button>
+<div class="hidden absolute left-0 top-12 z-20 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/30 py-2 w-44" id="searchAttachMenu">
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Documents')" type="button"><span class="material-symbols-outlined text-lg text-primary">description</span> Documents</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Photos')" type="button"><span class="material-symbols-outlined text-lg text-primary">photo_camera</span> Photos</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface-variant/60 hover:bg-surface-container-low cursor-not-allowed" onclick="handleSearchAttach('Videos')" type="button"><span class="material-symbols-outlined text-lg text-on-surface-variant/60">videocam</span> Videos <span class="ml-auto text-[10px] uppercase tracking-wide">Soon</span></button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="handleSearchAttach('Files')" type="button"><span class="material-symbols-outlined text-lg text-primary">attach_file</span> Files</button>
+</div>
+</div>
+<input onkeydown="if(event.key==='Enter'){openHomeworkModal();}" aria-label="Ask about homework" class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/60 w-full py-3 px-sm outline-none" placeholder="Ask about tonight's homework…" type="text"/>
+<button aria-label="Voice search" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors shrink-0" onclick="openHomeworkModal()" type="button">
+<span class="material-symbols-outlined">mic</span>
+</button>
+<button aria-label="Search" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0" onclick="openHomeworkModal()" type="button">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</section>
+<a href="#tpHomeworkToday" id="homeworkPendingBanner" class="hidden tp-hw-strip"{{feat:homework}}>
+<span class="material-symbols-outlined" aria-hidden="true">assignment</span>
+<span id="homeworkPendingText"></span>
+<span class="tp-hw-strip__go">See<span class="material-symbols-outlined" aria-hidden="true">arrow_forward</span></span>
+</a>
+
+<section class="space-y-3" aria-label="Help tonight">
+<h2 class="font-headline text-xl text-on-surface">Help tonight</h2>
+<div class="tp-panels tp-panels--4">
+<button type="button" id="tpHomework" class="tp-panel tp-panel--sky tp-anchor" onclick="openHomeworkModal()"{{feat:homework}}>
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><rect x="16" y="14" width="46" height="64" rx="5"/><path d="M26 30h26M26 40h26M26 50h16"/><path d="M58 66l20-30 8 6-20 30-10 4z"/><path d="M74 42l8 6"/><circle cx="74" cy="22" r="6"/><path d="M66 14h16v4"/></svg>
+<h3 class="tp-panel__title">Homework Help</h3>
+<p class="tp-panel__lead">Tonight's homework, made simple.</p>
+<p class="tp-panel__text">Send a photo or PDF and get a clear explanation in your language.</p>
+<span class="tp-pill">Get homework help</span>
+</button>
+<button type="button" class="tp-panel tp-panel--lilac" onclick="openStorytellingModal()"{{feat:activities}}>
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><path d="M14 26c10-4 22-4 34 4v46c-12-8-24-8-34-4z"/><path d="M82 26c-10-4-22-4-34 4v46c12-8 24-8 34-4z"/><path d="M48 30v46"/><path d="M22 38c6-2 12-1 18 2M22 48c6-2 12-1 18 2M56 40c6-3 12-4 18-2M56 50c6-3 12-4 18-2"/><path d="M74 10l2 6 6 2-6 2-2 6-2-6-6-2 6-2z"/></svg>
+<h3 class="tp-panel__title">Storytelling Method</h3>
+<p class="tp-panel__lead">Lessons your child remembers.</p>
+<p class="tp-panel__text">Turn tonight's lesson into a short story you read together, in your language.</p>
+<span class="tp-pill">Start a story</span>
+</button>
+<button type="button" class="tp-panel tp-panel--stone" onclick="openExperientialModal()"{{feat:activities}}>
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><path d="M38 12h20M42 12v24L22 74a8 8 0 0 0 7 12h38a8 8 0 0 0 7-12L54 36V12"/><path d="M30 62h36"/><circle cx="42" cy="72" r="3"/><circle cx="55" cy="68" r="2"/><path d="M70 30c8-8 16-6 16-6s2 8-6 16c-5 5-11 4-11 4s-4-9 1-14z"/><path d="M69 44l12-15"/></svg>
+<h3 class="tp-panel__title">Experiential Learning</h3>
+<p class="tp-panel__lead">Learn it by doing it.</p>
+<p class="tp-panel__text">Attach a lesson and get a small activity to try at home with things you already have.</p>
+<span class="tp-pill">Try an activity</span>
+</button>
+<button type="button" class="tp-panel tp-panel--sage" onclick="openPlayModal()"{{feat:activities}}>
+<svg class="tp-art" viewBox="0 0 96 96" aria-hidden="true"><rect x="12" y="34" width="34" height="34" rx="6" transform="rotate(-12 29 51)"/><rect x="50" y="22" width="34" height="34" rx="6" transform="rotate(10 67 39)"/><circle cx="24" cy="46" r="2.5"/><circle cx="34" cy="58" r="2.5"/><circle cx="60" cy="31" r="2.5"/><circle cx="67" cy="39" r="2.5"/><circle cx="74" cy="47" r="2.5"/><path d="M30 80h36M48 72v16"/></svg>
+<h3 class="tp-panel__title">Play-Based Learning</h3>
+<p class="tp-panel__lead">A game the whole family plays.</p>
+<p class="tp-panel__text">Take turns answering questions from your child's lessons. Up to 4 players, each on their own phone.</p>
+<span class="tp-pill">Play together</span>
+</button>
+</div>
+</section>
+
+<!-- TUT-42: shown only on a day the school has posted homework (loadHomework below). -->
+<section id="tpHomeworkToday" class="hidden tp-anchor space-y-3"{{feat:homework}}>
+<h2 class="font-headline text-xl text-on-surface">Today's homework</h2>
+<div class="space-y-3" id="homeworkList">
+<p class="font-body text-sm text-on-surface-variant" id="homeworkEmptyMsg">Loading…</p>
+</div>
+</section>
+
+<section class="space-y-3" aria-label="Your child's progress">
+<h2 class="font-headline text-xl text-on-surface">Your child's progress</h2>
+<div class="tp-cards">
+<div class="tp-card" id="bondingReportSection"{{feat:bonding_report}}>
+<!-- Filled by /js/bonding-card.js (shared by the three dashboards) -->
+</div>
+<div class="tp-card" id="sgmathCard" data-role="{{role}}"{{feat:activities}}>
+<span class="tp-seal tp-seal--navy"><span class="material-symbols-outlined">view_week</span></span>
+<p class="tp-card__eye">Daily practice</p>
+<h3 class="tp-card__title">Singapore Maths</h3>
+<p class="tp-card__text">Word problems as pictures, then solved. 10 minutes a day, classes 1 to 6.</p>
+<div id="sgmathProgress" hidden></div>
+<div class="tp-card__foot"><a class="tp-btn" id="sgmathStart" href="/app/singapore-maths/?from={{role}}">Start session</a><span id="sgmathExtra"></span></div>
+</div>
+<div class="tp-card tp-card--soon"{{feat:homework}}>
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">rocket_launch</span></span>
+<p class="tp-card__eye">Next lesson</p>
+<h3 class="tp-card__title">Continue Learning</h3>
+<p class="tp-card__text">Pick up right where your child left off.</p>
+<div class="tp-card__foot"><button type="button" class="tp-link" onclick="openHomeworkModal()">Use Homework Help<span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+<div class="tp-card"{{feat:activities}}>
+<span class="tp-seal tp-seal--green"><span class="material-symbols-outlined">flag</span></span>
+<p class="tp-card__eye">This week</p>
+<h3 class="tp-card__title">This Week's Goal</h3>
+<div class="tp-goal">
+<div class="dc-ring" id="weeklyGoalRing" role="img" aria-label="Sessions completed this week">
+<svg viewBox="0 0 100 100" aria-hidden="true"><circle class="dc-ring__track" cx="50" cy="50" r="45"></circle><circle class="dc-ring__bar" id="weeklyGoalBar" cx="50" cy="50" r="45"></circle></svg>
+<div class="dc-ring__center"><span class="dc-ring__count" id="weeklyGoalCount">…</span><span class="dc-ring__of" id="weeklyGoalOf"></span></div>
+</div>
+<p class="tp-card__text" id="weeklyGoalMsg">Loading this week's sessions…</p>
+</div>
+<div class="tp-card__stat">
+<span class="dc-stat-row__label"><span class="material-symbols-outlined" style="font-size:20px;color:#005bbf">fact_check</span><span>Homework completion<br><span class="text-xs">(last 14 days)</span></span></span>
+<span class="dc-stat-row__value" id="completionTileValue"><span class="inline-block w-16 h-8 bg-surface-variant rounded-lg animate-pulse align-middle"></span></span>
+</div>
+<div class="tp-card__foot"><a class="tp-link" href="#tpHomework">Start a session<span class="material-symbols-outlined">arrow_forward</span></a></div>
+</div>
+</div>
+</section>
+
+<section class="space-y-3" aria-label="More for your family">
+<h2 class="font-headline text-xl text-on-surface">More for your family</h2>
+<div class="tp-cards">
+<div class="tp-card tp-card--soon"{{feat:activities}}>
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">library_books</span></span>
+<p class="tp-card__eye">Read together</p>
+<h3 class="tp-card__title">Family Library</h3>
+<p class="tp-card__text">Books and stories to read together.</p>
+<div class="tp-card__foot"><button type="button" class="tp-link" onclick="openStorytellingModal()">Try Storytelling<span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+<div class="tp-card" aria-label="Tutors">
+<span class="tp-seal tp-seal--teal"><span class="material-symbols-outlined">person_search</span></span>
+<p class="tp-card__eye">Tutors</p>
+<h3 class="tp-card__title">Need a tutor?</h3>
+<p class="tp-card__text">Verified Maths and Science tutors near you. ₹100 one-time connect fee.</p>
+<div class="tp-card__foot"><a class="tp-btn" href="/tutors">Find a tutor</a></div>
+</div>
+<div class="tp-card tp-card--soon"{{feat:activities}}>
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">smart_display</span></span>
+<p class="tp-card__eye">Videos</p>
+<h3 class="tp-card__title">YouTube Channel</h3>
+<p class="tp-card__text">Videos for the lesson you upload.</p>
+<div class="tp-card__foot"><button type="button" class="tp-link" onclick="openHomeworkModal()">Use Homework Help<span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+<div class="tp-card tp-card--soon"{{feat:homework}}>
+<span class="tp-soon">SOON</span>
+<span class="tp-seal tp-seal--slate"><span class="material-symbols-outlined">event</span></span>
+<p class="tp-card__eye">Live class</p>
+<h3 class="tp-card__title">Upcoming Live Session</h3>
+<p class="tp-card__text">Live classes with verified tutors.</p>
+<div class="tp-card__foot"><a class="tp-link" href="/tutors">Find a tutor<span class="material-symbols-outlined">arrow_forward</span></a></div>
+</div>
+</div>
+</section>
+
+<section class="space-y-3" aria-label="Explore subjects"{{feat:activities}}>
+<div class="dc-card dc-card--soon dc-card--compact" id="exploreSubjectsSection"{{feat:activities}}>
+<div class="dc-card__head">
+<span class="dc-chip dc-chip--muted"><span class="material-symbols-outlined">explore</span></span>
+<div><h3 class="dc-title">Explore Subjects</h3><p class="dc-text">Subject-by-subject learning and progress for your child.</p></div>
+<span class="dc-badge-soon"><span class="material-symbols-outlined">schedule</span>Coming soon</span>
+</div>
+<div class="dc-scroller">
+<div class="dc-subject"><div class="dc-subject__img"><img alt="" loading="lazy" src="/images/subjects/math.jpg"/><span class="dc-subject__icon"><span class="material-symbols-outlined">calculate</span></span></div><div class="dc-subject__body"><span class="dc-subject__name">Math</span></div></div><div class="dc-subject"><div class="dc-subject__img"><img alt="" loading="lazy" src="/images/subjects/science.jpg"/><span class="dc-subject__icon"><span class="material-symbols-outlined">science</span></span></div><div class="dc-subject__body"><span class="dc-subject__name">Science</span></div></div><div class="dc-subject"><div class="dc-subject__img"><img alt="" loading="lazy" src="/images/subjects/reading.jpg"/><span class="dc-subject__icon"><span class="material-symbols-outlined">menu_book</span></span></div><div class="dc-subject__body"><span class="dc-subject__name">Reading</span></div></div><div class="dc-subject"><div class="dc-subject__img"><img alt="" loading="lazy" src="/images/subjects/art.jpg"/><span class="dc-subject__icon"><span class="material-symbols-outlined">palette</span></span></div><div class="dc-subject__body"><span class="dc-subject__name">Art</span></div></div><div class="dc-subject"><div class="dc-subject__img"><img alt="" loading="lazy" src="/images/subjects/music.jpg"/><span class="dc-subject__icon"><span class="material-symbols-outlined">piano</span></span></div><div class="dc-subject__body"><span class="dc-subject__name">Music</span></div></div><div class="dc-subject"><div class="dc-subject__img"><img alt="" loading="lazy" src="/images/subjects/coding.jpg"/><span class="dc-subject__icon"><span class="material-symbols-outlined">smart_toy</span></span></div><div class="dc-subject__body"><span class="dc-subject__name">Coding</span></div></div>
+</div>
+<div class="dc-card__foot"><button class="dc-link" onclick="openExperientialModal()">Meanwhile, try Experiential Learning<span class="material-symbols-outlined">arrow_forward</span></button></div>
+</div>
+</section>
+
+<section class="space-y-3" aria-label="Safe and simple">
+<h2 class="font-headline text-xl text-on-surface">Safe and simple for your family</h2>
+<div class="tp-trust">
+<div class="tp-trust__item"><svg class="tp-trust__icon tp-seal--navy" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 6l14 6v10c0 9-6 16-14 20-8-4-14-11-14-20V12z"/><path d="M17 24l5 5 9-10"/></svg><h3>Kid-safe answers</h3><p>Every explanation passes a child-safety filter before your child sees it.</p></div>
+<div class="tp-trust__item"><svg class="tp-trust__icon tp-seal--teal" viewBox="0 0 48 48" aria-hidden="true"><path d="M8 14h32v20H8z"/><path d="M8 14l16 12 16-12"/><path d="M8 40L40 8"/></svg><h3>No ads</h3><p>No ads inside lessons, games or reports. Nothing is sold to your child.</p></div>
+<div class="tp-trust__item"><svg class="tp-trust__icon tp-seal--plum" viewBox="0 0 48 48" aria-hidden="true"><rect x="8" y="10" width="32" height="30" rx="4"/><path d="M8 18h32M16 6v8M32 6v8"/><path d="M19 26l10 10M29 26L19 36"/></svg><h3>No auto-renewal</h3><p>Pay per child, month by month. A plan never renews without you.</p></div>
+<div class="tp-trust__item"><svg class="tp-trust__icon tp-seal--saffron" viewBox="0 0 48 48" aria-hidden="true"><path d="M6 12h18M15 8v4M10 12c2 8 8 14 14 16M20 12c-2 8-8 14-14 16"/><path d="M26 40l8-20 8 20M29 33h10"/></svg><h3>Your language</h3><p>Explanations in Telugu, Hindi or English, the way you speak at home.</p></div>
+</div>
+</section>
+
+
+
+
+
+</main>
+<nav class="tp-nav md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center pt-2 pb-5 px-2 bg-surface-container-low/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.06)]" aria-label="Dashboard">
+<a class="tp-nav__item is-on" href="#tpTop"><span class="material-symbols-outlined">home</span><span>Home</span></a>
+<a class="tp-nav__item" href="#tpHomework"><span class="material-symbols-outlined">school</span><span>Homework</span></a>
+<a class="tp-nav__item" href="#sgmathCard"><span class="material-symbols-outlined">view_week</span><span>Practice</span></a>
+@@if parent
+<a class="tp-nav__item" href="/app/family/"><span class="material-symbols-outlined">diversity_3</span><span>Family</span></a>
+@@else
+<a class="tp-nav__item" href="#" onclick="logout(); return false;"><span class="material-symbols-outlined">logout</span><span>Log out</span></a>
+@@end
+</nav>
+<!-- Search-bar attach chooser — the generic "+" attach icon used to jump
+     straight into Homework Help with no confirmation, silently running that
+     one specific mode regardless of which method pill looked selected. A
+     parent with limited digital confidence has no way to notice that
+     mismatch, so this now always asks explicitly which mode to use before
+     opening anything or touching the file picker. -->
+<div id="searchAttachChooser" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeSearchAttachChooser()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Which one do you want?</h3>
+<button onclick="closeSearchAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Choose what to do with this file before you attach it.</p>
+<div class="space-y-2">
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('homework')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Homework Help</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Get a simple explanation of tonight's homework</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('story')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Storytelling Method</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a story your child will remember</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('play')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Play-Based Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Turn today's lesson into a family quiz game</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('experiential')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Experiential Learning</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Step-by-step notes so your child can follow along at home</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('quiz')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Quiz</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Ask your child 5-10 questions one-on-one and see how they do</div>
+</button>
+<button class="w-full text-left px-4 py-3 rounded-xl border-2 border-outline-variant hover:border-primary transition-colors" onclick="routeSearchAttachTo('examPlaceholder')">
+<div class="font-label-md text-sm font-semibold text-on-surface">Online Exam / Test</div>
+<div class="font-body-md text-xs text-on-surface-variant mt-0.5">Coming soon</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Online Exam / Test placeholder — icon-only 6th chooser option, no real
+     functionality yet. Full spec (single-child formal exam, distinct from
+     Play-Based Learning's multiplayer quiz) is pending founder sign-off —
+     see CLAUDE.md backlog note. -->
+<div id="examComingSoonModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeExamComingSoonModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6 text-center">
+<span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 block">fact_check</span>
+<h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Online Exam / Test</h3>
+<p class="font-body-md text-sm text-on-surface-variant mb-5">A formal, single-child exam mode is coming soon.</p>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" onclick="closeExamComingSoonModal()">Got it</button>
+</div>
+</div>
+<!-- Ask Tut-P AI Tutor — inline attach + explain, real Claude call against
+     /api/homework using this session's real child context. Replaces the old
+     redirect to /demo/ (a generic, session-agnostic marketing page whose
+     post-quiz "Bonding dashboard" is fabricated sample data — unsafe to show
+     a real parent right after a real AI explanation). -->
+<div id="homeworkExplainModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeHomeworkModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface" id="hwModalTitle">Homework Help</h3>
+<button onclick="closeHomeworkModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4" id="hwModalChildContext">Helping your child</p>
+
+<div id="hwModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Explain in</label>
+<select id="hwModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5" id="hwModalTextLabel">Homework question / topic (optional if attaching a file)</label>
+<textarea id="hwModalText" placeholder="Describe the homework you need explained, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="hwModalAttachTrigger" onclick="hwModalAttachInput.accept='image/*,application/pdf'; hwModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="hwModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="hwModalThumb" alt="Preview of first attached homework photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach">remove</button>
+<img id="hwModalThumb2" alt="Preview of second attached homework photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="hwModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="hwModalClearAttach2">remove</button>
+</div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
+
+<div id="hwChipRow" class="hidden" role="group" aria-labelledby="hwChipLabel"><span id="hwChipLabel" class="hw-chip-label font-label-md text-on-surface-variant">How should Tut-P help?</span><div id="hwChips"></div></div>
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="hwModalSubmitBtn">Explain My Homework</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="hwModalErrBox"></div>
+</div>
+
+<div id="hwModalResults" class="hidden">
+<div class="flex justify-end mb-2 no-print">
+<button onclick="printResult('hwModalResults')" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base">print</span>Save as PDF / Print</button>
+</div>
+<div class="bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mb-6 mt-2" id="hwModalExplanationBlock">
+<details id="hwModalExplanationDetails" open>
+<summary class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5 cursor-pointer">
+<span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalLangTag">your language</span>
+</summary>
+<p id="hwModalExplanationText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0 mt-2"></p>
+</details>
+</div>
+<div id="hwModalQuizBlock">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary">Check understanding</div>
+<div class="font-label-md text-xs bg-on-surface text-surface px-3 py-1.5 rounded-full" id="hwModalScorePill">0 / 5 answered</div>
+</div>
+<p class="text-[11px] text-on-surface-variant -mt-2.5 mb-4">Each question is tagged by cognitive-demand category, mapped to NCF-SE 2023's Panchpadi stages where it applies — Tut-P's own tagging, not a verified curriculum record.</p>
+<div id="hwModalQuizArea"></div>
+</div>
+<div id="hwModalHomeworkResultBlock" class="hidden">
+<div id="hwModalConceptBlock" class="hidden bg-secondary-container/30 border-l-4 border-secondary rounded-lg px-5 py-5 mt-2">
+<div id="hwModalAditiHookBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-4 py-3 mb-3">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">A connection to build on</div>
+<p id="hwModalAditiHookText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Grounded in NCF-SE 2023's Panchpadi method — not a verified curriculum record.</p>
+</div>
+<div class="flex items-center gap-2 font-label-md text-label-md text-secondary mb-1.5">
+<span class="w-5 h-5 rounded-full bg-secondary text-on-secondary flex items-center justify-center text-[11px] font-semibold">✓</span>Explained in <span id="hwModalConceptLangTag">your language</span>
+</div>
+<p id="hwModalConceptText" class="text-[15.5px] leading-relaxed text-on-surface whitespace-pre-wrap m-0"></p>
+</div>
+<div id="hwModalQuestionsArea" class="hidden space-y-3 mt-2"></div>
+</div>
+<div class="text-center mt-2 no-print">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetHomeworkModal()" id="hwModalRetryBtn">↺ Try another homework</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Storytelling Method: the modal is built by /app/shared/story-modal.js -->
+
+<!-- Play-Based Learning — a turn-based multiplayer family game engine. Up
+@@if parent
+     to 4 players ({{self}}/{{other}}/family members/children) take turns
+@@else
+     to 4 players (mother/father/family members/children) take turns
+@@end
+     answering AI-generated multiple-choice questions from the lesson,
+     against one per-game locked countdown timer; explaining the answer
+     afterward is untimed. Scoring is server-authoritative — the browser
+     never receives a question's correct answer until after it submits one,
+     so the live leaderboard and the shareable "Winner of the Day" badge can
+     be trusted. See /api/game-sessions* in server.js. -->
+<div id="playModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closePlayModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Play-Based Learning</h3>
+<button onclick="closePlayModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Turn today's lesson into a family quiz game</p>
+
+<!-- Step 1: setup -->
+<div id="playModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Ask in</label>
+<select id="playModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Who's playing? (pick 2-4)</label>
+<div class="flex flex-col gap-1.5 mb-3.5" id="playModalPlayerPicker"><p class="text-xs text-on-surface-variant">Loading family members…</p></div>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="playModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" onclick="playModalAttachInput.accept='image/*,application/pdf'; playModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="playModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="playModalThumb" alt="Preview of attached play-based learning photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="playModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="playModalClearAttach">remove</button>
+</div>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalSubmitBtn">Next: pick a timer</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalErrBox"></div>
+</div>
+
+<!-- Step 2: locked per-game answer timer -->
+<div id="playModalTimerStep" class="hidden">
+<p class="font-body-md text-sm text-on-surface-variant mb-3.5">Pick one time limit for every question, for this whole game — it can't be changed once the game starts.</p>
+<div class="flex gap-2 mb-4" id="playModalTimerPicker">
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="30">30s</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="45">45s</button>
+<button type="button" class="flex-1 py-2.5 rounded-lg border-2 font-label-md text-sm transition-colors" data-seconds="60">60s</button>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 border-2 border-outline-variant text-on-surface-variant font-label-md text-sm rounded-lg px-4 py-2.5 hover:border-on-surface-variant transition-colors" onclick="playModalBackToForm()">Back</button>
+<button class="flex-[2] bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="playModalStartGameBtn" disabled>Start game</button>
+</div>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="playModalTimerErrBox"></div>
+</div>
+
+<!-- Step 3: live game -->
+<div id="playModalGame" class="hidden">
+<div class="flex flex-wrap gap-2 mb-4" id="playModalScoreboard"></div>
+<!-- Minimal remote-invite entry point — no polish intended, this exists
+     so POST /api/game-sessions/:id/invite can be exercised from a real
+     browser. Hidden for a device that joined remotely (see
+     playModalJoinRemoteGame): only the host device invites others. -->
+<div class="mb-4" id="playModalInvitePanel">
+<button id="playModalInviteBtn" class="font-label-md text-xs text-primary underline" onclick="playModalSendInvites()">Invite players (remote)</button>
+<div class="mt-2 space-y-1.5" id="playModalInviteResults"></div>
+</div>
+<div id="playModalTurnTransition" class="hidden"></div>
+<div id="playModalQuestionArea"></div>
+</div>
+
+<!-- Step 4: results -->
+<div id="playModalResults" class="hidden">
+<div class="font-label-md text-label-md text-primary mb-2 text-center" id="playModalWinnerBanner"></div>
+<div class="flex flex-col gap-1.5 mb-4" id="playModalFinalLeaderboard"></div>
+<canvas id="playModalShareCanvas" width="600" height="600" class="hidden"></canvas>
+<div class="flex gap-2 justify-center mb-5">
+<button class="bg-tertiary text-on-tertiary font-label-md text-xs uppercase tracking-wide rounded-lg px-4 py-2.5 hover:bg-tertiary/90 transition-colors inline-flex items-center gap-1.5" id="playModalShareBtn"><span class="material-symbols-outlined text-base">share</span>Share Winner of the Day</button>
+</div>
+<div class="border-t border-outline-variant pt-4">
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-1">What this game tested</div>
+<p class="text-[11px] text-on-surface-variant mb-3">Each question is tagged by cognitive-demand category, mapped to NCF-SE 2023's Panchpadi stages where it applies — Tut-P's own tagging, not a verified curriculum record.</p>
+<div id="playModalRecap" class="flex flex-col gap-1.5"></div>
+</div>
+<div class="text-center mt-5">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetPlayModal()">↺ Play another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
+
+<!-- Experiential Learning — attach a lesson, get an inferred "what came
+     before this" callout plus step-by-step notes the child can follow at
+     home. v1 is text-only: no YouTube search/relevance-check yet (none of
+     that infrastructure exists in this backend today), so notes never claim
+     to be based on a video — see CLAUDE.md backlog note. -->
+<div id="experientialModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
+<div class="absolute inset-0 bg-black/50" onclick="closeExperientialModal()"></div>
+<div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
+<div class="flex items-center justify-between mb-1">
+<h3 class="font-headline-lg text-xl font-bold text-on-surface">Experiential Learning</h3>
+<button onclick="closeExperientialModal()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-sm text-on-surface-variant mb-4">Step-by-step notes so your child can follow along at home</p>
+
+<div id="experientialModalForm">
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Notes in</label>
+<select id="experientialModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
+<option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
+</select>
+<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Lesson topic (optional if attaching a file)</label>
+<textarea id="experientialModalText" placeholder="Type what the lesson is about, or just attach a photo/PDF below." class="w-full font-body-md text-[15px] text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors resize-y min-h-[80px] leading-relaxed"></textarea>
+
+<div class="flex items-center gap-3 mt-3.5 flex-wrap">
+<label class="inline-flex items-center gap-2 font-label-md text-xs bg-surface-container-lowest border-2 border-dashed border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-3.5 py-2 rounded-lg cursor-pointer transition-colors" id="experientialModalAttachTrigger" onclick="experientialModalAttachInput.accept='image/*,application/pdf'; experientialModalAttachInput.click(); return false;">📎 Attach a photo or PDF (optional)</label>
+<input type="file" id="experientialModalAttachInput" accept="image/*,application/pdf" class="hidden">
+<img id="experientialModalThumb" alt="Preview of first attached experiential learning photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach">remove</button>
+<img id="experientialModalThumb2" alt="Preview of second attached experiential learning photo" class="w-11 h-11 rounded-md object-cover border-2 border-outline-variant hidden">
+<span class="font-label-md text-xs text-on-surface bg-surface-container-low border-2 border-outline-variant rounded-lg px-3 py-2 hidden" id="experientialModalPdfLabel2">📄</span>
+<button class="font-label-md text-xs text-error underline hidden" id="experientialModalClearAttach2">remove</button>
+</div>
+<p class="text-xs text-on-surface-variant mt-1.5 mb-0">Up to 2 photos/PDFs — handy for multi-page homework.</p>
+
+<button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 mt-5 w-full sm:w-auto hover:bg-primary/90 active:scale-[0.98] disabled:bg-outline-variant disabled:text-on-surface-variant disabled:cursor-not-allowed transition-colors" id="experientialModalSubmitBtn">Get step-by-step notes</button>
+<div class="mt-3.5 text-sm text-error font-label-md hidden" id="experientialModalErrBox"></div>
+</div>
+
+<div id="experientialModalResults" class="hidden">
+<div class="flex justify-end mb-2 no-print">
+<button onclick="printResult('experientialModalResults')" class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-4 py-2 rounded-lg transition-colors inline-flex items-center gap-1.5"><span class="material-symbols-outlined text-base">print</span>Save as PDF / Print</button>
+</div>
+<div id="experientialModalHookBlock" class="hidden bg-tertiary-container/30 border-l-4 border-tertiary rounded-lg px-5 py-4 mb-4 mt-2">
+<div class="font-label-md text-label-md text-on-tertiary-container mb-1">A connection to build on</div>
+<p id="experientialModalHookText" class="text-sm text-on-surface leading-relaxed m-0"></p>
+<p class="text-[11px] text-on-surface-variant mt-1.5 mb-0">Grounded in NCF-SE 2023's Panchpadi method — not a verified curriculum record.</p>
+</div>
+<div class="flex items-center gap-2 font-label-md text-label-md text-primary mb-2">Step-by-step notes</div>
+<ol id="experientialModalNotes" class="list-decimal pl-5 space-y-2 text-[15px] text-on-surface leading-relaxed"></ol>
+<div id="experientialModalVideos"></div>
+<div class="text-center mt-5 no-print">
+<button class="font-label-md text-xs border-2 border-outline-variant text-on-surface-variant hover:border-primary hover:text-primary px-5 py-2.5 rounded-lg transition-colors" onclick="resetExperientialModal()">↺ Try another lesson</button>
+</div>
+</div>
+
+</div>
+</div>
+<script src="/app/shared/tts-listen.js"></script>
+<script src="/app/shared/concept-picture.js"></script>
+<script src="/app/shared/feedback-dock.js"></script>
+<script src="/app/shared/homework-modal.js"></script>
+<script src="/app/shared/story-modal.js"></script>
+<script src="/app/shared/el-guided.js"></script>
+<script src="/app/shared/notes-card.js"></script>
+<script src="/app/shared/search-chips.js"></script>
+<script>
+        // Search bar's attach menu — Photos/Documents (PDF) used to jump
+        // straight into the Ask Tut-P AI Tutor (Homework Help) modal below
+        // with no confirmation; Videos isn't supported yet. It now always
+        // shows an explicit mode chooser first (see searchAttachChooser)
+        // instead of silently picking a mode for the parent.
+        // Shared "Save as PDF / Print" for Homework Help, Quiz, Storytelling
+        // and Experiential Learning results — tags the given results
+        // container as the print target (see @media print above) and uses
+        // the browser's native print dialog, whose own "Save as PDF"
+        // destination needs no PDF-generation library or backend endpoint.
+        // Real measured median for /api/homework (the shared generation call
+        // behind Homework Help, Quiz, Storytelling and Experiential Learning)
+        // is ~15-20s, not a few seconds — a single static button label for
+        // that long reads as frozen. This cycles a spinner + progressively
+        // reassuring messages, advancing once per intervalMs and holding on
+        // the last message rather than looping, until the caller stops it.
+        // Doesn't change actual generation time — that's a separate,
+        // bigger tradeoff (streaming/output size) intentionally out of
+        // scope here.
+        function startStagedLoading(btn, messages, intervalMs){
+            let i = 0;
+            const render = () => {
+                btn.innerHTML = '<span class="inline-block w-3.5 h-3.5 mr-1.5 align-[-2px] border-2 border-current border-t-transparent rounded-full animate-spin"></span>' + messages[i];
+            };
+            render();
+            const timer = setInterval(() => {
+                if (i < messages.length - 1) { i++; render(); }
+            }, intervalMs);
+            return () => clearInterval(timer);
+        }
+        function printResult(id){
+            document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'));
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.classList.add('print-target');
+            window.print();
+        }
+        window.addEventListener('afterprint', function(){
+            document.querySelectorAll('.print-target').forEach(el => el.classList.remove('print-target'));
+        });
+        function toggleSearchAttachMenu(){ document.getElementById('searchAttachMenu').classList.toggle('hidden'); }
+        let pendingSearchAttachKind = null;
+        function handleSearchAttach(kind){
+            document.getElementById('searchAttachMenu').classList.add('hidden');
+            if (kind === 'Videos') {
+                alert('Video attachments aren\'t supported yet — please attach a photo or a PDF document instead.');
+                return;
+            }
+            pendingSearchAttachKind = kind;
+            document.getElementById('searchAttachChooser').classList.remove('hidden');
+        }
+        function closeSearchAttachChooser(){
+            document.getElementById('searchAttachChooser').classList.add('hidden');
+            pendingSearchAttachKind = null;
+        }
+        function routeSearchAttachTo(mode){
+            const kind = pendingSearchAttachKind;
+            document.getElementById('searchAttachChooser').classList.add('hidden');
+            pendingSearchAttachKind = null;
+            const accept = kind === 'Photos' ? 'image/*' : kind === 'Documents' ? 'application/pdf' : 'image/*,application/pdf';
+            if (mode === 'homework' || mode === 'quiz') {
+                openHomeworkModal(mode);
+                hwModalAttachInput.accept = accept;
+                hwModalAttachInput.click();
+            } else if (mode === 'examPlaceholder') {
+                document.getElementById('examComingSoonModal').classList.remove('hidden');
+            } else if (mode === 'story') {
+                openStorytellingModal();
+                storyModalAttachInput.accept = accept;
+                storyModalAttachInput.click();
+            } else if (mode === 'play') {
+                openPlayModal();
+                const input = document.getElementById('playModalAttachInput');
+                input.accept = accept;
+                input.click();
+            } else if (mode === 'experiential') {
+                openExperientialModal();
+                const input = document.getElementById('experientialModalAttachInput');
+                input.accept = accept;
+                input.click();
+            }
+        }
+
+        // Homework Help / Quiz modal and the attach/parse helpers the other
+        // modals share: /app/shared/homework-modal.js, loaded just before
+        // this script.
+
+
+        // Post-session parent feedback pulse — minimal, non-blocking, no
+        // styling polish yet. Shared by Homework Help/Quiz/Storytelling/
+        // Experiential Learning, fired right after each one's API call
+        // resolves successfully.
+        function submitFeedback(studentId, feature, sentiment, explanationClear, originalExplanation) {
+            fetch('/api/feedback', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ studentId, feature, sentiment, explanationClear, freeText: null, originalExplanation })
+            }).catch(err => console.error('[feedback] Could not submit:', err));
+        }
+        function showFeedbackPrompt(feature, originalExplanation) {
+            const studentId = sessionStorage.getItem('tutp_student_id');
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:240px;';
+            box.innerHTML = `
+                <div id="fbSentimentStep">
+                    <p style="margin:0 0 8px;">How was this?</p>
+                    <button type="button" data-sentiment="positive" style="font-size:20px;background:none;border:none;cursor:pointer;">😊</button>
+                    <button type="button" data-sentiment="neutral" style="font-size:20px;background:none;border:none;cursor:pointer;">😐</button>
+                    <button type="button" data-sentiment="negative" style="font-size:20px;background:none;border:none;cursor:pointer;">😟</button>
+                </div>
+                <div id="fbClearStep" style="display:none;">
+                    <p style="margin:0 0 8px;">Was the explanation clear?</p>
+                    <button type="button" data-clear="true" style="font-size:20px;background:none;border:none;cursor:pointer;">👍</button>
+                    <button type="button" data-clear="false" style="font-size:20px;background:none;border:none;cursor:pointer;">👎</button>
+                </div>
+            `;
+            TutpFeedbackDock.place(box, feature);   // end of the result, in the flow (replaces the fixed style above)
+            let chosenSentiment = null;
+            box.querySelectorAll('[data-sentiment]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    chosenSentiment = btn.dataset.sentiment;
+                    box.querySelector('#fbSentimentStep').style.display = 'none';
+                    box.querySelector('#fbClearStep').style.display = 'block';
+                });
+            });
+            box.querySelectorAll('[data-clear]').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    submitFeedback(studentId, feature, chosenSentiment, btn.dataset.clear === 'true', originalExplanation);
+                    box.remove();
+                    if (chosenSentiment === 'positive' && !sessionStorage.getItem('tutp_whatsapp_share_shown')) {
+                        sessionStorage.setItem('tutp_whatsapp_share_shown', '1');
+                        showWhatsappSharePrompt();
+                    }
+                });
+            });
+        }
+
+        // Shown at most once per session, right after a 'positive' feedback
+        // sentiment — the moment a parent is most likely to want to share.
+        // The share link now carries a real family_referral_codes code
+        // (fetched from the server, created lazily on first request) instead
+        // of the old untracked ?ref=family_<familyId> shape, so a signup
+        // through it actually attributes back to this family (see
+        // family_referral_conversions, written by /api/register). If the
+        // fetch fails, the prompt is skipped entirely rather than showing an
+        // untracked link — the whole point of this version is attribution.
+        async function showWhatsappSharePrompt() {
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) return;
+            let referralData;
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/referral-code');
+                if (!res.ok) throw new Error('Request failed: ' + res.status);
+                referralData = await res.json();
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not load referral code — skipping share prompt:', err);
+@@else
+                console.error('[family-member] Could not load referral code — skipping share prompt:', err);
+@@end
+                return;
+            }
+            const message = "I've been using Tut-P to help with my child's homework — it explains everything in plain language (even in Telugu/Hindi) and shows me how involved I'm actually being, not just my child's grades. Thought you might like it too: " + referralData.shareUrl;
+            const waUrl = 'https://wa.me/?text=' + encodeURIComponent(message);
+            // "Immediate Gratitude Loop" — omitted below 1 rather than
+            // showing "You've helped 0 families join!"
+            const gratitudeLine = referralData.referralCount > 0
+                ? '<p style="margin:0 0 8px;color:#0a7a3d;font-weight:600;">You\'ve already helped ' + referralData.referralCount + ' families join!</p>'
+                : '';
+            const box = document.createElement('div');
+            box.style.cssText = 'position:fixed;bottom:16px;right:16px;z-index:9999;background:#fff;border:1px solid #ccc;border-radius:8px;padding:12px 14px;box-shadow:0 2px 10px rgba(0,0,0,.15);font-size:14px;max-width:240px;';
+            box.innerHTML = `
+                ${gratitudeLine}
+                <p style="margin:0 0 8px;">Glad that helped! Know another parent who'd want this?</p>
+                <a href="${waUrl}" target="_blank" rel="noopener" id="fbShareLink" style="display:inline-block;background:#25D366;color:#fff;text-decoration:none;padding:8px 12px;border-radius:6px;font-weight:600;">Share on WhatsApp</a>
+                <button type="button" id="fbShareDismiss" style="display:block;margin-top:8px;background:none;border:none;color:#666;font-size:12px;cursor:pointer;padding:0;">Not now</button>
+            `;
+            TutpFeedbackDock.place(box, 'share');
+            box.querySelector('#fbShareLink').addEventListener('click', () => {
+                fetch('/api/track/share-clicked', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ familyId })
+@@if parent
+                }).catch(err => console.error('[{{self}}] Could not record share-clicked event:', err));
+@@else
+                }).catch(err => console.error('[family-member] Could not record share-clicked event:', err));
+@@end
+            });
+            box.querySelector('#fbShareDismiss').addEventListener('click', () => box.remove());
+        }
+
+        // Storytelling Method: markup and script are in /app/shared/story-modal.js
+
+        // ---------------- Play-Based Learning (multiplayer game engine) ----------------
+        // State machine: form -> timer lock -> live turn-based game (server-
+        // authoritative scoring, correct answers withheld until submitted) ->
+        // results (leaderboard + share card + post-game pedagogy recap).
+        let playSessionToken = 0;
+        const playAttachState = { base64: null, mediaType: null };
+        attachFilePicker(document.getElementById('playModalAttachInput'), document.getElementById('playModalThumb'), document.getElementById('playModalPdfLabel'), document.getElementById('playModalClearAttach'), playAttachState, document.getElementById('playModalErrBox'));
+
+        const PLAY_CATEGORY_LABELS = {
+            logical_reasoning: 'Logical Reasoning',
+            understanding: 'Understanding · Bodha',
+            application: 'Application · Prayoga',
+            skill_based: 'Skill-based · Abhyasa'
+        };
+
+@@if parent
+        let playRoster = [];          // [{type, refId, name, checked}] built from {{self}}/{{other}}/family_members/students
+@@else
+        let playRoster = [];          // [{type, refId, name, checked}] built from mother/father/family_members/students
+@@end
+        let playSelectedTimeLimit = null;
+        let playGameSessionId = null;
+        let playQuestionsPerPlayer = null;
+        let playPlayers = [];         // [{id, turnOrder, name, score, correctCount}]
+        let playQuestionQueue = {};   // turnOrder -> [{id, questionIndex, questionText, options}]
+        let playPrefetchPromises = {};   // turnOrder -> Promise, shared by every caller (background kickoff AND playStartTurn's fallback) so a second call for the same player awaits the same in-flight request instead of silently no-op'ing while it's still pending
+        let playTurnIdx = 0;          // index into playPlayers for whoever's turn it is
+        let playLap = 0;              // 0-based question slot, same for every player per lap
+        let playCurrentQuestion = null;
+        let playPendingPoints = 0;    // points from the answer just submitted, applied during the turn-transition reveal
+        let playPendingCorrect = false;
+        let playNextTurnOrder = 1;    // whose turn is next, decided server-side by POST /answer (see migration 015) — this client only renders it
+        let playNextLap = 0;
+        let playNextIsGameOver = false;
+        let playMyGamePlayerId = null;   // set only when this device joined remotely via a magic-link invite (playModalJoinRemoteGame) — null for the host device, which "is" whoever's turn it currently is rather than one fixed seat
+        let playPollHandle = null;       // setInterval handle for a remote joiner waiting on someone else's turn — see playModalRefreshRemoteState
+        let playTimerHandle = null;
+        let playTimerRemaining = 0;
+        let playAnswerStartedAt = 0;
+
+        async function loadPlayModalPlayerPicker(){
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            const pickerEl = document.getElementById('playModalPlayerPicker');
+            try {
+                const [famRes, membersRes, studentsRes] = await Promise.all([
+                    fetch('/api/family/' + encodeURIComponent(familyId)),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/members'),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/students')
+                ]);
+                const fam = famRes.ok ? await famRes.json() : {};
+                const members = membersRes.ok ? (await membersRes.json()).members || [] : [];
+                const students = studentsRes.ok ? (await studentsRes.json()).students || [] : [];
+                playRoster = [
+@@if parent
+                    ...(fam.{{self}}Name ? [{ type: '{{self}}', refId: null, name: fam.{{self}}Name }] : []),
+                    ...(fam.{{other}}Name ? [{ type: '{{other}}', refId: null, name: fam.{{other}}Name }] : []),
+@@else
+                    ...(fam.motherName ? [{ type: 'mother', refId: null, name: fam.motherName }] : []),
+                    ...(fam.fatherName ? [{ type: 'father', refId: null, name: fam.fatherName }] : []),
+@@end
+                    ...students.map(s => ({ type: 'student', refId: s.id, name: s.name })),
+                    ...members.map(m => ({ type: 'family_member', refId: m.id, name: m.name }))
+                ].map((p, i) => ({ ...p, checked: i < 2 }));
+                renderPlayModalPlayerPicker();
+            } catch (err) {
+                console.error('[playModal] Could not load family roster:', err);
+                pickerEl.innerHTML = '<p class="text-xs text-error">Could not load family members — please close and reopen this.</p>';
+            }
+        }
+        function renderPlayModalPlayerPicker(){
+            const pickerEl = document.getElementById('playModalPlayerPicker');
+            const checkedCount = playRoster.filter(p => p.checked).length;
+            pickerEl.innerHTML = playRoster.map((p, i) => `
+                <label class="flex items-center gap-2.5 border-2 rounded-lg px-3 py-2 cursor-pointer transition-colors ${p.checked ? 'border-primary bg-primary-container/10' : 'border-outline-variant'}">
+                    <input type="checkbox" data-idx="${i}" ${p.checked ? 'checked' : ''} ${(!p.checked && checkedCount >= 4) ? 'disabled' : ''} class="w-4 h-4 accent-primary">
+                    <span class="font-body-md text-sm text-on-surface">${hwEscapeHtml(p.name)}</span>
+                </label>
+            `).join('');
+            pickerEl.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.addEventListener('change', () => {
+                    playRoster[parseInt(cb.dataset.idx, 10)].checked = cb.checked;
+                    renderPlayModalPlayerPicker();
+                });
+            });
+        }
+
+        function openPlayModal(){
+            playSessionToken++;
+            resetPlayModal();
+            loadPlayModalPlayerPicker();
+            document.getElementById('playModal').classList.remove('hidden');
+        }
+        function closePlayModal(){
+            document.getElementById('playModal').classList.add('hidden');
+            if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+        }
+        function resetPlayModal(){
+            if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+            playMyGamePlayerId = null;
+            document.getElementById('playModalForm').classList.remove('hidden');
+            document.getElementById('playModalTimerStep').classList.add('hidden');
+            document.getElementById('playModalGame').classList.add('hidden');
+            document.getElementById('playModalResults').classList.add('hidden');
+            document.getElementById('playModalText').value = '';
+            document.getElementById('playModalClearAttach').click();
+            document.getElementById('playModalErrBox').classList.add('hidden');
+            document.getElementById('playModalTimerErrBox').classList.add('hidden');
+            const btn = document.getElementById('playModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Next: pick a timer';
+            document.querySelectorAll('#playModalTimerPicker button').forEach(b => b.classList.remove('border-primary', 'bg-primary-container/10', 'text-primary'));
+            playSelectedTimeLimit = null;
+            document.getElementById('playModalStartGameBtn').disabled = true;
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            playGameSessionId = null; playQuestionsPerPlayer = null; playPlayers = []; playQuestionQueue = {};
+            playPrefetchPromises = {}; playTurnIdx = 0; playLap = 0; playCurrentQuestion = null;
+            playPendingPoints = 0; playPendingCorrect = false;
+            playNextTurnOrder = 1; playNextLap = 0; playNextIsGameOver = false;
+            document.getElementById('playModalTurnTransition').classList.add('hidden');
+            document.getElementById('playModalQuestionArea').classList.remove('hidden');
+            document.getElementById('playModalInvitePanel').classList.remove('hidden');
+            document.getElementById('playModalInviteResults').innerHTML = '';
+        }
+
+        // Minimal host-side invite trigger — invites every player in this
+        // game (the server skips student players itself, since remote
+        // children join by QR/code, not email; see /invite's per-player
+        // error entries). No selection UI: this exists to make
+        // POST /api/game-sessions/:id/invite testable from a real browser,
+        // not to be the final invite experience.
+        async function playModalSendInvites(){
+            const btn = document.getElementById('playModalInviteBtn');
+            const resultsEl = document.getElementById('playModalInviteResults');
+            btn.disabled = true; btn.textContent = 'Sending invites…';
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/invite`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gamePlayerIds: playPlayers.map(p => p.id) })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not send invites');
+                resultsEl.innerHTML = data.invited.map(inv => `
+                    <div class="text-xs bg-surface-container-lowest border border-outline-variant rounded-lg px-2.5 py-2">
+                        <div class="font-label-md text-on-surface">${hwEscapeHtml(inv.playerName)} — ${inv.delivered ? '✅ emailed' : (inv.error ? '⚠️ ' + hwEscapeHtml(inv.error) : '📋 copy link below')}</div>
+                        ${inv.joinLink ? `<input readonly class="w-full mt-1 text-[11px] bg-transparent border border-outline-variant/40 rounded px-1.5 py-1" value="${inv.joinLink}" onclick="this.select()">` : ''}
+                    </div>
+                `).join('');
+            } catch (err) {
+                resultsEl.innerHTML = `<p class="text-xs text-error">${hwEscapeHtml(err.message)}</p>`;
+            } finally {
+                btn.disabled = false; btn.textContent = 'Invite players (remote)';
+            }
+        }
+
+        // Entry point for a magic-link invite (see the page-load check near
+        // the bottom of this file): skips the create-game form entirely and
+        // drops this device straight into an already-in-progress session,
+        // driven by polling instead of the host device's locally-tracked
+        // turn order.
+        async function playModalJoinRemoteGame(gameSessionId, gamePlayerId){
+            playSessionToken++;
+            resetPlayModal();
+            playGameSessionId = gameSessionId;
+            playMyGamePlayerId = gamePlayerId;
+            document.getElementById('playModalForm').classList.add('hidden');
+            document.getElementById('playModalInvitePanel').classList.add('hidden');
+            document.getElementById('playModal').classList.remove('hidden');
+            await playModalRefreshRemoteState();
+        }
+
+        // Polls GET /state and either shows "waiting for X's turn" or, once
+        // it's this device's own turn, hands off to the same playStartTurn()
+        // the host device uses. From that point this device behaves exactly
+        // like the host for its own turn (playModalSubmitAnswer ->
+        // playModalAdvanceTurn already reads currentTurnOrder from its own
+        // /answer response, no polling needed) — polling only resumes once
+        // this device goes back to waiting on someone else again.
+        async function playModalRefreshRemoteState(){
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/state`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not load this game.');
+
+                if (data.status !== 'in_progress') {
+                    if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+                    document.getElementById('playModalGame').classList.add('hidden');
+                    document.getElementById('playModalForm').classList.remove('hidden');
+                    const errBox = document.getElementById('playModalErrBox');
+                    errBox.textContent = data.status === 'completed' ? 'This game has already finished.' : 'This game is no longer available.';
+                    errBox.classList.remove('hidden');
+                    return;
+                }
+
+                playPlayers = data.players;
+                playSelectedTimeLimit = data.timeLimitSeconds;
+                playQuestionsPerPlayer = data.questionsPerPlayer;
+                playLap = data.currentLap;
+                playTurnIdx = playPlayers.findIndex(p => p.turnOrder === data.currentTurnOrder);
+
+                document.getElementById('playModalGame').classList.remove('hidden');
+                renderPlayScoreboard();
+
+                const me = playPlayers.find(p => p.id === playMyGamePlayerId);
+                if (me && me.turnOrder === data.currentTurnOrder) {
+                    if (playPollHandle) { clearInterval(playPollHandle); playPollHandle = null; }
+                    playStartTurn();
+                    return;
+                }
+
+                const upNext = playPlayers.find(p => p.turnOrder === data.currentTurnOrder);
+                document.getElementById('playModalQuestionArea').innerHTML =
+                    `<p class="text-sm text-on-surface-variant text-center py-10">Waiting for ${hwEscapeHtml(upNext ? upNext.name : 'the next player')}'s turn…</p>`;
+
+                if (!playPollHandle) playPollHandle = setInterval(playModalRefreshRemoteState, 4000);
+            } catch (err) {
+                console.error('[playModal] Could not load remote game state:', err);
+            }
+        }
+
+        function playModalBackToForm(){
+            document.getElementById('playModalTimerStep').classList.add('hidden');
+            document.getElementById('playModalForm').classList.remove('hidden');
+        }
+
+        document.getElementById('playModalSubmitBtn').addEventListener('click', () => {
+            const playTopic = document.getElementById('playModalText').value.trim();
+            const errBox = document.getElementById('playModalErrBox');
+            const checkedCount = playRoster.filter(p => p.checked).length;
+            if (!playTopic && !playAttachState.base64) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            if (checkedCount < 2) {
+                errBox.textContent = 'Pick at least 2 players.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            document.getElementById('playModalForm').classList.add('hidden');
+            document.getElementById('playModalTimerStep').classList.remove('hidden');
+        });
+
+        document.querySelectorAll('#playModalTimerPicker button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                playSelectedTimeLimit = parseInt(btn.dataset.seconds, 10);
+                document.querySelectorAll('#playModalTimerPicker button').forEach(b => {
+                    b.classList.toggle('border-primary', b === btn);
+                    b.classList.toggle('bg-primary-container/10', b === btn);
+                    b.classList.toggle('text-primary', b === btn);
+                });
+                document.getElementById('playModalStartGameBtn').disabled = false;
+            });
+        });
+
+        function playModalBuildLessonContent(){
+            const playTopic = document.getElementById('playModalText').value.trim();
+            const content = [];
+            if (playAttachState.base64) {
+                content.push({ type: playAttachState.mediaType === 'application/pdf' ? 'document' : 'image', source: { type: 'base64', media_type: playAttachState.mediaType, data: playAttachState.base64 } });
+            }
+            content.push({ type: 'text', text: playTopic ? `Lesson: ${playTopic}` : 'Read the lesson in the attached photo or PDF and build the game from it.' });
+            return content;
+        }
+
+        document.getElementById('playModalStartGameBtn').addEventListener('click', async () => {
+            const errBox = document.getElementById('playModalTimerErrBox');
+            const startBtn = document.getElementById('playModalStartGameBtn');
+            errBox.classList.add('hidden');
+            startBtn.disabled = true;
+            const requestToken = playSessionToken;
+            const stopLoading = startStagedLoading(startBtn, ['Preparing your game…', 'Writing questions…', 'Almost ready…'], 7000);
+            try {
+                const familyId = sessionStorage.getItem('tutp_family_id');
+                const childContext = await getSharedChildContext();
+                const lang = document.getElementById('playModalLang').value;
+                const lessonContent = playModalBuildLessonContent();
+                const selected = playRoster.filter(p => p.checked);
+                const res = await fetch('/api/game-sessions', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        familyId, language: lang, timeLimitSeconds: playSelectedTimeLimit, childContext, lessonContent,
+                        players: selected.map(p => ({ type: p.type, refId: p.refId, name: p.name }))
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    if (res.status === 402) throw new FreeLimitError(data.message || "This family has used all its free Play-Based Learning games.", data.bucket);
+                    throw new Error(data.error || 'Could not start the game.');
+                }
+                if (requestToken !== playSessionToken) return;
+
+                playGameSessionId = data.gameSessionId;
+                playQuestionsPerPlayer = data.questionsPerPlayer;
+                playPlayers = data.players.map(p => ({ id: p.id, turnOrder: p.turnOrder, name: p.name, score: 0, correctCount: 0 }));
+                playQuestionQueue[1] = data.player1Questions;
+                playPrefetchPromises[1] = Promise.resolve();
+                playTurnIdx = 0; playLap = 0;
+
+                // Fire prefetch for every other player immediately, in the
+                // background — usually finishes well before their turn.
+                for (let t = 2; t <= playPlayers.length; t++) playModalPrefetch(t, lessonContent, childContext);
+
+                document.getElementById('playModalTimerStep').classList.add('hidden');
+                document.getElementById('playModalGame').classList.remove('hidden');
+                renderPlayScoreboard();
+                playStartTurn();
+            } catch (err) {
+                if (requestToken !== playSessionToken) return;
+                console.error('[playModal] Could not start game:', err);
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                } else {
+                    errBox.textContent = err.message || "Couldn't build a game from this — try attaching the actual lesson page or typing what it's about.";
+                    errBox.classList.remove('hidden');
+                }
+            } finally {
+                stopLoading();
+                if (requestToken === playSessionToken) startBtn.disabled = false;
+            }
+        });
+
+        // Returns the SAME promise to every caller for a given turnOrder while
+        // one is in flight, so playStartTurn's fallback (called when a turn
+        // arrives before the background kickoff has finished) correctly waits
+        // for that same request instead of finding "already marked, nothing to
+        // do" and failing instantly — the bug that caused "Could not prepare
+        // the next question" even though the original request went on to
+        // succeed a few seconds later. On failure the entry is cleared so a
+        // later call starts a genuinely fresh attempt rather than being stuck
+        // replaying a dead promise forever.
+        function playModalPrefetch(turnOrder, lessonContent, childContext){
+            if (playPrefetchPromises[turnOrder]) return playPrefetchPromises[turnOrder];
+            const promise = (async () => {
+                try {
+                    const res = await fetch(`/api/game-sessions/${playGameSessionId}/players/${turnOrder}/generate`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ lessonContent, childContext })
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'Prefetch failed');
+                    playQuestionQueue[turnOrder] = data.questions;
+                } catch (err) {
+                    console.error('[playModal] Prefetch failed for player', turnOrder, err);
+                    delete playPrefetchPromises[turnOrder]; // allow a fresh retry when their turn actually arrives
+                }
+            })();
+            playPrefetchPromises[turnOrder] = promise;
+            return promise;
+        }
+
+        function renderPlayScoreboard(){
+            const el = document.getElementById('playModalScoreboard');
+            el.innerHTML = playPlayers.map((p, i) => `<span class="font-label-md text-xs px-3 py-1.5 rounded-full ${i === playTurnIdx ? 'bg-primary text-on-primary' : 'bg-surface-container-high text-on-surface'}">${hwEscapeHtml(p.name)}: ${p.score} pts</span>`).join('');
+        }
+
+        async function playStartTurn(){
+            const player = playPlayers[playTurnIdx];
+            let queue = playQuestionQueue[player.turnOrder];
+            if (!queue) {
+                // Prefetch hadn't finished (or failed) — generate inline now.
+                const area = document.getElementById('playModalQuestionArea');
+                area.innerHTML = '<p class="text-sm text-on-surface-variant text-center py-6">Preparing ' + hwEscapeHtml(player.name) + "'s questions…</p>";
+                await playModalPrefetch(player.turnOrder, playModalBuildLessonContent(), await getSharedChildContext());
+                queue = playQuestionQueue[player.turnOrder];
+                if (!queue) {
+                    area.innerHTML = '<p class="text-sm text-error text-center py-6">Could not prepare the next question — please close and try again.</p>';
+                    return;
+                }
+            }
+            playCurrentQuestion = queue[playLap];
+            renderPlayQuestion(player, playCurrentQuestion);
+            playStartTimer();
+        }
+
+        function renderPlayQuestion(player, q){
+            const area = document.getElementById('playModalQuestionArea');
+            area.innerHTML = `
+                <div class="bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-5">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <div class="font-label-md text-[11px] text-on-surface-variant">Question ${q.questionIndex} of ${playQuestionsPerPlayer} — ${hwEscapeHtml(player.name)}'s turn</div>
+                        <div class="font-label-md text-sm font-semibold text-primary" id="playModalTimerDisplay">${playSelectedTimeLimit}s</div>
+                    </div>
+                    <div class="text-[15.5px] font-semibold text-on-surface mb-3.5 leading-snug">${hwEscapeHtml(q.questionText)}</div>
+                    <div class="grid gap-2" data-role="opts"></div>
+                    <div class="mt-3 pt-3 border-t border-dashed border-outline-variant text-[13.5px] text-on-surface-variant leading-relaxed hidden" data-role="explain"></div>
+                    <button class="hidden w-full bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-2.5 mt-3.5 hover:bg-primary/90 transition-colors" data-role="next">Next</button>
+                </div>
+            `;
+            const optsWrap = area.querySelector('[data-role="opts"]');
+            q.options.forEach((opt, oi) => {
+                const btn = document.createElement('button');
+                btn.className = HW_OPT_DEFAULT;
+                btn.innerHTML = `<span>${hwEscapeHtml(opt)}</span><span class="text-base" data-role="mark"></span>`;
+                btn.addEventListener('click', () => playModalSubmitAnswer(oi));
+                optsWrap.appendChild(btn);
+            });
+        }
+
+        function playStartTimer(){
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            playTimerRemaining = playSelectedTimeLimit;
+            playAnswerStartedAt = Date.now();
+            const display = document.getElementById('playModalTimerDisplay');
+            playTimerHandle = setInterval(() => {
+                playTimerRemaining--;
+                if (display) display.textContent = playTimerRemaining + 's';
+                if (playTimerRemaining <= 0) {
+                    clearInterval(playTimerHandle);
+                    playModalSubmitAnswer(null); // timeout — unanswered
+                }
+            }, 1000);
+        }
+
+        async function playModalSubmitAnswer(selectedIndex){
+            if (playTimerHandle) clearInterval(playTimerHandle);
+            const area = document.getElementById('playModalQuestionArea');
+            const optsWrap = area.querySelector('[data-role="opts"]');
+            optsWrap.querySelectorAll('button').forEach(b => b.disabled = true);
+            const answerTimeSeconds = Math.min(playSelectedTimeLimit, Math.round((Date.now() - playAnswerStartedAt) / 1000));
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/answer`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ gameQuestionId: playCurrentQuestion.id, selectedIndex, answerTimeSeconds })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not record the answer');
+
+                const allBtns = optsWrap.querySelectorAll('button');
+                if (selectedIndex !== null) {
+                    const chosenBtn = allBtns[selectedIndex];
+                    chosenBtn.className = data.isCorrect ? HW_OPT_CORRECT : HW_OPT_WRONG;
+                    chosenBtn.querySelector('[data-role="mark"]').textContent = data.isCorrect ? '✓' : '✗';
+                }
+                if (!data.isCorrect) {
+                    const correctBtn = allBtns[data.correctIndex];
+                    correctBtn.className = HW_OPT_CORRECT;
+                    correctBtn.querySelector('[data-role="mark"]').textContent = '✓';
+                }
+                const explainBox = area.querySelector('[data-role="explain"]');
+                explainBox.innerHTML = `<b class="text-on-surface">Why:</b> ${hwEscapeHtml(data.explanation)}`;
+                explainBox.classList.remove('hidden');
+
+                if (data.isCorrect && typeof confetti === 'function') {
+                    confetti({ particleCount: 50, spread: 55, origin: { y: 0.6 }, scalar: 0.8 });
+                }
+                // Not applied to the player/scoreboard yet — that happens in
+                // the turn-transition reveal (playModalAdvanceTurn) so the
+                // score bump feels earned instead of snapping in instantly.
+                playPendingPoints = data.pointsAwarded;
+                playPendingCorrect = data.isCorrect;
+                // Turn order is decided server-side, not computed here — see
+                // playModalAdvanceTurn.
+                playNextTurnOrder = data.currentTurnOrder;
+                playNextLap = data.currentLap;
+                playNextIsGameOver = data.isGameOver;
+
+                const nextBtn = area.querySelector('[data-role="next"]');
+                nextBtn.classList.remove('hidden');
+                nextBtn.addEventListener('click', playModalAdvanceTurn, { once: true });
+            } catch (err) {
+                console.error('[playModal] Answer submission failed:', err);
+                area.insertAdjacentHTML('beforeend', `<p class="text-sm text-error mt-2">${hwEscapeHtml(err.message)}</p>`);
+            }
+        }
+
+        async function playModalAdvanceTurn(){
+            const finishedPlayer = playPlayers[playTurnIdx];
+            const oldScore = finishedPlayer.score;
+            finishedPlayer.score += playPendingPoints;
+            if (playPendingCorrect) finishedPlayer.correctCount++;
+
+            // Whose turn is next was already decided server-side inside
+            // POST /answer (see migration 015) — this just renders it, so a
+            // remote device polling GET /state agrees with what happens
+            // here instead of each device computing its own answer.
+            playLap = playNextLap;
+            const isGameOver = playNextIsGameOver;
+            const nextPlayer = isGameOver ? null : playPlayers.find(p => p.turnOrder === playNextTurnOrder);
+            if (nextPlayer) playTurnIdx = playPlayers.indexOf(nextPlayer);
+
+            await playModalShowTurnTransition(finishedPlayer, oldScore, finishedPlayer.score, nextPlayer);
+            renderPlayScoreboard();
+
+            if (isGameOver) {
+                playModalCompleteGame();
+                return;
+            }
+            playStartTurn();
+        }
+
+        // Brief CSS-flip card shown in place of the question area between
+        // turns: reveals the score just earned with a count-up, then names
+        // whoever's turn is next — replaces the old instant scoreboard bump
+        // with something that feels suspenseful for a couple hundred ms.
+        function playModalShowTurnTransition(player, oldScore, newScore, nextPlayer){
+            return new Promise(resolve => {
+                const questionArea = document.getElementById('playModalQuestionArea');
+                const overlay = document.getElementById('playModalTurnTransition');
+                questionArea.classList.add('hidden');
+                overlay.classList.remove('hidden');
+                overlay.innerHTML = `
+                    <div class="play-turn-transition bg-surface-container-lowest border-2 border-outline-variant rounded-lg p-6 text-center">
+                        <div class="font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1">${hwEscapeHtml(player.name)}</div>
+                        <div class="font-headline-sm text-2xl font-bold text-primary" id="playTransitionScore">${oldScore} pts</div>
+                        <div class="font-body-md text-sm text-on-surface-variant mt-3">${nextPlayer ? `Next: ${hwEscapeHtml(nextPlayer.name)}'s turn` : 'Final scores…'}</div>
+                    </div>`;
+                playAnimateCount(document.getElementById('playTransitionScore'), oldScore, newScore, 600, ' pts');
+                setTimeout(() => {
+                    overlay.classList.add('hidden');
+                    overlay.innerHTML = '';
+                    questionArea.classList.remove('hidden');
+                    resolve();
+                }, 900);
+            });
+        }
+
+        function playAnimateCount(el, from, to, duration, suffix){
+            if (!el || from === to) { if (el) el.textContent = to + (suffix || ''); return; }
+            const start = performance.now();
+            function step(now){
+                const progress = Math.min((now - start) / duration, 1);
+                el.textContent = Math.round(from + (to - from) * progress) + (suffix || '');
+                if (progress < 1) requestAnimationFrame(step);
+            }
+            requestAnimationFrame(step);
+        }
+
+        async function playModalCompleteGame(){
+            document.getElementById('playModalGame').classList.add('hidden');
+            const requestToken = playSessionToken;
+            try {
+                const res = await fetch(`/api/game-sessions/${playGameSessionId}/complete`, { method: 'POST' });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not finish the game');
+                if (requestToken !== playSessionToken) return;
+
+                document.getElementById('playModalResults').classList.remove('hidden');
+                const winner = data.leaderboard.find(p => p.playerId === data.winnerId);
+                document.getElementById('playModalWinnerBanner').textContent = `🏆 Winner of the Day: ${winner.name}!` + (data.isGameChangerToday ? ' · Fastest game today!' : '') + (data.isTodaysChampion ? ' · 🎉 Today\'s Champion — best score in your family today!' : '');
+                document.getElementById('playModalFinalLeaderboard').innerHTML = data.leaderboard.map(p => `
+                    <div class="flex items-center justify-between px-3.5 py-2 rounded-lg ${p.rank === 1 ? 'bg-tertiary-container/40 border-2 border-tertiary' : 'bg-surface-container-high'}">
+                        <span class="font-body-md text-sm text-on-surface">${p.rank === 1 ? '🏆 ' : ''}${p.rank}. ${hwEscapeHtml(p.name)}</span>
+                        <span class="font-label-md text-sm font-semibold text-on-surface">${p.score} pts</span>
+                    </div>
+                `).join('');
+
+                const byPlayer = Object.fromEntries(playPlayers.map(p => [p.id, p.name]));
+                document.getElementById('playModalRecap').innerHTML = data.recap.map(q => `
+                    <div class="flex items-center justify-between gap-2 text-[13px] px-3 py-1.5 bg-surface-container-low rounded-lg">
+                        <span class="text-on-surface-variant">${q.isCorrect ? '✓' : '✗'} ${hwEscapeHtml(byPlayer[q.playerId] || '')} · Q${q.questionIndex}</span>
+                        <span class="text-[10px] uppercase tracking-wide text-on-tertiary-container bg-tertiary-container/50 px-2 py-0.5 rounded-full">${hwEscapeHtml(PLAY_CATEGORY_LABELS[q.cognitiveCategory] || 'General')}</span>
+                    </div>
+                `).join('');
+
+                playModalDrawShareCard(winner, data.isTodaysChampion);
+            } catch (err) {
+                console.error('[playModal] Could not complete game:', err);
+                document.getElementById('playModalResults').classList.remove('hidden');
+                document.getElementById('playModalWinnerBanner').textContent = '';
+                document.getElementById('playModalFinalLeaderboard').innerHTML = `<p class="text-sm text-error">${hwEscapeHtml(err.message)}</p>`;
+            }
+        }
+
+        function playModalDrawShareCard(winner, isTodaysChampion){
+            const canvas = document.getElementById('playModalShareCanvas');
+            const ctx = canvas.getContext('2d');
+            const grad = ctx.createLinearGradient(0, 0, 600, 600);
+            if (isTodaysChampion) {
+                grad.addColorStop(0, '#E9A23B'); grad.addColorStop(1, '#F2C879');
+            } else {
+                grad.addColorStop(0, '#5B4FE9'); grad.addColorStop(1, '#8B7FF2');
+            }
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, 600, 600);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 34px sans-serif';
+            ctx.fillText(isTodaysChampion ? '🏆 Today\'s Champion' : '🏆 Winner of the Day', 300, 220);
+            ctx.font = 'bold 48px sans-serif';
+            ctx.fillText(winner.name, 300, 300);
+            ctx.font = '28px sans-serif';
+            ctx.fillText(`${winner.score} points`, 300, 350);
+            if (isTodaysChampion) {
+                ctx.font = '20px sans-serif';
+                ctx.fillText('Best score in the family today!', 300, 385);
+            }
+            ctx.font = '18px sans-serif';
+            ctx.fillText(new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 300, 420);
+            ctx.font = 'bold 20px sans-serif';
+            ctx.fillText('Tut-P · Play-Based Learning', 300, 550);
+
+            const fileName = isTodaysChampion ? 'todays-champion.png' : 'winner-of-the-day.png';
+            const shareTitle = isTodaysChampion ? "Today's Champion" : 'Winner of the Day';
+            const shareText = isTodaysChampion
+                ? `${winner.name} is today's Tut-P Champion in our family — ${winner.score} points!`
+                : `${winner.name} won today's Tut-P family quiz with ${winner.score} points!`;
+            document.getElementById('playModalShareBtn').onclick = async () => {
+                canvas.toBlob(async (blob) => {
+                    const file = new File([blob], fileName, { type: 'image/png' });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                        try {
+                            await navigator.share({ files: [file], title: shareTitle, text: shareText });
+                            return;
+                        } catch (err) { /* user cancelled or share failed — fall through to download */ }
+                    }
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = fileName;
+                    a.click();
+                }, 'image/png');
+            };
+        }
+
+        // ---------------- Experiential Learning ----------------
+        // v1 is text-only: no YouTube search/relevance-check (no such
+        // infrastructure exists in this backend yet) — see CLAUDE.md backlog.
+        let experientialSessionToken = 0;
+        const experientialAttachState = { items: [] };
+        const resetExperientialAttach = attachFilePickerMulti(
+            document.getElementById('experientialModalAttachInput'),
+            [
+                { thumbEl: document.getElementById('experientialModalThumb'), pdfLabelEl: document.getElementById('experientialModalPdfLabel'), clearBtnEl: document.getElementById('experientialModalClearAttach') },
+                { thumbEl: document.getElementById('experientialModalThumb2'), pdfLabelEl: document.getElementById('experientialModalPdfLabel2'), clearBtnEl: document.getElementById('experientialModalClearAttach2') }
+            ],
+            document.getElementById('experientialModalAttachTrigger'),
+            { first: '📎 Attach a photo or PDF (optional)', more: '+ Add another photo or PDF' },
+            experientialAttachState,
+            document.getElementById('experientialModalErrBox'),
+            2
+        );
+
+        function openExperientialModal(){
+            experientialSessionToken++;
+            resetExperientialModal();
+            document.getElementById('experientialModal').classList.remove('hidden');
+        }
+        function closeExperientialModal(){
+            document.getElementById('experientialModal').classList.add('hidden');
+        }
+        function closeExamComingSoonModal(){
+            document.getElementById('examComingSoonModal').classList.add('hidden');
+        }
+        function resetExperientialModal(){
+            document.getElementById('experientialModalForm').classList.remove('hidden');
+            document.getElementById('experientialModalResults').classList.add('hidden');
+            document.getElementById('experientialModalText').value = '';
+            resetExperientialAttach();
+            document.getElementById('experientialModalErrBox').classList.add('hidden');
+            const btn = document.getElementById('experientialModalSubmitBtn');
+            btn.disabled = false;
+            btn.textContent = 'Get step-by-step notes';
+        }
+
+        document.getElementById('experientialModalSubmitBtn').addEventListener('click', async () => {
+            const topic = document.getElementById('experientialModalText').value.trim();
+            const lang = document.getElementById('experientialModalLang').value;
+            const errBox = document.getElementById('experientialModalErrBox');
+            const submitBtn = document.getElementById('experientialModalSubmitBtn');
+            if (!topic && !experientialAttachState.items.length) {
+                errBox.textContent = 'Please type the lesson topic or attach a photo/PDF first.';
+                errBox.classList.remove('hidden');
+                return;
+            }
+            errBox.classList.add('hidden');
+            submitBtn.disabled = true;
+            const stopLoading = startStagedLoading(submitBtn, ['Preparing notes…', 'Thinking it through…', 'Almost done…'], 7000);
+            const requestToken = experientialSessionToken;
+            try {
+                // The server builds the notes prompt (NCF-SE 2023 Panchpadi:
+                // Aditi + Bodha only); see server/prompts/homework-prompts.js.
+                const parsed = await callHomeworkApi({ feature: 'experiential_learning', text: topic, language: lang, attachments: experientialAttachState.items });
+                if (requestToken !== experientialSessionToken) return;
+                showFeedbackPrompt('experiential_learning', (parsed.notes || []).join(' '));
+
+                document.getElementById('experientialModalForm').classList.add('hidden');
+                document.getElementById('experientialModalResults').classList.remove('hidden');
+                const hookBlock = document.getElementById('experientialModalHookBlock');
+                if (parsed.aditiApplicable && parsed.aditiHook) {
+                    document.getElementById('experientialModalHookText').textContent = parsed.aditiHook;
+                    hookBlock.classList.remove('hidden');
+                } else {
+                    hookBlock.classList.add('hidden');
+                }
+                const notesEl = document.getElementById('experientialModalNotes');
+                notesEl.innerHTML = '';
+                (parsed.notes || []).forEach(step => {
+                    const li = document.createElement('li');
+                    li.textContent = step;
+                    notesEl.appendChild(li);
+                });
+            } catch (err) {
+                if (requestToken !== experientialSessionToken) return;
+                console.error('[experientialModal] Notes request failed:', err);
+                if (err.name === 'FreeLimitError') {
+                    showFreeLimitModal(err.message, err.bucket);
+                    return;
+                } else if (err.name === 'ModalParseError') {
+                    console.error('[experientialModal] Raw AI response that failed to parse:', err.rawText);
+                    errBox.textContent = "Couldn't build notes from this — try attaching the actual lesson page or typing what it's about.";
+                } else {
+                    errBox.textContent = err.message;
+                }
+                errBox.classList.remove('hidden');
+            } finally {
+                stopLoading();
+                if (requestToken === experientialSessionToken) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Get step-by-step notes';
+                }
+            }
+        });
+
+        (function setGreetingDate(){
+            const el = document.getElementById('greetingDateText');
+            el.textContent = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        })();
+
+@@if parent
+        // Shows a loading skeleton until the real parent's name resolves —
+        // never flashes a hardcoded fallback before a real fetch has had
+        // the chance to complete. Falls back to generic "Parent" (never a
+        // demo-persona name) only once we know for sure there's no
+        // family_id, or the fetch failed/came back empty. Also fills in
+        // the header avatar/name, which show the same identity.
+        (async function loadRealParentName(){
+            const el = document.getElementById('parentGreetingName');
+            const headerNameEl = document.getElementById('headerUserName');
+            const headerAvatarEl = document.getElementById('headerAvatarInitial');
+            const showName = (name) => {
+                el.textContent = name;
+                el.classList.remove('w-32', 'h-8', 'bg-surface-variant', 'rounded-lg', 'animate-pulse', 'inline-block', 'align-middle');
+                headerNameEl.textContent = name;
+                headerAvatarEl.textContent = (name || '?')[0].toUpperCase();
+            };
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) { showName('Parent'); return; }
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId));
+                if (!res.ok) { showName('Parent'); return; }
+                const data = await res.json();
+                showName(data.{{self}}Name || data.{{other}}Name || 'Parent');
+            } catch (err) {
+                console.error('[{{self}}] Could not load parent name:', err);
+                showName('Parent');
+            }
+        })();
+
+        // The "Leo" placeholders sprinkled through the welcome banner,
+        // testimonial and homework card used to be static text — never
+        // replaced with the real child's name, on any page load (this,
+        // not sessionStorage loss, was the reported "wrong name after
+        // refresh" bug). Now resolved the same way as the parent's name.
+@@else
+        // The "friend" placeholder used to be static text — never replaced
+        // with the real child's name. Resolved the same way as on
+        // mother/father: fetch by the student_id set at login (or carried
+        // in sessionStorage from a preview link).
+@@end
+        (async function loadRealChildName(){
+            const nameEls = document.querySelectorAll('.childNameText');
+@@if parent
+            const goalEl = document.getElementById('childGoalNamePreview');
+            const showName = (name) => {
+                nameEls.forEach(el => { el.textContent = name; });
+                if (goalEl) goalEl.textContent = name;
+            };
+@@else
+            const showName = (name) => { nameEls.forEach(el => { el.textContent = name; }); };
+@@end
+            const studentId = await window.tutpChildReady;
+            if (!studentId) { showName('your child'); return; }
+            try {
+                const res = await fetch('/api/student/' + encodeURIComponent(studentId));
+                if (!res.ok) { showName('your child'); return; }
+                const data = await res.json();
+                showName(data.name || 'your child');
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not load child name:', err);
+@@else
+                console.error('[family-member] Could not load child name:', err);
+@@end
+                showName('your child');
+            }
+        })();
+@@if parent
+@@else
+
+        // A family member reaching this page has no login of their own —
+        // the only identity we can establish is by asking. tutp_family_id
+        // comes from an existing session (the mother/father "Switch" row's
+        // /app/family-member/?preview=1 link, the only thing that actually
+        // links here); once we also know tutp_family_member_id, the
+        // personal bonding score and per-member visibility rules can be
+        // applied. (A prior version of this also accepted tutp_family_id
+        // straight from a ?fid= query param, described as coming from "a
+        // shared link" — no such link was ever generated anywhere in the
+        // app, and every protected endpoint re-validates ownership against
+        // the real session cookie regardless, so removed as dead code
+        // describing a feature that didn't exist.)
+        (function initViewerIdentity(){
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('preview') === '1') sessionStorage.setItem('tutp_preview_mode', '1');
+        })();
+
+        function updateIdentityDisplay(name){
+            document.getElementById('greetingName').textContent = name;
+            document.getElementById('headerUserName').textContent = name;
+            document.getElementById('headerAvatarInitial').textContent = (name || '?')[0].toUpperCase();
+        }
+@@end
+
+        // Greeting card's child switcher — only shown when there's more than
+        // one child. Tapping a child makes it this tab's selected child and
+        // remembers it on this device (the same key the login page reads),
+        // then reloads so every card shows that child.
+        (async function loadChildChips(){
+            const rowEl = document.getElementById('childChipsRow');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) return;
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/students');
+                if (!res.ok) return;
+                const students = (await res.json()).students || [];
+                if (students.length <= 1) return;
+                const currentId = await window.tutpChildReady;
+                rowEl.replaceChildren(...students.map(s => {
+                    const isCurrent = s.id === currentId;
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = 'inline-flex items-center gap-1 px-3 py-1.5 rounded-full border font-label text-xs whitespace-nowrap transition-colors ' +
+                        (isCurrent ? 'bg-primary text-on-primary border-primary' : 'bg-surface-container-lowest text-on-surface border-outline-variant/20 hover:border-primary');
+                    btn.setAttribute('aria-pressed', isCurrent ? 'true' : 'false');
+                    btn.textContent = s.name + (s.class ? ' · ' + s.class : '');
+                    btn.addEventListener('click', () => {
+                        if (isCurrent) return;
+                        try {
+                            sessionStorage.setItem('tutp_student_id', s.id);
+                            localStorage.setItem('tutp_last_student_' + familyId, s.id);
+                        } catch (e) {}
+                        location.reload();
+                    });
+                    return btn;
+                }));
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not load child chips:', err);
+@@else
+                console.error('[family-member] Could not load child chips:', err);
+@@end
+            }
+        })();
+
+        // Landed here from a Play-Based Learning magic-link invite
+        // (POST /api/game-invite/consume is the one-shot, session-gated
+        // step — the login page's own resolve call before OTP grants
+        // nothing). Clears ?joinGame= from the URL immediately after
+        // consuming so a page refresh doesn't try to consume an
+        // already-used token again.
+        (async function checkGameInvite(){
+            const params = new URLSearchParams(location.search);
+            const joinToken = params.get('joinGame');
+            if (!joinToken) return;
+            params.delete('joinGame');
+            const cleanUrl = location.pathname + (params.toString() ? '?' + params.toString() : '');
+            history.replaceState(null, '', cleanUrl);
+            try {
+                const res = await fetch('/api/game-invite/consume', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token: joinToken })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Could not join this game.');
+                await playModalJoinRemoteGame(data.gameSessionId, data.gamePlayerId);
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not join game from invite link:', err);
+@@else
+                console.error('[family-member] Could not join game from invite link:', err);
+@@end
+                // Surfaced the same way every other modal on this page shows
+                // its own errors (a dedicated err box) instead of only
+                // logging to the console — silently landing on the normal
+                // dashboard gave no indication the join attempt failed at
+                // all, e.g. an expired/already-used/wrong-family link.
+                openPlayModal();
+                const errBox = document.getElementById('playModalErrBox');
+                errBox.textContent = err.message || 'Could not join this game.';
+                errBox.classList.remove('hidden');
+            }
+        })();
+
+        // Landed here after a real login that started from the root
+        // homepage's "attach homework" widget (index.html sets these
+        // sessionStorage keys right before sending the parent to
+        // /app/login/, which now routes here the same as any other login —
+        // see CLAUDE.md, this used to shortcut straight to /demo/ instead).
+        // The homepage now offers the same 6 modes as this page's own
+        // search-bar attach chooser (see routeSearchAttachTo above), so this
+        // looks up whichever mode was actually chosen there and opens that
+        // mode's own modal — silently doing nothing for a mode this page
+        // doesn't recognize (e.g. the Online Exam placeholder, which never
+        // sets these keys in the first place). Fetches the already-uploaded
+        // file back from its Supabase public URL and feeds it into that
+        // modal's attach input the same way a manual file pick would. Same
+        // 15-minute freshness window as before, so a long-abandoned attach
+        // flow (attach -> submit -> back out before finishing OTP) can't
+        // hijack an unrelated, later login.
+        const PENDING_ATTACH_MODES = {
+            homework: () => { openHomeworkModal('homework'); return hwModalAttachInput; },
+            quiz: () => { openHomeworkModal('quiz'); return hwModalAttachInput; },
+            story: () => { openStorytellingModal(); return storyModalAttachInput; },
+            play: () => { openPlayModal(); return document.getElementById('playModalAttachInput'); },
+            experiential: () => { openExperientialModal(); return document.getElementById('experientialModalAttachInput'); }
+        };
+        (async function checkPendingAttach(){
+            // A game invite link (?joinGame=) takes priority when both are
+            // pending on the same load — it's an explicit, time-boxed
+            // invite to a specific live session (2-hour expiry, one-shot
+            // token) that someone else may be waiting on, versus a homework
+            // attachment that can simply be resumed on a later visit within
+            // its own 15-minute window. Left untouched (not consumed) here,
+            // so it's still there if this page is reached again without a
+            // game invite in the URL.
+            if (new URLSearchParams(location.search).get('joinGame')) return;
+
+            const url = sessionStorage.getItem('tutp_pending_attach_url');
+            const mode = sessionStorage.getItem('tutp_pending_attach_mode');
+            const ts = parseInt(sessionStorage.getItem('tutp_pending_attach_ts'), 10);
+            sessionStorage.removeItem('tutp_pending_attach_url');
+            sessionStorage.removeItem('tutp_pending_attach_mode');
+            sessionStorage.removeItem('tutp_pending_attach_ts');
+            if (!url || !PENDING_ATTACH_MODES[mode] || !Number.isFinite(ts) || (Date.now() - ts) >= 15 * 60 * 1000) return;
+            try {
+                const blob = await (await fetch(url)).blob();
+                const file = new File([blob], sessionStorage.getItem('tutp_pending_attach_name') || 'homework', { type: blob.type });
+                sessionStorage.removeItem('tutp_pending_attach_name');
+                const input = PENDING_ATTACH_MODES[mode]();
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                input.files = dt.files;
+                input.dispatchEvent(new Event('change'));
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not pre-fill homepage attachment:', err);
+@@else
+                console.error('[family-member] Could not pre-fill homepage attachment:', err);
+@@end
+            }
+        })();
+
+@@if parent
+        // /tutors' "Contact tutor" flow bounces here ({{self}}/{{other}}/family-
+@@else
+        // /tutors' "Contact tutor" flow bounces here (mother/father/family-
+@@end
+        // member, whichever /api/session/OTP routes this login to) when it
+        // needs a login first — this page is only ever the login redirect's
+        // landing spot for that flow, never where it actually resumes, so
+        // its only job is to notice the pending flag and send the parent
+        // straight back to /tutors. Same one-shot + 15-minute-freshness
+        // shape as checkPendingAttach above.
+        (function checkPendingTutorContact(){
+            const tutorId = sessionStorage.getItem('tutp_pending_tutor_contact');
+            const ts = parseInt(sessionStorage.getItem('tutp_pending_tutor_contact_ts'), 10);
+            sessionStorage.removeItem('tutp_pending_tutor_contact');
+            sessionStorage.removeItem('tutp_pending_tutor_contact_ts');
+            if (!tutorId || !Number.isFinite(ts) || (Date.now() - ts) >= 15 * 60 * 1000) return;
+            window.location.href = '/tutors?resumeContact=' + encodeURIComponent(tutorId);
+        })();
+
+@@if parent
+        // Sidebar family list — self ({{self}}) marked Active, the other
+        // parent and every family_members row marked Switch. Reuses the
+        // same /api/family/:id (+/members) data as the chip row and the
+        // old "Family Members" section did.
+@@else
+        // Sidebar family list — the identified viewer (if any) marked
+        // Active, everyone else (both parents and other family_members)
+        // marked Switch. Same /api/family/:id (+/members) data as the
+        // identity picker and the greeting/header name.
+@@end
+        (async function loadSidebarFamily(){
+            const listEl = document.getElementById('sidebarFamilyList');
+            const countEl = document.getElementById('sidebarMemberCount');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            if (!familyId) {
+@@if parent
+                listEl.innerHTML = '<p class="font-body text-xs text-on-surface-variant px-2 py-2">Log in to see your family.</p>';
+@@else
+                listEl.innerHTML = '<p class="font-body text-xs text-on-surface-variant px-2 py-2">No family linked to this link.</p>';
+@@end
+                return;
+            }
+@@if parent
+@@else
+            const memberId = sessionStorage.getItem('tutp_family_member_id');
+@@end
+            const escapeHtml = (str) => {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            };
+            // Only the current viewer's own row is a link — every other family
+            // member is shown for information only (name/role/badge), not as a
+            // navigation shortcut into their dashboard.
+            const row = (name, role, badge, href) => {
+                const isSelf = badge === 'Active';
+                const tag = isSelf ? 'a' : 'div';
+                return `
+                <${tag} class="flex items-center gap-2 px-2 py-2 rounded-xl${isSelf ? ' hover:bg-surface-container-high transition-colors' : ''}"${isSelf ? ` href="${href}"` : ''}>
+                    <div class="w-9 h-9 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm shrink-0">${escapeHtml((name || '?')[0].toUpperCase())}</div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-label-md text-label-md text-on-surface truncate">${escapeHtml(name)}</p>
+                        <p class="font-body text-[11px] text-on-surface-variant truncate">${escapeHtml(role)}</p>
+                    </div>
+                    <span class="font-label text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${badge === 'Active' ? 'bg-success/10 text-success' : 'bg-primary/10 text-primary'}">${badge}</span>
+                </${tag}>`;
+            };
+            try {
+                const [famRes, membersRes] = await Promise.all([
+                    fetch('/api/family/' + encodeURIComponent(familyId)),
+                    fetch('/api/family/' + encodeURIComponent(familyId) + '/members')
+                ]);
+                const fam = famRes.ok ? await famRes.json() : {};
+                const membersData = membersRes.ok ? await membersRes.json() : { members: [] };
+                let rows = '';
+                let count = 0;
+@@if parent
+                if (fam.{{self}}Name) { rows += row(fam.{{self}}Name, '{{Self}}', 'Active', '/app/{{self}}/'); count++; }
+                if (fam.{{other}}Name) { rows += row(fam.{{other}}Name, '{{Other}}', 'Family', '/app/{{other}}/'); count++; }
+@@else
+                if (fam.motherName) { rows += row(fam.motherName, 'Mother', 'Family', '/app/mother/'); count++; }
+                if (fam.fatherName) { rows += row(fam.fatherName, 'Father', 'Family', '/app/father/'); count++; }
+@@end
+                (membersData.members || []).forEach(m => {
+@@if parent
+                    rows += row(m.name, m.relationship || 'Family', 'Family', '/app/family-member/?preview=1');
+@@else
+                    const isSelf = memberId && m.id === memberId;
+                    rows += row(m.name, m.relationship || 'Family', isSelf ? 'Active' : 'Family', '/app/family-member/?preview=1');
+@@end
+                    count++;
+                });
+                listEl.innerHTML = rows || '<p class="font-body text-xs text-on-surface-variant px-2 py-2">No family members yet.</p>';
+                countEl.textContent = count;
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not load sidebar family list:', err);
+@@else
+                console.error('[family-member] Could not load sidebar family list:', err);
+@@end
+                listEl.innerHTML = '<p class="font-body text-xs text-on-surface-variant px-2 py-2">Could not load family right now.</p>';
+            }
+        })();
+
+@@if parent
+        // The Bonding Report card and its full report are /js/bonding-card.js.
+
+        // Homework-completion tile — live-computed (same 14-day window/formula
+        // the daily bonding-score cron uses), so it can be fresher than the
+        // once-daily bonding_scores value on the card.
+@@else
+        // Homework-completion tile — family-wide (not per-viewer), so it
+        // doesn't wait on viewer-identity resolution; live-computed, same
+        // 14-day window/formula the daily bonding-score cron uses. The
+        // Bonding Report card and full report are /js/bonding-card.js.
+@@end
+        (async function loadHomeworkCompletion(){
+            const tileValueEl = document.getElementById('completionTileValue');
+            const familyId = sessionStorage.getItem('tutp_family_id');
+@@if parent
+            if (!familyId) { tileValueEl.textContent = '—'; return; }
+@@else
+            if (!familyId || !tileValueEl) { if (tileValueEl) tileValueEl.textContent = '—'; return; }
+@@end
+            try {
+                const res = await fetch('/api/homework-completion/' + encodeURIComponent(familyId));
+                if (!res.ok) throw new Error('Request failed');
+                const stats = await res.json();
+                tileValueEl.textContent = stats.hasData ? stats.percentage + '%' : 'Not enough data yet';
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not load homework completion:', err);
+@@else
+                console.error('[family-member] Could not load homework completion:', err);
+@@end
+                tileValueEl.textContent = 'Could not load';
+            }
+        })();
+@@if parent
+@@else
+
+        async function applyPersonalization(familyId, memberId, memberName){
+            if (memberName) updateIdentityDisplay(memberName);
+            try {
+                const res = await fetch('/api/visibility-rules/' + encodeURIComponent(familyId) + '/' + encodeURIComponent(memberId));
+                const visibility = await res.json();
+                Object.keys(visibility).forEach(feature => {
+                    document.querySelectorAll('[data-feature="' + feature + '"]').forEach(el => {
+                        el.style.display = visibility[feature] ? '' : 'none';
+                    });
+                });
+            } catch (err) {
+                console.error('[family-member] Could not load visibility rules:', err);
+            }
+
+            loadHomework(familyId, memberId);
+        }
+@@end
+
+        function formatHwDate(iso){
+            try { return new Date(iso).toLocaleDateString('en-IN', { month: 'short', day: 'numeric' }); }
+            catch (e) { return iso; }
+        }
+
+@@if parent
+        // Read-only for parents — the child marks their own homework done
+        // at their own login; this just reflects that status.
+        (async function loadHomework(){
+@@else
+        // Read-only — the child marks their own homework done at their own
+        // login. viewer_member_id lets the server re-check the same
+        // 'homework' visibility rule the data-feature attribute already
+        // hides this whole section for, as defense in depth.
+        async function loadHomework(familyId, memberId){
+@@end
+            const listEl = document.getElementById('homeworkList');
+            const bannerEl = document.getElementById('homeworkPendingBanner');
+            const bannerText = document.getElementById('homeworkPendingText');
+            const todayEl = document.getElementById('tpHomeworkToday');
+            const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+@@if parent
+            const familyId = sessionStorage.getItem('tutp_family_id');
+@@else
+@@end
+            if (!familyId) { listEl.innerHTML = ''; todayEl.classList.add('hidden'); return; }
+            try {
+@@if parent
+                const res = await fetch('/api/homework-assignments/for-family/' + encodeURIComponent(familyId));
+@@else
+                const url = '/api/homework-assignments/for-family/' + encodeURIComponent(familyId) +
+                    (memberId ? '?viewer_member_id=' + encodeURIComponent(memberId) : '');
+                const res = await fetch(url);
+@@end
+                const data = await res.json();
+                const students = (data.students || []).filter(s => s.homework && s.homework.length);
+                if (!students.length) {
+                    // No homework from school: the section and the strip stay out of the way.
+                    listEl.innerHTML = '';
+                    bannerEl.classList.add('hidden');
+                    todayEl.classList.add('hidden');
+                    return;
+                }
+                todayEl.classList.remove('hidden');
+                let pendingCount = 0;
+                let html = '';
+                students.forEach(s => {
+                    pendingCount += s.homework.filter(h => !h.is_done).length;
+                    html += `<div class="bg-surface-container-highest rounded-2xl p-4"><h3 class="font-label text-sm text-primary font-semibold mb-2">${esc(s.student_name)}</h3><div class="space-y-2">` +
+                        s.homework.map(hw => `
+                            <div class="flex items-start justify-between gap-2 bg-surface-bright rounded-xl p-3">
+                                <div>
+                                    <span class="font-caption text-xs text-on-surface-variant uppercase">${esc(hw.subject || 'Homework')} · ${esc(formatHwDate(hw.created_at))}</span>
+                                    <p class="font-body text-sm text-on-surface">${esc(hw.title)}</p>
+                                </div>
+                                <span class="px-2 py-1 rounded-full font-label text-xs shrink-0 ${hw.is_done ? 'bg-tertiary-container/20 text-tertiary' : 'bg-surface-variant text-on-surface-variant'}">${hw.is_done ? '✓ Done' : 'Pending'}</span>
+                            </div>`).join('') + '</div></div>';
+                });
+                listEl.innerHTML = html;
+                if (pendingCount > 0) {
+                    bannerText.textContent = `${pendingCount} homework ${pendingCount > 1 ? 'items' : 'item'} from school to do`;
+                    bannerEl.classList.remove('hidden');
+                } else {
+                    bannerEl.classList.add('hidden');
+                }
+            } catch (err) {
+@@if parent
+                console.error('[{{self}}] Could not load homework:', err);
+@@else
+                console.error('[family-member] Could not load homework:', err);
+@@end
+                listEl.innerHTML = '<p class="font-body text-sm text-error">Could not load homework.</p>';
+                todayEl.classList.remove('hidden');
+@@if parent
+@@else
+            }
+        }
+
+        function confirmViewerIdentity(){
+            const selectEl = document.getElementById('viewerGateSelect');
+            if (!selectEl.value) return;
+            const name = selectEl.options[selectEl.selectedIndex].textContent;
+            sessionStorage.setItem('tutp_family_member_id', selectEl.value);
+            sessionStorage.setItem('tutp_family_member_name', name);
+            document.getElementById('viewerGate').classList.add('js-hidden');
+            document.getElementById('mainContent').classList.remove('js-hidden');
+            applyPersonalization(sessionStorage.getItem('tutp_family_id'), selectEl.value, name);
+        }
+
+        (async function resolveViewerIdentity(){
+            const gateEl = document.getElementById('viewerGate');
+            const mainEl = document.getElementById('mainContent');
+            const isPreview = sessionStorage.getItem('tutp_preview_mode') === '1';
+            const familyId = sessionStorage.getItem('tutp_family_id');
+            const memberId = sessionStorage.getItem('tutp_family_member_id');
+            const memberName = sessionStorage.getItem('tutp_family_member_name');
+
+            // Mother/father previewing, or no family_id at all (page opened
+            // cold) — no specific person to personalize for, so show
+            // everything except the (necessarily personal) bonding section.
+            if (isPreview || !familyId) {
+                mainEl.classList.remove('js-hidden');
+                document.querySelectorAll('[data-feature="bonding_report"]').forEach(el => { el.style.display = 'none'; });
+                return;
+            }
+
+            if (memberId) {
+                mainEl.classList.remove('js-hidden');
+                applyPersonalization(familyId, memberId, memberName);
+                return;
+            }
+
+            gateEl.classList.remove('js-hidden');
+            const selectEl = document.getElementById('viewerGateSelect');
+            try {
+                const res = await fetch('/api/family/' + encodeURIComponent(familyId) + '/members');
+                const data = await res.json();
+                (data.members || []).forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.name;
+                    selectEl.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('[family-member] Could not load family members for identity picker:', err);
+@@end
+            }
+        })();
+</script>
+<script src="/js/weekly-goal.js" defer></script>
+<script src="/js/billing.js" defer></script>
+<script src="/app/singapore-maths/card.js" defer></script>
+<script src="/js/bonding-card.js" defer></script>
+<script src="/js/baseline-survey.js" defer></script>
+</body></html>

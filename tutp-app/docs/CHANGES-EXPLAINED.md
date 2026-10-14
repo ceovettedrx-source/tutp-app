@@ -1,5 +1,22 @@
 # Changes explained
 
+## 2026-10-14 - TUT-42 Parent dashboard redesign (LIVE on tutp-demo-00480-naj; carries TUT-56)
+
+**What changes for parents**
+- On the phone the dashboard now starts with what parents use daily: a short welcome, then Homework Help, then today's homework, then the Bonding card and Singapore Maths, then This Week's Goal, then "Learn together" (Storytelling, Experiential, Play-Based, Library, Explore Subjects), the tutor card and the Live Session card.
+- A bottom bar on the phone: Home, Homework, Practice, Family (family member: Log out). Log out is in the header on every role.
+- Nothing pretends any more: the search box's mic and arrow open Homework Help (they used to show a "live app" alert), Enter in the box does too, and the demo "Ms. Sarah, Today 3 PM" live session is now an honest "Coming soon" card that points to verified tutors.
+- TUT-56's calm Bonding card ships with this release (spec decision: not separately).
+- Visual pass (Vet, 2026-10-14): "Learn together" is three illustrated panels (Storytelling, Experiential, Play-Based) with soft tints, original line-art and one clear button each; Family Library and Continue Learning sit side by side; a new "Safe and simple for your family" row says four true things (kid-safe answers, no ads, no auto-renewal, your language). Three misplaced closing tags in the Learn together block are fixed (the cards rendered, but nested wrongly).
+- Second visual pass: This Week's Goal and Upcoming Live Session sit side by side under Bonding and Singapore Maths, so the progress area is a full 2 x 2 grid; the card icons and the four "Safe and simple" icons are round colour seals (navy, teal, plum, saffron). A new unit test fails if <main> has an unbalanced div, section, a or button tag.
+- Third pass (Vet's layout, 2026-10-14): under the search box, "Help tonight" has four illustrated panels (Homework Help, Storytelling, Experiential, Play-Based; two by two on the phone); then today's homework; then "Your child's progress" (Bonding, Singapore Maths, Continue Learning, This Week's Goal) and "More for your family" (Family Library, Need a tutor?, YouTube Channel, Live Session), all in one card family (white card, colour seal, small label, title, one line, the action at the bottom; a not-yet-built feature is the same card with a SOON badge); then Explore Subjects and Safe and simple. The Bonding card component draws itself in the same family.
+- Today's homework shows only on a day the school has posted homework: a strip under the search box ("2 homework items from school to do · See") and the list under Help tonight; on other days neither takes space. The school-entered homework text is now escaped before it is shown.
+
+**What changes inside**
+- The mother, father and family-member pages were three 2,000-line copies. They are now generated from one template (`templates/dashboard.html`) by `node scripts/build-dashboards.mjs`; a unit test fails if a page is edited by hand. Family-member visibility keys (`data-feature`) are kept on every item.
+
+**Tests**: unit 551/551 (new `dashboards.test.js`); new e2e `dashboard-items.spec.js` d1-d5 (all items on all three pages, member visibility keys, no fake buttons, phone order / no sideways scroll / 44 px / bottom bar, search Enter and Practice tab). Checked here in headless Chromium at 390 px and 1280 px on all three roles. Needs a preview run in CI before traffic.
+
 ## 2026-10-14 - TUT-45 Pro to Max upgrade (built, not live yet; Max stays off until MAX_ON_SALE=1)
 
 **What changes**
@@ -51,6 +68,21 @@ Live: traffic moved by Vet to `tutp-demo-00467-jal` (verified 100%, `pdftest` on
 **Not in this release (needs its own work, see the spec)**: the mid-period Pro-to-Max upgrade with credit (needs migration 034), `TIER_FEATURES`, the readiness checklist for what Max includes, the refund-policy line. The public pricing page keeps its static "Coming soon".
 
 **Tests**: 14 unit tests for the tier walk and plan table (`tests/unit/tier-for-student.test.js`); `tests/e2e/max-plan.spec.js` m1-m3 (Max not buyable, checkout 400, chooser shows Coming soon). Four old unit failures in `explain-on-photo.test.js` (HEIC) fail the same on main.
+
+## 2026-10-13 - TUT-56 Bonding card: a calm card, the detail in the full report (LIVE on tutp-demo-00480-naj, with TUT-42)
+
+**What was wrong**
+- The Bonding Report card on the mother, father and family-member dashboards carried too much: a subtitle, the score, a line, a row of answer chips (days a week, meals, activity icons, trip days a year) and a link. It was copied by hand into three pages. When a score was N/A the card said only "Not enough data yet" and nothing explained it.
+
+**What changed**
+- One shared component draws the card on all three dashboards. The card now holds the icon and title, the score (or N/A), one line and "View Full Report". The chips moved into the full report.
+- Empty state, in Telugu, English and Hindi: "Sit with your child for 3 homework sessions this week to see your score." It claims no result.
+- The full report shows the score, or when it is N/A, why and how many more sessions are needed this week; the 14-day homework completion (as before); and the chips under "Your family's starting point" once the survey is answered.
+- The old homework-completion pop-up and the three copies of the score loader are gone; the "homework completion" tile on each dashboard is unchanged.
+
+**Please know**: the score is still the 14-day homework completion rate and is absent when no homework was posted for the child's class. The "3 sessions" is the copy and the report's count (this week's completed sessions), not a rule the score engine applies. If the 3 sessions should decide whether a score exists, that needs a separate server change.
+
+**Tests**: `tests/e2e/bonding.spec.js` h-k (chips absent on the card and present in the report, empty state in three languages, why-and-how-many in the N/A report, 390 px phone); a-e unchanged.
 
 ## 2026-10-10 - TUT-31 Bonding Report card: stale-tab fix, plain error copy, new icon (live on tutp-demo-00456-rov, 2026-10-12)
 
