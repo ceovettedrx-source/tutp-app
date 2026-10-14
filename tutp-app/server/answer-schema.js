@@ -144,7 +144,7 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
   const all = Array.isArray(raw.questions) ? raw.questions : null;
   if (all && !all.length && allowEmpty) {
     const more = Number.isInteger(raw.more_questions) && raw.more_questions > 0 && raw.more_questions < 1000 ? { more_questions: raw.more_questions } : {};
-    return { ok: true, fixed: 0, answer: { schema: 2, status: 'ok', mode: 'questions', subject, questions: [], extracted_questions: [], ...more } };
+    return { ok: true, fixed: 0, answer: { schema: 2, status: 'ok', mode: 'questions', subject, questions: [], extracted_questions: [], ...more, ...totalOf(raw) } };
   }
   if (!all || !all.length) return { ok: false, issues: ['"questions" must be a non-empty array when status is "ok" (use "unreadable" or "not_homework" otherwise)'] };
 
@@ -201,6 +201,7 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
     schema: 2, status: 'ok', mode: 'questions', subject, questions,
     ...(all.length > MAX_QUESTIONS ? { more_questions: all.length - MAX_QUESTIONS }
       : Number.isInteger(raw.more_questions) && raw.more_questions > 0 && raw.more_questions < 1000 ? { more_questions: raw.more_questions } : {}),
+    ...totalOf(raw),
     extracted_questions: questions.map((q) => ({
       question: q.q_text, answer: compatAnswer(q.blocks), reasoning: compatReasoning(q.blocks, q.unit_direction_note),
       ...(q.photo !== undefined ? { photo: q.photo, box: q.box } : {}),
@@ -208,6 +209,12 @@ export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty =
     concept_explanation: null, aditiApplicable: false, aditiHook: null,
   };
   return { ok: true, answer, fixed, mismatches };
+}
+
+// A batch also reports how many questions the whole homework has: mergeAnswers uses it to
+// count what no batch answered (a batch that read its range as empty must not hide questions).
+function totalOf(raw) {
+  return Number.isInteger(raw.total_questions) && raw.total_questions > 0 && raw.total_questions < 1000 ? { total_questions: raw.total_questions } : {};
 }
 
 // The one retry's hint.
@@ -222,7 +229,11 @@ export function mergeAnswers(list) {
   const first = list[0];
   if (!first || first.status !== 'ok' || first.mode === 'content') return first;
   const questions = list.flatMap((a) => a.questions || []).slice(0, MAX_QUESTIONS);
-  const more = list.reduce((n, a) => n + (a.more_questions || 0), 0) + Math.max(0, list.flatMap((a) => a.questions || []).length - MAX_QUESTIONS);
+  const counted = list.reduce((n, a) => n + (a.more_questions || 0), 0) + Math.max(0, list.flatMap((a) => a.questions || []).length - MAX_QUESTIONS);
+  // Pdf case 2026-10-14: 9 boxed questions, batch 5-8 answered nothing and said nothing. The
+  // biggest total any batch saw, minus what is answered here, is what the parent must be told.
+  const total = Math.max(0, ...list.map((a) => a.total_questions || 0));
+  const more = Math.max(counted, total - questions.length);
   return {
     ...first, subject: (list.find((a) => a.subject) || first).subject, questions,
     extracted_questions: list.flatMap((a) => a.extracted_questions || []).slice(0, MAX_QUESTIONS),
