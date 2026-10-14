@@ -80,7 +80,7 @@ function makeEnv({ cls = 'Class 4', paid = true, wrongFirst = 0, alwaysWrong = f
     const req = { body: { studentId: 's1', question, language: 'English', subject: 'Mathematics', qType: 'short', ...over }, get: () => '', headers: {} };
     return await new Promise((resolve) => {
       const res = { headers: {}, locals: {}, headersSent: false, statusCode: 200,
-        set(k, v) { this.headers[k] = v; return this; }, status(c) { this.statusCode = c; return this; },
+        on() { return this; }, set(k, v) { this.headers[k] = v; return this; }, status(c) { this.statusCode = c; return this; },
         json(b) { this.headersSent = true; resolve({ status: this.statusCode, headers: this.headers, json: b }); } };
       handlers['POST /api/explain-please'](req, res);
     });
