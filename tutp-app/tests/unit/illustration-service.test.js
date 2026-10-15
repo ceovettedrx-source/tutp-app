@@ -153,7 +153,7 @@ test('a failing provider: the row becomes fallback (silent), it is logged, and i
   const logs = [];
   let now = Date.now();
   const provider = { name: 'gemini', model: 'm', generate: async () => { throw new Error('boom'); } };
-  const svc = createIllustrationService({ supabase: sb, env: env(), getProviderFn: () => provider, now: () => now, logEvent: (n, p) => logs.push(p.reason) });
+  const svc = createIllustrationService({ supabase: sb, env: env(), getProviderFn: () => provider, now: () => now, logEvent: (n, p) => logs.push(p.reason), checkFn: async () => ({ match: true, reason: 'ok', usd: 0 }) });
   await svc.request('c9-bio-cell', 's');
   await tick();
   assert.equal((await svc.status('c9-bio-cell')).status, 'fallback');
@@ -164,6 +164,57 @@ test('a failing provider: the row becomes fallback (silent), it is logged, and i
   assert.equal((await svc.request('c9-bio-cell', 's')).status, 'pending');
   await tick();
   assert.equal((await svc.status('c9-bio-cell')).status, 'ready');
+});
+
+// The vision check (server/services/picture-check.js): a generated picture is compared with its scene once.
+const gem = (generate) => ({ name: 'gemini', model: 'm', generate });
+const img = async () => ({ buffer: Buffer.from('i'), contentType: 'image/png' });
+
+test('vision check: a picture that does not match is made again once; the second one is kept and its verdict stored', async () => {
+  const sb = fakeSupabase();
+  const verdicts = [{ match: false, reason: 'a desert, not a kitchen', usd: 0.002 }, { match: true, reason: 'ok', usd: 0.002 }];
+  const logs = []; let generated = 0;
+  const svc = createIllustrationService({ supabase: sb, env: env(), getProviderFn: () => gem(async () => { generated++; return img(); }),
+    checkFn: async () => verdicts.shift(), logEvent: (n, p) => logs.push([n, p.attempt, p.match, p.usd]) });
+  await svc.request('c1-sst-water-vapour', 'A mother boiling tea.');
+  await tick();
+  assert.equal(generated, 2);
+  assert.equal((await svc.status('c1-sst-water-vapour')).status, 'ready');
+  assert.equal(sb.rows[0].reason, 'vision_ok', 'the verdict is stored with the picture');
+  assert.deepEqual(logs, [['illustration.checked', 1, false, 0.002], ['illustration.checked', 2, true, 0.002]], 'cost is logged per check');
+  await svc.request('c1-sst-water-vapour', 'A mother boiling tea.');
+  assert.equal(generated, 2, 'a ready picture is never made or checked again');
+});
+
+test('vision check: two mismatches mean no picture, stored, and never tried again (not even after an hour)', async () => {
+  const sb = fakeSupabase();
+  let generated = 0, checks = 0; let now = Date.now();
+  const svc = createIllustrationService({ supabase: sb, env: env(), now: () => now, getProviderFn: () => gem(async () => { generated++; return img(); }),
+    checkFn: async () => { checks++; return { match: false, reason: 'kites', usd: 0.002 }; } });
+  await svc.request('c9-geo-moon', 'The Moon with no air.');
+  await tick();
+  assert.equal(generated, 2);
+  assert.equal(checks, 2);
+  assert.equal(sb.files.size, 0, 'the wrong picture is not stored');
+  assert.deepEqual(await svc.status('c9-geo-moon'), { status: 'fallback', reason: 'vision_mismatch' });
+  now += 3 * 60 * 60 * 1000;
+  assert.deepEqual(await svc.request('c9-geo-moon', 'The Moon with no air.'), { status: 'fallback', reason: 'vision_mismatch' });
+  assert.equal(generated, 2);
+});
+
+test('vision check: a check that could not run keeps the picture, unmarked; the mock provider is not checked', async () => {
+  const sb = fakeSupabase();
+  const svc = createIllustrationService({ supabase: sb, env: env(), getProviderFn: () => gem(img), checkFn: async () => ({ match: null, reason: 'check_failed', usd: 0 }) });
+  await svc.request('c5-maths-park', 's');
+  await tick();
+  assert.equal((await svc.status('c5-maths-park')).status, 'ready');
+  assert.equal(sb.rows[0].reason, null);
+  let checks = 0;
+  const svc2 = createIllustrationService({ supabase: fakeSupabase(), env: env(), getProviderFn: () => ({ name: 'mock', model: 'm', generate: img }), checkFn: async () => { checks++; return { match: false }; } });
+  await svc2.request('c5-maths-lane', 's');
+  await tick();
+  assert.equal(checks, 0);
+  assert.equal((await svc2.status('c5-maths-lane')).status, 'ready');
 });
 
 test('the daily cap counts today\'s pictures of the provider', async () => {
