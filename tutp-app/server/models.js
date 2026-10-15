@@ -14,6 +14,8 @@ export const MODELS = {
   story_english: 'claude-haiku-4-5',
   story_other: 'claude-sonnet-5',
   illustrate: 'claude-haiku-4-5',
+  // Vision check of a generated Explain picture against its scene text (server/services/picture-check.js).
+  picture_check: 'claude-haiku-4-5',
   // Guided Discovery (experiential-learning-v2): the cheapest model for the
   // teach-back follow-up question and the video review; non-English lesson
   // translation goes to sonnet-5 (haiku's Telugu was weak, see storyModel).
