@@ -92,15 +92,10 @@
             loadHomeworkModalChildContext();
             hwShowResolvedLanguage();
         }
-        // "Explaining in: <language>": the server's one rule (the language last used, else English)
-        // fills the "Explain in" list when the parent has not picked one in this modal; whatever
-        // the list shows is what is sent, and what the note next to the button says.
+        // The "Explain in" list is the one language control: the server's one rule (resolveLanguage:
+        // the parent's own choice, else the language last used, else English) fills it when the parent
+        // has not picked one in this modal; whatever it shows is what is sent.
         let hwLangPicked = false;
-        function hwSyncLangNote(){
-            const sel = document.getElementById('hwModalLang');
-            const name = document.getElementById('hwModalLangNoteName');
-            if (sel && name) name.textContent = sel.value;
-        }
         async function hwShowResolvedLanguage(){
             const sel = document.getElementById('hwModalLang');
             if (!sel) return;
@@ -113,14 +108,8 @@
                     }
                 } catch (e) { /* the list keeps what it shows */ }
             }
-            hwSyncLangNote();
         }
-        document.getElementById('hwModalLang').addEventListener('change', function(){ hwLangPicked = true; hwSyncLangNote(); });
-        document.getElementById('hwModalLangChange').addEventListener('click', function(){
-            const sel = document.getElementById('hwModalLang');
-            sel.scrollIntoView({ block: 'center' });
-            sel.focus();
-        });
+        document.getElementById('hwModalLang').addEventListener('change', function(){ hwLangPicked = true; });
         function closeHomeworkModal(){
             clearHwPointer();
             document.getElementById('homeworkExplainModal').classList.add('hidden');
@@ -280,7 +269,9 @@
             }
             errBox.classList.add('hidden');
             submitBtn.disabled = true;
-            const stopLoading = startStagedLoading(submitBtn, HW_MODE_COPY[hwCurrentMode].loadingStages, 7000);
+            const stages = HW_MODE_COPY[hwCurrentMode].loadingStages;
+            submitBtn.setAttribute('aria-live', 'polite');
+            const stopLoading = startStagedLoading(submitBtn, stages.map(function(s, i){ return 'Step ' + (i + 1) + ' of ' + stages.length + ' · ' + s; }), 7000);
             // Captured now so the response handlers below can tell whether
             // this is still the current modal session by the time the
             // request resolves — see hwSessionToken above.

@@ -11,7 +11,7 @@
 //     the knowledge graph's when a record matches (source 'kg')
 // Unit tests: tests/unit/explain-schema.test.js.
 import crypto from 'crypto';
-import { foreignScriptIn, FOREIGN_SCRIPT_HINT, romanizedHindiIn, ROMANIZED_HINDI_HINT } from './lang-check.js';
+import { foreignScriptIn, FOREIGN_SCRIPT_HINT, romanizedHindiIn, ROMANIZED_HINDI_HINT, scriptMismatch, scriptMismatchHint } from './lang-check.js';
 import { wrongFacts, factHint } from './fact-guard.js';
 
 export const POSITIONS = ['top-left', 'top', 'top-right', 'left', 'center', 'right', 'bottom-left', 'bottom', 'bottom-right'];
@@ -97,6 +97,9 @@ export function validateExplain(raw, { lang = '' } = {}) {
   if (!scene) issues.push('illustration.scene_prompt is empty');
   // img1 (server/lang-check.js): a letter of a wrong script inside a word is a hard issue.
   if (foreignScriptIn([title, quick, full, tip, traps, raw.misconception, pq, cq, ill.labels])) issues.push(FOREIGN_SCRIPT_HINT);
+  // One language per card: every visible field, the check question and the labels included, is in
+  // the request's language script (not merely in some Indian script).
+  else if (lang && scriptMismatch(lang, [title, quick, full, tip, traps, raw.misconception, pq, cq, ill.labels])) issues.push(scriptMismatchHint(lang));
   // TUT-18: one language per reply (no Hindi in Latin letters) and no known wrong fact.
   // Runs for EVERY language, not only Hindi: Hindi in Latin letters is wrong in a Telugu, an English
   // and a Hindi card alike, and a stray "mein ... hai" in an English or Telugu card is exactly the

@@ -20,7 +20,8 @@ import { questionKey, classBand } from '../question-key.js';
 import { parseQuestion, verifyCard, correctionHint } from '../math-engine.js';
 import { buildMathDiagram } from '../services/diagrams.js';
 import { scriptOf, fontStack } from '../lang-fonts.js';
-import { pictureRule, contextPictureKey } from '../picture-rule.js';
+import { pictureRule, contextPictureKey, questionPictureKey } from '../picture-rule.js';
+import { cardMatchesLanguage } from '../lang-check.js';
 import { explainView } from '../tier-gate.js';
 import { boardKind } from '../answer-marks.js';
 import { callClaude } from '../anthropic.js';
@@ -174,7 +175,12 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           {
             // TUT-18: a stored explanation from an older prompt version is not served again.
             const { data } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
-            if (data && data.payload) { explain = data.payload; cache = 'hit'; }
+            if (data && data.payload) {
+              // A stored card whose script is not this language's (Hindi labels under "English") is never
+              // served: it counts as a miss and the new card replaces it below.
+              if (cardMatchesLanguage(lang, data.payload)) { explain = data.payload; cache = 'hit'; }
+              else logEvent('explain.stale_script', session.familyId, studentId, { language: lang, concept_key: data.payload.concept_key });
+            }
           }
           const testFamily = await isTestFamily(session.familyId);
           const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
@@ -235,11 +241,22 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             explain.concept_key = keyed(explain.concept_key);
             explain.checked = v.status === 'checked';
             // Insert-or-ignore, then read back: eight questions written at once never overwrite each other.
-            const { error } = await supabase.from('explain_cache').upsert({ concept_key: qKey, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }, { onConflict: 'concept_key,language', ignoreDuplicates: true });
+            const row = { concept_key: qKey, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION };
+            const { error } = await supabase.from('explain_cache').upsert(row, { onConflict: 'concept_key,language', ignoreDuplicates: true });
             if (error) console.error('explain: cache write failed', error.message);
             else {
-              const { data: stored } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
-              if (stored && stored.payload) explain = stored.payload;
+              const readBack = () => supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
+              const { data: stored } = await readBack();
+              if (!stored) {
+                // The insert was ignored because a row marked stale (an older prompt version, or one with
+                // the wrong script) holds this key: replace it in place.
+                const { error: upErr } = await supabase.from('explain_cache').update({ payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }).eq('concept_key', qKey).eq('language', lang);
+                if (upErr) console.error('explain: stale cache row not replaced', upErr.message);
+              } else if (cardMatchesLanguage(lang, stored.payload)) explain = stored.payload;
+              else {
+                // A current-version row with the wrong script (written before this check existed).
+                await supabase.from('explain_cache').update({ payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }).eq('concept_key', qKey).eq('language', lang);
+              }
             }
             timer.mark('cache_write');
             res.locals.extras = extras;
@@ -253,8 +270,11 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           // picture per page (the page asks on its first card only); Class 6+ or unknown class: none.
           const rule = pictureRule({ maths, band, slot: body.picture_slot === 'none' ? 'none' : 'page' });
           const pictureKey = rule === 'context' ? contextPictureKey(explain.concept_key) : '';
+          // The concept picture is this question's own (concept + question hash), never another question's
+          // picture that happens to share the concept_key; no key means no picture.
+          const conceptPictureKey = rule === 'normal' ? questionPictureKey(explain.concept_key, question) : '';
           let illustration = null;
-          if (rule === 'normal') illustration = await pictures.request({ key: explain.concept_key, scene: explain.illustration.scene_prompt, env: imageEnv(ov) });
+          if (rule === 'normal' && conceptPictureKey) illustration = await pictures.request({ key: conceptPictureKey, scene: explain.illustration.scene_prompt, env: imageEnv(ov) });
           else if (rule === 'context' && pictureKey) illustration = await pictures.request({ key: pictureKey, scene: mathsScenePrompt(explain.illustration.scene_prompt, explain.concept_key), env: imageEnv(ov) });
           let kg = null;
           if (paid) kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
@@ -266,9 +286,10 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             answer: checked ? parsed.answerText : '',
             diagram: checked ? ((buildMathDiagram(parsed, { font: fontStack(scriptOf(question)) }) || {}).svg || '') : '',
             pictureKey: rule === 'context' ? pictureKey : '',
+            illustrationKey: conceptPictureKey,
           };
           const view = explainView(explain, { paid, illustration, kg, extra });
-          if (rule === 'none' || (rule === 'context' && !pictureKey)) delete view.illustration;
+          if (rule === 'none' || (rule === 'context' && !pictureKey) || (rule === 'normal' && !conceptPictureKey)) delete view.illustration;
           if (testFamily && replay.mode !== 'replay') res.set('X-Model-Usd', String(cost.usd));
           res.json(res.locals.extras ? res.locals.extras(view) : view);
         } catch (err) {
