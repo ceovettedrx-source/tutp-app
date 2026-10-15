@@ -1,3 +1,11 @@
+# Founder rules (never break)
+
+1. **No diagnosis without evidence.** Before stating a cause, read the actual code, prompt, log or data row and cite the file and line or the log line. Never blame a model or tool limitation without testing it.
+2. **Pictures are mandatory and academic.** Textbook-quality diagrams of the concept, built from the lesson text. Never everyday-life or lifestyle scenes. A wrong picture is a bug; a missing picture is a bug.
+3. **One language per request,** resolved by `resolveLanguage()`. Every visible string, label and check follows it. Hindi must never appear unless chosen.
+4. **Mobile first:** body text 16px+, tap targets 44px+, WCAG AA contrast.
+5. **Every PR states** what was verified live, what was not, and the exact deploy steps.
+
 # Working style
 
 - Never hand-edit `public/app/{mother,father,family-member}/index.html` (generated). Edit `templates/dashboard.html` and run `node scripts/build-dashboards.mjs`.
