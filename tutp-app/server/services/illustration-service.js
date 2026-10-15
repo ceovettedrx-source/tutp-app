@@ -18,6 +18,7 @@
 // "illustration.fallback", reason only). Unit tests: tests/unit/illustration-service.test.js.
 import { signedUrl, uploadPrivate } from '../lib/signed-url.js';
 import { getProvider, imageGenEnabled, dailyCap, withSuffix } from './image-provider.js';
+import { checkPicture } from './picture-check.js';
 
 export const BUCKET = 'illustrations';
 const PENDING_STALE_MS = 3 * 60 * 1000;
@@ -30,7 +31,7 @@ export function startOfIstDayUtc(now = Date.now()) {
 }
 
 export function createIllustrationService({
-  supabase, env: baseEnv = process.env, now = Date.now, getProviderFn = getProvider, logEvent = () => {},
+  supabase, env: baseEnv = process.env, now = Date.now, getProviderFn = getProvider, logEvent = () => {}, checkFn = checkPicture,
 }) {
   const objectPath = (key) => `${key}.png`;
 
@@ -57,12 +58,33 @@ export function createIllustrationService({
     return { status: 'fallback', reason };
   };
 
+  // A picture is checked once, when it is made: a vision model says whether it shows what the scene
+  // says. No: made again once; still no: no picture (a 'fallback' row with reason 'vision_mismatch',
+  // never retried). The verdict is stored in the row's `reason` ('vision_ok' on a ready picture), so
+  // a picture is never checked twice. A check that could not run keeps the picture, unmarked.
+  // The mock provider (e2e) is not checked: it draws a fixed square.
   async function generate(key, scenePrompt, provider) {
     try {
-      const { buffer, contentType } = await provider.generate(withSuffix(scenePrompt));
+      const check = provider.name !== 'mock';
+      let made = null, verdict = null;
+      for (let attempt = 1; attempt <= (check ? 2 : 1); attempt++) {
+        const out = await provider.generate(withSuffix(scenePrompt));
+        const v = check ? await checkFn({ buffer: out.buffer, contentType: out.contentType, scene: scenePrompt }) : null;
+        if (v) {
+          console.log('illustration: checked', { concept_key: key, attempt, match: v.match, reason: v.reason, usd: v.usd });
+          try { logEvent('illustration.checked', { concept_key: key, attempt, match: v.match, reason: v.reason, usd: v.usd }); } catch { /* logging never fails a request */ }
+        }
+        if (!v || v.match !== false) { made = out; verdict = v && v.match === true ? 'vision_ok' : null; break; }
+      }
+      if (!made) {
+        await supabase.from('illustrations').update({ status: 'fallback', reason: 'vision_mismatch' }).eq('concept_key', key);
+        fallback('vision_mismatch', key);
+        return;
+      }
+      const { buffer, contentType } = made;
       const ok = await uploadPrivate(supabase, BUCKET, objectPath(key), buffer, contentType || 'image/png');
       if (!ok) throw new Error('upload failed');
-      await supabase.from('illustrations').update({ status: 'ready', storage_path: objectPath(key), reason: null }).eq('concept_key', key);
+      await supabase.from('illustrations').update({ status: 'ready', storage_path: objectPath(key), reason: verdict }).eq('concept_key', key);
     } catch (err) {
       console.error('illustration: generation failed', { concept_key: key, error: err && err.message });
       await supabase.from('illustrations').update({ status: 'fallback', reason: 'error' }).eq('concept_key', key).then(() => {}, () => {});
@@ -80,6 +102,7 @@ export function createIllustrationService({
         const age = t - new Date(existing.created_at).getTime();
         if (existing.status === 'ready') return { status: 'ready' };
         if (existing.status === 'pending' && age < PENDING_STALE_MS) return { status: 'pending' };
+        if (existing.status === 'fallback' && existing.reason === 'vision_mismatch') return { status: 'fallback', reason: 'vision_mismatch' };   // checked twice: never again
         if (existing.status === 'fallback' && age < FAILED_RETRY_MS) return { status: 'fallback', reason: existing.reason || 'error' };
       }
       const provider = getProviderFn(env);
