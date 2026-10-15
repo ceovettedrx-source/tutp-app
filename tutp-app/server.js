@@ -40,6 +40,7 @@ import { runAnswer, answerRequestBody } from './server/answer-run.js';
 import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
+import { questionPictureKey } from './server/picture-rule.js';
 import { initModelCost } from './server/model-cost.js';
 import { initLanguage, resolveLanguage, applyRegistrationLanguage, saveParentLanguage, parentRoleOf } from './server/language.js';
 import { initModelAlert } from './server/model-alert.js';
@@ -6741,7 +6742,8 @@ app.post('/api/homework', async (req, res) => {
         // img1: a theory question (or idea card) also gets a signed `picture` for the
         // shared concept picture; the page hands it to /api/illustration/request.
         const answer = { ...run.answer, questions: run.answer.questions.map(({ scene_prompt, ...q }) => {
-          const pic = q.concept_key ? pictureFor(q.concept_key, scene_prompt) : null;
+          // The picture is this question's own: concept + question hash, not the bare shared concept_key.
+          const pic = q.concept_key ? pictureFor(questionPictureKey(q.concept_key, q.q_text) || q.concept_key, scene_prompt) : null;
           return q.concept_key ? { ...q, concept_sig: signConceptKey(q.concept_key), ...(pic ? { picture: pic } : {}) } : q;
         }) };
         v2Status = answer.status;

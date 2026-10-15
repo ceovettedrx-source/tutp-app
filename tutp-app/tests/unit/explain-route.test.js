@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerAnswerExplainRoutes, signConceptKey } from '../../server/routes/answer-explain.js';
 import { parseQuestion } from '../../server/math-engine.js';
+import { questionPictureKey } from '../../server/picture-rule.js';
 
 process.env.ANSWER_V2_ENABLED = '1';
 process.env.ANTHROPIC_API_KEY = 'test-key-not-real';   // secret-scan:allow (a dummy value for the stubbed model)
@@ -39,6 +40,14 @@ function makeEnv({ cls = 'Class 4', paid = true, wrongFirst = 0, alwaysWrong = f
           return { error: null };
         },
         insert(row) { events.push(row); return Promise.resolve({ error: null }); },
+        update(patch) {
+          b.then = (resolve) => {
+            const row = rows.get(f.concept_key + '|' + f.language);
+            if (row) Object.assign(row, patch);
+            resolve({ error: null });
+          };
+          return b;
+        },
       };
       return b;
     },
@@ -73,6 +82,15 @@ function makeEnv({ cls = 'Class 4', paid = true, wrongFirst = 0, alwaysWrong = f
       check_question: { q: 'Try 2 × 3.', options: ['5', '6', '8'], correct_index: 1, right_feedback: 'Yes.', wrong_feedback: 'No.' },
       illustration: { scene_prompt: 'A kirana shop with 5 apples. A mother and child near the shop.', labels: [] },
     };
+    // A Telugu request gets a Telugu card (every field in Telugu script, as the script check requires).
+    if (JSON.stringify(body.system || '').includes('The parent language is Telugu')) {
+      Object.assign(reply, {
+        title: 'గుణకారం', quick: `లెక్క ${q}`, full: p ? `${p.numbers.join(' మరియు ')} దశలవారీగా చేయండి. సమాధానం ${ans}.` : 'వేగం అంటే దూరం భాగించు సమయం.', tip: 'గెంతులతో లెక్కించండి.',
+        traps: ['కూడకండి.', 'సున్నా చూడండి.', 'గుర్తు చదవండి.'], misconception: 'పెద్ద సంఖ్యలు పెద్ద సమాధానం ఇస్తాయి.',
+        parent_questions: [{ q: 'ఇది ఏమిటి?', expected_answer_hint: 'లబ్ధం.' }, { q: 'చూపించండి.', expected_answer_hint: 'సమూహాలు.' }],
+        check_question: { q: '2 × 3 ప్రయత్నించండి.', options: ['5', '6', '8'], correct_index: 1, right_feedback: 'అవును.', wrong_feedback: 'కాదు.' },
+      });
+    }
     return { status: 200, text: async () => JSON.stringify({ content: [{ type: 'text', text: JSON.stringify(reply) }], stop_reason: 'end_turn', usage: { input_tokens: 10, output_tokens: 10 } }) };
   };
 
@@ -122,6 +140,44 @@ test('an old concept-only row is never read', async () => {
   const r = await env.ask('7 × 8 = ?', { concept_key: 'c4-multiplication', concept_sig: signConceptKey('c4-multiplication') });
   assert.equal(r.headers['X-Explain-Cache'], 'miss');
   assert.ok(!/OLD ROW/.test(JSON.stringify(r.json)));
+});
+
+test('a stored English card with Hindi labels is never served: it is regenerated and replaced', async () => {
+  const env = makeEnv();
+  await env.ask('7 × 8 = ?');
+  const [row] = [...env.rows.values()];
+  row.payload = { ...row.payload, illustration: { scene_prompt: 'x', labels: [{ text: 'जलवाष्प', position: 'top' }, { text: 'संघनन', position: 'left' }] } };
+  const calls = env.state.modelCalls;
+  const r = await env.ask('7 × 8 = ?');
+  assert.equal(r.headers['X-Explain-Cache'], 'miss', 'the stale row counts as a miss');
+  assert.equal(env.state.modelCalls, calls + 1, 'regenerated, not served');
+  assert.ok(!/[ऀ-ॿ]/.test(JSON.stringify(r.json)), 'no Devanagari reaches the English page');
+  assert.ok(!/[ऀ-ॿ]/.test(JSON.stringify(row.payload)), 'the row itself was replaced');
+  assert.ok(env.events.some((e) => e.event_name === 'explain.stale_script'));
+  const again = await env.ask('7 × 8 = ?');
+  assert.equal(again.headers['X-Explain-Cache'], 'hit');
+  assert.equal(env.state.modelCalls, calls + 1);
+});
+
+test('a row left behind by an older prompt version is replaced, not regenerated on every request', async () => {
+  const env = makeEnv();
+  await env.ask('7 × 8 = ?');
+  [...env.rows.values()][0].prompt_version = 'explain-v2.0';
+  const calls = env.state.modelCalls;
+  await env.ask('7 × 8 = ?');
+  const again = await env.ask('7 × 8 = ?');
+  assert.equal(again.headers['X-Explain-Cache'], 'hit');
+  assert.equal(env.state.modelCalls, calls + 1);
+});
+
+test('two questions on one concept get two different picture keys', async () => {
+  const env = makeEnv({ conceptSlug: 'c9-socialstudies-importance-of-atmosphere' });
+  await env.ask('Why is the atmosphere important?', { subject: 'Social Studies' });
+  await env.ask('Why is life not possible on the Moon?', { subject: 'Social Studies' });
+  const keys = env.state.pictureCalls.map((c) => c.key);
+  assert.equal(keys.length, 2);
+  assert.notEqual(keys[0], keys[1]);
+  assert.equal(keys[1], questionPictureKey('c9-socialstudies-importance-of-atmosphere', 'Why is life not possible on the Moon?'));
 });
 
 test('class band and language each get their own row', async () => {
@@ -197,7 +253,7 @@ test('pictures: a non-maths question keeps its concept picture, whatever the cla
     const e = makeEnv({ cls, conceptSlug: 'c4-evs-water-cycle' });
     const r = await e.ask('Explain the water cycle.', { subject: 'EVS', picture_slot: 'none' });
     assert.equal(e.state.pictureCalls.length, 1, cls);
-    assert.equal(e.state.pictureCalls[0].key, 'c4-evs-water-cycle');
+    assert.equal(e.state.pictureCalls[0].key, questionPictureKey('c4-evs-water-cycle', 'Explain the water cycle.'), 'the picture is this question\'s own');
     assert.ok(r.json.illustration);
   }
 });

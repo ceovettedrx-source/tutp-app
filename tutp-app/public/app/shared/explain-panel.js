@@ -74,7 +74,7 @@
         if (!window.TutpPicture || !view.illustration) return null;
         var host = el('div', 'ae-hero-host');
         var fallback = q.diagram && q.diagram.svg ? A.diagramNode(q.diagram.svg) : null;
-        window.TutpPicture.mount(host, { concept_key: view.picture_key || view.concept_key, status: view.illustration.status },
+        window.TutpPicture.mount(host, { concept_key: view.picture_key || view.illustration.key || view.concept_key, status: view.illustration.status },
             { studentId: ctx.studentId, surface: 'explain' },
             { labels: view.illustration.labels || [], fallback: fallback, variant: 'hero', alt: view.title });
         return host;
