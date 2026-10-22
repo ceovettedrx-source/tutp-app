@@ -1,7 +1,8 @@
 -- Run in the Supabase SQL editor, same as 001-035.
 -- TUT-66 Watch & Learn (docs/specs/tut-66-watch-learn.md).
--- CREATE-only: two new tables, nothing existing is altered. Row-level security stays off like
--- the other tables (server-only access with the service key).
+-- CREATE-only: two new tables, nothing existing is altered. Row-level security is ON for both and
+-- there are NO policies, so the anon and authenticated roles can read and write nothing; only the
+-- server's service-role key (which bypasses RLS) can reach them.
 
 -- The picked and ordered YouTube candidates of one lesson (board, class, subject, lesson, language).
 -- A hit means zero YouTube API calls.
@@ -28,3 +29,7 @@ create table if not exists watch_learn_reports (
   unique (cache_key, video_id)
 );
 create index if not exists watch_learn_reports_key_idx on watch_learn_reports (cache_key);
+
+-- Service-role access only: RLS on, no policies.
+alter table watch_learn_cache enable row level security;
+alter table watch_learn_reports enable row level security;
