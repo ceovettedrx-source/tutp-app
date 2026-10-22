@@ -18,6 +18,10 @@
       "required": ["listen", "picture"],
       "coveredBy": ["story.spec.js", "img1.spec.js"]
     },
+    "library": {
+      "required": ["library.heading", "library.card", "library.empty", "library.open", "library.print", "library.listen"],
+      "coveredBy": ["learning-library.spec.js ll1-ll10"]
+    },
     "el": {
       "required": ["listen", "picture"],
       "coveredBy": ["el.spec.js", "img1.spec.js"]

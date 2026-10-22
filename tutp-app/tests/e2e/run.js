@@ -39,7 +39,7 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'uploads.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js', 'library.spec.js', 'el.spec.js', 'inventory.spec.js', 'answer-explain.spec.js', 'img1.spec.js', 'bonding.spec.js', 'max-plan.spec.js', 'singapore-maths.spec.js', 'dashboard-items.spec.js'];
+const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'uploads.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js', 'library.spec.js', 'learning-library.spec.js', 'el.spec.js', 'inventory.spec.js', 'answer-explain.spec.js', 'img1.spec.js', 'bonding.spec.js', 'max-plan.spec.js', 'singapore-maths.spec.js', 'dashboard-items.spec.js'];
 if (process.env.E2E_ONLY) SPECS.splice(0, SPECS.length, ...process.env.E2E_ONLY.split(',')); // E2E_ONLY=a.spec.js,b.spec.js runs just those (also how run.js itself is tested)
 const MODEL_FILES = ['server/prompts', 'server/pointing-model.js', 'server/models.js', 'server/notes-ground.js'];
 const LAST_LIVE = path.join(__dirname, 'recordings', 'LAST_LIVE');

@@ -117,9 +117,11 @@ think "this is really useful," in both content and presentation.
   secret name) are fine. All secrets live in Secret Manager. Only
   public-safe values (e.g. Razorpay Key ID) may appear in
   conversation.
-- **Database migrations:** run manually via the Supabase SQL Editor —
-  consistent with the existing 001–021 pattern. No migration tooling
-  automation.
+- **Database migrations:** run manually by Vet via the Supabase SQL
+  Editor — consistent with the existing 001–036 pattern. Claude Code
+  CANNOT apply them itself (no CLI/psql, Supabase MCP unauthorized,
+  service-role key access blocked), checked 2026-10-22. No migration
+  tooling automation.
 - **Homework Help routing:** client-built prompt in
   `mother/father/family-member/index.html`, not
   `buildTeacherSystemPrompt` in `server.js`. `/api/homework-explain` is

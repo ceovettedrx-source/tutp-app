@@ -17,6 +17,7 @@ import { isTestFamily } from '../test-families.js';
 import { normalizeNotes, plainNotes } from '../notes-schema.js';
 import { answerV2Enabled, verifyConceptKey } from './answer-explain.js';
 import { pictureFor } from '../services/concept-picture.js';
+import { saveLearningItem } from '../library.js';
 
 const MAX_QUESTIONS = 8;
 const MAX_QUESTION_CHARS = 600;
@@ -153,7 +154,9 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
       const picturesOn = answerV2Enabled(req);
       const cacheKey = crypto.createHash('sha256').update([body.studentId, lang, text, givenKey, picturesOn ? 'p' : ''].join('\u0000')).digest('hex');
       const cached = notesCache.get(cacheKey);
-      if (cached) { res.set('X-Notes-Cache', 'hit'); return res.json(cached); }
+      // TUT-69: saved in the child's Library (cache hits too); never changes the response.
+      const saveNotes = (n) => saveLearningItem(supabase, { familyId: session.familyId, studentId: body.studentId, mode: 'notes', subject: n.subject, topic: n.title, title: n.title || n.subject || 'Notes', language: lang, payload: n, sourceText: text });
+      if (cached) { res.set('X-Notes-Cache', 'hit'); res.json(cached); saveNotes(cached); return; }
       notesLimiter(req, res, () => notesDailyLimiter(req, res, async () => {
         try {
           const { data: studentRow, error: studentErr } = await supabase
@@ -210,6 +213,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
           notes = withNotesPicture(notes, { givenKey, enabled: picturesOn });
           notesCache.set(cacheKey, notes);
           res.json(extras(notes));
+          saveNotes(notes);
         } catch (err) {
           console.error('notes: server error:', err && err.message);
           if (!res.headersSent) res.status(500).json({ error: 'Server error making notes' });

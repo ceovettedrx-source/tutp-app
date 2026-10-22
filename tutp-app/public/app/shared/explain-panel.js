@@ -221,16 +221,6 @@
         return box;
     }
 
-    // "Save to notes": kept on this device (no server notes store exists).
-    function saveToNotes(view, ctx) {
-        var key = 'tutp_saved_explanations_' + (ctx.studentId || 'x');
-        var list = [];
-        try { list = JSON.parse(localStorage.getItem(key) || '[]'); } catch (e) { list = []; }
-        list = list.filter(function (x) { return x.concept_key !== view.concept_key; });
-        list.unshift({ concept_key: view.concept_key, title: view.title, quick: view.quick, full: view.full || null, traps: view.traps || null, saved_at: Date.now() });
-        try { localStorage.setItem(key, JSON.stringify(list.slice(0, 50))); return true; } catch (e) { return false; }
-    }
-
     function upsell(view) {
         var u = el('div', 'ae-upsell ae-noprint');
         var h = el('p');
@@ -304,12 +294,13 @@
         panel.appendChild(checkBox(view, ctx));
         var bar = el('div', 'ae-tools ae-noprint');
         var save = btn('Save to notes');
+        // TUT-69: the server already saved this explanation in the child's Library.
         save.addEventListener('click', function () {
-            var ok = saveToNotes(view, ctx);
-            save.textContent = ok ? 'Saved on this device' : 'Could not save';
-            save.disabled = ok;
+            save.textContent = 'Saved in Library';
+            save.disabled = true;
         });
-        bar.appendChild(save);
+        // Opened from the Library the explanation is already saved: no button there.
+        if (!ctx.fromLibrary) bar.appendChild(save);
         // TUT-7: Listen reads the quick explanation (and the full one when it is unlocked).
         if (window.TutpListen) {
             bar.appendChild(inv(window.TutpListen.button(function () {
@@ -414,5 +405,6 @@
         }
     }
 
-    window.TutpExplain = { toggle: toggle, explainAll: explainAll };
+    // view(panel, view, q, ctx): draws a saved explanation read-only (the Library, TUT-69).
+    window.TutpExplain = { toggle: toggle, explainAll: explainAll, view: function (panel, v, q, ctx) { build(panel, v, q || {}, ctx || {}); } };
 })();

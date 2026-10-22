@@ -26,6 +26,7 @@ import { explainView } from '../tier-gate.js';
 import { boardKind } from '../answer-marks.js';
 import { callClaude } from '../anthropic.js';
 import { stepTimer } from '../step-timer.js';
+import { saveLearningItem } from '../library.js';
 import { MODELS, modelSettings } from '../models.js';
 import { replayMode, returnsRecordings } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
@@ -292,6 +293,9 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           if (rule === 'none' || (rule === 'context' && !pictureKey) || (rule === 'normal' && !conceptPictureKey)) delete view.illustration;
           if (testFamily && replay.mode !== 'replay') res.set('X-Model-Usd', String(cost.usd));
           res.json(res.locals.extras ? res.locals.extras(view) : view);
+          // TUT-69: saved in the child's Library (cache hits too); never changes the response.
+          const { illustration: _pic, ...libraryView } = view;
+          saveLearningItem(supabase, { familyId: session.familyId, studentId, mode: 'explain', subject, topic: explain.title, title: explain.title, language: lang, payload: libraryView, sourceText: question });
         } catch (err) {
           console.error('explain: server error:', err && err.message);
           if (!res.headersSent) res.status(500).json({ error: 'Server error making the explanation' });

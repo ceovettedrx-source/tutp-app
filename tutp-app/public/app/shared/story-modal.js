@@ -695,6 +695,23 @@
         }
     }
 
+    // TUT-69: the Library opens a saved story in this same modal, results only (read-only).
+    window.TutpStoryView = {
+        open: function (parsed, lang) {
+            var story = normalize(parsed);
+            if (!story.scenes.length) return false;
+            build();
+            sessionToken++;
+            openerEl = document.activeElement;
+            resetStoryModal();
+            ensureFont(lang);
+            render(story, lang);
+            $('storyModalForm').classList.add('sm-hidden');
+            $('storyModalResults').classList.remove('sm-hidden');
+            $('storyModal').classList.remove('sm-hidden');
+            return true;
+        }
+    };
     window.openStorytellingModal = openStorytellingModal;
     window.closeStoryModal = closeStoryModal;
     window.resetStoryModal = resetStoryModal;

@@ -51,6 +51,7 @@ import * as uploads from './server/uploads.js';
 import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
+import { registerLibraryRoutes, saveLearningItem, describeHomeworkReply, libraryFailRequested } from './server/library.js';
 import { registerElRoutes } from './server/routes/el.js';
 import { registerSingaporeMathsRoutes } from './server/routes/singapore-maths.js';
 import { registerTtsRoutes } from './server/routes/tts.js';
@@ -6545,6 +6546,14 @@ function readHomeworkInput(body) {
 // The browser never sees the API key — it only ever talks to this route.
 // The prompt is built here (server/prompts/homework-prompts.js); a prompt
 // sent by the caller is ignored.
+// TUT-69: one library row per generated homework reply, after the response is sent.
+// Typed text only goes in as source_text (first 300 chars); attachments never do.
+function saveHomeworkToLibrary(req, session, studentId, feature, data, language, text) {
+  const d = describeHomeworkReply(feature, data);
+  if (!d) return;
+  saveLearningItem(supabase, { familyId: session.familyId, studentId, mode: d.mode, subject: d.subject, topic: d.topic, title: d.title, language, payload: d.payload, sourceText: text }, { forceError: libraryFailRequested(req) });
+}
+
 app.post('/api/homework', async (req, res) => {
   const timer = stepTimer();
   try {
@@ -6828,14 +6837,19 @@ app.post('/api/homework', async (req, res) => {
       });
       sendTiming(200);
       // Same envelope as every other feature: the page reads the first text block.
-      return res.json(e2eExtras({ ...result.data, content: [{ type: 'text', text: JSON.stringify(story) }] }));
+      const storyReply = { ...result.data, content: [{ type: 'text', text: JSON.stringify(story) }] };
+      res.json(e2eExtras(storyReply));
+      saveHomeworkToLibrary(req, session, studentId, feature, storyReply, lang, text);
+      return;
     }
 
     // An unreadable or non-homework photo (Answer v2) does not use up a session.
     if (v2Status === 'ok') trackSessionCompleted(session.familyId, studentId, { feature, durationSeconds: null });
     if (feature !== FEATURES.HOMEWORK_HELP) {
       sendTiming(200);
-      return res.json(e2eExtras(result.data));
+      res.json(e2eExtras(result.data));
+      saveHomeworkToLibrary(req, session, studentId, feature, result.data, lang, text);
+      return;
     }
     // Every photo/box pair is checked (server/homework-boxes.js); anything
     // invalid, or a box with no photo that may carry one, is dropped.
@@ -6860,6 +6874,8 @@ app.post('/api/homework', async (req, res) => {
     }
     sendTiming(200);
     res.json(e2eExtras(data));
+    // An unreadable or non-homework photo (v2Status not ok) is not saved.
+    if (v2Status === 'ok') saveHomeworkToLibrary(req, session, studentId, feature, data, lang, text);
   } catch (err) {
     console.error('Server error:', err);
     res.status(500).json({ error: 'Server error calling Claude' });
@@ -6868,6 +6884,7 @@ app.post('/api/homework', async (req, res) => {
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
 registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
+registerLibraryRoutes(app, { supabase, getSession, requireOwnStudent, sendForbidden, sendSessionExpired, getPaidStatusForStudents, rateLimit });
 registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 // TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.
 partnerRoutes = registerPartnerRoutes(app, { supabase, rateLimit, getSession, sendSessionExpired, requireAdmin, cronAuthorized, isTestFamily });

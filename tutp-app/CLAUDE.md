@@ -168,6 +168,8 @@
 
 ## Infra known issues
 
+- **Supabase migrations: Claude Code CANNOT apply them itself** (no supabase CLI or psql here, the claude.ai Supabase MCP stayed unauthorized after `/mcp`, and reading the service-role key to call the API is blocked by the auto-mode classifier), checked 2026-10-22. Vet runs each migration in the Supabase SQL Editor; 036 was applied that way (Vet reported Success; Claude could not verify it read-only).
+
 - **gcloud hangs but curl works → IPv6 is broken** (seen on Vet's iPhone hotspot). gcloud's Python tries Google's IPv6 addresses first and stalls; curl falls back to IPv4. Fixed by disabling IPv6 on the Wi-Fi 5 adapter; if on Ethernet later, apply the same fix to that adapter.
 - **PowerShell:** call `gcloud.cmd`, not `gcloud` — `gcloud.ps1` is blocked by the execution policy.
 - **deploy.sh output piped through `tail`/`grep` shows nothing until it finishes** (and nothing at all if it hangs). Log to a file instead (`bash deploy.sh > deploy.log 2>&1`) and read that.
