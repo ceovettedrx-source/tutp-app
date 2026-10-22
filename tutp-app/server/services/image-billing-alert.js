@@ -40,6 +40,11 @@ export function createImageBillingMonitor({ supabase, sendEmail, to, now = Date.
       lastCheck = t;
       const rows = await failures();
       if (!rows.length) return false;
+      if (!to) {
+        // No founder address configured: say so loudly, send nothing, write no marker.
+        console.warn(JSON.stringify({ severity: 'WARNING', event: 'image_billing_alert_no_recipient', count: rows.length, note: 'ADMIN_NOTIFY_EMAIL is empty, no alert email sent' }));
+        return false;
+      }
       const since = new Date(t - DAY_MS).toISOString();
       const sent = await supabase.from('usage_events').select('id').eq('event_name', SENT_EVENT).gte('created_at', since).limit(1);
       if (sent.error) throw sent.error;

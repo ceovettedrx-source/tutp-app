@@ -196,6 +196,18 @@ test('no failures means no email and an empty summary; a broken mailer or databa
   } finally { cap.restore(); }
 });
 
+test('an empty ADMIN_NOTIFY_EMAIL logs a WARNING, sends nothing and writes no marker', async () => {
+  const ev = fakeEvents([failRow(402, 'story')]);
+  const mails = [];
+  const mon = createImageBillingMonitor({ supabase: ev, sendEmail: async (...a) => { mails.push(a); }, to: '' });
+  const cap = capture();
+  try { assert.equal(await mon.checkAndAlert(), false); } finally { cap.restore(); }
+  assert.equal(mails.length, 0);
+  assert.equal(ev.rows.filter((r) => r.event_name === 'image_billing_alert_sent').length, 0);
+  const w = JSON.parse(cap.lines.find((l) => l.includes('image_billing_alert_no_recipient')));
+  assert.equal(w.severity, 'WARNING');
+});
+
 test('the summary counts the last 24 h, ignores older rows, and the email holds no secret', async () => {
   const t = Date.parse('2026-10-22T06:00:00Z');
   const ev = fakeEvents([failRow(402, 'story', new Date(t - 30 * 3600 * 1000).toISOString()), failRow(402, 'story', new Date(t - 3600 * 1000).toISOString()), failRow(429, 'notes', new Date(t - 60 * 1000).toISOString())]);

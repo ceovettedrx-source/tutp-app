@@ -6861,7 +6861,7 @@ app.post('/api/homework', async (req, res) => {
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
 // TUT-73: failing picture generation (HTTP 402 and the like) mails the founder once a day.
 const imageBilling = createImageBillingMonitor({
-  supabase, sendEmail, to: process.env.ADMIN_NOTIFY_EMAIL || 'ceo.tutp@gmail.com',
+  supabase, sendEmail, to: process.env.ADMIN_NOTIFY_EMAIL || '',
 });
 registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents, onImageBillingFail: () => imageBilling.checkAndAlert() });
 
