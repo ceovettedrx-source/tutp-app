@@ -38,6 +38,7 @@ import { callClaude } from './server/anthropic.js';
 import { MODELS, modelSettings, storyModel } from './server/models.js';
 import { runAnswer, answerRequestBody } from './server/answer-run.js';
 import { formatMismatches } from './server/answer-arithmetic.js';
+import { registerWatchLearnRoutes } from './server/routes/watch-learn.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { questionPictureKey } from './server/picture-rule.js';
@@ -943,7 +944,7 @@ app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
     const thirtyDaysAgoUTC = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
     const testIds = await testFamilyIds();
-    const [escalationsRes, summaryRes] = await Promise.all([
+    const [escalationsRes, summaryRes, videoRes] = await Promise.all([
       supabase.from('usage_events')
         .select('family_id, properties, created_at, students(name), family_registrations(data)')
         .eq('event_name', 'feedback.escalated')
@@ -951,11 +952,18 @@ app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
         .limit(20),
       supabase.from('usage_events')
         .select('event_name, family_id')
-        .in('event_name', ['feedback.submitted', 'feedback.auto_resolved', 'feedback.escalated'])
-        .gte('created_at', thirtyDaysAgoUTC)
+        .in('event_name', ['feedback.submitted', 'feedback.auto_resolved', 'feedback.escalated', 'feedback.video_reported'])
+        .gte('created_at', thirtyDaysAgoUTC),
+      // TUT-66: "Not right for this lesson" reports on Watch & Learn videos.
+      supabase.from('usage_events')
+        .select('family_id, properties, created_at')
+        .eq('event_name', 'feedback.video_reported')
+        .order('created_at', { ascending: false })
+        .limit(20),
     ]);
     if (escalationsRes.error) throw escalationsRes.error;
     if (summaryRes.error) throw summaryRes.error;
+    if (videoRes.error) throw videoRes.error;
 
     const recentEscalations = withoutTestFamilies(escalationsRes.data, testIds).map(e => {
       const familyData = e.family_registrations?.data || {};
@@ -967,14 +975,19 @@ app.get('/api/admin/feedback-escalations', requireAdmin, async (req, res) => {
       };
     });
 
-    const summary = { submitted: 0, autoResolved: 0, escalated: 0 };
+    const summary = { submitted: 0, autoResolved: 0, escalated: 0, videoReported: 0 };
     for (const row of withoutTestFamilies(summaryRes.data, testIds)) {
       if (row.event_name === 'feedback.submitted') summary.submitted += 1;
       else if (row.event_name === 'feedback.auto_resolved') summary.autoResolved += 1;
       else if (row.event_name === 'feedback.escalated') summary.escalated += 1;
+      else if (row.event_name === 'feedback.video_reported') summary.videoReported += 1;
     }
+    const videoReports = withoutTestFamilies(videoRes.data, testIds).map(e => ({
+      videoId: e.properties?.video_id || null, lesson: e.properties?.lesson || null,
+      subject: e.properties?.subject || null, language: e.properties?.language || null, createdAt: e.created_at,
+    }));
 
-    res.json({ recentEscalations, summary });
+    res.json({ recentEscalations, summary, videoReports });
   } catch (err) {
     console.error('Admin feedback-escalations error:', err);
     res.status(500).json({ error: 'Could not load feedback escalations' });
@@ -2034,11 +2047,20 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
         setVal(escalatedEl, data.summary.escalated);
 
         const rows = data.recentEscalations || [];
+        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        // TUT-66: Watch & Learn videos a parent marked "Not right for this lesson".
+        const vids = data.videoReports || [];
+        const videoHtml = vids.length
+          ? '<h4>Watch &amp; Learn: videos reported (' + escapeHtml((data.summary || {}).videoReported || 0) + ' in 30 days)</h4>' +
+            '<table class="data-table"><thead><tr><th>Lesson</th><th>Subject</th><th>Language</th><th>Video</th><th>Date</th></tr></thead><tbody>' +
+            vids.map(v => '<tr><td>' + escapeHtml(v.lesson || '—') + '</td><td>' + escapeHtml(v.subject || '—') + '</td><td>' + escapeHtml(v.language || '—') +
+              '</td><td>' + escapeHtml(v.videoId || '—') + '</td><td>' + escapeHtml(new Date(v.createdAt).toLocaleString('en-IN')) + '</td></tr>').join('') +
+            '</tbody></table>'
+          : '';
         if (!rows.length) {
-          panel.innerHTML = '<p class="panel-message">No feedback escalations — clean record.</p>';
+          panel.innerHTML = '<p class="panel-message">No feedback escalations — clean record.</p>' + videoHtml;
           return;
         }
-        const escapeHtml = (s) => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
         const rowsHtml = rows.map(r =>
           '<tr>' +
             '<td>' + escapeHtml(r.familyName || '—') + '</td>' +
@@ -2051,7 +2073,7 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           '<table class="data-table">' +
             '<thead><tr><th>Family</th><th>Child</th><th>Category</th><th>Date</th></tr></thead>' +
             '<tbody>' + rowsHtml + '</tbody>' +
-          '</table>';
+          '</table>' + videoHtml;
       } catch (err) {
         [submittedEl, autoResolvedEl, escalatedEl].forEach(el => {
           el.textContent = 'Error';
@@ -6868,6 +6890,7 @@ app.post('/api/homework', async (req, res) => {
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
 registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
+registerWatchLearnRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
 registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 // TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.
 partnerRoutes = registerPartnerRoutes(app, { supabase, rateLimit, getSession, sendSessionExpired, requireAdmin, cronAuthorized, isTestFamily });

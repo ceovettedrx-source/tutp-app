@@ -1,0 +1,27 @@
+/* TUT-66 Watch & Learn: the video card under lesson results. Thin line-art, same tokens as
+   answer-explain.css. Touch targets >= 44px. Works at 360px: one column, no horizontal scroll. */
+.wl-root { --wl-blue: #005bbf; --wl-ink: #0F1B2D; --wl-muted: #4A5568; --wl-line: #D5DCE8; --wl-card: #FFFFFF;
+  font-family: 'Plus Jakarta Sans', 'Noto Sans', system-ui, sans-serif; color: var(--wl-ink);
+  margin-top: 16px; padding: 14px; border: 1px solid var(--wl-line); border-radius: 12px; background: var(--wl-card); max-width: 100%; box-sizing: border-box; }
+.wl-root * { box-sizing: border-box; }
+.wl-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 15px; font-weight: 700; letter-spacing: .01em; }
+.wl-title svg { width: 20px; height: 20px; flex: none; }
+.wl-list { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0; padding: 0; list-style: none; }
+@media (min-width: 640px) { .wl-list { grid-template-columns: 1fr 1fr; } }
+.wl-item { position: relative; border: 1px solid var(--wl-line); border-radius: 10px; overflow: hidden; background: #fff; min-width: 0; }
+.wl-play { display: block; width: 100%; padding: 0; margin: 0; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.wl-thumb { position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; background: #F4F6FA; overflow: hidden; }
+.wl-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.wl-ring { position: absolute; inset: 0; margin: auto; width: 44px; height: 44px; border: 1.5px solid #fff; border-radius: 50%; background: rgba(15,27,45,.35); }
+.wl-ring::after { content: ''; position: absolute; left: 17px; top: 12px; border-left: 14px solid #fff; border-top: 10px solid transparent; border-bottom: 10px solid transparent; }
+.wl-meta { display: block; padding: 8px 10px 6px; }
+.wl-vtitle { display: block; font-size: 14px; font-weight: 600; line-height: 1.35; overflow-wrap: anywhere; }
+.wl-channel { display: block; font-size: 12px; color: var(--wl-muted); margin-top: 2px; overflow-wrap: anywhere; }
+.wl-frame { display: block; width: 100%; aspect-ratio: 16 / 9; border: 0; background: #000; }
+.wl-report { display: inline-flex; align-items: center; min-height: 44px; padding: 0 10px; margin: 0; border: 0; background: none; color: var(--wl-muted); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
+.wl-done { padding: 12px 10px; font-size: 13px; color: var(--wl-muted); }
+.wl-locked .wl-thumb img, .wl-locked .wl-meta { filter: blur(6px); }
+.wl-locked { min-height: 120px; }
+.wl-unlock { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; border: 0; background: rgba(255,255,255,.55); cursor: pointer; font: inherit; }
+@media print { .wl-root { display: none !important; } }
+.wl-unlock span { min-height: 44px; display: inline-flex; align-items: center; padding: 0 14px; border: 1.5px solid var(--wl-blue); border-radius: 999px; background: #fff; color: var(--wl-blue); font-size: 13px; font-weight: 700; }

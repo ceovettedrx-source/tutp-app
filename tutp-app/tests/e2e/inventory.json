@@ -21,6 +21,10 @@
     "el": {
       "required": ["listen", "picture"],
       "coveredBy": ["el.spec.js", "img1.spec.js"]
+    },
+    "watch_learn": {
+      "required": ["watch.title", "watch.thumbnail", "watch.channel", "watch.report", "watch.locked"],
+      "coveredBy": ["watch-learn.spec.js w1 (videos)", "watch-learn.spec.js w7 (card at 360 px)", "watch-learn.spec.js w8 (locked)"]
     }
   }
 }

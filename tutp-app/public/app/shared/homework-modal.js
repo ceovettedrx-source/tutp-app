@@ -511,6 +511,13 @@
                     decorate: (card, qi) => hwAddPhotoButton(card, (parsed.extracted_questions || [])[qi] || {})
                 });
                 if (parsed.status === 'ok') renderHwPhotoActions();
+                // TUT-66: "Watch & Learn" below the cards; the lesson is the questions' own concept (server: lesson_title).
+                if (parsed.status === 'ok' && parsed.lesson_title && window.TutpWatchLearn) {
+                    window.TutpWatchLearn.mount(questionsArea, {
+                        studentId: sessionStorage.getItem('tutp_student_id'), lesson: parsed.lesson_title,
+                        subject: parsed.subject || '', language: document.getElementById('hwModalLang').value
+                    });
+                }
                 document.getElementById('hwModalHomeworkResultBlock').classList.remove('hidden');
                 return;
             }

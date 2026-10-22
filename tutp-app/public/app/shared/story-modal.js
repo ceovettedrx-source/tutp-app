@@ -609,6 +609,17 @@
             box.appendChild(ask);
         }
 
+        // TUT-66: "Watch & Learn" below the story. The lesson is the topic of the story's own
+        // "Class 5 · Maths · Fractions" tag; no extra model call. Nothing is added when there are no videos.
+        if (window.TutpWatchLearn) {
+            var tagParts = String(story.tag || '').split('·').map(function (x) { return x.trim(); }).filter(Boolean);
+            window.TutpWatchLearn.mount(box, {
+                studentId: sessionStorage.getItem('tutp_student_id'),
+                lesson: tagParts.length > 2 ? tagParts[tagParts.length - 1] : story.title,
+                subject: tagParts.length > 1 ? tagParts[1] : '', language: lang
+            });
+        }
+
         // Printed at the bottom whether or not the answer was revealed.
         if (story.tryTogether) {
             var pa = el('section', 'sm-print-only');

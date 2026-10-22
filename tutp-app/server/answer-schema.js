@@ -21,6 +21,7 @@ import { scriptOf, fontStack } from './lang-fonts.js';
 import { checkBox, MAX_QUESTIONS } from './homework-boxes.js';
 import { normalizeConceptKey, cleanScenePrompt } from './explain-schema.js';
 import { foreignScriptIn, FOREIGN_SCRIPT_HINT } from './lang-check.js';
+import { lessonFromQuestions } from './youtube/lesson.js';
 
 export const ANSWER_STATUSES = ['ok', 'unreadable', 'not_homework'];
 const MAX_TEXT = 1200;
@@ -130,7 +131,17 @@ function validateContent(raw, subject) {
 // allowEmpty: a batch (questions 5-8) may have no questions at all.
 // degrade: the last attempt, a card with working-out text keeps only its clean final answer.
 // -> also `mismatches`: how many engine-built cards had a model answer of another value.
-export function validateAnswer(raw, { board = 'other', photos = [], allowEmpty = false, degrade = false } = {}) {
+export function validateAnswer(raw, opts) {
+  const r = validateAnswerCore(raw, opts);
+  // TUT-66: the lesson name for "Watch & Learn", from the questions' own concept keys.
+  if (r.ok && r.answer && r.answer.status === 'ok') {
+    const lesson = lessonFromQuestions(r.answer.questions);
+    if (lesson) r.answer.lesson_title = lesson;
+  }
+  return r;
+}
+
+function validateAnswerCore(raw, { board = 'other', photos = [], allowEmpty = false, degrade = false } = {}) {
   const issues = [];
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, issues: ['the reply is not a JSON object'] };
   const status = raw.status === undefined ? 'ok' : raw.status;

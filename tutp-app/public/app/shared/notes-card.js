@@ -285,6 +285,13 @@ window.TUTP_NOTES_MESSAGES = {
             s.appendChild(box);
             root.appendChild(s);
         }
+        // TUT-66: "Watch & Learn" below the notes; the lesson is the notes' own title. Nothing is added without videos.
+        if (window.TutpWatchLearn && str(d.title)) {
+            window.TutpWatchLearn.mount(root, {
+                studentId: sessionStorage.getItem('tutp_student_id'), lesson: str(d.title),
+                subject: str(d.subject), language: (opts && opts.speechLang) || lang
+            });
+        }
         return root;
     }
 
