@@ -44,6 +44,7 @@ import { initModelCost } from './server/model-cost.js';
 import { initModelAlert } from './server/model-alert.js';
 import { runModelHealth, modelHealthHandler } from './server/model-health.js';
 import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
+import { createImageBillingMonitor } from './server/services/image-billing-alert.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import * as uploads from './server/uploads.js';
 import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
@@ -1780,6 +1781,12 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="revenueMessage">Loading…</p>
   </div>
 
+  <div class="panel" id="imageFailTile" hidden style="background:#fee2e2;border:1px solid #dc2626;color:#7f1d1d">
+    <p class="kpi-label" style="color:#7f1d1d">Pictures failing</p>
+    <p class="kpi-value" id="imageFailCount" style="color:#b91c1c">0</p>
+    <p class="panel-message" id="imageFailDetail"></p>
+  </div>
+
   <h2 class="section-title">Failed Payments</h2>
   <div class="panel" id="failedPaymentsPanel">
     <p class="panel-message loading" id="failedPaymentsMessage">Loading…</p>
@@ -2411,6 +2418,20 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           submitBtn.disabled = false;
         }
       });
+    })();
+  </script>
+  <script>
+    // TUT-73: red tile when picture generation failed in the last 24 h; hidden otherwise.
+    (async function loadImageFail() {
+      try {
+        const r = await fetch('/api/admin/image-billing', { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d || !d.count) return;
+        document.getElementById('imageFailCount').textContent = String(d.count);
+        document.getElementById('imageFailDetail').textContent = 'First seen ' + new Date(d.first_seen).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + (d.last_status ? ' · HTTP ' + d.last_status : '') + ' · top up Prepay - AI Studio';
+        document.getElementById('imageFailTile').hidden = false;
+      } catch (e) { /* the tile stays hidden */ }
     })();
   </script>
 </body>
@@ -6838,7 +6859,21 @@ app.post('/api/homework', async (req, res) => {
 });
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
-registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
+// TUT-73: failing picture generation (HTTP 402 and the like) mails the founder once a day.
+const imageBilling = createImageBillingMonitor({
+  supabase, sendEmail, to: process.env.ADMIN_NOTIFY_EMAIL || 'ceo.tutp@gmail.com',
+});
+registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents, onImageBillingFail: () => imageBilling.checkAndAlert() });
+
+app.get('/api/admin/image-billing', requireAdmin, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await imageBilling.summary());
+  } catch (err) {
+    console.error('Admin image-billing error:', err && err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 // TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.
 partnerRoutes = registerPartnerRoutes(app, { supabase, rateLimit, getSession, sendSessionExpired, requireAdmin, cronAuthorized, isTestFamily });

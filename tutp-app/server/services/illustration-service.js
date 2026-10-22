@@ -30,7 +30,7 @@ export function startOfIstDayUtc(now = Date.now()) {
 }
 
 export function createIllustrationService({
-  supabase, env: baseEnv = process.env, now = Date.now, getProviderFn = getProvider, logEvent = () => {},
+  supabase, env: baseEnv = process.env, now = Date.now, getProviderFn = getProvider, logEvent = () => {}, onBillingFail = () => {},
 }) {
   const objectPath = (key) => `${key}.png`;
 
@@ -57,13 +57,28 @@ export function createIllustrationService({
     return { status: 'fallback', reason };
   };
 
-  async function generate(key, scenePrompt, provider) {
+  // TUT-73: one structured line per real generation, so cost per image is countable from logs.
+  const logGenerated = (key, provider, feature) => {
+    console.log(JSON.stringify({ severity: 'INFO', event: 'image_generated', model: provider.model, concept_key: key, feature }));
+  };
+
+  // TUT-73: a provider refusal (402 payment, 429 limit, any non-2xx) is loud: one WARNING
+  // line, one usage_events row, and the founder alert check. Never the key or the body.
+  const reportBillingFail = (key, status, feature) => {
+    console.warn(JSON.stringify({ severity: 'WARNING', event: 'image_billing_fail', status, concept_key: key, feature }));
+    try { logEvent('image_billing_fail', { status, concept_key: key, feature }); } catch { /* logging never fails a request */ }
+    try { Promise.resolve(onBillingFail()).catch(() => {}); } catch { /* the alert never fails a request */ }
+  };
+
+  async function generate(key, scenePrompt, provider, feature = 'unknown') {
     try {
       const { buffer, contentType } = await provider.generate(withSuffix(scenePrompt));
       const ok = await uploadPrivate(supabase, BUCKET, objectPath(key), buffer, contentType || 'image/png');
       if (!ok) throw new Error('upload failed');
       await supabase.from('illustrations').update({ status: 'ready', storage_path: objectPath(key), reason: null }).eq('concept_key', key);
+      logGenerated(key, provider, feature);
     } catch (err) {
+      if (err && Number.isInteger(err.status) && provider.name === 'gemini') reportBillingFail(key, err.status, feature);
       console.error('illustration: generation failed', { concept_key: key, error: err && err.message });
       await supabase.from('illustrations').update({ status: 'fallback', reason: 'error' }).eq('concept_key', key).then(() => {}, () => {});
       fallback('error', key);
@@ -98,7 +113,7 @@ export function createIllustrationService({
           throw error;
         }
       }
-      generate(key, scenePrompt, provider);                          // not awaited: the answer never waits
+      generate(key, scenePrompt, provider, opts.feature || 'unknown'); // not awaited: the answer never waits
       return { status: 'pending' };
     } catch (err) {
       console.error('illustration: request error', err && err.message);

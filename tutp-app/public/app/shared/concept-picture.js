@@ -162,7 +162,7 @@
         function start() {
             if (!key) { giveUp(); return; }
             if (picture.sig) {
-                post('/api/illustration/request', { studentId: ctx.studentId, picture: { concept_key: picture.concept_key, scene_prompt: picture.scene_prompt, sig: picture.sig } })
+                post('/api/illustration/request', { studentId: ctx.studentId, surface: ctx.surface, picture: { concept_key: picture.concept_key, scene_prompt: picture.scene_prompt, sig: picture.sig } })
                     .then(function (r) { return r.ok ? r.json() : null; })
                     .then(function (j) {
                         if (!j || j.status === 'fallback') { giveUp(); return; }
