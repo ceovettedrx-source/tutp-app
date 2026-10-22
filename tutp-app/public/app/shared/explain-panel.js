@@ -74,7 +74,7 @@
         if (!window.TutpPicture || !view.illustration) return null;
         var host = el('div', 'ae-hero-host');
         var fallback = q.diagram && q.diagram.svg ? A.diagramNode(q.diagram.svg) : null;
-        window.TutpPicture.mount(host, { concept_key: view.picture_key || view.concept_key, status: view.illustration.status },
+        window.TutpPicture.mount(host, { concept_key: view.picture_key || view.illustration.key || view.concept_key, status: view.illustration.status },
             { studentId: ctx.studentId, surface: 'explain' },
             { labels: view.illustration.labels || [], fallback: fallback, variant: 'hero', alt: view.title });
         return host;
@@ -408,7 +408,7 @@
             load(panel, q, c, i === 0 ? 'page' : 'none');
         });
         if (parsed.more_questions) {
-            var m = el('div', 'ae-msg', 'There are ' + parsed.more_questions + ' more question(s) on this homework than shown here. Send the rest in another photo.');
+            var m = el('div', 'ae-msg', parsed.more_questions + (parsed.more_questions === 1 ? ' question was' : ' questions were') + ' not answered here. Send' + (parsed.more_questions === 1 ? 'it' : 'them') + ' in another photo or file.');
             m.setAttribute('role', 'status');
             area.appendChild(m);
         }

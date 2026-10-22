@@ -12,7 +12,7 @@
 
 import express from 'express';
 import { uiSystemPrompt, imageSystemPrompt, explainLineSystemPrompt, locateLineSystemPrompt } from '../prompts/visual-tutor-prompts.js';
-import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
+import { resolveLanguage } from '../language.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from '../pointing-model.js';
 import { trackVisualTutorCall } from '../../tracking/tracking.js';
 import { stepTimer } from '../step-timer.js';
@@ -85,7 +85,8 @@ router.post('/', async (req, res) => {
       content = [imageBlock, { type: 'text', text: `Parent's question: ${question}` }];
     } else if (mode === 'explain_line') {
       const answer = typeof req.body.answer === 'string' ? req.body.answer.slice(0, 300) : '';
-      const language = HOMEWORK_LANGUAGES.includes(req.body.language) ? req.body.language : 'English';
+      // This route has no sign-in, so there is no family history to read: the page's language, else English.
+      const { language } = await resolveLanguage({ requested: req.body.language });
       system = explainLineSystemPrompt({ width: img.width, height: img.height, language });
       content = [imageBlock, { type: 'text', text: `Tapped question: ${question}\nCard answer: ${answer || 'not given'}` }];
     } else {

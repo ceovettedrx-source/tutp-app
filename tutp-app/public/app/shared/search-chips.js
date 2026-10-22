@@ -58,9 +58,9 @@ window.TUTP_CHIP_MESSAGES = {
 (function () {
     const STYLE = `
         #hwChipRow{margin-top:14px}
-        #hwChipRow .hw-chip-label{display:block;font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px}
-        #hwChips{display:flex;flex-wrap:wrap;gap:6px}
-        #hwChips button{min-height:40px;padding:0 8px;border-radius:999px;border:2px solid #c2c6d4;background:#fff;color:#1a1c20;font-size:12.5px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
+        #hwChipRow .hw-chip-label{display:block;font-size:14px;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;color:#424752}
+        #hwChips{display:flex;flex-wrap:wrap;gap:8px}
+        #hwChips button{min-height:44px;padding:0 14px;border-radius:999px;border:2px solid #c2c6d4;background:#fff;color:#1a1c20;font-size:14px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s}
         #hwChips button:hover{border-color:#005bbf}
         #hwChips button:focus-visible{outline:3px solid #005bbf;outline-offset:2px}
         #hwChips button[aria-pressed="true"]{background:#005bbf;border-color:#005bbf;color:#fff}
@@ -84,26 +84,13 @@ window.TUTP_CHIP_MESSAGES = {
     // The explanation language the parent picked ("Explain in"): what the
     // notes are written in, and what is logged.
     const lang = () => ($('hwModalLang') && $('hwModalLang').value) || 'English';
-    // The language of the chip text itself, picked the way auth-messages.js
-    // does it: tutp_ui_lang if set, else the browser's languages, else en.
     const MSG = window.TUTP_CHIP_MESSAGES;
-    function uiLang() {
-        try {
-            const saved = localStorage.getItem('tutp_ui_lang');
-            if (saved && MSG[saved]) return saved;
-        } catch (e) {}
-        const prefs = navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en'];
-        for (const p of prefs) {
-            const base = String(p).toLowerCase().split('-')[0];
-            if (MSG[base]) return base;
-        }
-        return 'en';
-    }
     // The language of the chip row and the notes card headings: the "Explain
-    // in" language when we have text for it, else the page's UI language,
-    // else English (labelFor falls back to English per key).
+    // in" language when we have text for it, else English (labelFor falls
+    // back to English per key).
     const CARD_LANG = { English: 'en', Telugu: 'te', Hindi: 'hi' };
-    const chipLang = () => CARD_LANG[lang()] || uiLang();
+    // Never the browser's language: card content follows the "Explain in" language only.
+    const chipLang = () => CARD_LANG[lang()] || 'en';
     const labelFor = (key) => (MSG[chipLang()] && MSG[chipLang()][key]) || MSG.en[key] || key;
 
     function loadConfig() {

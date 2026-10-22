@@ -138,7 +138,7 @@ test('a success logs one image_generated line with the model, and no failure', a
   const events = []; let alerts = 0;
   const svc = createIllustrationService({
     supabase: fakeIllustrations(), env: { ...env402, GEMINI_IMAGE_MODEL: 'gemini-test-model' }, getProviderFn: (e) => geminiProvider(e, okFetch),
-    logEvent: (n, p) => events.push([n, p]), onBillingFail: () => { alerts++; },
+    logEvent: (n, p) => events.push([n, p]), onBillingFail: () => { alerts++; }, checkFn: async () => null,
   });
   const cap = capture();
   try { await svc.request('good-concept', 's', { feature: 'notes' }); await tick(); } finally { cap.restore(); }
@@ -154,7 +154,7 @@ test('two requests for one concept at once make one generation and one line', as
   let calls = 0;
   const slow = async () => { calls++; return { ok: false, status: 402 }; };
   const sb = fakeIllustrations();
-  const svc = createIllustrationService({ supabase: sb, env: env402, getProviderFn: (e) => geminiProvider(e, slow) });
+  const svc = createIllustrationService({ supabase: sb, env: env402, getProviderFn: (e) => geminiProvider(e, slow), checkFn: async () => null });
   const cap = capture();
   try { await Promise.all([svc.request('same', 's'), svc.request('same', 's')]); await tick(); } finally { cap.restore(); }
   assert.ok(calls <= 2);

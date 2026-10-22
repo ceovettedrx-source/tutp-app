@@ -42,6 +42,72 @@ export function romanizedHindiIn(value, depth = 0) {
   return false;
 }
 
+// The script each explain-in language is written in. The check above only says a letter is
+// from SOME Indian script; this says it is from THIS language's script, so an English or Telugu
+// card holding Hindi labels or a Hindi check question is caught (2026-10-14: English cards with
+// Devanagari labels were stored under "English" and served again).
+const SCRIPT_OF_LANGUAGE = {
+  English: 'latin', Spanish: 'latin', French: 'latin', German: 'latin',
+  Hindi: 'devanagari', Marathi: 'devanagari', Telugu: 'telugu', Tamil: 'tamil', Arabic: 'arabic',
+};
+const LETTER_SCRIPTS = [
+  ['latin', /\p{Script=Latin}/u], ['devanagari', /\p{Script=Devanagari}/u], ['telugu', /\p{Script=Telugu}/u],
+  ['tamil', /\p{Script=Tamil}/u], ['arabic', /\p{Script=Arabic}/u], ['kannada', /\p{Script=Kannada}/u],
+  ['malayalam', /\p{Script=Malayalam}/u], ['bengali', /\p{Script=Bengali}/u], ['gujarati', /\p{Script=Gujarati}/u],
+  ['gurmukhi', /\p{Script=Gurmukhi}/u], ['oriya', /\p{Script=Oriya}/u],
+];
+// A native-script language needs this share of its letters in its own script (the rest may be
+// Latin key terms in brackets); a Telugu request answered with an all-English card is a mismatch too.
+const NATIVE_SHARE = 0.3;
+
+// Letters per script in every string inside `value`. Greek letters (pi, theta) and other
+// symbols are left out: they are maths notation, not a language.
+function letterCounts(value, counts = {}, depth = 0) {
+  if (depth > 6 || value == null) return counts;
+  if (typeof value === 'string') {
+    for (const ch of value) {
+      if (!/\p{L}/u.test(ch)) continue;
+      const hit = LETTER_SCRIPTS.find(([, re]) => re.test(ch));
+      if (hit) counts[hit[0]] = (counts[hit[0]] || 0) + 1;
+      else if (!/\p{Script=Greek}/u.test(ch)) counts.other = (counts.other || 0) + 1;
+    }
+  } else if (Array.isArray(value)) value.forEach((v) => letterCounts(v, counts, depth + 1));
+  else if (typeof value === 'object') Object.values(value).forEach((v) => letterCounts(v, counts, depth + 1));
+  return counts;
+}
+
+// '' when `value` is written in `language`'s script (or nothing can be compared), else the
+// script found that does not belong ('devanagari', 'latin' for too little native text, ...).
+export function scriptMismatch(language, value) {
+  const want = SCRIPT_OF_LANGUAGE[language];
+  if (!want) return '';
+  const c = letterCounts(value);
+  const total = Object.values(c).reduce((a, b) => a + b, 0);
+  if (!total) return '';
+  const foreign = Object.keys(c).find((s) => s !== 'latin' && s !== want && c[s] > 0);
+  if (foreign) return foreign;
+  if (want !== 'latin' && (c[want] || 0) / total < NATIVE_SHARE) return 'latin';
+  return '';
+}
+
+// The sentence for the retry when scriptMismatch() found something.
+export const scriptMismatchHint = (language) => `Your previous reply was not in ${language}. Rewrite EVERY string the parent or child reads (title, quick, full, tip, traps, misconception, parent questions, the check question and its options, the feedback and the picture labels) in ${language} only, in its own script. Even if the homework question is in another language, write the check question and the labels in ${language}.`;
+
+const NOT_VISIBLE = new Set(['concept_key', 'scene_prompt', 'model', 'prompt_version', 'correct_index', 'position', 'source', 'checked', 'schema']);
+
+// The words a card shows: every string field of a stored explain payload except the English
+// slugs and the picture prompt, which are never displayed.
+export function visibleText(payload, depth = 0) {
+  if (depth > 6 || payload == null) return [];
+  if (typeof payload === 'string') return [payload];
+  if (Array.isArray(payload)) return payload.flatMap((v) => visibleText(v, depth + 1));
+  if (typeof payload === 'object') return Object.entries(payload).flatMap(([k, v]) => (NOT_VISIBLE.has(k) ? [] : visibleText(v, depth + 1)));
+  return [];
+}
+
+// May a stored card be served for a request in `language`? One check for every cached field.
+export const cardMatchesLanguage = (language, payload) => !scriptMismatch(language, visibleText(payload));
+
 export function foreignScriptIn(value, depth = 0) {
   if (depth > 6 || value == null) return '';
   if (typeof value === 'string') return foreignScript(value);

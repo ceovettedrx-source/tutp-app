@@ -41,7 +41,9 @@ import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
 import { storyPicture } from './server/story-picture.js';
+import { questionPictureKey } from './server/picture-rule.js';
 import { initModelCost } from './server/model-cost.js';
+import { initLanguage, resolveLanguage, applyRegistrationLanguage, saveParentLanguage, parentRoleOf } from './server/language.js';
 import { initModelAlert } from './server/model-alert.js';
 import { runModelHealth, modelHealthHandler } from './server/model-health.js';
 import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
@@ -300,6 +302,7 @@ if (process.env.SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
   });
   initTracking(supabase);
   initModelCost(supabase);
+  initLanguage(supabase, { rolesOf: sessionFamilyRoles });
   initTestFamilies(supabase);
 } else {
   console.warn('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set — waitlist and usage tracking are disabled.');
@@ -2809,6 +2812,8 @@ app.post('/api/register', registerLimiter, async (req, res) => {
     // A family on the e2e suite's test numbers stays out of every metric.
     if (isTestPhone(verifiedPhone)) payload.is_test = true;
     else delete payload.is_test;
+    // "Explanations in which language?": stored on the parent whose phone was just verified.
+    applyRegistrationLanguage(payload, verifiedPhone);
     // TUT-49: an optional partner code typed on the form; it is not kept in the family data.
     const typedPartnerCode = typeof payload.partnerCode === 'string' ? payload.partnerCode.trim().toUpperCase().slice(0, 12) : '';
     delete payload.partnerCode;
@@ -3112,6 +3117,24 @@ app.post('/api/family/add-child', async (req, res) => {
 // invite link — they sign in with an OTP on that number, which proves it is
 // theirs. Fills only an empty mother/father slot, and never a phone that is
 // already in any family (that would make the phone ambiguous at login).
+// The signed-in parent's own "Explanations in which language?" choice (family page). Stored on
+// that parent only; a family member who is not a parent is refused. The family id comes from
+// the session, never the request.
+app.put('/api/family/parent-language', async (req, res) => {
+  try {
+    if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
+    const session = getSession(req);
+    if (!session || !session.familyId) return sendSessionExpired(res);
+    const role = parentRoleOf(await sessionFamilyRoles(session));
+    const r = await saveParentLanguage({ familyId: session.familyId, role, language: (req.body || {}).language });
+    if (!r.ok) return res.status(r.status).json({ error: r.error });
+    res.json({ ok: true, language: r.language });
+  } catch (err) {
+    console.error('Parent language error:', err);
+    res.status(500).json({ error: 'Could not save the language. Please try again.' });
+  }
+});
+
 app.post('/api/family/add-parent', async (req, res) => {
   try {
     if (!supabase) return res.status(500).json({ error: 'Server is missing Supabase configuration' });
@@ -6590,7 +6613,9 @@ app.post('/api/homework', async (req, res) => {
     if (!PROMPT_FEATURES.includes(feature)) {
       return res.status(400).json({ error: 'unsupported_feature' });
     }
-    const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+    // One language for this whole request: the page's, else the family's last, else English.
+    const { language: lang } = await resolveLanguage({ requested: body.language, session });
+    res.set('X-Language', lang);
     const { data: studentRow, error: studentErr } = await supabase
       .from('students').select('name, class').eq('id', studentId).maybeSingle();
     if (studentErr) throw studentErr;
@@ -6613,7 +6638,10 @@ app.post('/api/homework', async (req, res) => {
     // Step times in the log and in a Server-Timing header (read by the e2e).
     const sendTiming = (status) => {
       res.set('Server-Timing', timer.header());
-      console.log('homework: timing', { feature, photos: photos.length, status, steps: timer.summary() });
+      // One line of JSON: Cloud Run splits a multi-line log call into one entry per line.
+      const fileTypes = [...new Set(attachments.map(a => (a.mediaType === 'application/pdf' ? 'pdf' : 'photo')))];
+      const uploadKb = Math.round(attachments.reduce((n, a) => n + (typeof a.base64 === 'string' ? a.base64.length * 0.75 : 0), 0) / 1024);
+      console.log(JSON.stringify({ msg: 'homework: timing', feature, photos: photos.length, file_types: fileTypes, upload_kb: uploadKb, status, steps: timer.summary(), total_ms: timer.total() }));
     };
     // Storytelling only: the library pictures that fit this lesson (at most
     // 15), offered in the prompt and the only ids validateStory accepts.
@@ -6736,7 +6764,8 @@ app.post('/api/homework', async (req, res) => {
         // img1: a theory question (or idea card) also gets a signed `picture` for the
         // shared concept picture; the page hands it to /api/illustration/request.
         const answer = { ...run.answer, questions: run.answer.questions.map(({ scene_prompt, ...q }) => {
-          const pic = q.concept_key ? pictureFor(q.concept_key, scene_prompt) : null;
+          // The picture is this question's own: concept + question hash, not the bare shared concept_key.
+          const pic = q.concept_key ? pictureFor(questionPictureKey(q.concept_key, q.q_text) || q.concept_key, scene_prompt) : null;
           return q.concept_key ? { ...q, concept_sig: signConceptKey(q.concept_key), ...(pic ? { picture: pic } : {}) } : q;
         }) };
         v2Status = answer.status;

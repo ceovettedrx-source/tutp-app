@@ -46,12 +46,20 @@
 </script>
 
 <!-- ============ GA4 ============ -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-02PZ2EFZVY"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
   gtag('js', new Date());
   gtag('config', 'G-02PZ2EFZVY');
+  // gtag.js (154 KiB) loads after the page's load event + 1.5 s; calls queued above are sent when it arrives
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      var s = document.createElement('script');
+      s.async = true;
+      s.src = 'https://www.googletagmanager.com/gtag/js?id=G-02PZ2EFZVY';
+      document.head.appendChild(s);
+    }, 1500);
+  });
 </script>
 
 <!-- ============ UTM capture — first-touch params persist across the session for registration to pick up ============ -->
@@ -67,16 +75,15 @@
   })();
 </script>
 
-<link href="https://fonts.googleapis.com" rel="preconnect"/>
-<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
-<noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/></noscript>
-<link as="style" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" onload="this.onload=null;this.rel='stylesheet'" rel="preload"/>
-<noscript><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/></noscript>
+<link rel="preload" as="font" type="font/woff2" href="/fonts/plus-jakarta-sans-latin-700-normal.woff2" crossorigin/>
+<link rel="preload" as="image" href="/images/hero-family-1.webp" imagesrcset="/images/hero-family-1.webp 512w, /images/hero-family-1-800.webp 800w" imagesizes="(max-width: 768px) 100vw, 50vw" type="image/webp" fetchpriority="high"/>
 <link href="/css/tailwind.css" rel="stylesheet"/>
 <style>
-        .material-symbols-outlined { font-variation-settings: 'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24 }
-        .icon-filled { font-variation-settings: 'FILL' 1; }
+        @font-face { font-family: 'Inter'; font-style: normal; font-weight: 400; font-display: swap; src: url(/fonts/inter-latin-400-normal.woff2) format('woff2'); }
+        @font-face { font-family: 'Inter'; font-style: normal; font-weight: 600; font-display: swap; src: url(/fonts/inter-latin-600-normal.woff2) format('woff2'); }
+        @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 600; font-display: swap; src: url(/fonts/plus-jakarta-sans-latin-600-normal.woff2) format('woff2'); }
+        @font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 700; font-display: swap; src: url(/fonts/plus-jakarta-sans-latin-700-normal.woff2) format('woff2'); }
+        .msi { display: inline-block; flex-shrink: 0; font-size: 24px; line-height: 1; vertical-align: -0.15em; }
         body { background-color: #f7f9ff; color: #181c20; }
         .quote-container { transition: opacity 0.5s ease-in-out; }
         .fade-out { opacity: 0; }
@@ -105,13 +112,13 @@
 <div class="relative bg-surface-container-lowest rounded-full shadow-[0_8px_30px_rgba(0,91,192,0.12)] border border-primary/10 flex items-center p-2 focus-within:ring-2 focus-within:ring-primary/50 transition-shadow">
 <div class="relative shrink-0">
 <button aria-label="Attach a file" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary-container/20 text-primary hover:bg-primary-container/30 transition-colors" onclick="toggleAttachMenu()" type="button">
-<span class="material-symbols-outlined">add</span>
+<svg class="msi" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M450-450H200v-60h250v-250h60v250h250v60H510v250h-60v-250Z"/></svg>
 </button>
 <div class="hidden absolute left-0 top-12 z-20 bg-surface-container-lowest rounded-xl shadow-lg border border-outline-variant/30 py-2 w-44" id="attachMenu">
-<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('document')" type="button"><span class="material-symbols-outlined text-lg text-primary">description</span> Documents</button>
-<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('photo')" type="button"><span class="material-symbols-outlined text-lg text-primary">photo_camera</span> Photos</button>
-<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('video')" type="button"><span class="material-symbols-outlined text-lg text-primary">videocam</span> Videos</button>
-<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('file')" type="button"><span class="material-symbols-outlined text-lg text-primary">attach_file</span> Files</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('document')" type="button"><svg class="msi text-lg text-primary" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M319-250h322v-60H319v60Zm0-170h322v-60H319v60ZM220-80q-24 0-42-18t-18-42v-680q0-24 18-42t42-18h361l219 219v521q0 24-18 42t-42 18H220Zm331-554v-186H220v680h520v-494H551ZM220-820v186-186 680-680Z"/></svg> Documents</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('photo')" type="button"><svg class="msi text-lg text-primary" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M479.5-267q72.5 0 121.5-49t49-121.5q0-72.5-49-121T479.5-607q-72.5 0-121 48.5t-48.5 121q0 72.5 48.5 121.5t121 49Zm0-60q-47.5 0-78.5-31.5t-31-79q0-47.5 31-78.5t78.5-31q47.5 0 79 31t31.5 78.5q0 47.5-31.5 79t-79 31.5ZM140-120q-24 0-42-18t-18-42v-513q0-23 18-41.5t42-18.5h147l73-87h240l73 87h147q23 0 41.5 18.5T880-693v513q0 24-18.5 42T820-120H140Zm0-60h680v-513H645l-73-87H388l-73 87H140v513Zm340-257Z"/></svg> Photos</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('video')" type="button"><svg class="msi text-lg text-primary" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M140-160q-24 0-42-18t-18-42v-520q0-24 18-42t42-18h520q24 0 42 18t18 42v215l160-160v410L720-435v215q0 24-18 42t-42 18H140Zm0-60h520v-520H140v520Zm0 0v-520 520Z"/></svg> Videos</button>
+<button class="w-full flex items-center gap-2 px-4 py-2 text-left font-body-md text-sm text-on-surface hover:bg-surface-container-low" onclick="triggerAttach('file')" type="button"><svg class="msi text-lg text-primary" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M728-326q0 103-72.18 174.5-72.17 71.5-175 71.5Q378-80 305.5-151.5T233-326v-380q0-72.5 51.5-123.25T408-880q72 0 123.5 50.75T583-706v360q0 42-30 72t-72.5 30q-42.5 0-72.5-29.67-30-29.68-30-72.33v-370h60v370q0 17 12.5 29.5t30.64 12.5q18.14 0 30-12.5T523-346v-360q0-48-33.5-81t-81.71-33q-48.21 0-81.5 33.06T293-706v380q0 78 54.97 132T481-140q77.92 0 132.46-54Q668-248 668-326v-390h60v390Z"/></svg> Files</button>
 </div>
 </div>
 <input class="flex-1 bg-transparent border-none focus:ring-0 text-on-surface font-body-md placeholder:text-on-surface-variant/60 w-full py-3 px-sm outline-none" id="homeHwInput" placeholder="Attach your child's homework to get instant help..." readonly="" type="text"/>
@@ -120,10 +127,10 @@
 <input accept="video/*" class="hidden" id="homeFileVideo" type="file"/>
 <input class="hidden" id="homeFileAny" type="file"/>
 <button aria-label="Voice input (coming soon)" class="flex items-center justify-center w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-primary transition-colors shrink-0" onclick="toggleHomeMic()" type="button">
-<span class="material-symbols-outlined">mic</span>
+<svg class="msi" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M408-453.92q-29-30.91-29-75.08v-251q0-41.67 29.44-70.83Q437.88-880 479.94-880t71.56 29.17Q581-821.67 581-780v251q0 44.17-29 75.08Q523-423 480-423t-72-30.92ZM480-651Zm-30 531v-136q-106-11-178-89t-72-184h60q0 91 64.29 153t155.5 62q91.21 0 155.71-62Q700-438 700-529h60q0 106-72 184t-178 89v136h-60Zm59.5-376.5Q521-510 521-529v-251q0-17-11.79-28.5T480-820q-17.42 0-29.21 11.5T439-780v251q0 19 11.5 32.5T480-483q18 0 29.5-13.5Z"/></svg>
 </button>
 <button aria-label="Get help" class="flex items-center justify-center w-10 h-10 rounded-full bg-primary text-on-primary hover:bg-primary/90 transition-colors shrink-0" id="homeAttachSubmitBtn" onclick="submitHomeworkAttach()" type="button">
-<span class="material-symbols-outlined">arrow_forward</span>
+<svg class="msi" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M686-450H160v-60h526L438-758l42-42 320 320-320 320-42-42 248-248Z"/></svg>
 </button>
 </div>
 <p class="hidden text-sm text-on-surface-variant mt-2 px-2" id="homeAttachStatus"></p>
@@ -138,7 +145,7 @@
 <div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6">
 <div class="flex items-center justify-between mb-1">
 <h3 class="font-headline-lg text-xl font-bold text-on-surface">Which one do you want?</h3>
-<button onclick="closeHomeAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><span class="material-symbols-outlined">close</span></button>
+<button aria-label="Close" onclick="closeHomeAttachChooser()" class="text-on-surface-variant hover:text-on-surface"><svg class="msi" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="m249-207-42-42 231-231-231-231 42-42 231 231 231-231 42 42-231 231 231 231-42 42-231-231-231 231Z"/></svg></button>
 </div>
 <p class="font-body-md text-sm text-on-surface-variant mb-4">Choose what to do with this file before you attach it.</p>
 <div class="space-y-2">
@@ -174,7 +181,7 @@
 <div id="homeExamComingSoonModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
 <div class="absolute inset-0 bg-black/50" onclick="closeHomeExamComingSoonModal()"></div>
 <div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-sm max-h-[90vh] overflow-y-auto p-6 text-center">
-<span class="material-symbols-outlined text-on-surface-variant text-4xl mb-3 block">fact_check</span>
+<svg class="msi text-on-surface-variant text-4xl mb-3 block" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M132-120q-24 0-42-18t-18-42v-600q0-24 18-42t42-18h696q24 0 42 18t18 42v600q0 24-18 42t-42 18H132Zm0-60h696v-600H132v600Zm68-100h200v-80H200v80Zm382-80 198-198-57-57-141 142-57-57-56 57 113 113Zm-382-80h200v-80H200v80Zm0-160h200v-80H200v80Zm-68 420v-600 600Z"/></svg>
 <h3 class="font-headline-lg text-xl font-bold text-on-surface mb-2">Online Exam / Test</h3>
 <p class="font-body-md text-sm text-on-surface-variant mb-5">A formal, single-child exam mode is coming soon.</p>
 <button class="bg-primary text-on-primary font-label-md text-sm uppercase tracking-wide rounded-lg px-6 py-3 hover:bg-primary/90 active:scale-[0.98] transition-colors" onclick="closeHomeExamComingSoonModal()">Got it</button>
@@ -184,24 +191,24 @@
 <div class="grid md:grid-cols-2 gap-lg items-center text-left w-full mt-8">
 <div class="flex flex-col gap-md order-2 md:order-1">
 <div class="inline-flex items-center gap-2 bg-secondary-container text-on-secondary-container px-4 py-2 rounded-full w-max font-label-md">
-<span class="material-symbols-outlined icon-filled text-lg">stars</span>
+<svg class="msi text-lg" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="m320-240 160-122 160 122-64-197 160-113H541l-61-203-62 203H223l160 113-63 197ZM480-80q-82 0-155-31.5t-127.5-86Q143-252 111.5-325T80-480q0-83 31.5-156t86-127Q252-817 325-848.5T480-880q83 0 156 31.5T763-763q54 54 85.5 127T880-480q0 82-31.5 155T763-197.5q-54 54.5-127 86T480-80Z"/></svg>
 <span>Built for busy, loving families</span>
 </div>
 <h1 class="font-display-lg text-display-lg text-on-surface">The homework app that grades <span class="text-primary">you</span>, not just your child.</h1>
 <p class="font-body-lg text-body-lg text-on-surface-variant">Tut-P turns your child's classwork into a short guided moment together — explained in your language, at your level — because your involvement is what moves outcomes. Your Bonding Report shows how consistently that's happening at home.</p>
 <div class="flex flex-wrap gap-4 mt-2">
 <a href="#contact" class="bg-primary text-on-primary px-6 py-3 rounded-full font-label-lg hover:opacity-90 transition-opacity shadow-sm">Join the waitlist</a>
-<a href="/demo/" class="border border-outline px-6 py-3 rounded-full font-label-lg text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-2">Try the live demo <span class="material-symbols-outlined text-sm">arrow_forward</span></a>
+<a href="/demo/" class="border border-outline px-6 py-3 rounded-full font-label-lg text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-2">Try the live demo <svg class="msi text-sm" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M686-450H160v-60h526L438-758l42-42 320 320-320 320-42-42 248-248Z"/></svg></a>
 </div>
 </div>
 <div class="order-1 md:order-2 relative">
 <div class="absolute inset-0 bg-primary/5 rounded-xl translate-x-4 translate-y-4 -z-10"></div>
 <div class="relative w-full overflow-hidden rounded-xl shadow-[0_4px_20px_rgba(0,91,191,0.05)] border border-surface-variant group">
 <div class="flex transition-transform duration-700 ease-in-out" id="heroSlider">
-<div class="w-full flex-shrink-0 aspect-[4/3]"><picture><source srcset="/images/hero-family-1.webp" type="image/webp"/><img alt="Three-generation family together at home" class="w-full h-full object-cover" src="/images/hero-family-1.jpg"/></picture></div>
-<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family reading together" class="w-full h-full object-cover" src="/images/hero-family-2.jpg"/></div>
-<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family working on a science project" class="w-full h-full object-cover" src="/images/hero-family-3.jpg"/></div>
-<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family exploring nature together" class="w-full h-full object-cover" src="/images/hero-family-4.jpg"/></div>
+<div class="w-full flex-shrink-0 aspect-[4/3]"><picture><source srcset="/images/hero-family-1.webp 512w, /images/hero-family-1-800.webp 800w" sizes="(max-width: 768px) 100vw, 50vw" type="image/webp"/><img alt="Three-generation family together at home" class="w-full h-full object-cover" src="/images/hero-family-1.jpg" width="512" height="286" fetchpriority="high" decoding="async"/></picture></div>
+<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family reading together" class="w-full h-full object-cover" src="/images/hero-family-2.jpg" width="512" height="286" loading="lazy" decoding="async" data-defer-slide/></div>
+<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family working on a science project" class="w-full h-full object-cover" src="/images/hero-family-3.jpg" width="512" height="286" loading="lazy" decoding="async" data-defer-slide/></div>
+<div class="w-full flex-shrink-0 aspect-[4/3]"><img alt="Three-generation family exploring nature together" class="w-full h-full object-cover" src="/images/hero-family-4.jpg" width="512" height="286" loading="lazy" decoding="async" data-defer-slide/></div>
 </div>
 <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-10" id="heroDots">
 <button aria-label="Go to slide 1" class="w-2 h-2 rounded-full bg-white transition-colors" onclick="setHeroSlide(0)"></button>
@@ -209,8 +216,8 @@
 <button aria-label="Go to slide 3" class="w-2 h-2 rounded-full bg-white/40 transition-colors" onclick="setHeroSlide(2)"></button>
 <button aria-label="Go to slide 4" class="w-2 h-2 rounded-full bg-white/40 transition-colors" onclick="setHeroSlide(3)"></button>
 </div>
-<button class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onclick="prevHeroSlide()"><span class="material-symbols-outlined">chevron_left</span></button>
-<button class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onclick="nextHeroSlide()"><span class="material-symbols-outlined">chevron_right</span></button>
+<button aria-label="Previous photo" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onclick="prevHeroSlide()"><svg class="msi" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M561-240 320-481l241-241 43 43-198 198 198 198-43 43Z"/></svg></button>
+<button aria-label="Next photo" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/20 hover:bg-black/40 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" onclick="nextHeroSlide()"><svg class="msi" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M530-481 332-679l43-43 241 241-241 241-43-43 198-198Z"/></svg></button>
 </div>
 </div>
 </div>
@@ -222,14 +229,14 @@
 <p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto mb-lg">"Push the boat, not the passenger."</p>
 <div class="grid md:grid-cols-3 gap-gutter mt-lg">
 <div class="bg-surface/80 backdrop-blur-xl p-md rounded-lg shadow-sm text-left flex flex-col gap-sm border border-surface-variant/50">
-<div class="bg-primary-container w-16 h-16 rounded-full flex items-center justify-center mb-2"><span class="material-symbols-outlined text-primary text-3xl">sailing</span></div>
+<div class="bg-primary-container w-16 h-16 rounded-full flex items-center justify-center mb-2"><svg class="msi text-primary text-3xl" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="m129-420 301-438v438H129Zm115-60h126v-187L244-480Zm270 60q19-60 27.5-120.5T550-670q0-66-8.5-128.5T514-918q47 19 101 66.5T716-737q47 67 79 148.5T830-420H514Zm75-60h175q-17-87-62.5-168T602-782q5 30 6.5 59t1.5 53q0 46-6.5 99T589-480ZM360-196q-34 0-65-18.5T240-261q-14 14-33.5 27.5T169-213q-29-18-54-53.5T82-340h796q-8 38-33 73.5T791-213q-18-7-37.5-20.5T720-261q-24 28-55 46.5T600-196q-34 0-65-18.5T480-261q-24 28-55 46.5T360-196ZM80-40v-60h40q32 0 61.5-10.5T240-149q29 28 59 38.5t61 10.5q32 0 61.5-10.5T480-149q29 28 59 38.5t61 10.5q32 0 61.5-10.5T720-149q29 28 58.5 38.5T840-100h40v60h-40q-29 0-59.5-8.5T720-80q-30 23-60.5 31.5T600-40q-29 0-59.5-8.5T480-80q-30 23-60.5 31.5T360-40q-29 0-59.5-8.5T240-80q-30 23-60.5 31.5T120-40H80Zm290-440Zm219 0Z"/></svg></div>
 <h3 class="font-headline-md text-headline-md text-on-surface">Guide the Journey</h3>
 <p class="font-body-md text-body-md text-on-surface-variant">We provide the structure and tools; you provide the direction and encouragement. You are the captain of your child's educational voyage.</p>
 </div>
 <div class="md:col-span-1 rounded-lg overflow-hidden relative shadow-sm min-h-[300px] group" id="philosophyCard">
 <div class="absolute inset-0 flex transition-transform duration-700 ease-in-out" id="philosophySlider">
 <div class="w-full h-full flex-shrink-0 relative">
-<picture><source srcset="/images/philosophy-together.webp" type="image/webp"/><img alt="A parent carrying their child, moving forward together" class="w-full h-full object-cover absolute inset-0" src="/images/philosophy-together.jpg"/></picture>
+<picture><source srcset="/images/philosophy-together.webp" type="image/webp"/><img alt="A parent carrying their child, moving forward together" class="w-full h-full object-cover absolute inset-0" src="/images/philosophy-together.jpg" width="512" height="279" loading="lazy" decoding="async"/></picture>
 <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-md">
 <p class="text-white font-headline-md text-headline-md">Moving Forward Together</p>
 </div>
@@ -284,7 +291,7 @@
 </div>
 </div>
 <div class="bg-surface/80 backdrop-blur-xl p-md rounded-lg shadow-sm text-left flex flex-col gap-sm border border-surface-variant/50">
-<div class="bg-secondary-container w-16 h-16 rounded-full flex items-center justify-center mb-2"><span class="material-symbols-outlined text-secondary text-3xl">psychology</span></div>
+<div class="bg-secondary-container w-16 h-16 rounded-full flex items-center justify-center mb-2"><svg class="msi text-secondary text-3xl" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M240-80v-172q-57-52-88.5-121.5T120-520q0-150 105-255t255-105q125 0 221.5 73.5T827-615l55 218q4 14-5 25.5T853-360h-93v140q0 24.75-17.62 42.37Q724.75-160 700-160H600v80h-60v-140h160v-200h114l-45-180q-24-97-105-158.5T480-820q-125 0-212.5 86.5T180-522.46q0 64.42 26.32 122.39Q232.65-342.09 281-297l19 18v199h-60Zm257-370Zm-48 76h60l3-44q12-2 22.47-8.46Q544.94-432.92 553-441l42 14 28-48-30-24q5-14 5-29t-5-29l30-24-28-48-42 14q-8.33-7.69-19.17-13.85Q523-635 512-638l-3-44h-60l-3 44q-11 3-21.83 9.15Q413.33-622.69 405-615l-42-14-28 48 30 24q-5 14-5 29t5 29l-30 24 28 48 42-14q8.06 8.08 18.53 14.54Q434-420 446-418l3 44Zm-19.5-104.38q-20.5-20.38-20.5-49.5t20.38-49.62q20.38-20.5 49.5-20.5t49.62 20.38q20.5 20.38 20.5 49.5t-20.38 49.62q-20.38 20.5-49.5 20.5t-49.62-20.38Z"/></svg></div>
 <h3 class="font-headline-md text-headline-md text-on-surface">Empower the Mind</h3>
 <p class="font-body-md text-body-md text-on-surface-variant">By focusing on the environment and resources (the boat), we allow the child (the passenger) to naturally develop their own curiosity and skills.</p>
 </div>
@@ -302,7 +309,7 @@
 <p class="font-body-lg text-body-lg text-on-surface-variant">Tut-P turns your child's classwork into a short guided moment together — explained in your language, at your level — because your involvement is what moves outcomes. Your Bonding Report shows how consistently that's happening at home.</p>
 <div class="flex flex-wrap gap-4 mt-4">
 <a href="#contact" class="bg-primary text-on-primary px-6 py-3 rounded-full font-label-lg hover:opacity-90 transition-opacity shadow-sm">JOIN THE WAITLIST</a>
-<a href="/demo/" class="border border-outline px-6 py-3 rounded-full font-label-lg text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-2">TRY THE LIVE DEMO <span class="material-symbols-outlined text-sm">arrow_forward</span></a>
+<a href="/demo/" class="border border-outline px-6 py-3 rounded-full font-label-lg text-on-surface hover:bg-surface-container-low transition-colors flex items-center gap-2">TRY THE LIVE DEMO <svg class="msi text-sm" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M686-450H160v-60h526L438-758l42-42 320 320-320 320-42-42 248-248Z"/></svg></a>
 </div>
 </div>
 <div class="bg-surface-container rounded-xl p-md text-on-surface shadow-sm relative">
@@ -377,7 +384,7 @@
 <option value="teacher">Teacher / Tutor</option>
 <option value="other">Other</option>
 </select>
-<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+<svg class="msi absolute right-2 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none" width="1em" height="1em" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M480-344 240-584l43-43 197 197 197-197 43 43-240 240Z"/></svg>
 </div>
 </div>
 <div class="flex flex-col gap-1 mb-2">
@@ -715,5 +722,11 @@
             submitBtn.textContent = 'JOIN WAITLIST';
         }
     });
+</script>
+<script>
+  // Slides 2-4 are lazy so they never compete with the LCP image; fetch them once the page has loaded.
+  window.addEventListener('load', function () {
+    document.querySelectorAll('img[data-defer-slide]').forEach(function (img) { img.loading = 'eager'; });
+  });
 </script>
 </body></html>

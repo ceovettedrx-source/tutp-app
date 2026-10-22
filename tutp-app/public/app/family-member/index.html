@@ -526,6 +526,18 @@
      redirect to /demo/ (a generic, session-agnostic marketing page whose
      post-quiz "Bonding dashboard" is fabricated sample data — unsafe to show
      a real parent right after a real AI explanation). -->
+<style>
+/* Homework Help modal, mobile first: body text 16px+, labels 14px+ in AA-contrast ink (#424752 on white 9:1), tap targets 44px+ */
+#homeworkExplainModal p, #homeworkExplainModal textarea, #homeworkExplainModal select { font-size: 16px; }
+#homeworkExplainModal label, #homeworkExplainModal .font-label-md { font-size: 14px; }
+#homeworkExplainModal label, #homeworkExplainModal #hwModalChildContext, #homeworkExplainModal p.text-xs { color: #424752; }
+#homeworkExplainModal #hwModalChildContext { font-size: 16px; }
+#homeworkExplainModal p.text-xs { font-size: 14px; }
+#homeworkExplainModal button, #homeworkExplainModal #hwModalAttachTrigger { min-height: 44px; min-width: 44px; }
+#homeworkExplainModal #hwModalLang { min-height: 52px; font-weight: 600; color: #1a1c20; border-color: #005bbf; }
+#homeworkExplainModal #hwModalSubmitBtn { min-height: 52px; font-size: 16px; }
+#homeworkExplainModal #hwModalSubmitBtn:disabled { background: #003d87; color: #fff; opacity: 1; cursor: progress; }
+</style>
 <div id="homeworkExplainModal" class="hidden fixed inset-0 z-[60] flex items-end md:items-center justify-center">
 <div class="absolute inset-0 bg-black/50" onclick="closeHomeworkModal()"></div>
 <div class="relative bg-surface-container-lowest rounded-t-3xl md:rounded-3xl w-full md:max-w-lg max-h-[90vh] overflow-y-auto p-6">
@@ -536,7 +548,7 @@
 <p class="font-body-md text-sm text-on-surface-variant mb-4" id="hwModalChildContext">Helping your child</p>
 
 <div id="hwModalForm">
-<label class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Explain in</label>
+<label for="hwModalLang" class="block font-label-md text-[11px] uppercase tracking-wide text-on-surface-variant mb-1.5">Explain in</label>
 <select id="hwModalLang" class="w-full font-body-md text-sm text-on-surface bg-surface-container-lowest border-2 border-outline-variant focus:border-primary rounded-lg px-3 py-2.5 outline-none transition-colors mb-3.5">
 <option>English</option><option>Hindi</option><option>Telugu</option><option>Tamil</option><option>Marathi</option><option>Spanish</option><option>French</option><option>German</option><option>Arabic</option>
 </select>

@@ -11,7 +11,7 @@
 // plus helpers server.js uses for /api/homework: answerV2Enabled(),
 // loadStudentContext(), signConceptKey().
 import crypto from 'crypto';
-import { HOMEWORK_LANGUAGES } from '../prompts/homework-prompts.js';
+import { resolveLanguage } from '../language.js';
 import { explainPrompt, explainUserText, EXPLAIN_PROMPT_VERSION } from '../prompts/explain-prompts.js';
 import { callWithJsonRetry, checkReplyJson } from '../homework-reply.js';
 import { extractAnswerJson, answerCorrectionHint } from '../answer-schema.js';
@@ -20,10 +20,12 @@ import { questionKey, classBand } from '../question-key.js';
 import { parseQuestion, verifyCard, correctionHint } from '../math-engine.js';
 import { buildMathDiagram } from '../services/diagrams.js';
 import { scriptOf, fontStack } from '../lang-fonts.js';
-import { pictureRule, contextPictureKey } from '../picture-rule.js';
+import { pictureRule, contextPictureKey, questionPictureKey } from '../picture-rule.js';
+import { cardMatchesLanguage } from '../lang-check.js';
 import { explainView } from '../tier-gate.js';
 import { boardKind } from '../answer-marks.js';
 import { callClaude } from '../anthropic.js';
+import { stepTimer } from '../step-timer.js';
 import { MODELS, modelSettings } from '../models.js';
 import { replayMode, returnsRecordings } from '../model-replay.js';
 import { isTestFamily } from '../test-families.js';
@@ -130,6 +132,13 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
 
   app.post('/api/explain-please', async (req, res) => {
     if (!answerV2Enabled(req)) return off(res);
+    // Step times as one JSON line (Cloud Run splits a multi-line log into one entry per line).
+    const timer = stepTimer();
+    const timing = { cache: null, lang: null, modelCalls: 0 };
+    res.on('finish', () => console.log(JSON.stringify({
+      msg: 'explain: timing', status: res.statusCode, cache: timing.cache, language: timing.lang,
+      steps: timer.summary(), total_ms: timer.total(),
+    })));
     const ov = e2eOverrides(req);
     // e2e only: every run gets its own cache and picture rows.
     const keyed = (k) => (ov.keySuffix ? k.slice(0, 50).replace(/-+$/, '') + '-' + ov.keySuffix : k);
@@ -141,12 +150,17 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       if (!session) return sendSessionExpired(res);
       const own = await requireOwnStudent(req, res, body.studentId);
       if (!own) return;
-      const lang = HOMEWORK_LANGUAGES.includes(body.language) ? body.language : 'English';
+      timer.mark('session');
+      const { language: lang } = await resolveLanguage({ requested: body.language, session });
+      res.set('X-Language', lang);
+      timing.lang = lang;
       explainLimiter(req, res, async () => {
         try {
           const studentId = body.studentId;
           const paid = await isPaid(studentId);
+          timer.mark('paid');
           const ctx = await loadStudentContext(supabase, studentId);
+          timer.mark('context');
           const subject = typeof body.subject === 'string' ? body.subject.slice(0, 60) : '';
           const given = typeof body.concept_key === 'string' && KEY_RE.test(body.concept_key) && verifyConceptKey(body.concept_key, body.concept_sig) ? body.concept_key : '';
 
@@ -161,11 +175,18 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           {
             // TUT-18: a stored explanation from an older prompt version is not served again.
             const { data } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
-            if (data && data.payload) { explain = data.payload; cache = 'hit'; }
+            if (data && data.payload) {
+              // A stored card whose script is not this language's (Hindi labels under "English") is never
+              // served: it counts as a miss and the new card replaces it below.
+              if (cardMatchesLanguage(lang, data.payload)) { explain = data.payload; cache = 'hit'; }
+              else logEvent('explain.stale_script', session.familyId, studentId, { language: lang, concept_key: data.payload.concept_key });
+            }
           }
           const testFamily = await isTestFamily(session.familyId);
           const replay = { mode: replayMode(testFamily, req.get('x-e2e-mode')), recordings: [] };
           const cost = { usd: 0 };
+          timing.cache = cache;
+          timer.mark('cache');
           if (!explain) {
             if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'Server is missing ANTHROPIC_API_KEY.' });
             const childContext = ctx.name ? ctx.name + (ctx.cls ? ' · ' + ctx.cls : '') : 'your child';
@@ -174,12 +195,16 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             const baseContent = [{ type: 'text', text: explainUserText(question) }];
             let attempts = 0;
             const callModel = async (extra) => {
-              const r = await callClaude({
-                feature: 'explain_v2', variant: lang, attempt: ++attempts, familyId: session.familyId, studentId,
-                mode: replay.mode, recordings: replay.recordings, cost,
-                body: explainRequestBody({ system, content: baseContent, hint: extra }),
-              });
-              return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
+              try {
+                const r = await callClaude({
+                  feature: 'explain_v2', variant: lang, attempt: ++attempts, familyId: session.familyId, studentId,
+                  mode: replay.mode, recordings: replay.recordings, cost,
+                  body: explainRequestBody({ system, content: baseContent, hint: extra }),
+                });
+                return r.ok ? { ok: true, data: r.data } : { ok: false, status: r.status, errText: r.errText };
+              } finally {
+                timer.mark('model' + (++timing.modelCalls));
+              }
             };
             const extras = (out) => {
               if (!testFamily) return out;
@@ -196,12 +221,12 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             // before anyone sees it. Wrong answer or the question's own numbers missing: one retry
             // with the right answer in the hint, then no card and no cache row.
             const verdict = (e) => (parsed ? verifyCard({ question, card: e }) : { status: 'unchecked' });
-            let check = validateExplain(extractAnswerJson(first.data));
+            let check = validateExplain(extractAnswerJson(first.data), { lang });
             let v = check.ok ? verdict(check.explain) : null;
             if (!check.ok || v.status === 'mismatch') {
               console.warn('explain: reply failed the checks, retrying once', { issues: check.ok ? ['math engine: ' + v.reason] : check.issues });
               const again = await callModel(check.ok ? correctionHint(v) : answerCorrectionHint(check.issues));
-              const c2 = again.ok && checkReplyJson(again.data).ok ? validateExplain(extractAnswerJson(again.data)) : null;
+              const c2 = again.ok && checkReplyJson(again.data).ok ? validateExplain(extractAnswerJson(again.data), { lang }) : null;
               if (c2 && c2.ok) { check = c2; v = verdict(c2.explain); }
             }
             if (!check.ok) return fail(502, 'The explanation could not be made. Please try again.');
@@ -216,12 +241,24 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             explain.concept_key = keyed(explain.concept_key);
             explain.checked = v.status === 'checked';
             // Insert-or-ignore, then read back: eight questions written at once never overwrite each other.
-            const { error } = await supabase.from('explain_cache').upsert({ concept_key: qKey, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }, { onConflict: 'concept_key,language', ignoreDuplicates: true });
+            const row = { concept_key: qKey, language: lang, payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION };
+            const { error } = await supabase.from('explain_cache').upsert(row, { onConflict: 'concept_key,language', ignoreDuplicates: true });
             if (error) console.error('explain: cache write failed', error.message);
             else {
-              const { data: stored } = await supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
-              if (stored && stored.payload) explain = stored.payload;
+              const readBack = () => supabase.from('explain_cache').select('payload').eq('concept_key', qKey).eq('language', lang).eq('prompt_version', EXPLAIN_PROMPT_VERSION).maybeSingle();
+              const { data: stored } = await readBack();
+              if (!stored) {
+                // The insert was ignored because a row marked stale (an older prompt version, or one with
+                // the wrong script) holds this key: replace it in place.
+                const { error: upErr } = await supabase.from('explain_cache').update({ payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }).eq('concept_key', qKey).eq('language', lang);
+                if (upErr) console.error('explain: stale cache row not replaced', upErr.message);
+              } else if (cardMatchesLanguage(lang, stored.payload)) explain = stored.payload;
+              else {
+                // A current-version row with the wrong script (written before this check existed).
+                await supabase.from('explain_cache').update({ payload: explain, model, prompt_version: EXPLAIN_PROMPT_VERSION }).eq('concept_key', qKey).eq('language', lang);
+              }
             }
+            timer.mark('cache_write');
             res.locals.extras = extras;
           }
           res.set('X-Explain-Cache', cache);
@@ -233,11 +270,15 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           // picture per page (the page asks on its first card only); Class 6+ or unknown class: none.
           const rule = pictureRule({ maths, band, slot: body.picture_slot === 'none' ? 'none' : 'page' });
           const pictureKey = rule === 'context' ? contextPictureKey(explain.concept_key) : '';
+          // The concept picture is this question's own (concept + question hash), never another question's
+          // picture that happens to share the concept_key; no key means no picture.
+          const conceptPictureKey = rule === 'normal' ? questionPictureKey(explain.concept_key, question) : '';
           let illustration = null;
-          if (rule === 'normal') illustration = await pictures.request({ key: explain.concept_key, scene: explain.illustration.scene_prompt, env: imageEnv(ov), feature: 'explain' });
+          if (rule === 'normal' && conceptPictureKey) illustration = await pictures.request({ key: conceptPictureKey, scene: explain.illustration.scene_prompt, env: imageEnv(ov), feature: 'explain' });
           else if (rule === 'context' && pictureKey) illustration = await pictures.request({ key: pictureKey, scene: mathsScenePrompt(explain.illustration.scene_prompt, explain.concept_key), env: imageEnv(ov), feature: 'explain' });
           let kg = null;
           if (paid) kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
+          timer.mark('picture');
           // The mark, the answer line and the diagram come from the engine, never from the model.
           const checked = explain.checked === true && !!parsed;
           const extra = {
@@ -245,9 +286,10 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
             answer: checked ? parsed.answerText : '',
             diagram: checked ? ((buildMathDiagram(parsed, { font: fontStack(scriptOf(question)) }) || {}).svg || '') : '',
             pictureKey: rule === 'context' ? pictureKey : '',
+            illustrationKey: conceptPictureKey,
           };
           const view = explainView(explain, { paid, illustration, kg, extra });
-          if (rule === 'none' || (rule === 'context' && !pictureKey)) delete view.illustration;
+          if (rule === 'none' || (rule === 'context' && !pictureKey) || (rule === 'normal' && !conceptPictureKey)) delete view.illustration;
           if (testFamily && replay.mode !== 'replay') res.set('X-Model-Usd', String(cost.usd));
           res.json(res.locals.extras ? res.locals.extras(view) : view);
         } catch (err) {
@@ -323,6 +365,15 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
       console.error('illustration: request error:', err && err.message);
       if (!res.headersSent) res.status(500).json({ error: 'Server error' });
     }
+  });
+
+  // The language the page shows next to Explain ("Explaining in: Telugu") before anything is sent:
+  // the family's last language, else English. The page's own pick always wins once it sends one.
+  app.get('/api/language', async (req, res) => {
+    const session = getSession(req);
+    if (!session) return sendSessionExpired(res);
+    const r = await resolveLanguage({ requested: req.query.language, session });
+    res.json({ language: r.language, source: r.source });
   });
 
   app.post('/api/answer-events', async (req, res) => {

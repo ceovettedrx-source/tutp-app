@@ -21,7 +21,8 @@ export function explainView(explain, { paid, illustration = null, kg = null, ext
   // img1: a free family also gets the picture's status (the page polls it; the
   // server shows one picture a day in full and blurs the rest, see
   // server/services/concept-picture.js). No labels and no link here.
-  if (!paid) return { ...base, tier: 'free', locked: true, upsell: UPSELL, illustration: { status: illustration ? illustration.status : 'pending' } };
+  const key = extra.illustrationKey ? { key: extra.illustrationKey } : {};
+  if (!paid) return { ...base, tier: 'free', locked: true, upsell: UPSELL, illustration: { status: illustration ? illustration.status : 'pending', ...key } };
   const view = {
     ...base, tier: 'pro', locked: false,
     full: explain.full,
@@ -32,7 +33,7 @@ export function explainView(explain, { paid, illustration = null, kg = null, ext
     misconception: kg && kg.misconception ? kg.misconception : explain.misconception,
     parent_questions: explain.parent_questions,
     check_question: explain.check_question,
-    illustration: { labels: explain.illustration.labels, status: illustration ? illustration.status : 'pending', ...(illustration && illustration.url ? { url: illustration.url } : {}) },
+    illustration: { labels: explain.illustration.labels, status: illustration ? illustration.status : 'pending', ...key, ...(illustration && illustration.url ? { url: illustration.url } : {}) },
   };
   if (kg && kg.prev) view.prev_link = kg.prev;
   if (kg && kg.next) view.next_link = kg.next;
