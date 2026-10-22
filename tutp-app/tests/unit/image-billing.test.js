@@ -43,7 +43,7 @@ function fakeIllustrations(initial = []) {
 }
 
 // usage_events stand-in for the monitor.
-function fakeEvents(initial = []) {
+function fakeEvents(initial = [], clock = () => Date.now()) {
   const rows = [...initial];
   return {
     rows,
@@ -60,7 +60,7 @@ function fakeEvents(initial = []) {
           };
           return b;
         },
-        insert: async (row) => { rows.push({ id: String(rows.length + 1), created_at: new Date().toISOString(), ...row }); return { error: null }; },
+        insert: async (row) => { rows.push({ id: String(rows.length + 1), created_at: new Date(clock()).toISOString(), ...row }); return { error: null }; },
       };
     },
   };
@@ -163,7 +163,7 @@ test('two requests for one concept at once make one generation and one line', as
 
 test('50 failures send one email; the next day sends a new one', async () => {
   let t = Date.parse('2026-10-22T06:00:00Z');
-  const ev = fakeEvents(Array.from({ length: 50 }, () => failRow(402, 'story', new Date(t - 1000).toISOString())));
+  const ev = fakeEvents(Array.from({ length: 50 }, () => failRow(402, 'story', new Date(t - 1000).toISOString())), () => t);
   const mails = [];
   const mon = createImageBillingMonitor({ supabase: ev, sendEmail: async (to, s, b) => { mails.push({ to, s, b }); }, to: 'f@example.com', now: () => t });
   for (let i = 0; i < 50; i++) { await mon.checkAndAlert(); t += 11 * 60 * 1000; if (t > Date.parse('2026-10-22T12:00:00Z')) t = Date.parse('2026-10-22T12:00:00Z'); }

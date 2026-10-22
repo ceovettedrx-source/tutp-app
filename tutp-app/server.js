@@ -40,6 +40,7 @@ import { runAnswer, answerRequestBody } from './server/answer-run.js';
 import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
+import { storyPicture } from './server/story-picture.js';
 import { initModelCost } from './server/model-cost.js';
 import { initModelAlert } from './server/model-alert.js';
 import { runModelHealth, modelHealthHandler } from './server/model-health.js';
@@ -6799,7 +6800,16 @@ app.post('/api/homework', async (req, res) => {
       // picture already illustrates it (those stay free and are never generated).
       const story = checkedStory && (() => {
         const { concept_key: storyKey, scene_prompt: storyScene, ...rest } = checkedStory;
-        const pic = answerV2Enabled(req) && !(rest.visual && rest.visual.type === 'library') ? pictureFor(storyKey, storyScene) : null;
+        let pic = null;
+        if (answerV2Enabled(req)) {
+          // The model's key or scene can come back empty after cleaning; the picture is then
+          // built in code (server/story-picture.js) so a Story never silently loses it.
+          const made = storyPicture(storyKey, storyScene, { classNum: classNumber(studentRow && studentRow.class), seed: text, visual: rest.visual });
+          pic = made.pic;
+          if (made.reason) {
+            console.warn(JSON.stringify({ severity: 'WARNING', event: 'story_picture_missing', reason: made.reason, used_fallback: made.usedFallback }));
+          }
+        }
         return pic ? { ...rest, picture: pic } : rest;
       })();
       if (!story) {
@@ -6816,7 +6826,7 @@ app.post('/api/homework', async (req, res) => {
       if (!check.ok) console.warn('storytelling: fallback story sent', { language: lang });
       trackSessionCompleted(session.familyId, studentId, {
         feature, durationSeconds: null,
-        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none', ...(check.ok && story.visual && story.visual.type === 'library' ? { story_image: story.visual.id } : {}) },
+        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none', story_image: !!(story.picture || (story.visual && story.visual.type === 'library')), ...(check.ok && story.visual && story.visual.type === 'library' ? { story_library_id: story.visual.id } : {}) },
       });
       sendTiming(200);
       // Same envelope as every other feature: the page reads the first text block.
