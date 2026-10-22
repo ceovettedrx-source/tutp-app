@@ -293,7 +293,7 @@ const expect = (cond, msg) => { if (!cond) throw new Error(msg); };
     const ev = await expectEvent(pro, 'explain_check');
     expect(ev.correct === false, 'explain_check correct flag ' + ev.correct);
     await page.locator('.ae-explain button', { hasText: 'Save to notes' }).click();
-    expect(await page.evaluate(() => Object.keys(localStorage).some((k) => k.startsWith('tutp_saved_explanations_'))), 'not saved');
+    expect(/Saved in Library/.test(await page.locator('.ae-explain button', { hasText: 'Saved in Library' }).textContent()), 'not saved');
     await page.screenshot({ path: path.join(OUT, 'answer-explain-explain-pro.png'), fullPage: true });
     return 'key ' + view.concept_key + ', cache ' + er.headers()['x-explain-cache'];
   }, page);

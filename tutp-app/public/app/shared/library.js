@@ -253,6 +253,13 @@
     }
 
     window.TutpLibrary = { refresh: mount };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { mount(); watch(); });
-    else { mount(); watch(); }
+    // The dashboards pick the child asynchronously (tutpChildReady); mount again once it has.
+    function start() {
+        mount(); watch();
+        if (window.tutpChildReady && typeof window.tutpChildReady.then === 'function') {
+            window.tutpChildReady.then(function () { if (studentId() !== state.studentId) mount(); }, function () {});
+        }
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+    else start();
 }());
