@@ -145,6 +145,7 @@
 
 - Traffic commands come only from `scripts/release-gate.ps1 <revision> <commit>` (TUT-88): it prints the one-line `update-traffic` command only when all its checks pass (live commit is an ancestor, env/secret names, flags, no `E2E_REPLAY`, e2e status success, new revision built from the commit). Never type, paste or print a traffic command by hand; if the gate fails, report which check failed. The `update-traffic` lines further down are the command shape, not something to hand out.
 - Never post the e2e commit status by hand; only the e2e workflow posts it.
+- Release from the e2e-green PR head commit, never from the main merge commit (it has no e2e status; the gate fails it).
 - `deploy.sh`'s own success output is not proof the deploy is live: `tutp-demo`'s traffic is pinned to a named revision (not tracking "latest"), so `gcloud run deploy` can build and report success on a new revision while 100% traffic (and the `pdftest` tag) stay on the old one. Every `deploy.sh` run must be followed by checking which revision is actually receiving traffic:
 
   ```
