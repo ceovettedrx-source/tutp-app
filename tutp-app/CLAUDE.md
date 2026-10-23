@@ -46,6 +46,7 @@
   on a no-traffic preview built from that exact commit (founder rule,
   2026-10-12; TUT-31 was merged to main before its e2e was clean). Merge to
   main only after both runs, never as a step before them.
+- main is locked: green e2e on the exact commit, no bypass; e2e posts a commit status 'e2e' because dispatch check runs are not counted
 - One session deploys or runs e2e at a time. Each release uses its own tag
   (e.g. `release1`), never the shared `preview` tag.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
