@@ -1,6 +1,6 @@
 # Changes explained
 
-## 2026-10-23 - TUT-73 Picture billing alerts + story picture fallback (LIVE on tutp-demo-00512-pov; main not yet updated)
+## 2026-10-23 - TUT-73 Picture billing alerts + story picture fallback (LIVE on tutp-demo-00512-pov; main updated, 8ec72c6, PR #14)
 
 **What changes for parents**
 - A story now always gets its picture ticket: if the model leaves out the picture key or scene, the server fills them in, so a story does not lose its picture for that reason.
@@ -14,7 +14,7 @@
 **Tests**: CI e2e run 39904116356 on 0b7c748, two runs in a row, only known failures (0 failing, 19 of 19 spec rows each). Phone smoke after traffic: `/`, `/app/login/`, `/app/mother/`, `/app/singapore-maths/` return 200 on tutp.online and on the release host.
 
 **Needs Vet**
-- Main is not yet at 0b7c748: GitHub refused the push (see the chat). Live runs the tested image; the label is `commit-sha=0b7c748`.
+- Main is updated: merged as 8ec72c6 (PR #14), live on 00512-pov. The direct push of 0b7c748 was refused by GitHub, so it went in through the PR. The live image is the tested one; its label is `commit-sha=0b7c748`.
 - Open: a9 shows the free picture object now carries `key`. Not a leak (the poll route still blurs after the one free picture a day), but the in-memory quota lock does not span instances.
 
 ## 2026-10-14 - TUT-42 Parent dashboard redesign (LIVE on tutp-demo-00480-naj; carries TUT-56)
