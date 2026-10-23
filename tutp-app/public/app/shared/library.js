@@ -79,15 +79,19 @@
     }
 
     // ---- list -------------------------------------------------------------------------------------
+    // Every load takes the next number. A reply that is no longer the newest load (the child, the subject
+    // or the page changed since it was sent) is dropped: it must neither replace nor extend the list.
+    var loadSeq = 0;
     function load(reset) {
-        var sid = state.studentId;
+        var sid = state.studentId, mine = ++loadSeq;
         if (!sid) { draw(); return Promise.resolve(); }
         var q = '/api/library?studentId=' + encodeURIComponent(sid) + (state.subject != null ? '&subject=' + encodeURIComponent(state.subject) : '') + (!reset && state.next ? '&cursor=' + encodeURIComponent(state.next) : '');
         return api(q).then(function (r) { if (!r.ok) throw new Error('library ' + r.status); return r.json(); }).then(function (d) {
+            if (mine !== loadSeq) return;
             state.items = reset ? d.items : state.items.concat(d.items);
             state.next = d.next; state.subjects = d.subjects; state.upsell = d.upsell || null; state.failed = false;
             draw();
-        }).catch(function () { state.failed = true; draw(); });
+        }).catch(function () { if (mine !== loadSeq) return; state.failed = true; draw(); });
     }
 
     function card(item) {
@@ -189,6 +193,11 @@
         return Object.keys(p).map(function (k) { return typeof p[k] === 'string' ? p[k] : ''; }).filter(Boolean).join('\n');
     }
 
+    // The fields explain-panel.js reads without a guard.
+    function hasExplainSchema(p) {
+        return Array.isArray(p.traps) && Array.isArray(p.parent_questions) && !!p.check_question && Array.isArray(p.check_question.options);
+    }
+
     function render(item) {
         var p = item.payload || {}, lang = item.language || 'English';
         if (item.mode === 'story') {
@@ -205,6 +214,19 @@
                         decorate: function (card) { var cta = card.querySelector('.ae-cta'); if (cta) cta.remove(); } });
                     addTools(v, null, lang);
                 });
+        }
+        if (item.mode === 'explain' && !hasExplainSchema(p)) {
+            // Explanations moved from the browser (or saved by an older build) keep only title, quick, full and
+            // traps. The explain panel needs the whole schema, so these open as plain read-only text.
+            v.body.appendChild(el('h3', 'tl-h', item.title));
+            if (p.quick) v.body.appendChild(el('p', null, p.quick));
+            if (p.full) v.body.appendChild(el('p', null, p.full));
+            if (Array.isArray(p.traps) && p.traps.length) {
+                v.body.appendChild(el('h4', 'tl-m', 'Exam traps'));
+                var ol = el('ol'); p.traps.forEach(function (t) { ol.appendChild(el('li', null, String(t))); }); v.body.appendChild(ol);
+            }
+            addTools(v, [p.title, p.quick, p.full].filter(Boolean).join('. '), lang);
+            return Promise.resolve();
         }
         if (item.mode === 'explain') {
             needCss('/css/answer-explain.css');
