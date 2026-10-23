@@ -251,8 +251,9 @@
     }
     // The page switches child without a reload: reload the Library when the chosen child changes.
     function watch() {
-        var last = studentId();
-        var check = function () { var now = studentId(); if (now !== last) { last = now; mount(); } };
+        // Compare with the child the list was loaded for, not with the id seen when this started: the
+        // dashboards set the child late, and the old copy made the first click look like a switch.
+        var check = function () { if (studentId() !== state.studentId) mount(); };
         document.addEventListener('visibilitychange', check);
         document.addEventListener('click', function () { setTimeout(check, 250); }, true);
     }
