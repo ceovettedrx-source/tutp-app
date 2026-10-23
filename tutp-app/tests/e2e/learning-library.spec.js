@@ -269,7 +269,16 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
       expect(overflow <= 1, 'sideways scroll ' + overflow + ' px');
       const h = await page.locator('#tutpLibrary .tl-card').first().evaluate(e => e.getBoundingClientRect().height);
       expect(h >= 44, 'card height ' + h);
-      await page.locator('#tutpLibrary .tl-card', { hasText: 'E2E LL A 0' }).first().click();
+      // The seeded item is dated 2026-01-01, so on a family with more than one page of items it sits behind "Show more".
+      const seeded = page.locator('#tutpLibrary .tl-card', { hasText: 'E2E LL A 0' });
+      for (let i = 0; i < 20 && !(await seeded.count()); i++) {
+        const more = page.locator('#tutpLibrary .tl-more');
+        if (!(await more.count())) break;
+        const before = await page.locator('#tutpLibrary .tl-card').count();
+        await more.click();
+        await page.waitForFunction((n) => document.querySelectorAll('#tutpLibrary .tl-card').length > n, before, { timeout: 15000 });
+      }
+      await seeded.first().click();
       const viewer = page.locator('.tl-viewer');
       await viewer.waitFor({ state: 'visible', timeout: 15000 });
       expect(/Quick A 0/.test(await viewer.textContent()), 'explanation text not shown');
