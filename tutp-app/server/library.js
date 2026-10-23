@@ -116,7 +116,17 @@ export function describeHomeworkReply(feature, data) {
   return { mode, subject, topic: obj && typeof obj.topic === 'string' ? obj.topic : (firstQ || null), title, payload };
 }
 
-const LIST_COLUMNS = 'id, mode, subject, topic, lesson_label, title, language, imported, created_at';
+// The page cursor is "<created_at>|<id>". A bare created_at (an older page) still works, by time alone.
+const CURSOR_AT = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
+const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const makeCursor = (row) => `${row.created_at}|${row.id}`;
+export function parseCursor(raw) {
+  const [at, id] = String(raw).split('|');
+  if (!CURSOR_AT.test(at) || (id !== undefined && !CURSOR_ID.test(id))) return null;
+  return { at, id: id || null };
+}
+
+const LIST_COLUMNS ='id, mode, subject, topic, lesson_label, title, language, imported, created_at';
 
 export function registerLibraryRoutes(app, { supabase, getSession, requireOwnStudent, sendForbidden, sendSessionExpired, getPaidStatusForStudents, rateLimit }) {
   const limiter = rateLimit({
@@ -147,11 +157,16 @@ export function registerLibraryRoutes(app, { supabase, getSession, requireOwnStu
       const mode = req.query.mode ? String(req.query.mode) : null;
       if (mode && !modes.includes(mode)) return res.json({ items: [], next: null, subjects: [], locked_after: null });
       let q = supabase.from('learning_items').select(LIST_COLUMNS).eq('student_id', studentId)
-        .in('mode', mode ? [mode] : modes).order('created_at', { ascending: false }).limit(PAGE_SIZE + 1);
+        .in('mode', mode ? [mode] : modes).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(PAGE_SIZE + 1);
       // subject= (empty) is the "Other" chip: items saved with no subject.
       if (req.query.subject === '') q = q.is('subject', null);
       else if (req.query.subject) q = q.eq('subject', String(req.query.subject));
-      if (req.query.cursor) q = q.lt('created_at', String(req.query.cursor));
+      if (req.query.cursor) {
+        const cur = parseCursor(req.query.cursor);
+        if (!cur) return res.status(400).json({ error: 'Bad cursor' });
+        // Keyset on (created_at, id): rows that share a created_at are never skipped or repeated.
+        q = cur.id ? q.or(`created_at.lt.${cur.at},and(created_at.eq.${cur.at},id.lt.${cur.id})`) : q.lt('created_at', cur.at);
+      }
       const { data, error } = await q;
       if (error) throw error;
       const more = data.length > PAGE_SIZE;
@@ -164,7 +179,8 @@ export function registerLibraryRoutes(app, { supabase, getSession, requireOwnStu
       const counts = new Map();
       for (const r of all) { const s = r.subject || ''; counts.set(s, (counts.get(s) || 0) + 1); }
       const subjects = [...counts.entries()].map(([subject, count]) => ({ subject: subject || null, count })).sort((a, b) => b.count - a.count);
-      res.json({ items: out, next: more ? items[items.length - 1].created_at : null, subjects, tier: paid ? 'pro' : 'free', ...(paid ? {} : { upsell: UPSELL }) });
+      const last = items[items.length - 1];
+      res.json({ items: out, next: more ? makeCursor(last) : null, subjects, tier: paid ? 'pro' : 'free', ...(paid ? {} : { upsell: UPSELL }) });
     } catch (err) {
       console.error('library: list failed', err && err.message);
       if (!res.headersSent) res.status(500).json({ error: 'Server error' });

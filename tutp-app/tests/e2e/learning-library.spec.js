@@ -255,10 +255,15 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     return 'model spend $0';
   }, () => a && a.page);
 
+  // The context stays open until record() has taken its failure screenshot of this very page.
+  let m;
   await record('ll10', '360 px: My Library shows, fits, a card opens and closes', async () => {
-    const m = await signIn('m16', { width: 360, height: 740 });
-    try {
+    m = await signIn('m16', { width: 360, height: 800 });
+    {
       const page = m.page;
+      expect(page.viewportSize().width === 360, 'viewport is ' + page.viewportSize().width + ' px wide');
+      const libCalls = [];
+      page.on('request', (r) => { if (/\/api\/library\?/.test(r.url())) libCalls.push(/cursor=/.test(r.url()) ? 'cursor' : 'first'); });
       await page.goto(BASE + '/app/mother/');
       await page.waitForFunction(() => window.tutpChildReady, null, { timeout: 30000 });
       const lib = page.locator('#tutpLibrary');
@@ -276,7 +281,11 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
         if (!(await more.count())) break;
         const before = await page.locator('#tutpLibrary .tl-card').count();
         await more.click();
-        await page.waitForFunction((n) => document.querySelectorAll('#tutpLibrary .tl-card').length > n, before, { timeout: 15000 });
+        await page.waitForFunction((n) => document.querySelectorAll('#tutpLibrary .tl-card').length > n, before, { timeout: 15000 })
+          .catch(async (e) => {
+            const now = await page.locator('#tutpLibrary .tl-card').count();
+            throw new Error(`Show more click ${i + 1}: ${before} -> ${now} cards, library calls: ${libCalls.join(',')} (${String(e.message).split('\n')[0]})`);
+          });
       }
       await seeded.first().click();
       const viewer = page.locator('.tl-viewer');
@@ -286,8 +295,9 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
       await viewer.getByRole('button', { name: 'Close' }).click();
       await viewer.waitFor({ state: 'detached', timeout: 5000 });
       return 'fits, opens, closes';
-    } finally { await m.ctx.close(); }
-  }, () => a && a.page);
+    }
+  }, () => m && m.page);
+  if (m) await m.ctx.close().catch(() => {});
 
   for (const s of [a, b]) if (s) await s.ctx.close().catch(() => {});
   await e2e.finish();

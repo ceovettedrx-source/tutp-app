@@ -208,7 +208,10 @@
         }
         if (item.mode === 'explain') {
             needCss('/css/answer-explain.css');
-            return needScript(function () { return !!(window.TutpExplain && window.TutpExplain.view); }, '/app/shared/explain-panel.js').then(function () {
+            // explain-panel.js reads window.TutpAnswer when it loads, so the answer cards come first.
+            return needScript(function () { return !!window.TutpAnswer; }, '/app/shared/answer-cards.js')
+                .then(function () { return needScript(function () { return !!(window.TutpExplain && window.TutpExplain.view); }, '/app/shared/explain-panel.js'); })
+                .then(function () {
                 var panel = el('section', 'ae-explain ae-root'); v.body.appendChild(panel);
                 window.TutpExplain.view(panel, p, { q_text: item.title }, { studentId: state.studentId, language: lang, fromLibrary: true });
                 addTools(v, [p.title, p.quick, p.full].filter(Boolean).join('. '), lang);
@@ -232,6 +235,8 @@
             if (!r.ok) throw new Error('open ' + r.status);
             return r.json().then(render);
         }).catch(function () {
+            // A viewer that was opened before the failure would otherwise stay behind, empty.
+            Array.prototype.forEach.call(document.querySelectorAll('.tl-viewer'), function (n) { n.remove(); });
             var v = viewer('Library'); v.body.appendChild(el('p', 'tl-err', 'This item could not be opened. Please try again.'));
         });
     }
