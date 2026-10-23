@@ -92,7 +92,7 @@ export function createConceptPictures({ supabase, illus, now = Date.now, downloa
   }
 
   return {
-    request: ({ key, scene, env }) => illus.request(key, scene, { env }),
+    request: ({ key, scene, env, feature }) => illus.request(key, scene, { env, feature }),
 
     // opts.run: the e2e key suffix (each test run counts its own pictures); '' in production.
     async status({ familyId, studentId, key, paid, env, run = '' }) {

@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  statuses: write
 
 concurrency:
   group: e2e
@@ -126,3 +127,24 @@ jobs:
             tutp-app/ci-logs/
             tutp-app/tests/e2e/output/
           if-no-files-found: warn
+
+      # A dispatch run's check run is not counted by the main ruleset, so the result is
+      # also posted as a commit status "e2e" on the exact commit (success only when every
+      # step above passed: both full-suite runs, known failures allowed, and partners).
+      - name: post commit status e2e
+        if: always()
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          state=failure
+          [ "$JOB_STATUS" = "success" ] && state=success
+          gh api "repos/${{ github.repository }}/statuses/${{ github.sha }}" \
+            -f state="$state" \
+            -f context="e2e" \
+            -f description="e2e full suite x${RUNS} on ${BASE_URL}" \
+            -f target_url="$RUN_URL" > /dev/null
+          echo "posted commit status e2e=$state on ${{ github.sha }}"

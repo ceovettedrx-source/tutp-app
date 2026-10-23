@@ -35,10 +35,18 @@
   Claude verifies `status.traffic` → fast-forward main to the deployed
   commit and push. Claude stops only for spec approval and the traffic
   command. Never `--no-verify`, never force-push, never move traffic.
+- **No approval gates (founder rule, 2026-10-12, restated 2026-10-22).** Claude
+  writes the spec and "What can go wrong" section and then builds, tests and
+  releases in one run without waiting for spec approval. Hard stops only for:
+  (1) model or API spend above $3, (2) anything touching auth, payments or
+  student data, (3) the traffic command, which only the founder runs. This
+  replaces "Founder approves before any edit" and "Claude stops only for spec
+  approval" above for work that does not hit a hard stop.
 - **Nothing merges to main before the e2e suite has passed twice in a row**
   on a no-traffic preview built from that exact commit (founder rule,
   2026-10-12; TUT-31 was merged to main before its e2e was clean). Merge to
   main only after both runs, never as a step before them.
+- main is locked: green e2e on the exact commit, no bypass; e2e posts a commit status 'e2e' because dispatch check runs are not counted
 - One session deploys or runs e2e at a time. Each release uses its own tag
   (e.g. `release1`), never the shared `preview` tag.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
