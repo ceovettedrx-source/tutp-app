@@ -39,7 +39,7 @@ import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'uploads.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js', 'library.spec.js', 'learning-library.spec.js', 'el.spec.js', 'inventory.spec.js', 'answer-explain.spec.js', 'img1.spec.js', 'bonding.spec.js', 'max-plan.spec.js', 'singapore-maths.spec.js', 'dashboard-items.spec.js'];
+const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'uploads.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js', 'library.spec.js', 'learning-library.spec.js', 'el.spec.js', 'inventory.spec.js', 'answer-explain.spec.js', 'img1.spec.js', 'bonding.spec.js', 'max-plan.spec.js', 'image-billing.spec.js', 'singapore-maths.spec.js', 'dashboard-items.spec.js'];
 if (process.env.E2E_ONLY) SPECS.splice(0, SPECS.length, ...process.env.E2E_ONLY.split(',')); // E2E_ONLY=a.spec.js,b.spec.js runs just those (also how run.js itself is tested)
 const MODEL_FILES = ['server/prompts', 'server/pointing-model.js', 'server/models.js', 'server/notes-ground.js'];
 const LAST_LIVE = path.join(__dirname, 'recordings', 'LAST_LIVE');
@@ -106,6 +106,7 @@ function killLeftoverChrome() {
 for (const f of fs.existsSync(OUT) ? fs.readdirSync(OUT) : []) if (f.startsWith('spend-')) fs.unlinkSync(path.join(OUT, f));
 
 const RESULT = /^\[e2e(?:[: ][^\]]*)?\] (\S+) (PASS|FAIL)\b(.*)$/;   // "[e2e:hw] k2 FAIL ...", "[e2e bonding] b PASS", "[e2e] d PASS"
+const CACHE_RESULT = /^\[cache\] (PASS|FAIL) (.*)$/;   // cache.spec.js has no test ids: the check text is the id
 const rows = [];                               // { spec, status, detail }
 
 // Runs one spec; resolves { status: 'PASS'|'KNOWN'|'FAIL', detail }.
@@ -130,8 +131,12 @@ function run(spec, extra = [], mode = 'replay') {
       while ((i = buf.indexOf('\n')) >= 0) {
         const line = buf.slice(0, i).replace(/\r$/, '');
         buf = buf.slice(i + 1);
-        const m = RESULT.exec(line);
-        if (!m) continue;
+        let m = RESULT.exec(line);
+        if (!m) {
+          const c = CACHE_RESULT.exec(line);
+          if (!c) continue;
+          m = [line, c[2], c[1], ''];
+        }
         lastId = m[1];
         if (m[2] === 'PASS') passes++;
         else fails.push({ id: m[1], line });

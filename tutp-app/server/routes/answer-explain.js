@@ -107,7 +107,7 @@ async function kgExtras({ cls, subject, state, title, lang }) {
   }
 }
 
-export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents, illustrations }) {
+export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents, illustrations, onImageBillingFail }) {
   const familyKey = (req) => 'family:' + String((getSession(req) || {}).familyId);
   const explainLimiter = rateLimit({
     // Explain please now explains every question of a photo at once (8 at most), so 60.
@@ -126,7 +126,7 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
     supabase.from('usage_events').insert({ event_name: name, family_id: familyId, student_id: studentId, properties })
       .then(({ error }) => { if (error) console.error(name + ' log failed:', error.message); }, () => {});
   };
-  const illus = illustrations || createIllustrationService({ supabase, logEvent: (n, p) => logEvent(n, null, null, p) });
+  const illus = illustrations || createIllustrationService({ supabase, logEvent: (n, p) => logEvent(n, null, null, p), onBillingFail: onImageBillingFail });
   const pictures = createConceptPictures({ supabase, illus });
   const isPaid = async (studentId) => (await getPaidStatusForStudents([studentId]))[studentId].active;
   const off = (res) => res.status(404).json({ error: 'not_found' });
@@ -275,8 +275,8 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
           // picture that happens to share the concept_key; no key means no picture.
           const conceptPictureKey = rule === 'normal' ? questionPictureKey(explain.concept_key, question) : '';
           let illustration = null;
-          if (rule === 'normal' && conceptPictureKey) illustration = await pictures.request({ key: conceptPictureKey, scene: explain.illustration.scene_prompt, env: imageEnv(ov) });
-          else if (rule === 'context' && pictureKey) illustration = await pictures.request({ key: pictureKey, scene: mathsScenePrompt(explain.illustration.scene_prompt, explain.concept_key), env: imageEnv(ov) });
+          if (rule === 'normal' && conceptPictureKey) illustration = await pictures.request({ key: conceptPictureKey, scene: explain.illustration.scene_prompt, env: imageEnv(ov), feature: 'explain' });
+          else if (rule === 'context' && pictureKey) illustration = await pictures.request({ key: pictureKey, scene: mathsScenePrompt(explain.illustration.scene_prompt, explain.concept_key), env: imageEnv(ov), feature: 'explain' });
           let kg = null;
           if (paid) kg = await kgExtras({ cls: ctx.cls, subject, state: ctx.state, title: explain.title, lang });
           timer.mark('picture');
@@ -356,7 +356,8 @@ export function registerAnswerExplainRoutes(app, { rateLimit, supabase, getSessi
         try {
           const ov = e2eOverrides(req);
           const keyed = ov.keySuffix ? key.slice(0, 50).replace(/-+$/, '') + '-' + ov.keySuffix : key;
-          const st = await pictures.request({ key: keyed, scene, env: imageEnv(ov) });
+          const feature = typeof body.surface === 'string' && /^[a-z_-]{1,20}$/.test(body.surface) ? body.surface : 'unknown';
+          const st = await pictures.request({ key: keyed, scene, env: imageEnv(ov), feature });
           res.set('Cache-Control', 'no-store');
           res.json({ status: st.status, concept_key: keyed });
         } catch (err) {

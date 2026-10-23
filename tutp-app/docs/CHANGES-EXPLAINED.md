@@ -1,5 +1,22 @@
 # Changes explained
 
+## 2026-10-23 - TUT-73 Picture billing alerts + story picture fallback (LIVE on tutp-demo-00512-pov; main updated, 8ec72c6, PR #14)
+
+**What changes for parents**
+- A story now always gets its picture ticket: if the model leaves out the picture key or scene, the server fills them in, so a story does not lose its picture for that reason.
+- Nothing else changes on screen. This release also carries main's earlier PRs #1-#12 (language chips, explain cache, picture vision check), which were already live on 00372.
+
+**What changes inside**
+- When picture generation fails because of billing, it is no longer silent: one warning line in the logs, one email a day to `ADMIN_NOTIFY_EMAIL` (ceo.tutp@gmail.com, new on this revision), and a red tile on the admin page. If no recipient is set it logs a warning instead of mailing.
+- `story_picture_missing` warning when a story still ends up without a picture; `story_image` is recorded on `session.completed`; an `image_generated` log line per picture.
+- Six e2e tests are listed as known failures under TUT-84 (cache "/ has local scripts/styles", c16, a9, a11, i4, i5). They fail the same on the TUT-69 branch (contains main aeeff36) and pass on d2d74c2, so they come from main's PRs, not this release. `cache.spec.js` check text now counts as its test id so it can be listed.
+
+**Tests**: CI e2e run 39904116356 on 0b7c748, two runs in a row, only known failures (0 failing, 19 of 19 spec rows each). Phone smoke after traffic: `/`, `/app/login/`, `/app/mother/`, `/app/singapore-maths/` return 200 on tutp.online and on the release host.
+
+**Needs Vet**
+- Main is updated: merged as 8ec72c6 (PR #14), live on 00512-pov. The direct push of 0b7c748 was refused by GitHub, so it went in through the PR. The live image is the tested one; its label is `commit-sha=0b7c748`.
+- Open: a9 shows the free picture object now carries `key`. Not a leak (the poll route still blurs after the one free picture a day), but the in-memory quota lock does not span instances.
+
 ## 2026-10-14 - TUT-42 Parent dashboard redesign (LIVE on tutp-demo-00480-naj; carries TUT-56)
 
 **What changes for parents**

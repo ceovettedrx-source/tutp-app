@@ -78,7 +78,12 @@ export function geminiProvider(env = process.env, fetchImpl = fetch) {
           generationConfig: { responseModalities: ['IMAGE'] },
         }),
       });
-      if (!r.ok) throw new Error('gemini http ' + r.status);
+      if (!r.ok) {
+        // Only the status travels: the message never holds the key, the URL or the body.
+        const e = new Error('gemini http ' + r.status);
+        e.status = r.status;
+        throw e;
+      }
       const j = await r.json();
       const part = ((j.candidates || [])[0]?.content?.parts || []).find((p) => (p.inlineData || p.inline_data));
       const inline = part && (part.inlineData || part.inline_data);

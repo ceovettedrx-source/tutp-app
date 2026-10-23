@@ -40,12 +40,14 @@ import { runAnswer, answerRequestBody } from './server/answer-run.js';
 import { formatMismatches } from './server/answer-arithmetic.js';
 import { registerAnswerExplainRoutes, answerV2Enabled, loadStudentContext, signConceptKey } from './server/routes/answer-explain.js';
 import { pictureFor } from './server/services/concept-picture.js';
+import { storyPicture } from './server/story-picture.js';
 import { questionPictureKey } from './server/picture-rule.js';
 import { initModelCost } from './server/model-cost.js';
 import { initLanguage, resolveLanguage, applyRegistrationLanguage, saveParentLanguage, parentRoleOf } from './server/language.js';
 import { initModelAlert } from './server/model-alert.js';
 import { runModelHealth, modelHealthHandler } from './server/model-health.js';
 import { replayMode, returnsRecordings, fixtureMiddleware } from './server/model-replay.js';
+import { createImageBillingMonitor } from './server/services/image-billing-alert.js';
 import { initTestFamilies, isTestFamily, testFamilyIds, withoutTestFamilies, isTestPhone } from './server/test-families.js';
 import * as uploads from './server/uploads.js';
 import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
@@ -1784,6 +1786,12 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
     <p class="panel-message loading" id="revenueMessage">Loading…</p>
   </div>
 
+  <div class="panel" id="imageFailTile" hidden style="background:#fee2e2;border:1px solid #dc2626;color:#7f1d1d">
+    <p class="kpi-label" style="color:#7f1d1d">Pictures failing</p>
+    <p class="kpi-value" id="imageFailCount" style="color:#b91c1c">0</p>
+    <p class="panel-message" id="imageFailDetail"></p>
+  </div>
+
   <h2 class="section-title">Failed Payments</h2>
   <div class="panel" id="failedPaymentsPanel">
     <p class="panel-message loading" id="failedPaymentsMessage">Loading…</p>
@@ -2415,6 +2423,20 @@ app.get('/admin/dashboard', requireAdmin, (req, res) => {
           submitBtn.disabled = false;
         }
       });
+    })();
+  </script>
+  <script>
+    // TUT-73: red tile when picture generation failed in the last 24 h; hidden otherwise.
+    (async function loadImageFail() {
+      try {
+        const r = await fetch('/api/admin/image-billing', { credentials: 'same-origin' });
+        if (!r.ok) return;
+        const d = await r.json();
+        if (!d || !d.count) return;
+        document.getElementById('imageFailCount').textContent = String(d.count);
+        document.getElementById('imageFailDetail').textContent = 'First seen ' + new Date(d.first_seen).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) + (d.last_status ? ' · HTTP ' + d.last_status : '') + ' · top up Prepay - AI Studio';
+        document.getElementById('imageFailTile').hidden = false;
+      } catch (e) { /* the tile stays hidden */ }
     })();
   </script>
 </body>
@@ -6816,7 +6838,16 @@ app.post('/api/homework', async (req, res) => {
       // picture already illustrates it (those stay free and are never generated).
       const story = checkedStory && (() => {
         const { concept_key: storyKey, scene_prompt: storyScene, ...rest } = checkedStory;
-        const pic = answerV2Enabled(req) && !(rest.visual && rest.visual.type === 'library') ? pictureFor(storyKey, storyScene) : null;
+        let pic = null;
+        if (answerV2Enabled(req)) {
+          // The model's key or scene can come back empty after cleaning; the picture is then
+          // built in code (server/story-picture.js) so a Story never silently loses it.
+          const made = storyPicture(storyKey, storyScene, { classNum: classNumber(studentRow && studentRow.class), seed: text, visual: rest.visual });
+          pic = made.pic;
+          if (made.reason) {
+            console.warn(JSON.stringify({ severity: 'WARNING', event: 'story_picture_missing', reason: made.reason, used_fallback: made.usedFallback }));
+          }
+        }
         return pic ? { ...rest, picture: pic } : rest;
       })();
       if (!story) {
@@ -6833,7 +6864,7 @@ app.post('/api/homework', async (req, res) => {
       if (!check.ok) console.warn('storytelling: fallback story sent', { language: lang });
       trackSessionCompleted(session.familyId, studentId, {
         feature, durationSeconds: null,
-        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none', ...(check.ok && story.visual && story.visual.type === 'library' ? { story_image: story.visual.id } : {}) },
+        extra: { language: lang, story_retry: retried, story_format: check.ok ? 'ok' : 'fallback', story_fixed: check.ok ? check.fixed : 0, story_visual: check.ok ? (story.visual ? story.visual.type : 'none') : 'none', story_image: !!(story.picture || (story.visual && story.visual.type === 'library')), ...(check.ok && story.visual && story.visual.type === 'library' ? { story_library_id: story.visual.id } : {}) },
       });
       sendTiming(200);
       // Same envelope as every other feature: the page reads the first text block.
@@ -6883,7 +6914,21 @@ app.post('/api/homework', async (req, res) => {
 });
 
 registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog });
-registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents });
+// TUT-73: failing picture generation (HTTP 402 and the like) mails the founder once a day.
+const imageBilling = createImageBillingMonitor({
+  supabase, sendEmail, to: process.env.ADMIN_NOTIFY_EMAIL || '',
+});
+registerAnswerExplainRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, getPaidStatusForStudents, onImageBillingFail: () => imageBilling.checkAndAlert() });
+
+app.get('/api/admin/image-billing', requireAdmin, async (req, res) => {
+  try {
+    res.set('Cache-Control', 'no-store');
+    res.json(await imageBilling.summary());
+  } catch (err) {
+    console.error('Admin image-billing error:', err && err.message);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 registerLibraryRoutes(app, { supabase, getSession, requireOwnStudent, sendForbidden, sendSessionExpired, getPaidStatusForStudents, rateLimit });
 registerTtsRoutes(app, { rateLimit, getSession, sendSessionExpired });
 // TUT-49 Partner Programme (docs/specs/TUT-49-partner-programme.md). Declared here, used by /api/register above at request time.

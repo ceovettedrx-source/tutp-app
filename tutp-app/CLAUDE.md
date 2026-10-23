@@ -35,10 +35,18 @@
   Claude verifies `status.traffic` → fast-forward main to the deployed
   commit and push. Claude stops only for spec approval and the traffic
   command. Never `--no-verify`, never force-push, never move traffic.
+- **No approval gates (founder rule, 2026-10-12, restated 2026-10-22).** Claude
+  writes the spec and "What can go wrong" section and then builds, tests and
+  releases in one run without waiting for spec approval. Hard stops only for:
+  (1) model or API spend above $3, (2) anything touching auth, payments or
+  student data, (3) the traffic command, which only the founder runs. This
+  replaces "Founder approves before any edit" and "Claude stops only for spec
+  approval" above for work that does not hit a hard stop.
 - **Nothing merges to main before the e2e suite has passed twice in a row**
   on a no-traffic preview built from that exact commit (founder rule,
   2026-10-12; TUT-31 was merged to main before its e2e was clean). Merge to
   main only after both runs, never as a step before them.
+- main is locked: green e2e on the exact commit, no bypass; e2e posts a commit status 'e2e' because dispatch check runs are not counted
 - One session deploys or runs e2e at a time. Each release uses its own tag
   (e.g. `release1`), never the shared `preview` tag.
 - Never refer to Tut-P as a "prototype" or "demo" in any founder-facing
@@ -135,6 +143,9 @@
 
 # Deploying
 
+- Traffic commands come only from `scripts/release-gate.ps1 <revision> <commit>` (TUT-88): it prints the one-line `update-traffic` command only when all its checks pass (live commit is an ancestor, env/secret names, flags, no `E2E_REPLAY`, e2e status success, new revision built from the commit). Never type, paste or print a traffic command by hand; if the gate fails, report which check failed. The `update-traffic` lines further down are the command shape, not something to hand out.
+- Never post the e2e commit status by hand; only the e2e workflow posts it.
+- Release from the e2e-green PR head commit, never from the main merge commit (it has no e2e status; the gate fails it).
 - `deploy.sh`'s own success output is not proof the deploy is live: `tutp-demo`'s traffic is pinned to a named revision (not tracking "latest"), so `gcloud run deploy` can build and report success on a new revision while 100% traffic (and the `pdftest` tag) stay on the old one. Every `deploy.sh` run must be followed by checking which revision is actually receiving traffic:
 
   ```

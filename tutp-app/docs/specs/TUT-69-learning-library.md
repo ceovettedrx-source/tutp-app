@@ -36,5 +36,17 @@ Every generated answer, explanation, notes, story, quiz and EL output is saved p
 | Same text in two languages | hash includes the payload text, so both save; `language` column set |
 | Free vs paid family | 6 plus a paid-family run reading all 11 |
 
+### Merge risks (origin/main 5ff173e: TUT-73 + TUT-88, PRs #10, #11, #12)
+| Risk | Test / check |
+|---|---|
+| Conflict in `server.js` drops `registerLibraryRoutes` or TUT-73's `onImageBillingFail` / `/api/admin/image-billing` | both kept side by side; `node --check`, e2e `learning-library` and `image-billing` specs |
+| Conflict in `tests/e2e/run.js` SPECS loses `learning-library.spec.js` or `image-billing.spec.js` | both listed; runner prints each spec |
+| Library save hooks lost or fire on a failed picture / unreadable photo (`v2Status` not ok) | tests 1-9 plus inventory; only `v2Status === 'ok'` saves |
+| Per-question picture keys (PR #11) make the saved payload differ for the same concept | content_hash covers the full payload, test 5 with two payloads |
+| Vision-checked picture (PR #12) regenerated or dropped, so the saved item points at a missing picture | saved payload keeps picture references only, never data: URLs (test 4) |
+| Language rule (PR #10): same text in two languages | hash includes text and `language` column (see row above) |
+| Generated dashboards stale after merge | `scripts/build-dashboards.mjs` re-run, never hand-edited |
+| The uploaded photo is stored by mistake | Default: the uploaded photo itself is NOT saved, only generated notes, answers and stories; test 4 checks no base64 or `data:` in any row |
+
 ## Test list
 Nine e2e tests above, twice in a row on a no-traffic preview built from the exact commit, plus a mobile viewport smoke. Inventory entry for the Library surface in every `HOMEWORK_LANGUAGES` language.
