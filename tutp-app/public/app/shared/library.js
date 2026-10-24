@@ -1,5 +1,7 @@
 // Family Library (TUT-69): everything generated for a child, saved on the server.
-// Mounts into <div id="tutpLibrary"> on the mother/father/family-member and child pages.
+// The dashboards show a "Family Library" card (#tutpLibraryCard: "<N> saved" + newest title); tapping it opens
+// the full view (#tutpLibraryFull, Back button #tutpLibraryBack) that holds <div id="tutpLibrary">.
+// Mounts into that div on the mother/father/family-member and child pages.
 //   subject chips with counts -> cards (newest first) -> open with the page's own renderers,
 //   read-only: answer-cards.js (answers), explain-panel.js (explanations), notes-card.js (notes),
 //   story-modal.js (stories). Quizzes and Experiential Learning have no stand-alone renderer, so
@@ -43,6 +45,8 @@
     }
 
     var CSS = '#tutpLibrary{margin:16px 0}'
+        + '.tl-full{position:fixed;inset:0;z-index:60;background:#faf8f2;color:#222;overflow:auto;padding:16px}.tl-full[hidden]{display:none}'
+        + '.tl-fullbar{max-width:760px;margin:0 auto}.tl-full #tutpLibrary{max-width:760px;margin:12px auto}'
         + '.tl-h{font:600 18px/1.3 inherit;margin:0 0 4px}.tl-sub{margin:0 0 12px;opacity:.75;font-size:14px}'
         + '.tl-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}'
         + '.tl-chip{min-height:44px;padding:8px 14px;border-radius:22px;border:1px solid #c9c4b8;background:#fff;color:inherit;font:inherit;cursor:pointer}'
@@ -90,8 +94,44 @@
             if (mine !== loadSeq) return;
             state.items = reset ? d.items : state.items.concat(d.items);
             state.next = d.next; state.subjects = d.subjects; state.upsell = d.upsell || null; state.failed = false;
+            if (state.subject == null) updateCard();
             draw();
         }).catch(function () { if (mine !== loadSeq) return; state.failed = true; draw(); });
+    }
+
+    // The dashboard card: how many are saved and the newest title. Only the unfiltered list says that.
+    function updateCard() {
+        var c = document.getElementById('tutpLibCount'), l = document.getElementById('tutpLibLatest');
+        if (!c || !l) return;
+        c.textContent = state.subjects.reduce(function (n, s) { return n + s.count; }, 0) + ' saved';
+        l.textContent = state.items.length ? state.items[0].title : 'Your child’s learning will collect here.';
+    }
+
+    // ---- the full view: opened from the card, closed with Back (also the phone's back button) -------
+    var full = null, wired = false, pushed = false, prevOverflow = '';
+    function showFull() {
+        if (!full || !full.hidden) return;
+        full.hidden = false;
+        try { prevOverflow = document.body.style.overflow; document.body.style.overflow = 'hidden'; } catch (e) { /* kept */ }
+        try { history.pushState({ tlFull: 1 }, ''); pushed = true; } catch (e) { pushed = false; }
+        full.scrollTop = 0;
+        var b = document.getElementById('tutpLibraryBack'); if (b) b.focus();
+    }
+    function hideFull() {
+        if (!full || full.hidden) return;
+        full.hidden = true; pushed = false;
+        try { document.body.style.overflow = prevOverflow; } catch (e) { /* kept */ }
+    }
+    function wire() {
+        if (wired) return;
+        full = document.getElementById('tutpLibraryFull');
+        var cardEl = document.getElementById('tutpLibraryCard'), back = document.getElementById('tutpLibraryBack');
+        if (!full || !cardEl || !back) return;
+        wired = true;
+        if (full.parentNode !== document.body) document.body.appendChild(full);
+        cardEl.addEventListener('click', showFull);
+        back.addEventListener('click', function () { if (pushed) history.back(); else hideFull(); });
+        window.addEventListener('popstate', hideFull);
     }
 
     function card(item) {
@@ -266,7 +306,7 @@
     function mount() {
         root = document.getElementById('tutpLibrary');
         if (!root) return;
-        injectCss();
+        injectCss(); wire();
         var sid = studentId();
         state.studentId = sid; state.subject = null;
         importLocal(sid).then(function () { return load(true); });

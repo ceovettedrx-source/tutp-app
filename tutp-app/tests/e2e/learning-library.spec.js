@@ -267,6 +267,21 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
       page.on('request', (r) => { if (/\/api\/library\?/.test(r.url())) libCalls.push(/cursor=/.test(r.url()) ? 'cursor' : 'first'); });
       await page.goto(BASE + '/app/mother/');
       await page.waitForFunction(() => window.tutpChildReady, null, { timeout: 30000 });
+      // The dashboard shows the Family Library card ("<N> saved" + the newest title); the list is behind it.
+      const dashCard = page.locator('#tutpLibraryCard');
+      await dashCard.waitFor({ state: 'visible', timeout: 15000 });
+      expect(!/SOON/.test(await dashCard.textContent()), 'the Family Library card still says SOON');
+      expect(!(await page.locator('#tutpLibraryFull').isVisible()), 'the library list is open before the card is tapped');
+      const sidNow = await page.evaluate(() => window.tutpChildReady);
+      const firstPage = await page.evaluate(async (s) => (await fetch('/api/library?studentId=' + encodeURIComponent(s), { credentials: 'same-origin' })).json(), sidNow);
+      const total = firstPage.subjects.reduce((n, s) => n + s.count, 0);
+      expect(total > 0 && firstPage.items.length, 'the family has nothing saved to show on the card');
+      await page.waitForFunction((t) => document.getElementById('tutpLibCount').textContent === t + ' saved', total, { timeout: 15000 })
+        .catch(async () => { throw new Error('the card says "' + (await page.textContent('#tutpLibCount')) + '", not "' + total + ' saved"'); });
+      const latestShown = await page.textContent('#tutpLibLatest');
+      expect(latestShown === firstPage.items[0].title, 'the card shows "' + latestShown + '", not the newest title "' + firstPage.items[0].title + '"');
+      await dashCard.click();
+      await page.locator('#tutpLibraryFull').waitFor({ state: 'visible', timeout: 5000 });
       const lib = page.locator('#tutpLibrary');
       await lib.waitFor({ state: 'attached', timeout: 15000 });
       await page.locator('#tutpLibrary .tl-card').first().waitFor({ state: 'visible', timeout: 15000 });
@@ -296,7 +311,12 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
       await page.screenshot({ path: path.join(OUT, 'learning-library-360.png'), fullPage: false });
       await viewer.getByRole('button', { name: 'Close' }).click();
       await viewer.waitFor({ state: 'detached', timeout: 5000 });
-      return 'fits, opens, closes';
+      // Back returns to the dashboard: the list is gone, the card is there again, and the page scrolls.
+      await page.locator('#tutpLibraryBack').click();
+      await page.locator('#tutpLibraryFull').waitFor({ state: 'hidden', timeout: 5000 });
+      expect(await dashCard.isVisible(), 'the Family Library card is not back on the dashboard');
+      expect(new URL(page.url()).pathname === '/app/mother/', 'Back left the dashboard: ' + page.url());
+      return 'card shows ' + total + ' saved; opens, fits, closes, Back works';
     }
   }, () => m && m.page);
   if (m) await m.ctx.close().catch(() => {});
@@ -354,7 +374,7 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     const note = await findSaved(sid, 'notes', noteTitle);
     expect(note, 'no notes item saved under the card title "' + noteTitle.slice(0, 80) + '"');
     // The notes sit in the Maths folder (live 2026-10-24: they had no subject and were filed under "Other").
-    expect(/^maths?$/i.test(note.subject || ''), 'the notes item has subject "' + note.subject + '", not Maths');   // the recorded replies say "Maths" or "Math"
+    expect(note.subject === 'Maths', 'the notes item has subject "' + note.subject + '", not exactly "Maths"');   // saved and listed under the canonical subject
     const inFolder = async (extra) => (await allItems(page, sid, {}, extra)).items.some(x => x.id === note.id);
     expect(await inFolder('&subject=' + encodeURIComponent(note.subject)), 'the notes item is not in the Maths folder');
     expect(!(await inFolder('&subject=')), 'the notes item is in the Other folder');
@@ -362,6 +382,7 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     // 3. opened from the Family Library they are the same cards
     await page.goto(BASE + '/app/mother/');
     await page.waitForFunction(() => window.tutpChildReady, null, { timeout: 30000 });
+    await page.locator('#tutpLibraryCard').click();
     await page.locator('#tutpLibrary .tl-card').first().waitFor({ state: 'visible', timeout: 20000 });
     const openCard = async (title) => {
       const card = page.locator('#tutpLibrary .tl-card', { hasText: title.slice(0, 60) });

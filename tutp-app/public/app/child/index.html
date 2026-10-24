@@ -302,9 +302,18 @@
 </div>
 </section>
 
-<section class="space-y-sm" aria-label="Family Library">
-<div id="tutpLibrary"></div>
+<section class="space-y-sm" aria-label="More for your family">
+<h2 class="font-label-lg text-label-lg text-on-surface px-xs">More for your family</h2>
+<div class="glass-card rounded-xl p-md flex flex-col gap-2" id="tutpLibraryCard" aria-label="Family Library">
+<div class="flex items-center gap-2"><span class="material-symbols-outlined text-primary">local_library</span><h3 class="font-label-lg text-label-lg text-on-surface">Family Library</h3></div>
+<p class="font-body-md text-body-md text-on-surface-variant"><span id="tutpLibCount">Loading…</span><br><span id="tutpLibLatest"></span></p>
+<button type="button" class="self-start font-label-md text-label-md text-primary min-h-[44px]" id="tutpLibraryOpen">Open the library</button>
+</div>
 </section>
+<div id="tutpLibraryFull" class="tl-full" role="dialog" aria-label="Family Library" hidden>
+<div class="tl-fullbar"><button type="button" class="tl-btn" id="tutpLibraryBack">Back</button></div>
+<div id="tutpLibrary"></div>
+</div>
 </main>
 
 <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-end px-gutter pb-6 pt-2 bg-surface/80 backdrop-blur-xl shadow-[0_-4px_20px_rgba(0,91,192,0.05)] rounded-t-lg md:hidden">

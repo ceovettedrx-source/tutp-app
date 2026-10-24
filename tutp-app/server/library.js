@@ -6,6 +6,7 @@
 // 10 newest items; older ones answer 402 and the payload is never sent.
 import { createHash } from 'node:crypto';
 import { UPSELL } from './tier-gate.js';
+import { canonicalSubject, groupSubjects, subjectVariants } from './subject.js';
 
 export const LIBRARY_MODES = ['answer', 'explain', 'notes', 'story', 'quiz', 'experiential'];
 export const PAYLOAD_CAP_BYTES = 200 * 1024;
@@ -65,7 +66,7 @@ export function buildLearningRow({ familyId, studentId, mode, subject, topic, ti
       family_id: familyId,
       student_id: studentId,
       mode,
-      subject: clip(subject, 80),
+      subject: canonicalSubject(clip(subject, 80)),
       topic: clip(topic, 160),
       title: clip(title, 200) || 'Untitled',
       language: clip(language, 40),
@@ -118,6 +119,13 @@ export function describeHomeworkReply(feature, data) {
   return { mode, subject, topic: obj && typeof obj.topic === 'string' ? obj.topic : (firstQ || null), title, payload };
 }
 
+// The row for a /api/homework reply. A story reply has no subject of its own, so the subject the page
+// sent (the homework's) is used when the reply gives none; a reply's own subject wins. Never invented.
+export function homeworkLibraryItem({ familyId, studentId, language, text, bodySubject }, d) {
+  const sent = typeof bodySubject === 'string' ? bodySubject.trim().slice(0, 60) : '';
+  return { familyId, studentId, mode: d.mode, subject: d.subject || sent || null, topic: d.topic, title: d.title, language, payload: d.payload, sourceText: text };
+}
+
 // The page cursor is "<created_at>|<id>". A bare created_at (an older page) still works, by time alone.
 const CURSOR_AT = /^\d{4}-\d{2}-\d{2}T[\d:.]+(Z|[+-]\d{2}:\d{2})$/;
 const CURSOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -158,11 +166,15 @@ export function registerLibraryRoutes(app, { supabase, getSession, requireOwnStu
       const modes = visibleModes(req);
       const mode = req.query.mode ? String(req.query.mode) : null;
       if (mode && !modes.includes(mode)) return res.json({ items: [], next: null, subjects: [], locked_after: null });
+      // Folders are canonical subjects ("Math" and "Maths" are one), so old rows saved under another spelling still group.
+      const { data: all, error: cErr } = await supabase.from('learning_items').select('subject').eq('student_id', studentId).in('mode', modes).limit(5000);
+      if (cErr) throw cErr;
+      const rawSubjects = all.map(r => r.subject);
       let q = supabase.from('learning_items').select(LIST_COLUMNS).eq('student_id', studentId)
         .in('mode', mode ? [mode] : modes).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(PAGE_SIZE + 1);
       // subject= (empty) is the "Other" chip: items saved with no subject.
       if (req.query.subject === '') q = q.is('subject', null);
-      else if (req.query.subject) q = q.eq('subject', String(req.query.subject));
+      else if (req.query.subject) q = q.in('subject', subjectVariants(rawSubjects, String(req.query.subject)));
       if (req.query.cursor) {
         const cur = parseCursor(req.query.cursor);
         if (!cur) return res.status(400).json({ error: 'Bad cursor' });
@@ -175,12 +187,8 @@ export function registerLibraryRoutes(app, { supabase, getSession, requireOwnStu
       const items = data.slice(0, PAGE_SIZE);
       const paid = await isPaid(studentId);
       const threshold = paid ? null : await freeThreshold(studentId, modes);
-      const out = items.map(i => ({ ...i, locked: !!threshold && i.created_at < threshold }));
-      const { data: all, error: cErr } = await supabase.from('learning_items').select('subject').eq('student_id', studentId).in('mode', modes).limit(5000);
-      if (cErr) throw cErr;
-      const counts = new Map();
-      for (const r of all) { const s = r.subject || ''; counts.set(s, (counts.get(s) || 0) + 1); }
-      const subjects = [...counts.entries()].map(([subject, count]) => ({ subject: subject || null, count })).sort((a, b) => b.count - a.count);
+      const out = items.map(i => ({ ...i, subject: canonicalSubject(i.subject), locked: !!threshold && i.created_at < threshold }));
+      const subjects = groupSubjects(rawSubjects);
       const last = items[items.length - 1];
       res.json({ items: out, next: more ? makeCursor(last) : null, subjects, tier: paid ? 'pro' : 'free', ...(paid ? {} : { upsell: UPSELL }) });
     } catch (err) {

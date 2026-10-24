@@ -85,10 +85,21 @@ async function login(page, digits, want) {
       for (const id of ITEMS) if (!h.includes(`id="${id}"`)) missing.push(role + ':#' + id);
       for (const t of HEADINGS) if (!h.includes(t.replace(/'/g, '&#39;')) && !h.includes(t)) missing.push(role + ':' + t);
     }
-    // TUT-102: the "Family Library - SOON" card is gone; the Library section itself is "Family Library".
+    // TUT-102: "Family Library" is a live card in "More for your family" (no SOON, no "Books and stories" text)
+    // that opens the full view; there is no inline "My Library" section on the page.
     for (const [role, h] of Object.entries(html)) {
-      if (h.includes('Books and stories to read together')) missing.push(role + ': the Family Library SOON card is still there');
-      if (!h.includes('aria-label="Family Library"') || !h.includes('id="tutpLibrary"')) missing.push(role + ': the Family Library section');
+      if (h.includes('Books and stories')) missing.push(role + ': the Family Library "Books and stories" text is still there');
+      if (h.includes('My Library')) missing.push(role + ': an old "My Library" heading is still there');
+      const card = (h.match(/<div[^>]*id="tutpLibraryCard"[\s\S]*?<\/div>\s*<\/div>/) || [''])[0];
+      if (!card) missing.push(role + ': the Family Library card');
+      else {
+        if (/tp-soon|tp-card--soon|SOON/.test(card)) missing.push(role + ': the Family Library card still says SOON');
+        if (!card.includes('id="tutpLibCount"') || !card.includes('id="tutpLibLatest"')) missing.push(role + ': the Family Library card lacks its count and latest title');
+      }
+      const more = h.slice(h.indexOf('aria-label="More for your family"'));
+      if (more.indexOf('id="tutpLibraryCard"') < 0) missing.push(role + ': the Family Library card is not in "More for your family"');
+      if (!h.includes('id="tutpLibraryFull"') || !h.includes('id="tutpLibrary"') || !h.includes('id="tutpLibraryBack"')) missing.push(role + ': the Family Library full view');
+      if (/<section[^>]*aria-label="Family Library"/.test(h)) missing.push(role + ': the Library is still an inline section');
     }
     if (missing.length) throw new Error('missing ' + missing.join(', '));
     return ITEMS.length + ' ids, ' + HEADINGS.length + ' headings x 3 pages';

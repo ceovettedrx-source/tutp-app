@@ -53,7 +53,7 @@ import * as uploads from './server/uploads.js';
 import { isHeic, heicToJpeg, HEIC_MESSAGES } from './server/lib/heic.js';
 import { POINTING_MODEL, POINTING_SETTINGS } from './server/pointing-model.js';
 import { registerChipRoutes } from './server/routes/chips.js';
-import { registerLibraryRoutes, saveLearningItem, describeHomeworkReply, libraryFailRequested } from './server/library.js';
+import { registerLibraryRoutes, saveLearningItem, describeHomeworkReply, homeworkLibraryItem, libraryFailRequested } from './server/library.js';
 import { registerElRoutes } from './server/routes/el.js';
 import { registerSingaporeMathsRoutes } from './server/routes/singapore-maths.js';
 import { registerTtsRoutes } from './server/routes/tts.js';
@@ -6573,7 +6573,7 @@ function readHomeworkInput(body) {
 function saveHomeworkToLibrary(req, session, studentId, feature, data, language, text) {
   const d = describeHomeworkReply(feature, data);
   if (!d) return;
-  saveLearningItem(supabase, { familyId: session.familyId, studentId, mode: d.mode, subject: d.subject, topic: d.topic, title: d.title, language, payload: d.payload, sourceText: text }, { forceError: libraryFailRequested(req) });
+  saveLearningItem(supabase, homeworkLibraryItem({ familyId: session.familyId, studentId, language, text, bodySubject: (req.body || {}).subject }, d), { forceError: libraryFailRequested(req) });
 }
 
 app.post('/api/homework', async (req, res) => {
