@@ -4,6 +4,7 @@
 // that names its own longer timeout keeps it (run.js's 90 s per-test stall
 // limit still ends the spec).
 import { chromium } from 'playwright';
+import { authDir, countOtpRequests, installSessionCache, isCachedSpec } from './auth-cache.mjs';
 
 const WAIT_MS = 30000;
 const launch = chromium.launch.bind(chromium);
@@ -14,6 +15,12 @@ chromium.launch = async (...a) => {
     const ctx = await newContext(...x);
     ctx.setDefaultTimeout(WAIT_MS);
     ctx.setDefaultNavigationTimeout(WAIT_MS);
+    // TUT-104: count OTP sends; the specs that share a login reuse run.js's session
+    const dir = authDir();
+    if (dir) {
+      countOtpRequests(ctx, dir);
+      if (isCachedSpec(process.argv[1])) await installSessionCache(ctx, dir);
+    }
     return ctx;
   };
   const newPage = browser.newPage.bind(browser);

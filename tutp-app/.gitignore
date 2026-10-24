@@ -9,3 +9,7 @@ design-assets/
 
 # e2e run output (screenshots, results.json)
 /tests/e2e/output/
+
+# TUT-104: e2e login state (temp dir, never committed)
+tutp-e2e-auth*
+*.auth.json

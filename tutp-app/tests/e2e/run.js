@@ -38,6 +38,8 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath, pathToFileURL } from 'url';
 
+import { CACHED_PHONES, OTP_HARD, OTP_TARGET, budgetVerdict, countOtp, isCachedSpec, loginAll, makeAuthDir, removeAuthDir } from './auth-cache.mjs';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SPECS = ['cache.spec.js', 'cron.spec.js', 'login.spec.js', 'family.spec.js', 'uploads.spec.js', 'visual-tutor.spec.js', 'homework.spec.js', 'chips.spec.js', 'story.spec.js', 'library.spec.js', 'learning-library.spec.js', 'el.spec.js', 'inventory.spec.js', 'answer-explain.spec.js', 'img1.spec.js', 'bonding.spec.js', 'max-plan.spec.js', 'image-billing.spec.js', 'singapore-maths.spec.js', 'dashboard-items.spec.js'];
 if (process.env.E2E_ONLY) SPECS.splice(0, SPECS.length, ...process.env.E2E_ONLY.split(',')); // E2E_ONLY=a.spec.js,b.spec.js runs just those (also how run.js itself is tested)
@@ -175,6 +177,25 @@ function run(spec, extra = [], mode = 'replay') {
 const recordAll = args.includes('--record-all');
 const wantLive = args.includes('--live') || args.includes('--live-smoke');
 let liveOk = false;
+
+// TUT-104: one real login per shared account, reused by every spec in auth-cache.mjs's list.
+// The state lives in a temp dir that is deleted when the run ends (also on Ctrl+C).
+// E2E_NO_AUTH_CACHE=1 turns it off; an E2E_AUTH_DIR set by the caller is used as is.
+const base = (args.find((a) => /^https?:\/\//.test(a)) || '').replace(/\/+$/, '');
+let authDirMine = null;
+let otpSends = null;
+const finishAuth = () => {
+  if (!process.env.E2E_AUTH_DIR) return;
+  if (otpSends === null) otpSends = countOtp(process.env.E2E_AUTH_DIR);
+  if (authDirMine) { removeAuthDir(authDirMine); authDirMine = null; }
+};
+process.on('SIGINT', () => { try { finishAuth(); } finally { process.exit(130); } });
+if (!process.env.E2E_NO_AUTH_CACHE && !process.env.E2E_AUTH_DIR && base && SPECS.some(isCachedSpec)) {
+  authDirMine = makeAuthDir();
+  process.env.E2E_AUTH_DIR = authDirMine;
+  const n = await loginAll(base, authDirMine, { headless: args.includes('--headless') });
+  console.log(`[auth-cache] ${n}/${CACHED_PHONES.length} shared logins saved`);
+}
 try {
   if (!recordAll) {
     const changes = (() => { try { return modelChanges(); } catch { return []; } })();
@@ -188,6 +209,7 @@ try {
   }
 } finally {
   killLeftoverChrome();
+  finishAuth();
 }
 if (liveOk) {
   fs.mkdirSync(path.dirname(LAST_LIVE), { recursive: true });
@@ -207,7 +229,13 @@ console.log(`  total                             $${total.toFixed(4)}`);
 
 console.log('\nRESULT');
 for (const r of rows) console.log(`  ${r.status.padEnd(5)} ${r.spec}  ${r.detail}`);
+let otpFail = false;
+if (otpSends !== null) {
+  const v = budgetVerdict(otpSends);
+  otpFail = v === 'fail';
+  console.log(`\nOTP sends this run: ${otpSends} (target ${OTP_TARGET}, hard fail over ${OTP_HARD})${v === 'ok' ? '' : v === 'fail' ? ' - OVER THE HARD LIMIT' : ' - over target'}`);
+}
 const failed = rows.filter((r) => r.status === 'FAIL');
 const knownRows = rows.filter((r) => r.status === 'KNOWN');
 console.log(failed.length ? `\nFAILED: ${failed.map((r) => r.spec).join(', ')}` : knownRows.length ? `\nALL SPECS PASSED except KNOWN failures (${knownRows.map((r) => r.spec).join(', ')})` : '\nALL SPECS PASSED');
-process.exit(failed.length ? 1 : 0);
+process.exit(failed.length || otpFail ? 1 : 0);
