@@ -88,9 +88,9 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
 (async () => {
   log('base', BASE);
   const browser = await chromium.launch({ channel: 'chrome', headless: HEADLESS });
-  const newCtx = async (viewport = { width: 1280, height: 900 }) => {
+  const newCtx = async (viewport = { width: 1280, height: 900 }, opts) => {
     const ctx = await browser.newContext({ viewport });
-    await e2e.attach(ctx);
+    await e2e.attach(ctx, opts);
     await ctx.route('**/app/shared/phone-auth.js*', async (route) => {
       const resp = await route.fetch();
       let body = await resp.text();
@@ -101,8 +101,8 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     });
     return ctx;
   };
-  async function signIn(who, viewport) {
-    const ctx = await newCtx(viewport);
+  async function signIn(who, viewport, opts) {
+    const ctx = await newCtx(viewport, opts);
     const page = await ctx.newPage();
     await page.goto(BASE + '/app/login/');
     await page.waitForFunction(() => typeof window.tutpSendOTP === 'function' && typeof window.tutpEstablishSession === 'function', null, { timeout: 30000 });
@@ -326,8 +326,10 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
   // (chips.spec.js c4), so neither spends. Notes made from a photo are saved by the same route.
   let n;
   await record('ll11', 'a photo Answer and a Notes card are saved under the title the parent saw, and open as the same cards', async () => {
-    n = await signIn('m16');
-    const page = n.page;
+    // Step 1 runs as live does (Answer v2, the cards a parent sees: .ae-qtext) on the replayed maths-8.jpg photo
+    // (answer-explain.spec a15); Notes and the Library run in a plain context, where the recorded Notes call replays.
+    n = await signIn('m16', undefined, { v2: true, image: 'none' });
+    let page = n.page;
     const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
     const waitResults = () => Promise.race([
       page.locator('#hwModalResults').waitFor({ state: 'visible', timeout: 180000 }),
@@ -350,7 +352,8 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     // 1. a photo, Answer: the saved title is the first card's heading, never the subject
     await page.evaluate(() => openHomeworkModal('homework'));
     await page.locator('#homeworkExplainModal').waitFor({ state: 'visible', timeout: 10000 });
-    await page.setInputFiles('#hwModalAttachInput', path.join(__dirname, 'fixtures', 'worksheet-5-wrong.jpg'));
+    await page.selectOption('#hwModalLang', 'English');
+    await page.setInputFiles('#hwModalAttachInput', path.join(__dirname, 'fixtures', 'maths-8.jpg'));
     await page.locator('#hwModalThumb').waitFor({ state: 'visible', timeout: 10000 });
     await page.click('#hwModalSubmitBtn');
     await waitResults();
@@ -360,7 +363,10 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     expect(answer, 'no answer saved under the on-screen heading "' + seen.slice(0, 80) + '"');
 
     // 2. Notes: saved as a notes item under the title on the notes card
-    await page.evaluate(() => resetHomeworkModal());
+    await n.ctx.close().catch(() => {});
+    n = await signIn('m16'); page = n.page;
+    await page.goto(BASE + '/app/mother/');
+    await page.waitForFunction(() => typeof window.openHomeworkModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
     await page.evaluate(() => openHomeworkModal('homework'));
     await page.locator('#hwChips button').first().waitFor({ state: 'visible', timeout: 10000 });
     await page.fill('#hwModalText', TYPED);
