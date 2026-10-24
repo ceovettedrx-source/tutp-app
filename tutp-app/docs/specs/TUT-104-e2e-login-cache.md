@@ -95,6 +95,19 @@ The CI log does not support the v2-header theory. ll11 failed on `send-verificat
 | Task 6 two full CI runs plus fast-forward | 2 h, if the quota day has reset |
 | Total | about 11 h of work, 1.5 days with CI waits |
 
+## Decisions (made during the build, 2026-10-24)
+
+1. **Restore by cookie, not by storageState.** The state file is saved with `storageState({ indexedDB: true })` as approved, but a session is restored by putting its `tutp_session` cookie on the context. Reason: `addCookies` works on an existing context, so no spec's `newContext` call needs to change; the dashboards never read the Firebase IndexedDB entry after login (only `phone-auth.js` uses it); the server session is a stateless JWT (`/api/logout` only clears the cookie). Cost if wrong: a page that needs the Firebase user would fail, and the e2e would show it.
+2. **One central hook instead of editing 11 sign-in helpers.** `preload.mjs` (already loaded into every spec) wraps `tutpSendOTP` / `tutpVerifyOTP` / `tutpEstablishSession` in the page. For a cached account no OTP is sent and the session is checked with `/api/session/me`. No spec file changed. The `sessionStorage` keys are still set by each spec's own login code, which runs unchanged.
+3. **Cached specs (whitelist):** el, story, library, homework, chips, img1, learning-library, answer-explain, visual-tutor. Never cached: login, family, partners, cache, cron (fresh logins).
+4. **Cached accounts: 0001-0004.** 0005 and 0006 belong to family.spec.js, which stays fresh, so a run costs 4 setup sends plus the fresh specs.
+5. **OTP count is the number of `accounts:sendVerificationCode` requests** every browser context makes (the real quota unit), summed in `otp-count.log` in the temp dir; budget 30 target, hard fail over 50 (founder answer).
+6. **The OTP budget fails the run's exit code only over 50.** Over 30 prints a note.
+7. **Quota check before running:** Cloud Monitoring `serviceruntime.googleapis.com/quota/rate/net_usage` for project tut-p-98978: about 86 sends since the Pacific-midnight reset (07:00 UTC), so about 914 left, above the 150 floor.
+
+8. **First CI result (run 40093080069, runs=2, commit 8547cd1, tag tut104 = tutp-demo-00526-yib):** OTP sends 25 per run (target 30). Only failure in both runs: ll11 (stalled). Allowed failures c16, i4, i5, cache behaved as KNOWN; a9, a11, s1 are existing known failures.
+9. **ll11 root cause (not login, not the v2 header):** the replayed photo answer is identical every run, so its `content_hash` equals the row `9fff7eeb-868c-4c55-805d-67a8424acff2` (test student cdfb427e, family 16, saved 2026-10-22 under the OLD title "Maths"). `saveLearningItem` treats a duplicate (23505) as a silent skip, so the new row with the right title is never written and `findSaved` cannot find it. The screenshot shows the answer fine. Fix = delete that one stale test row (afterwards the first run saves it under the correct title and later runs find it). The delete was blocked by the auto-mode classifier, so it is left for the founder.
+
 ## Open questions for the founder
 
 1. Is 30 the hard budget, or a target? (I will fail the run over 30.)
