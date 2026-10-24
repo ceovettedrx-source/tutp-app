@@ -16,6 +16,11 @@ on:
         required: false
         default: '2'
         type: string
+      e2e_only:
+        description: 'Optional: comma-separated spec files to run instead of the full suite (e.g. learning-library.spec.js,family.spec.js). Empty = full suite.'
+        required: false
+        default: ''
+        type: string
       replay_enabled:
         description: 'I confirm the revision behind this tag has E2E_REPLAY=1 (type true)'
         required: true
@@ -40,6 +45,7 @@ jobs:
       E2E_TEST_TIMEOUT_S: '180'
       BASE_URL: ${{ inputs.base_url }}
       RUNS: ${{ inputs.runs }}
+      E2E_ONLY: ${{ inputs.e2e_only }}
       REPLAY_ENABLED: ${{ inputs.replay_enabled }}
       ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
     steps:
@@ -96,13 +102,16 @@ jobs:
             } >> "$GITHUB_STEP_SUMMARY"
             rows=$(sed -n '/^RESULT$/,$p' "ci-logs/e2e-run-$i.log" | grep -cE '^  (PASS|KNOWN|FAIL|MISSING)' || true)
             bad=$(sed -n '/^RESULT$/,$p' "ci-logs/e2e-run-$i.log" | grep -cE '^  (FAIL|MISSING)' || true)
+            if [ -n "$E2E_ONLY" ]; then expected=$(echo "$E2E_ONLY" | tr ',' '\n' | grep -c .); else
             expected=$(node -e "const s=require('fs').readFileSync('tests/e2e/run.js','utf8').match(/const SPECS = \[([^\]]*)\]/)[1];console.log(s.split(',').length)")
+            fi
             echo "run $i: $rows spec rows (expected $expected), $bad failing"
             if [ "$code" -ne 0 ] || [ "$bad" -ne 0 ] || [ "$rows" -ne "$expected" ]; then status=1; fi
           done
           exit $status
 
       - name: partners.spec.js
+        if: ${{ inputs.e2e_only == '' }}
         run: |
           set -u
           mkdir -p ci-logs
@@ -132,7 +141,7 @@ jobs:
       # also posted as a commit status "e2e" on the exact commit (success only when every
       # step above passed: both full-suite runs, known failures allowed, and partners).
       - name: post commit status e2e
-        if: always()
+        if: ${{ always() && inputs.e2e_only == '' }}
         working-directory: .
         env:
           GH_TOKEN: ${{ github.token }}
