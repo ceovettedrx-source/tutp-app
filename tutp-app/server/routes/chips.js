@@ -100,6 +100,14 @@ export function notesInput(body) {
   return topic;
 }
 
+// The Library row for a notes card. The v2 notes carry no subject, so it is the homework's own
+// (sent by the page, as Explain sends it); a subject the model did give is the fallback.
+export function notesLibraryItem({ familyId, body, lang, text }, n) {
+  const given = typeof body.subject === 'string' ? body.subject.trim().slice(0, 60) : '';
+  const subject = given || (typeof n.subject === 'string' ? n.subject : undefined);
+  return { familyId, studentId: body.studentId, mode: 'notes', subject, topic: n.title, title: n.title || subject || 'Notes', language: lang, payload: n, sourceText: text };
+}
+
 export function registerChipRoutes(app, { rateLimit, supabase, getSession, requireOwnStudent, sendSessionExpired, sendForbidden, chipLog }) {
   const familyKey = (req) => 'family:' + String((getSession(req) || {}).familyId);
   const eventsLimiter = rateLimit({
@@ -155,7 +163,7 @@ export function registerChipRoutes(app, { rateLimit, supabase, getSession, requi
       const cacheKey = crypto.createHash('sha256').update([body.studentId, lang, text, givenKey, picturesOn ? 'p' : ''].join('\u0000')).digest('hex');
       const cached = notesCache.get(cacheKey);
       // TUT-69: saved in the child's Library (cache hits too); never changes the response.
-      const saveNotes = (n) => saveLearningItem(supabase, { familyId: session.familyId, studentId: body.studentId, mode: 'notes', subject: n.subject, topic: n.title, title: n.title || n.subject || 'Notes', language: lang, payload: n, sourceText: text });
+      const saveNotes = (n) => saveLearningItem(supabase, notesLibraryItem({ familyId: session.familyId, body, lang, text }, n));
       if (cached) { res.set('X-Notes-Cache', 'hit'); res.json(cached); saveNotes(cached); return; }
       notesLimiter(req, res, () => notesDailyLimiter(req, res, async () => {
         try {

@@ -2,6 +2,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sanitizePayload, contentHash, buildLearningRow, describeHomeworkReply, saveLearningItem, libraryFailRequested, PAYLOAD_CAP_BYTES } from '../../server/library.js';
+import { notesLibraryItem } from '../../server/routes/chips.js';
 
 const base = { familyId: 1, studentId: 'sid', mode: 'explain', title: 'Fractions', payload: { quick: 'a half' } };
 
@@ -67,6 +68,22 @@ test('a notes card is saved as mode notes under its own title, the one the paren
   assert.equal(row.mode, 'notes');
   assert.equal(row.title, notes.title);
   assert.equal(row.payload.title, notes.title);
+});
+
+test('a notes item carries the homework subject the Answer and Explain rows get, not the (absent) model subject', () => {
+  // Live 2026-10-24: v2 notes have no subject, the client sent none, and 18 of 18 notes rows were saved with none ("Other").
+  const notes = { version: 2, title: 'Adding two 3-digit numbers with regrouping', idea: 'x', steps: ['a', 'b'] };
+  const item = notesLibraryItem({ familyId: 1, body: { studentId: 'sid', subject: 'Maths' }, lang: 'English', text: '1. 24 + 13' }, notes);
+  const { row } = buildLearningRow(item);
+  assert.equal(row.subject, 'Maths');
+  assert.equal(row.mode, 'notes');
+  assert.equal(row.title, notes.title);
+  // No subject anywhere stays empty (never invented); a long or non-string one is clipped or dropped.
+  assert.equal(buildLearningRow(notesLibraryItem({ familyId: 1, body: { studentId: 'sid' }, lang: 'English', text: 'x' }, notes)).row.subject, null);
+  assert.equal(notesLibraryItem({ familyId: 1, body: { studentId: 'sid', subject: { a: 1 } }, lang: 'English', text: 'x' }, notes).subject, undefined);
+  assert.equal(notesLibraryItem({ familyId: 1, body: { studentId: 'sid', subject: 'M'.repeat(200) }, lang: 'English', text: 'x' }, notes).subject.length, 60);
+  // A subject the model did give is kept when the client sent none.
+  assert.equal(notesLibraryItem({ familyId: 1, body: { studentId: 'sid' }, lang: 'English', text: 'x' }, { ...notes, subject: 'Science' }).subject, 'Science');
 });
 
 test('libraryFailRequested only works on an E2E_REPLAY=1 preview', () => {

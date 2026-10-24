@@ -70,10 +70,10 @@ const call = (page, url, { method = 'GET', body, headers = {} } = {}) => page.ev
 
 const CHILD = { 'X-Tutp-View': 'child' };
 const list = (page, sid, extra = '', headers = {}) => call(page, `/api/library?studentId=${sid}${extra}`, { headers });
-async function allItems(page, sid, headers = {}) {
+async function allItems(page, sid, headers = {}, filter = '') {
   let items = [], cursor = '';
   for (let i = 0; i < 20; i++) {
-    const r = await list(page, sid, cursor ? '&cursor=' + encodeURIComponent(cursor) : '', headers);
+    const r = await list(page, sid, filter + (cursor ? '&cursor=' + encodeURIComponent(cursor) : ''), headers);
     expect(r.status === 200, 'list status ' + r.status);
     items = items.concat(r.json.items);
     if (!r.json.next) return { items, last: r.json };
@@ -353,6 +353,11 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     expect(noteTitle, 'the notes card has no title');
     const note = await findSaved(sid, 'notes', noteTitle);
     expect(note, 'no notes item saved under the card title "' + noteTitle.slice(0, 80) + '"');
+    // The notes sit in the Maths folder (live 2026-10-24: they had no subject and were filed under "Other").
+    expect(/^maths?$/i.test(note.subject || ''), 'the notes item has subject "' + note.subject + '", not Maths');   // the recorded replies say "Maths" or "Math"
+    const inFolder = async (extra) => (await allItems(page, sid, {}, extra)).items.some(x => x.id === note.id);
+    expect(await inFolder('&subject=' + encodeURIComponent(note.subject)), 'the notes item is not in the Maths folder');
+    expect(!(await inFolder('&subject=')), 'the notes item is in the Other folder');
 
     // 3. opened from the Family Library they are the same cards
     await page.goto(BASE + '/app/mother/');

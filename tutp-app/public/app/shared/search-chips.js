@@ -238,7 +238,7 @@ window.TUTP_CHIP_MESSAGES = {
             const res = await fetch('/api/homework-notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ studentId: sessionStorage.getItem('tutp_student_id'), language: l, questions, topic, ...firstConcept(parsed) })
+                body: JSON.stringify({ studentId: sessionStorage.getItem('tutp_student_id'), language: l, questions, topic, subject: typeof parsed.subject === 'string' ? parsed.subject : '', ...firstConcept(parsed) })
             });
             if (token !== openToken) return;
             if (!res.ok) throw new Error('notes ' + res.status);
