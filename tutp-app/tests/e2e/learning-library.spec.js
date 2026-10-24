@@ -17,7 +17,8 @@
 //   ll7  child view (X-Tutp-View: child): no 'answer' items in the list, 403 on opening one
 //   ll8  import twice adds nothing; the page's localStorage key goes only after the import
 //   ll9  no extra model call: library routes and the saves cost $0 (X-Model-Usd 0)
-//   ll10 360 px: My Library shows, no sideways scroll, a card opens and closes
+//   ll10 360 px: Family Library shows, no sideways scroll, a card opens and closes
+//   ll11 a photo Answer and a Notes card are saved under the title the parent saw, and open as the same cards
 //
 // Output: tests/e2e/output/learning-library-results.json, FAIL_<test>.png. Exit 1 on any failure.
 import { chromium } from 'playwright';
@@ -257,7 +258,7 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
 
   // The context stays open until record() has taken its failure screenshot of this very page.
   let m;
-  await record('ll10', '360 px: My Library shows, fits, a card opens and closes', async () => {
+  await record('ll10', '360 px: Family Library shows, fits, a card opens and closes', async () => {
     m = await signIn('m16', { width: 360, height: 800 });
     {
       const page = m.page;
@@ -269,7 +270,8 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
       const lib = page.locator('#tutpLibrary');
       await lib.waitFor({ state: 'attached', timeout: 15000 });
       await page.locator('#tutpLibrary .tl-card').first().waitFor({ state: 'visible', timeout: 15000 });
-      expect(/My Library/.test(await lib.textContent()), 'heading missing');
+      expect(/Family Library/.test(await lib.textContent()), 'heading missing');
+      expect(!/My Library/.test(await lib.textContent()), 'the old "My Library" heading is still there');
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow <= 1, 'sideways scroll ' + overflow + ' px');
       const h = await page.locator('#tutpLibrary .tl-card').first().evaluate(e => e.getBoundingClientRect().height);
@@ -298,6 +300,93 @@ const importItems = (page, sid, items) => call(page, '/api/library/import', { me
     }
   }, () => m && m.page);
   if (m) await m.ctx.close().catch(() => {});
+
+  // ll11: what the parent sees on screen is what the Library keeps. The photo is a replayed worksheet
+  // (fixtures/worksheet-5-wrong.jpg, as homework.spec.js k2); the Notes call is the recorded typed one
+  // (chips.spec.js c4), so neither spends. Notes made from a photo are saved by the same route.
+  let n;
+  await record('ll11', 'a photo Answer and a Notes card are saved under the title the parent saw, and open as the same cards', async () => {
+    n = await signIn('m16');
+    const page = n.page;
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim();
+    const waitResults = () => Promise.race([
+      page.locator('#hwModalResults').waitFor({ state: 'visible', timeout: 180000 }),
+      page.locator('#hwModalErrBox:not(.hidden)').waitFor({ state: 'visible', timeout: 180000 }).then(async () => { throw new Error('modal error: ' + (await page.textContent('#hwModalErrBox'))); }),
+    ]);
+    // The item may need a moment: the save runs after the reply is sent. Pages through the whole list.
+    const findSaved = async (sid, mode, title) => {
+      for (let i = 0; i < 8; i++) {
+        const hit = (await allItems(page, sid)).items.find(x => x.mode === mode && norm(x.title) === norm(title).slice(0, 200));
+        if (hit) return hit;
+        await sleep(2000);
+      }
+      return null;
+    };
+    await page.goto(BASE + '/app/mother/');
+    await page.waitForFunction(() => typeof window.openHomeworkModal === 'function' && window.tutpChildReady, null, { timeout: 30000 });
+    const sid = await page.evaluate(() => window.tutpChildReady);
+    expect(sid, 'no child selected');
+
+    // 1. a photo, Answer: the saved title is the first card's heading, never the subject
+    await page.evaluate(() => openHomeworkModal('homework'));
+    await page.locator('#homeworkExplainModal').waitFor({ state: 'visible', timeout: 10000 });
+    await page.setInputFiles('#hwModalAttachInput', path.join(__dirname, 'fixtures', 'worksheet-5-wrong.jpg'));
+    await page.locator('#hwModalThumb').waitFor({ state: 'visible', timeout: 10000 });
+    await page.click('#hwModalSubmitBtn');
+    await waitResults();
+    const seen = norm(await page.locator('#hwModalQuestionsArea .ae-qtext').first().innerText());
+    expect(seen && !/^(maths|mathematics|science|english)$/i.test(seen), 'the first card has no heading to compare: "' + seen + '"');
+    const answer = await findSaved(sid, 'answer', seen);
+    expect(answer, 'no answer saved under the on-screen heading "' + seen.slice(0, 80) + '"');
+
+    // 2. Notes: saved as a notes item under the title on the notes card
+    await page.evaluate(() => resetHomeworkModal());
+    await page.evaluate(() => openHomeworkModal('homework'));
+    await page.locator('#hwChips button').first().waitFor({ state: 'visible', timeout: 10000 });
+    await page.fill('#hwModalText', TYPED);
+    await page.locator('#hwChips button[data-chip="explain"]').click();
+    await page.click('#hwModalSubmitBtn');
+    await waitResults();
+    await page.locator('#hwChips button[data-chip="notes"]').click();
+    await page.locator('#hwNotesBlock .nd-title').waitFor({ state: 'visible', timeout: 120000 });
+    const noteTitle = norm(await page.locator('#hwNotesBlock .nd-title').innerText());
+    expect(noteTitle, 'the notes card has no title');
+    const note = await findSaved(sid, 'notes', noteTitle);
+    expect(note, 'no notes item saved under the card title "' + noteTitle.slice(0, 80) + '"');
+
+    // 3. opened from the Family Library they are the same cards
+    await page.goto(BASE + '/app/mother/');
+    await page.waitForFunction(() => window.tutpChildReady, null, { timeout: 30000 });
+    await page.locator('#tutpLibrary .tl-card').first().waitFor({ state: 'visible', timeout: 20000 });
+    const openCard = async (title) => {
+      const card = page.locator('#tutpLibrary .tl-card', { hasText: title.slice(0, 60) });
+      for (let i = 0; i < 20 && !(await card.count()); i++) {
+        const more = page.locator('#tutpLibrary .tl-more');
+        if (!(await more.count())) break;
+        const before = await page.locator('#tutpLibrary .tl-card').count();
+        await more.click();
+        await page.waitForFunction((k) => document.querySelectorAll('#tutpLibrary .tl-card').length > k, before, { timeout: 15000 });
+      }
+      expect(await card.count(), 'no Family Library card titled "' + title.slice(0, 60) + '"');
+      await card.first().click();
+      const viewer = page.locator('.tl-viewer');
+      await viewer.waitFor({ state: 'visible', timeout: 15000 });
+      return viewer;
+    };
+    const nv = await openCard(noteTitle);
+    await nv.locator('.nd .nd-title').waitFor({ state: 'visible', timeout: 15000 });
+    expect(norm(await nv.locator('.nd-title').first().innerText()) === noteTitle, 'the opened notes card has another title');
+    expect(await nv.getByRole('button', { name: /Save as PDF/ }).count() === 1, 'no PDF button on the notes');
+    expect(await nv.locator('.nd-listen').count() >= 1, 'no Listen on the notes card');
+    await nv.getByRole('button', { name: 'Close' }).click();
+    await nv.waitFor({ state: 'detached', timeout: 5000 });
+    const av = await openCard(seen);
+    await av.locator('.ae-card').first().waitFor({ state: 'visible', timeout: 15000 });
+    expect(await av.getByRole('button', { name: 'Notebook' }).count() >= 1, 'the answer card has no Notebook toggle');
+    expect(await av.getByRole('button', { name: /Save as PDF/ }).count() === 1, 'no PDF button on the answer');
+    return 'answer "' + seen.slice(0, 40) + '", notes "' + noteTitle.slice(0, 40) + '"';
+  }, () => n && n.page);
+  if (n) await n.ctx.close().catch(() => {});
 
   for (const s of [a, b]) if (s) await s.ctx.close().catch(() => {});
   await e2e.finish();

@@ -112,7 +112,9 @@ export function describeHomeworkReply(feature, data) {
   if (!payload) return null;
   const firstQ = obj && Array.isArray(obj.questions) && obj.questions[0] ? (obj.questions[0].q_text || '') : '';
   const subject = obj && typeof obj.subject === 'string' ? obj.subject : null;
-  const title = (obj && (obj.title || obj.subject)) || firstQ || text.replace(/\s+/g, ' ').slice(0, 80);
+  // The title is what the parent saw heading the result: the reply's own title, else its first card
+  // (a lesson photo's first concept). The subject is only the last resort, never "Maths" over a real heading.
+  const title = (obj && obj.title) || firstQ || (obj && obj.subject) || text.replace(/\s+/g, ' ').slice(0, 80);
   return { mode, subject, topic: obj && typeof obj.topic === 'string' ? obj.topic : (firstQ || null), title, payload };
 }
 

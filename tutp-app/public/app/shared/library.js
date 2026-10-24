@@ -1,4 +1,4 @@
-// My Library (TUT-69): everything generated for a child, saved on the server.
+// Family Library (TUT-69): everything generated for a child, saved on the server.
 // Mounts into <div id="tutpLibrary"> on the mother/father/family-member and child pages.
 //   subject chips with counts -> cards (newest first) -> open with the page's own renderers,
 //   read-only: answer-cards.js (answers), explain-panel.js (explanations), notes-card.js (notes),
@@ -115,7 +115,7 @@
     function draw() {
         if (!root) return;
         root.textContent = '';
-        root.appendChild(el('h2', 'tl-h', 'My Library'));
+        root.appendChild(el('h2', 'tl-h', 'Family Library'));
         root.appendChild(el('p', 'tl-sub', 'Every answer, explanation, note and story for your child, kept safe here so you can come back to it any time.'));
         if (state.failed) { root.appendChild(el('p', 'tl-err', 'The Library could not load right now. Please try again in a moment.')); return; }
         if (state.subjects.length > 1) {

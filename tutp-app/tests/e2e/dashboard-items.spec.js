@@ -27,7 +27,7 @@ const log = (...a) => console.log('[e2e dashboard-items]', ...a);
 const ITEMS = ['tpTop', 'tpHomeworkToday', 'billingStatus', 'childChipsRow', 'tpHomework', 'searchAttachMenu', 'homeworkPendingBanner', 'homeworkList',
   'bondingReportSection', 'sgmathCard', 'sgmathStart', 'weeklyGoalRing', 'completionTileValue', 'exploreSubjectsSection',
   'searchAttachChooser', 'examComingSoonModal', 'homeworkExplainModal', 'playModal', 'experientialModal', 'headerAvatarInitial', 'sidebarFamilyList'];
-const HEADINGS = ['Help tonight', 'Homework Help', 'Storytelling Method', 'Experiential Learning', 'Play-Based Learning', "Today's homework", "Your child's progress", 'Singapore Maths', 'Continue Learning', "This Week's Goal", 'More for your family', 'Family Library', 'Need a tutor?', 'YouTube Channel', 'Upcoming Live Session', 'Explore Subjects', 'Safe and simple for your family'];
+const HEADINGS = ['Help tonight', 'Homework Help', 'Storytelling Method', 'Experiential Learning', 'Play-Based Learning', "Today's homework", "Your child's progress", 'Singapore Maths', 'Continue Learning', "This Week's Goal", 'More for your family', 'Need a tutor?', 'YouTube Channel', 'Upcoming Live Session', 'Explore Subjects', 'Safe and simple for your family'];
 const MEMBER_FEATURE = { bondingReportSection: 'bonding_report', sgmathCard: 'activities', exploreSubjectsSection: 'activities', tpHomework: 'homework' };
 
 async function record(id, name, fn, page) {
@@ -84,6 +84,11 @@ async function login(page, digits, want) {
     for (const [role, h] of Object.entries(html)) {
       for (const id of ITEMS) if (!h.includes(`id="${id}"`)) missing.push(role + ':#' + id);
       for (const t of HEADINGS) if (!h.includes(t.replace(/'/g, '&#39;')) && !h.includes(t)) missing.push(role + ':' + t);
+    }
+    // TUT-102: the "Family Library - SOON" card is gone; the Library section itself is "Family Library".
+    for (const [role, h] of Object.entries(html)) {
+      if (h.includes('Books and stories to read together')) missing.push(role + ': the Family Library SOON card is still there');
+      if (!h.includes('aria-label="Family Library"') || !h.includes('id="tutpLibrary"')) missing.push(role + ': the Family Library section');
     }
     if (missing.length) throw new Error('missing ' + missing.join(', '));
     return ITEMS.length + ' ids, ' + HEADINGS.length + ' headings x 3 pages';
